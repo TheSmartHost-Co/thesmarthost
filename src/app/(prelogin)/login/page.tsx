@@ -20,8 +20,15 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isClient) return
+    
     const message = searchParams.get('message')
     if (message === 'email-verified') {
       notify("Email verified successfully! You can now sign in.", "success")
@@ -30,7 +37,7 @@ function LoginForm() {
     } else if (message === 'password-updated') {
       notify("Password updated successfully! Please sign in with your new password.", "success")
     }
-  }, [searchParams, notify])
+  }, [searchParams, notify, isClient])
 
   async function logIn() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -45,7 +52,7 @@ function LoginForm() {
       }
     } else {
       notify("You've successfully signed in!", "success")
-      router.push('/')
+      router.push('/admin/dashboard')
     }
   }
 

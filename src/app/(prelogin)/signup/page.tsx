@@ -17,12 +17,29 @@ export default function SignUpPage() {
   const notify = useNotificationStore(s => s.showNotification)
 
   const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [role, setRole] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   async function signUp() {
+    if (!fullName.trim()) {
+      notify("Full name is required", "error")
+      return
+    }
+
+    if (fullName.trim().length < 2) {
+      notify("Full name must be at least 2 characters", "error")
+      return
+    }
+
+    if (!role) {
+      notify("Please select a role", "error")
+      return
+    }
+
     if (password !== confirmPassword) {
       notify("Passwords don't match", "error")
       return
@@ -39,15 +56,23 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/api/auth/confirm`
+        emailRedirectTo: `${window.location.origin}/api/auth/confirm`,
+        data: {
+          fullName: fullName.trim(),
+          role: role
+        }
       }
     })
 
     setIsLoading(false)
 
     if (error) {
+      console.log(error)
       notify(error.message, "error")
-    } else if (data.user && !data.user.email_confirmed_at) {
+      return
+    }
+
+    if (data.user && !data.user.email_confirmed_at) {
       // Redirect to check email page with email parameter
       router.push(`/check-email?email=${encodeURIComponent(email)}`)
     }
@@ -57,17 +82,17 @@ export default function SignUpPage() {
     <>
       <PreNavbar />
       <Notification />
-      <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
+      <div className="min-h-screen pt-16 bg-white flex items-center justify-center px-3 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-md w-full space-y-6 sm:space-y-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Create your account</h2>
             <p className="mt-2 text-sm text-gray-600">
               Join us today and get started
             </p>
           </div>
           
-          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
-            <form className="space-y-6">
+          <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-xl shadow-lg border border-gray-200">
+            <form className="space-y-4 sm:space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email address
@@ -81,6 +106,38 @@ export default function SignUpPage() {
                   placeholder="Enter your email"
                   required
                 />
+              </div>
+
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full text-black px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full text-black px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  required
+                >
+                  <option value="">Select a Role</option>
+                  <option value="PROPERTY-MANAGER">Property Manager</option>
+                  <option value="CLIENT">Client</option>
+                </select>
               </div>
               
               <div>
@@ -131,7 +188,7 @@ export default function SignUpPage() {
                   type="button"
                   onClick={signUp}
                   disabled={isLoading}
-                  className="w-full cursor-pointer flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full cursor-pointer flex justify-center py-3 sm:py-3 px-4 border border-transparent rounded-lg shadow-sm text-base sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                 >
                   {isLoading ? 'Creating account...' : 'Create account'}
                 </button>
@@ -148,8 +205,8 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
+          <div className="text-center px-4 sm:px-0">
+            <p className="text-xs sm:text-xs text-gray-500 leading-relaxed">
               By creating an account, you agree to our Terms of Service and Privacy Policy
             </p>
           </div>
