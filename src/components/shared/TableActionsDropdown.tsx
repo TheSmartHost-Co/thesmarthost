@@ -116,7 +116,7 @@ const TableActionsDropdown: React.FC<TableActionsDropdownProps> = ({
         <button 
           ref={buttonRef}
           onClick={handleToggleDropdown}
-          className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+          className="cursor-pointer text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
         >
           <EllipsisVerticalIcon className="h-5 w-5" />
         </button>

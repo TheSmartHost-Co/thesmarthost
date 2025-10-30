@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   HomeIcon,
   UserGroupIcon,
+  BuildingOfficeIcon,
   DocumentTextIcon,
   ChartBarIcon,
   CogIcon,
@@ -20,6 +21,11 @@ const sidebarItems = [
     name: 'Clients',
     href: '/property-manager/clients',
     icon: UserGroupIcon,
+  },
+  {
+    name: 'Properties',
+    href: '/property-manager/properties',
+    icon: BuildingOfficeIcon,
   },
   {
     name: 'Reports',
