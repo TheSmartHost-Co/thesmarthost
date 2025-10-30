@@ -1,9 +1,15 @@
+"use client";
+
+import { useUserStore } from "@/store/useUserStore"
+
 export default function AdminDashboard() {
+  const userFullName = useUserStore((state) => state.profile?.fullName);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome to the TheSmartHost admin panel</p>
+        <p className="text-gray-600">Welcome {userFullName}</p>
       </div>
 
       {/* Dashboard Stats */}

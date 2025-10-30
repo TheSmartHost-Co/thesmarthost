@@ -10,12 +10,16 @@ import { createClient } from '@/utils/supabase/component'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
+import { useUserStore } from '@/store/useUserStore'
+import { getUserProfile } from '@/services/profileService'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
   const notify = useNotificationStore(s => s.showNotification)
+  const setProfile = useUserStore(s => s.setProfile)
+  const getRedirectPath = useUserStore(s => s.getRedirectPath)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,9 +54,36 @@ function LoginForm() {
       } else {
         notify("Invalid credentials, please check your email or password", "error")
       }
-    } else {
-      notify("You've successfully signed in!", "success")
-      router.push('/admin/dashboard')
+      return
+    }
+
+    // Fetch user profile and store in Zustand
+    if (data.user) {
+      try {
+        const profileResponse = await getUserProfile(data.user.id)
+        
+        if (profileResponse.status === 'success' && profileResponse.data) {
+          // Store profile in Zustand
+          setProfile({
+            id: data.user.id,
+            fullName: profileResponse.data.fullName,
+            role: profileResponse.data.role,
+            email: data.user.email
+          })
+
+          notify("You've successfully signed in!", "success")
+          
+          // Get redirect path based on role
+          const redirectPath = getRedirectPath()
+          router.push(redirectPath)
+        } else {
+          notify("Login successful, but couldn't load profile", "error")
+        }
+      } catch (profileError) {
+        console.error('Profile fetch failed:', profileError)
+        console.log(profileError)
+        notify("Login successful, but couldn't load profile", "error")
+      }
     }
   }
 

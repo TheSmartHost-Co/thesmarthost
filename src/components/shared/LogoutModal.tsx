@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import { createClient } from '@/utils/supabase/component'
 import Modal from './modal'
 
@@ -12,6 +13,7 @@ const LogoutModal = () => {
   const router = useRouter()
   const supabase = createClient()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const clearProfile = useUserStore((state) => state.clearProfile)
 
   // Function to open modal
   const openModal = () => setIsModalOpen(true)
@@ -27,6 +29,7 @@ const LogoutModal = () => {
       if (error) {
         showNotification('Logout failed. Please try again.', 'error')
       } else {
+        clearProfile() // Clear Zustand store
         closeModal()
         showNotification('Signed out successfully', 'success')
         router.push('/')
