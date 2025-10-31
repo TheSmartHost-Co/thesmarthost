@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { createClient } from '@/services/clientService'
+import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { CreateClientPayload } from '@/services/types/client'
+import { ClientStatusCode } from '@/services/types/clientCode'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 
@@ -21,10 +23,45 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [commissionRate, setCommissionRate] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [billingAddress, setBillingAddress] = useState('')
+  const [pms, setPms] = useState('')
+  const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
+  const [selectedStatus, setSelectedStatus] = useState('active') // Default to 'active'
+  const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>(undefined)
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Fetch status codes when modal opens
+  useEffect(() => {
+    const fetchStatusCodes = async () => {
+      if (isOpen && profile?.id) {
+        try {
+          const response = await getStatusCodesByUserId(profile.id)
+          if (response.status === 'success') {
+            setStatusCodes(response.data)
+            // Set default status to the default status code if available
+            const defaultStatus = response.data.find(status => status.isDefault)
+            if (defaultStatus) {
+              setSelectedStatus('custom')
+              setSelectedStatusId(defaultStatus.id)
+            } else {
+              setSelectedStatus('active')
+              setSelectedStatusId(undefined)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching status codes:', error)
+          // Fall back to simple active status
+          setSelectedStatus('active')
+          setSelectedStatusId(undefined)
+        }
+      }
+    }
+
+    fetchStatusCodes()
+  }, [isOpen, profile?.id])
 
   // Reset form fields whenever the modal opens
   useEffect(() => {
@@ -32,7 +69,9 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       setName('')
       setEmail('')
       setPhone('')
-      setCommissionRate('')
+      setCompanyName('')
+      setBillingAddress('')
+      setPms('')
     }
   }, [isOpen])
 
@@ -42,15 +81,12 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
     const trimmedPhone = phone.trim()
-    const parsedCommissionRate = parseFloat(commissionRate)
+    const trimmedCompanyName = companyName.trim()
+    const trimmedBillingAddress = billingAddress.trim()
+    const trimmedPms = pms.trim()
 
-    if (!trimmedName || !commissionRate || isNaN(parsedCommissionRate)) {
-      showNotification('Client name and commission rate are required', 'error')
-      return
-    }
-
-    if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
-      showNotification('Commission rate must be between 0 and 100', 'error')
+    if (!trimmedName) {
+      showNotification('Client name is required', 'error')
       return
     }
 
@@ -71,7 +107,10 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
         name: trimmedName,
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,
-        commissionRate: commissionRate,
+        companyName: trimmedCompanyName || undefined,
+        billingAddress: trimmedBillingAddress || undefined,
+        pms: trimmedPms || undefined,
+        statusId: selectedStatus === 'custom' ? selectedStatusId : undefined,
       }
 
       const res = await createClient(payload)
@@ -90,7 +129,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[80vh]">
       <h2 className="text-xl mb-4 text-black">Create New Client</h2>
       <form onSubmit={handleSubmit} className="space-y-4 text-black">
         {/* Name field */}
@@ -129,21 +168,106 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
           />
         </div>
 
-        {/* Commission Rate field */}
+        {/* Company Name field */}
         <div>
-          <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
+          <label className="block text-sm font-medium mb-1">Company Name</label>
           <input
-            type="number"
-            required
-            value={commissionRate}
-            onChange={(e) => setCommissionRate(e.target.value)}
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. 15"
-            min="0"
-            max="100"
-            step="0.01"
+            placeholder="e.g. Smith Properties LLC"
           />
-          <p className="text-xs text-gray-500 mt-1">Percentage of revenue this client will pay you</p>
+        </div>
+
+        {/* Billing Address field */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Billing Address</label>
+          <textarea
+            value={billingAddress}
+            onChange={(e) => setBillingAddress(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. 123 Main St, City, State 12345"
+            rows={2}
+          />
+        </div>
+
+        {/* PMS field */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Property Management System</label>
+          <input
+            value={pms}
+            onChange={(e) => setPms(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. Hostaway"
+          />
+        </div>
+
+        {/* Status field */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Status</label>
+          <div className="space-y-2">
+            {/* Simple Active/Inactive options */}
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="active"
+                  checked={selectedStatus === 'active'}
+                  onChange={() => {
+                    setSelectedStatus('active')
+                    setSelectedStatusId(undefined)
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="inactive"
+                  checked={selectedStatus === 'inactive'}
+                  onChange={() => {
+                    setSelectedStatus('inactive')
+                    setSelectedStatusId(undefined)
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-sm">Inactive</span>
+              </label>
+            </div>
+            
+            {/* Custom status codes if available */}
+            {statusCodes.length > 0 && (
+              <div>
+                <label className="flex items-center mb-2">
+                  <input
+                    type="radio"
+                    value="custom"
+                    checked={selectedStatus === 'custom'}
+                    onChange={() => setSelectedStatus('custom')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Custom Status</span>
+                </label>
+                {selectedStatus === 'custom' && (
+                  <select
+                    value={selectedStatusId || ''}
+                    onChange={(e) => setSelectedStatusId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="">Select a status</option>
+                    {statusCodes.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.label} ({status.code})
+                        {status.isDefault ? ' - Default' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Choose the initial status for this client</p>
         </div>
 
         {/* Buttons */}

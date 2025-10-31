@@ -3,11 +3,14 @@
 import { useState, useEffect } from 'react'
 import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
+import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { Client } from '@/services/types/client'
+import { ClientStatusCode } from '@/services/types/clientCode'
 import { useUserStore } from '@/store/useUserStore'
 import CreateClientModal from '@/components/client/create/createClientModal'
 import UpdateClientModal from '@/components/client/update/updateClientModal'
 import DeleteClientModal from '@/components/client/delete/deleteClientModal'
+import StatusCodeManagementModal from '@/components/status/statusCodeManagementModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 export default function PropertyManagerClientsPage() {
@@ -16,30 +19,51 @@ export default function PropertyManagerClientsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [clients, setClients] = useState<Client[]>([])
+  const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
   const { profile } = useUserStore()
 
   useEffect(() => {
-    const fetchClients = async () => {
+    const fetchData = async () => {
       if (!profile?.id) return
       
       try {
         setLoading(true)
-        const response = await getClientsByParentId(profile.id)
-        setClients(response.data)
+        
+        // Fetch both clients and status codes in parallel
+        const [clientsResponse, statusCodesResponse] = await Promise.all([
+          getClientsByParentId(profile.id),
+          getStatusCodesByUserId(profile.id)
+        ])
+        
+        setClients(clientsResponse.data)
+        
+        if (statusCodesResponse.status === 'success') {
+          setStatusCodes(statusCodesResponse.data)
+          
+          // Set default status filter to the default status code if available
+          const defaultStatus = statusCodesResponse.data.find(status => status.isDefault)
+          if (defaultStatus) {
+            setStatusFilter(defaultStatus.id)
+          }
+        } else {
+          setStatusCodes([])
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch clients')
-        console.error('Error fetching clients:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+        console.error('Error fetching data:', err)
+        setStatusCodes([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchClients()
+    fetchData()
   }, [profile?.id])
 
 
@@ -99,21 +123,41 @@ export default function PropertyManagerClientsPage() {
   const filteredClients = clients
     .filter(client => {
       const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (client.companyName && client.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = statusFilter === 'All Status' || 
         (statusFilter === 'Active' && client.isActive) ||
-        (statusFilter === 'Inactive' && !client.isActive)
+        (statusFilter === 'Inactive' && !client.isActive) ||
+        (client.statusId === statusFilter) // Match custom status codes by ID
       return matchesSearch && matchesStatus
     })
     .sort((a, b) => {
       // Active clients first, inactive at bottom
       if (a.isActive && !b.isActive) return -1
       if (!a.isActive && b.isActive) return 1
-      return 0
+      
+      // Within each status group, sort by last updated (most recent first)
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
 
-  const getStatusBadge = (isActive: boolean) => {
-    if (isActive) {
+  const getStatusBadge = (client: Client) => {
+    // If client has custom status info, use that
+    if (client.statusInfo) {
+      return (
+        <span 
+          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+          style={{ 
+            backgroundColor: client.statusInfo.colorHex + '20',
+            color: client.statusInfo.colorHex
+          }}
+        >
+          {client.statusInfo.label}
+        </span>
+      )
+    }
+    
+    // Fallback to simple active/inactive display
+    if (client.isActive) {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
           Active
@@ -202,8 +246,8 @@ export default function PropertyManagerClientsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Commission Rate</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.length > 0 ? (clients.reduce((sum, client) => sum + parseFloat(client.commissionRate), 0) / clients.length).toFixed(1) + '%' : '0%'}</p>
+              <p className="text-sm font-medium text-gray-600">Companies</p>
+              <p className="text-2xl font-bold text-gray-900">{clients.filter(c => c.companyName).length}</p>
             </div>
             <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,10 +294,23 @@ export default function PropertyManagerClientsPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="text-black border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Inactive</option>
+                <option value="All Status">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                {statusCodes.length > 0 && <option disabled>──────────</option>}
+                {statusCodes.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.label} ({status.code})
+                    {status.isDefault ? ' - Default' : ''}
+                  </option>
+                ))}
               </select>
+              <button
+                onClick={() => setShowStatusModal(true)}
+                className="text-sm cursor-pointer items-center px-3 py-1 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Manage Status
+              </button>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -280,7 +337,7 @@ export default function PropertyManagerClientsPage() {
                   Phone
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                  Commission Rate
+                  Company
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Status
@@ -306,10 +363,10 @@ export default function PropertyManagerClientsPage() {
                     <div className="text-sm text-gray-900">{client.phone || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{client.commissionRate}%</div>
+                    <div className="text-sm text-gray-900">{client.companyName || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(client.isActive)}
+                    {getStatusBadge(client)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <TableActionsDropdown
@@ -368,6 +425,25 @@ export default function PropertyManagerClientsPage() {
           onDeleted={handleClientDeleted}
         />
       )}
+
+      {/* Status Code Management Modal */}
+      <StatusCodeManagementModal
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        onStatusUpdate={async () => {
+          // Refresh status codes when they're updated
+          if (profile?.id) {
+            try {
+              const response = await getStatusCodesByUserId(profile.id)
+              if (response.status === 'success') {
+                setStatusCodes(response.data)
+              }
+            } catch (error) {
+              console.error('Error refreshing status codes:', error)
+            }
+          }
+        }}
+      />
     </div>
   )
 }

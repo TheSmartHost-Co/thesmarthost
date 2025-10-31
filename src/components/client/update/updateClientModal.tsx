@@ -3,8 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { updateClient } from '@/services/clientService'
+import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { UpdateClientPayload } from '@/services/types/client'
+import { ClientStatusCode } from '@/services/types/clientCode'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import { Client } from '@/services/types/client'
 
 interface UpdateClientModalProps {
@@ -23,10 +26,34 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [commissionRate, setCommissionRate] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  const [companyName, setCompanyName] = useState('')
+  const [billingAddress, setBillingAddress] = useState('')
+  const [pms, setPms] = useState('')
+  const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
+  const [selectedStatus, setSelectedStatus] = useState('active')
+  const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>(undefined)
 
+  const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Fetch status codes when modal opens
+  useEffect(() => {
+    const fetchStatusCodes = async () => {
+      if (isOpen && profile?.id) {
+        try {
+          const response = await getStatusCodesByUserId(profile.id)
+          if (response.status === 'success') {
+            setStatusCodes(response.data)
+          }
+        } catch (error) {
+          console.error('Error fetching status codes:', error)
+          setStatusCodes([])
+        }
+      }
+    }
+
+    fetchStatusCodes()
+  }, [isOpen, profile?.id])
 
   // Populate form fields when modal opens or client changes
   useEffect(() => {
@@ -34,8 +61,18 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
       setName(client.name || '')
       setEmail(client.email || '')
       setPhone(client.phone || '')
-      setCommissionRate(client.commissionRate || '')
-      setIsActive(client.isActive ?? true)
+      setCompanyName(client.companyName || '')
+      setBillingAddress(client.billingAddress || '')
+      setPms(client.pms || '')
+      
+      // Set status selection based on client's current status
+      if (client.statusId) {
+        setSelectedStatus('custom')
+        setSelectedStatusId(client.statusId)
+      } else {
+        setSelectedStatus(client.status || 'active')
+        setSelectedStatusId(undefined)
+      }
     }
   }, [isOpen, client])
 
@@ -45,15 +82,12 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
     const trimmedPhone = phone.trim()
-    const parsedCommissionRate = parseFloat(commissionRate)
+    const trimmedCompanyName = companyName.trim()
+    const trimmedBillingAddress = billingAddress.trim()
+    const trimmedPms = pms.trim()
 
-    if (!trimmedName || !commissionRate || isNaN(parsedCommissionRate)) {
-      showNotification('Client name and commission rate are required', 'error')
-      return
-    }
-
-    if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
-      showNotification('Commission rate must be between 0 and 100', 'error')
+    if (!trimmedName) {
+      showNotification('Client name is required', 'error')
       return
     }
 
@@ -68,8 +102,11 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
         name: trimmedName,
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,
-        commissionRate: commissionRate,
-        isActive: isActive
+        companyName: trimmedCompanyName || undefined,
+        billingAddress: trimmedBillingAddress || undefined,
+        pms: trimmedPms || undefined,
+        status: selectedStatus === 'custom' ? undefined : selectedStatus,
+        statusId: selectedStatus === 'custom' ? selectedStatusId : undefined,
       }
 
       const res = await updateClient(client.id, updateData)
@@ -129,49 +166,109 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
           <p className="text-xs text-gray-500 mt-1">Optional - for contact purposes</p>
         </div>
 
-        {/* Commission Rate field */}
+        {/* Company Name field */}
         <div>
-          <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
+          <label className="block text-sm font-medium mb-1">Company Name</label>
           <input
-            type="number"
-            required
-            value={commissionRate}
-            onChange={(e) => setCommissionRate(e.target.value)}
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. 15"
-            min="0"
-            max="100"
-            step="0.01"
+            placeholder="e.g. Smith Properties LLC"
           />
-          <p className="text-xs text-gray-500 mt-1">Percentage of revenue this client will pay you</p>
+          <p className="text-xs text-gray-500 mt-1">Optional - the client's company or business name</p>
         </div>
 
-        {/* Active Status field */}
+        {/* Billing Address field */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Billing Address</label>
+          <textarea
+            value={billingAddress}
+            onChange={(e) => setBillingAddress(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. 123 Main St, City, State 12345"
+            rows={2}
+          />
+          <p className="text-xs text-gray-500 mt-1">Optional - address for invoicing and billing</p>
+        </div>
+
+        {/* PMS field */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Property Management System</label>
+          <input
+            value={pms}
+            onChange={(e) => setPms(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. Buildium, AppFolio, Yardi"
+          />
+          <p className="text-xs text-gray-500 mt-1">Optional - the PMS or software the client uses</p>
+        </div>
+
+        {/* Status field */}
         <div>
           <label className="block text-sm font-medium mb-1">Status</label>
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                value="true"
-                checked={isActive === true}
-                onChange={() => setIsActive(true)}
-                className="mr-2"
-              />
-              <span className="text-sm">Active</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                value="false"
-                checked={isActive === false}
-                onChange={() => setIsActive(false)}
-                className="mr-2"
-              />
-              <span className="text-sm">Inactive</span>
-            </label>
+          <div className="space-y-2">
+            {/* Simple Active/Inactive options */}
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="active"
+                  checked={selectedStatus === 'active'}
+                  onChange={() => {
+                    setSelectedStatus('active')
+                    setSelectedStatusId(undefined)
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="inactive"
+                  checked={selectedStatus === 'inactive'}
+                  onChange={() => {
+                    setSelectedStatus('inactive')
+                    setSelectedStatusId(undefined)
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-sm">Inactive</span>
+              </label>
+            </div>
+            
+            {/* Custom status codes if available */}
+            {statusCodes.length > 0 && (
+              <div>
+                <label className="flex items-center mb-2">
+                  <input
+                    type="radio"
+                    value="custom"
+                    checked={selectedStatus === 'custom'}
+                    onChange={() => setSelectedStatus('custom')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Custom Status</span>
+                </label>
+                {selectedStatus === 'custom' && (
+                  <select
+                    value={selectedStatusId || ''}
+                    onChange={(e) => setSelectedStatusId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="">Select a status</option>
+                    {statusCodes.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.label} ({status.code})
+                        {status.isDefault ? ' - Default' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
-          <p className="text-xs text-gray-500 mt-1">Set to inactive to temporarily disable this client</p>
+          <p className="text-xs text-gray-500 mt-1">Update the client's status</p>
         </div>
 
         {/* Buttons */}

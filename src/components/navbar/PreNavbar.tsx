@@ -1,6 +1,23 @@
+"use client"
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useUserStore } from '@/store/useUserStore'
 
 export default function PreNavbar() {
+  const pathname = usePathname()
+  const { profile, getRedirectPath } = useUserStore()
+  
+  // Check if user is authenticated and on a prelogin page
+  const isAuthenticated = !!profile
+  const isPreloginPage = pathname === '/' ||
+                                 pathname.startsWith('/about') ||
+                                 pathname.startsWith('/product') ||
+                                 pathname.startsWith('/contact') ||
+                                 pathname.startsWith('/login') ||
+                                 pathname.startsWith('/signup') ||
+                                 pathname.startsWith('/reset-password') ||
+                                 pathname.startsWith('/check-email')
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,20 +53,31 @@ export default function PreNavbar() {
             </div>
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons / Dashboard Link */}
           <div className="flex items-center space-x-4">
-            <Link
-              href="/login"
-              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-md font-medium transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-md font-medium transition-colors"
-            >
-              Sign Up
-            </Link>
+            {isAuthenticated && isPreloginPage ? (
+              <Link
+                href={getRedirectPath()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-md font-medium transition-colors"
+              >
+                Back to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-md font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-md font-medium transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -91,18 +119,29 @@ export default function PreNavbar() {
           </Link>
           <div className="pt-4 pb-3 border-t border-gray-200">
             <div className="flex flex-col space-y-2 px-3">
-              <Link
-                href="/login"
-                className="text-gray-700 hover:text-blue-600 block py-2 text-sm font-medium"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/signup"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium text-center"
-              >
-                Sign Up
-              </Link>
+              {isAuthenticated && isPreloginPage ? (
+                <Link
+                  href={getRedirectPath()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium text-center"
+                >
+                  Back to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-gray-700 hover:text-blue-600 block py-2 text-sm font-medium"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium text-center"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -13,7 +13,7 @@ export default function UserNavbar() {
       <div className="flex justify-between items-center h-16">
         {/* Logo */}
         <div className="flex-shrink-0">
-          <Link href="/admin/dashboard" className="text-xl font-bold text-blue-600">
+          <Link href="/property-manager/dashboard" className="text-xl font-bold text-blue-600">
             TheSmartHost
           </Link>
         </div>

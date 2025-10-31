@@ -1,20 +1,32 @@
+export interface ClientStatusInfo {
+  code: string;
+  label: string;
+  colorHex: string;
+  isDefault: boolean;
+}
+
 export interface Client {
   id: string;
   parentId: string;
   name: string;
   email?: string;
   phone?: string;
-  commissionRate: string;
+  companyName?: string;
+  billingAddress?: string;
+  pms?: string;
+  agreementFilePath?: string;
+  status: string;
+  statusId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  statusInfo?: ClientStatusInfo | null;
 }
 
 export interface ClientStats {
   totalClients: number;
   activeClients: number;
   inactiveClients: number;
-  avgCommissionRate: number;
 }
 
 export interface CreateClientPayload {
@@ -22,15 +34,23 @@ export interface CreateClientPayload {
   name: string;
   email?: string;
   phone?: string;
-  commissionRate: string;
+  companyName?: string;
+  billingAddress?: string;
+  pms?: string;
+  agreementFilePath?: string;
+  statusId?: string;
 }
 
 export interface UpdateClientPayload {
   name: string;
   email?: string;
   phone?: string;
-  commissionRate: string;
-  isActive?: boolean;
+  companyName?: string;
+  billingAddress?: string;
+  pms?: string;
+  agreementFilePath?: string;
+  status?: string;
+  statusId?: string;
 }
 
 export interface ClientResponse {
