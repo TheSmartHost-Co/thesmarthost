@@ -9,6 +9,8 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   CogIcon,
+  CloudArrowUpIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarItems = [
@@ -26,6 +28,16 @@ const sidebarItems = [
     name: 'Properties',
     href: '/property-manager/properties',
     icon: BuildingOfficeIcon,
+  },
+  {
+    name: 'Bookings',
+    href: '/property-manager/bookings',
+    icon: CalendarDaysIcon,
+  },
+  {
+    name: 'Upload Bookings',
+    href: '/property-manager/upload-bookings',
+    icon: CloudArrowUpIcon,
   },
   {
     name: 'Reports',

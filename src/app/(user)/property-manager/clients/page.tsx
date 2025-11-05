@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon, KeyIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon, KeyIcon, DocumentTextIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
+import { getNoteCountsByUserId } from '@/services/clientNoteService'
 import { Client } from '@/services/types/client'
 import { ClientStatusCode } from '@/services/types/clientCode'
+import { NoteCountsByClient } from '@/services/types/clientNote'
 import { useUserStore } from '@/store/useUserStore'
 import CreateClientModal from '@/components/client/create/createClientModal'
 import UpdateClientModal from '@/components/client/update/updateClientModal'
@@ -13,6 +15,7 @@ import DeleteClientModal from '@/components/client/delete/deleteClientModal'
 import StatusCodeManagementModal from '@/components/status/statusCodeManagementModal'
 import PMSCredentialModal from '@/components/pms-credential/pmsCredentialModal'
 import ClientAgreementModal from '@/components/client-agreement/clientAgreementModal'
+import ClientNoteModal from '@/components/client-note/clientNoteModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 export default function PropertyManagerClientsPage() {
@@ -24,9 +27,11 @@ export default function PropertyManagerClientsPage() {
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [showPMSCredentialModal, setShowPMSCredentialModal] = useState(false)
   const [showAgreementsModal, setShowAgreementsModal] = useState(false)
+  const [showNotesModal, setShowNotesModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
+  const [noteCounts, setNoteCounts] = useState<NoteCountsByClient>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -39,10 +44,11 @@ export default function PropertyManagerClientsPage() {
       try {
         setLoading(true)
         
-        // Fetch both clients and status codes in parallel
-        const [clientsResponse, statusCodesResponse] = await Promise.all([
+        // Fetch clients, status codes, and note counts in parallel
+        const [clientsResponse, statusCodesResponse, noteCountsResponse] = await Promise.all([
           getClientsByParentId(profile.id),
-          getStatusCodesByUserId(profile.id)
+          getStatusCodesByUserId(profile.id),
+          getNoteCountsByUserId(profile.id)
         ])
         
         setClients(clientsResponse.data)
@@ -58,10 +64,17 @@ export default function PropertyManagerClientsPage() {
         } else {
           setStatusCodes([])
         }
+
+        if (noteCountsResponse.status === 'success') {
+          setNoteCounts(noteCountsResponse.data)
+        } else {
+          setNoteCounts({})
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
         console.error('Error fetching data:', err)
         setStatusCodes([])
+        setNoteCounts({})
       } finally {
         setLoading(false)
       }
@@ -107,12 +120,34 @@ export default function PropertyManagerClientsPage() {
     }
   }
 
+  const handleNotes = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId)
+    if (client) {
+      setSelectedClient(client)
+      setShowNotesModal(true)
+    }
+  }
+
   const handleClientDeleted = (clientId: string) => {
     setClients(prev => prev.filter(c => c.id !== clientId))
   }
 
   const handleClientUpdated = (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c))
+  }
+
+  const handleNotesUpdated = async () => {
+    // Refresh note counts when notes are added/edited/deleted
+    if (profile?.id) {
+      try {
+        const noteCountsResponse = await getNoteCountsByUserId(profile.id)
+        if (noteCountsResponse.status === 'success') {
+          setNoteCounts(noteCountsResponse.data)
+        }
+      } catch (error) {
+        console.error('Error refreshing note counts:', error)
+      }
+    }
   }
 
   const handlePMSCredentialUpdate = () => {
@@ -388,6 +423,9 @@ export default function PropertyManagerClientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   PMS Credentials
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  Notes
+                </th>
                 <th className="relative px-6 py-3 bg-gray-50">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -432,6 +470,19 @@ export default function PropertyManagerClientsPage() {
                         Not Set
                       </button>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => handleNotes(client.id)}
+                      className="inline-flex items-center justify-center relative px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer"
+                    >
+                      <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1" />
+                      {noteCounts[client.id] > 0 && (
+                        <span>
+                          {noteCounts[client.id]}&nbsp;
+                        </span>
+                      )} Notes
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <TableActionsDropdown
@@ -538,6 +589,20 @@ export default function PropertyManagerClientsPage() {
             // Could refresh clients data if needed for agreement counts
             console.log('Agreement updated for client:', selectedClient.id)
           }}
+        />
+      )}
+
+      {/* Client Notes Modal */}
+      {selectedClient && (
+        <ClientNoteModal
+          isOpen={showNotesModal}
+          onClose={() => {
+            setShowNotesModal(false)
+            setSelectedClient(null)
+          }}
+          clientId={selectedClient.id}
+          clientName={selectedClient.name}
+          onNoteUpdate={handleNotesUpdated}
         />
       )}
     </div>
