@@ -653,6 +653,38 @@ const ClientAgreementModal: React.FC<ClientAgreementModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-6xl w-11/12">
       <h2 className="text-xl mb-4 text-black">Client - {clientName}</h2>
       
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => handleModeSwitch('list')}
+          className={`cursor-pointer px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            mode === 'list' || mode === 'preview'
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          All Agreements ({agreements.length})
+        </button>
+        <button
+          onClick={() => handleModeSwitch('upload')}
+          className={`cursor-pointer px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            mode === 'upload'
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Upload New
+        </button>
+        {selectedAgreement && mode === 'edit' && (
+          <button
+            onClick={() => handleModeSwitch('edit')}
+            className="px-4 py-2 text-sm font-medium rounded-t-lg bg-blue-50 text-blue-600 border-b-2 border-blue-600"
+          >
+            Edit Agreement
+          </button>
+        )}
+      </div>
+      
       {loading ? (
         <div className="text-center py-8">
           <div className="text-gray-500">Loading agreements...</div>
