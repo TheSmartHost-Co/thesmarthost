@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon, KeyIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { Client } from '@/services/types/client'
@@ -11,6 +11,8 @@ import CreateClientModal from '@/components/client/create/createClientModal'
 import UpdateClientModal from '@/components/client/update/updateClientModal'
 import DeleteClientModal from '@/components/client/delete/deleteClientModal'
 import StatusCodeManagementModal from '@/components/status/statusCodeManagementModal'
+import PMSCredentialModal from '@/components/pms-credential/pmsCredentialModal'
+import ClientAgreementModal from '@/components/client-agreement/clientAgreementModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 export default function PropertyManagerClientsPage() {
@@ -20,6 +22,8 @@ export default function PropertyManagerClientsPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
+  const [showPMSCredentialModal, setShowPMSCredentialModal] = useState(false)
+  const [showAgreementsModal, setShowAgreementsModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
@@ -87,6 +91,22 @@ export default function PropertyManagerClientsPage() {
     }
   }
 
+  const handlePMSCredentials = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId)
+    if (client) {
+      setSelectedClient(client)
+      setShowPMSCredentialModal(true)
+    }
+  }
+
+  const handleAgreements = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId)
+    if (client) {
+      setSelectedClient(client)
+      setShowAgreementsModal(true)
+    }
+  }
+
   const handleClientDeleted = (clientId: string) => {
     setClients(prev => prev.filter(c => c.id !== clientId))
   }
@@ -95,11 +115,34 @@ export default function PropertyManagerClientsPage() {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c))
   }
 
+  const handlePMSCredentialUpdate = () => {
+    // Refresh clients data to get updated pms_credentials field
+    if (profile?.id) {
+      getClientsByParentId(profile.id).then(response => {
+        setClients(response.data)
+      }).catch(err => {
+        console.error('Error refreshing clients:', err)
+      })
+    }
+  }
+
   const getClientActions = (client: Client): ActionItem[] => [
     {
       label: 'Edit Client',
       icon: PencilIcon,
       onClick: () => handleEditClient(client.id),
+      variant: 'default'
+    },
+    {
+      label: 'PMS Credentials',
+      icon: KeyIcon,
+      onClick: () => handlePMSCredentials(client.id),
+      variant: 'default'
+    },
+    {
+      label: 'Agreements',
+      icon: DocumentTextIcon,
+      onClick: () => handleAgreements(client.id),
       variant: 'default'
     },
     {
@@ -342,6 +385,9 @@ export default function PropertyManagerClientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Status
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  PMS Credentials
+                </th>
                 <th className="relative px-6 py-3 bg-gray-50">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -367,6 +413,25 @@ export default function PropertyManagerClientsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(client)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {client.pmsCredentials ? (
+                      <button
+                        onClick={() => handlePMSCredentials(client.id)}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
+                      >
+                        <KeyIcon className="w-3 h-3 mr-1" />
+                        Configured
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePMSCredentials(client.id)}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                      >
+                        <KeyIcon className="w-3 h-3 mr-1" />
+                        Not Set
+                      </button>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <TableActionsDropdown
@@ -444,6 +509,37 @@ export default function PropertyManagerClientsPage() {
           }
         }}
       />
+
+      {/* PMS Credential Modal */}
+      {selectedClient && (
+        <PMSCredentialModal
+          isOpen={showPMSCredentialModal}
+          onClose={() => {
+            setShowPMSCredentialModal(false)
+            setSelectedClient(null)
+          }}
+          clientId={selectedClient.id}
+          clientName={selectedClient.name}
+          onCredentialUpdate={handlePMSCredentialUpdate}
+        />
+      )}
+
+      {/* Client Agreement Modal */}
+      {selectedClient && (
+        <ClientAgreementModal
+          isOpen={showAgreementsModal}
+          onClose={() => {
+            setShowAgreementsModal(false)
+            setSelectedClient(null)
+          }}
+          clientId={selectedClient.id}
+          clientName={selectedClient.name}
+          onAgreementUpdate={() => {
+            // Could refresh clients data if needed for agreement counts
+            console.log('Agreement updated for client:', selectedClient.id)
+          }}
+        />
+      )}
     </div>
   )
 }

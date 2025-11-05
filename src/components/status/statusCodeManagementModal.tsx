@@ -222,7 +222,7 @@ const StatusCodeManagementModal: React.FC<StatusCodeManagementModalProps> = ({
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleEdit(status)}
-                              className="cursor-pointer text-blue-600 hover:text-blue-800"
+                              className="cursor-pointer text-blue-600 hover:text-blue-800 pr-5"
                             >
                               <PencilIcon className="w-4 h-4" />
                             </button>

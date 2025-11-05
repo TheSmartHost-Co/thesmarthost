@@ -17,6 +17,7 @@ export interface Client {
   agreementFilePath?: string;
   status: string;
   statusId?: string;
+  pmsCredentials: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
