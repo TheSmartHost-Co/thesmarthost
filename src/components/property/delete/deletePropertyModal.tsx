@@ -58,7 +58,7 @@ const DeletePropertyModal: React.FC<DeletePropertyModalProps> = ({
             Delete Property
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            Are you sure you want to delete <span className="font-medium text-gray-900">{property.name}</span>?
+            Are you sure you want to delete <span className="font-medium text-gray-900">{property.listingName}</span>?
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-amber-800">

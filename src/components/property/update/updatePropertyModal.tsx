@@ -4,11 +4,19 @@ import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { updateProperty } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
+import {
+  createPropertyChannel,
+  updatePropertyChannel,
+  deletePropertyChannel,
+  toggleChannelStatus,
+} from '@/services/propertyChannelService'
 import { Property, UpdatePropertyPayload, UpdatePropertyOwner } from '@/services/types/property'
+import { PropertyChannel } from '@/services/types/propertyChannel'
 import { Client } from '@/services/types/client'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline'
+import ChannelList from '../channels/channelList'
 
 interface UpdatePropertyModalProps {
   isOpen: boolean
@@ -24,17 +32,23 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   onUpdate,
 }) => {
   // Property fields
-  const [name, setName] = useState(property.name)
+  const [listingName, setListingName] = useState(property.listingName)
+  const [listingId, setListingId] = useState(property.listingId)
+  const [externalName, setExternalName] = useState(property.externalName || '')
+  const [internalName, setInternalName] = useState(property.internalName || '')
   const [address, setAddress] = useState(property.address)
+  const [postalCode, setPostalCode] = useState(property.postalCode)
   const [province, setProvince] = useState(property.province)
   const [propertyType, setPropertyType] = useState<'STR' | 'LTR'>(property.propertyType)
   const [commissionRate, setCommissionRate] = useState(property.commissionRate.toString())
-  const [hostawayListingId, setHostawayListingId] = useState(property.hostawayListingId)
 
   // Owners management
   const [owners, setOwners] = useState<UpdatePropertyOwner[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
+
+  // Channels management (immediate save)
+  const [channels, setChannels] = useState<PropertyChannel[]>([])
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -42,12 +56,15 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   // Initialize form with property data
   useEffect(() => {
     if (isOpen) {
-      setName(property.name)
+      setListingName(property.listingName)
+      setListingId(property.listingId)
+      setExternalName(property.externalName || '')
+      setInternalName(property.internalName || '')
       setAddress(property.address)
+      setPostalCode(property.postalCode)
       setProvince(property.province)
       setPropertyType(property.propertyType)
       setCommissionRate(property.commissionRate.toString())
-      setHostawayListingId(property.hostawayListingId)
 
       // Initialize owners
       setOwners(
@@ -57,6 +74,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
           commissionRateOverride: owner.commissionRateOverride,
         }))
       )
+
+      // Initialize channels
+      setChannels(property.channels || [])
     }
   }, [isOpen, property])
 
@@ -126,18 +146,129 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     })
   }
 
+  // Channel management handlers (IMMEDIATE SAVE - no batch)
+  const handleAddChannel = async (channelData: {
+    channelName: string
+    publicUrl: string
+    isActive: boolean
+  }) => {
+    try {
+      const res = await createPropertyChannel({
+        propertyId: property.id,
+        ...channelData,
+      })
+
+      if (res.status === 'success') {
+        // Add to local state and update parent
+        setChannels((prev) => {
+          const updatedChannels = [...prev, res.data]
+          // Update parent component with fresh state
+          onUpdate({ ...property, channels: updatedChannels })
+          return updatedChannels
+        })
+        showNotification('Channel added successfully', 'success')
+      } else {
+        showNotification(res.message || 'Failed to add channel', 'error')
+      }
+    } catch (err) {
+      console.error('Error adding channel:', err)
+      showNotification('Error adding channel', 'error')
+    }
+  }
+
+  const handleEditChannel = async (
+    channelId: string,
+    channelData: { channelName: string; publicUrl: string; isActive: boolean }
+  ) => {
+    try {
+      // Find the current channel to check if isActive changed
+      const currentChannel = channels.find((c) => c.id === channelId)
+
+      // Update channel name and URL (PUT request)
+      const res = await updatePropertyChannel(channelId, {
+        channelName: channelData.channelName,
+        publicUrl: channelData.publicUrl,
+      })
+
+      if (res.status !== 'success') {
+        showNotification(res.message || 'Failed to update channel', 'error')
+        return
+      }
+
+      // If isActive status changed, update it separately (PATCH request)
+      let finalChannel = res.data
+      if (currentChannel && currentChannel.isActive !== channelData.isActive) {
+        const statusRes = await toggleChannelStatus(channelId, channelData.isActive)
+        if (statusRes.status === 'success') {
+          // Merge status response with existing channel data
+          // (PATCH only returns {id, isActive, updatedAt}, not full channel)
+          finalChannel = {
+            ...finalChannel,
+            isActive: statusRes.data.isActive,
+            updatedAt: statusRes.data.updatedAt,
+          }
+        } else {
+          showNotification('Failed to update channel status', 'error')
+        }
+      }
+
+      // Update local state and parent component
+      setChannels((prev) => {
+        const updatedChannels = prev.map((c) => (c.id === channelId ? finalChannel : c))
+        // Update parent component with fresh state
+        onUpdate({
+          ...property,
+          channels: updatedChannels,
+        })
+        return updatedChannels
+      })
+      showNotification('Channel updated successfully', 'success')
+    } catch (err) {
+      console.error('Error updating channel:', err)
+      showNotification('Error updating channel', 'error')
+    }
+  }
+
+  const handleDeleteChannel = async (channelId: string) => {
+    try {
+      const res = await deletePropertyChannel(channelId)
+
+      if (res.status === 'success') {
+        // Remove from local state and get updated channels
+        setChannels((prev) => {
+          const updatedChannels = prev.filter((c) => c.id !== channelId)
+          // Update parent component with fresh state
+          onUpdate({
+            ...property,
+            channels: updatedChannels,
+          })
+          return updatedChannels
+        })
+        showNotification('Channel deleted successfully', 'success')
+      } else {
+        showNotification(res.message || 'Failed to delete channel', 'error')
+      }
+    } catch (err) {
+      console.error('Error deleting channel:', err)
+      showNotification('Error deleting channel', 'error')
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const trimmedName = name.trim()
+    const trimmedListingName = listingName.trim()
+    const trimmedListingId = listingId.trim()
+    const trimmedExternalName = externalName.trim()
+    const trimmedInternalName = internalName.trim()
     const trimmedAddress = address.trim()
+    const trimmedPostalCode = postalCode.trim()
     const trimmedProvince = province.trim()
-    const trimmedHostawayId = hostawayListingId.trim()
     const parsedCommissionRate = parseFloat(commissionRate)
 
     // Validation
-    if (!trimmedName || !trimmedAddress || !trimmedProvince || !trimmedHostawayId) {
-      showNotification('All property fields are required', 'error')
+    if (!trimmedListingName || !trimmedListingId || !trimmedAddress || !trimmedPostalCode || !trimmedProvince) {
+      showNotification('All required property fields must be filled', 'error')
       return
     }
 
@@ -170,29 +301,35 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     }
 
     try {
+      // 1. Update property fields
       const payload: UpdatePropertyPayload = {
-        name: trimmedName,
+        listingName: trimmedListingName,
+        listingId: trimmedListingId,
         address: trimmedAddress,
+        postalCode: trimmedPostalCode,
         province: trimmedProvince,
         propertyType,
         commissionRate: parsedCommissionRate,
-        hostawayListingId: trimmedHostawayId,
         owners: owners.map((owner) => ({
           clientId: owner.clientId,
           isPrimary: owner.isPrimary,
           commissionRateOverride: owner.commissionRateOverride,
         })),
+        ...(trimmedExternalName && { externalName: trimmedExternalName }),
+        ...(trimmedInternalName && { internalName: trimmedInternalName }),
       }
 
       const res = await updateProperty(property.id, payload)
 
-      if (res.status === 'success') {
-        onUpdate(res.data)
-        showNotification('Property updated successfully', 'success')
-        onClose()
-      } else {
+      if (res.status !== 'success') {
         showNotification(res.message || 'Failed to update property', 'error')
+        return
       }
+
+      // Update parent component with updated property + current channels
+      onUpdate({ ...res.data, channels: channels })
+      showNotification('Property updated successfully', 'success')
+      onClose()
     } catch (err) {
       console.error('Error updating property:', err)
       const message = err instanceof Error ? err.message : 'Error updating property'
@@ -214,15 +351,51 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Property Details</h3>
 
-          {/* Property Name */}
+          {/* Listing Name */}
           <div>
-            <label className="block text-sm font-medium mb-1">Property Name *</label>
+            <label className="block text-sm font-medium mb-1">Listing Name *</label>
             <input
               required
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={listingName}
+              onChange={(e) => setListingName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Listing ID */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Listing ID *</label>
+            <input
+              required
+              type="text"
+              value={listingId}
+              onChange={(e) => setListingId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* External Name (Optional) */}
+          <div>
+            <label className="block text-sm font-medium mb-1">External Name</label>
+            <input
+              type="text"
+              value={externalName}
+              onChange={(e) => setExternalName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Public-facing name (optional)"
+            />
+          </div>
+
+          {/* Internal Name (Optional) */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Internal Name</label>
+            <input
+              type="text"
+              value={internalName}
+              onChange={(e) => setInternalName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Internal reference (optional)"
             />
           </div>
 
@@ -238,16 +411,30 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
             />
           </div>
 
-          {/* Province */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Province *</label>
-            <input
-              required
-              type="text"
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Postal Code and Province */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Postal Code *</label>
+              <input
+                required
+                type="text"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., T2P 1A1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Province *</label>
+              <input
+                required
+                type="text"
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           {/* Property Type and Commission Rate */}
@@ -277,18 +464,18 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               />
             </div>
           </div>
+        </div>
 
-          {/* Hostaway Listing ID */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Hostaway Listing ID *</label>
-            <input
-              required
-              type="text"
-              value={hostawayListingId}
-              onChange={(e) => setHostawayListingId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        {/* Channels Management Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Channels</h3>
+          <ChannelList
+            propertyId={property.id}
+            channels={channels}
+            onAddChannel={handleAddChannel}
+            onEditChannel={handleEditChannel}
+            onDeleteChannel={handleDeleteChannel}
+          />
         </div>
 
         {/* Owners Management Section */}
