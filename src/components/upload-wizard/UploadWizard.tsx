@@ -113,14 +113,14 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         validationState: action.payload,
-        canGoNext: action.payload.results.canProceed,
+        canGoNext: action.payload?.results?.isValid || false,
       }
 
     case WizardActionType.SET_PROCESSING_STATE:
       return {
         ...state,
         processingState: action.payload,
-        canGoNext: action.payload.status === 'complete',
+        canGoNext: action.payload?.status === 'complete',
         canGoBack: false, // Can't go back during processing
       }
 
@@ -215,6 +215,16 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
           />
         )
 
+      case WizardStep.VALIDATE:
+        return (
+          <ValidateStep
+            {...commonProps}
+            uploadedFile={state.uploadedFile}
+            validationState={state.validationState}
+            onValidationComplete={handleValidationComplete}
+          />
+        )
+
       case WizardStep.PREVIEW:
         return (
           <PreviewStep
@@ -222,16 +232,6 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={state.uploadedFile!}
             previewState={state.previewState}
             onPreviewComplete={handlePreviewComplete}
-          />
-        )
-
-      case WizardStep.VALIDATE:
-        return (
-          <ValidateStep
-            {...commonProps}
-            previewState={state.previewState!}
-            validationState={state.validationState}
-            onValidationComplete={handleValidationComplete}
           />
         )
 
@@ -261,43 +261,19 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Page Header */}
-      <div className="bg-white shadow">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="max-w-4xl left-0">
-              <h1 className="text-2xl font-bold text-gray-900">Import Booking Data</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Upload CSV files from your property management system
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       {/* Step Indicator */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="max-w-4xl mx-auto">
-              <StepIndicator
-                currentStep={state.currentStep}
-                completedSteps={state.completedSteps}
-                onStepClick={handleStepClick}
-              />
-            </div>
-          </div>
-        </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <StepIndicator
+          currentStep={state.currentStep}
+          completedSteps={state.completedSteps}
+          onStepClick={handleStepClick}
+        />
       </div>
 
       {/* Main Content */}
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow">
-            {renderCurrentStep()}
-          </div>
-        </div>
+      <div className="bg-white rounded-lg shadow">
+        {renderCurrentStep()}
       </div>
     </div>
   )

@@ -60,7 +60,7 @@ export default function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="flex flex-col w-64 bg-white min-h-screen border-r border-gray-200">
+    <div className="fixed top-16 left-0 z-40 flex flex-col w-64 bg-white h-full border-r border-gray-200">
       <nav className="flex-1 px-2 py-6 space-y-2">
         {sidebarItems.map((item) => {
           const isActive = pathname === item.href

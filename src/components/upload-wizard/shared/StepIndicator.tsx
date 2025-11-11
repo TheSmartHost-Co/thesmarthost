@@ -18,8 +18,8 @@ interface StepInfo {
 
 const steps: StepInfo[] = [
   { step: WizardStep.UPLOAD, label: 'Upload', number: 1 },
-  { step: WizardStep.PREVIEW, label: 'Preview', number: 2 },
-  { step: WizardStep.VALIDATE, label: 'Validate', number: 3 },
+  { step: WizardStep.VALIDATE, label: 'Validate', number: 2 },
+  { step: WizardStep.PREVIEW, label: 'Preview', number: 3 },
   { step: WizardStep.PROCESS, label: 'Process', number: 4 },
   { step: WizardStep.COMPLETE, label: 'Complete', number: 5 },
 ]

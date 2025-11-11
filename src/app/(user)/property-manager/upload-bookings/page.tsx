@@ -17,9 +17,20 @@ export default function UploadBookingsPage() {
   }
 
   return (
-    <UploadWizard
-      onComplete={handleWizardComplete}
-      onCancel={handleWizardCancel}
-    />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Upload Bookings</h1>
+          <p className="text-gray-600">Import booking data from your property management system</p>
+        </div>
+      </div>
+
+      {/* Upload Wizard */}
+      <UploadWizard
+        onComplete={handleWizardComplete}
+        onCancel={handleWizardCancel}
+      />
+    </div>
   )
 }

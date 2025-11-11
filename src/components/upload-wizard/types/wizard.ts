@@ -5,8 +5,8 @@
  */
 export enum WizardStep {
   UPLOAD = 1,
-  PREVIEW = 2,
-  VALIDATE = 3,
+  VALIDATE = 2,
+  PREVIEW = 3,
   PROCESS = 4,
   COMPLETE = 5,
 }

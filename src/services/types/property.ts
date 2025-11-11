@@ -16,16 +16,19 @@ export interface PropertyOwner {
  */
 export interface Property {
   id: string
-  name: string
+  listingName: string
+  listingId: string
+  externalName: string | null
+  internalName: string | null
   address: string
   province: string
   propertyType: 'STR' | 'LTR'
   commissionRate: number
-  hostawayListingId: string
   isActive: boolean
   createdAt: string
   updatedAt: string
   owners: PropertyOwner[]
+  channels?: any[]
 }
 
 /**
@@ -65,12 +68,14 @@ export interface CsvUpload {
  */
 export interface CreatePropertyPayload {
   clientId: string // First owner (will be marked as primary)
-  name: string
+  listingName: string
+  listingId: string
+  externalName?: string
+  internalName?: string
   address: string
   province: string
   propertyType: 'STR' | 'LTR'
   commissionRate: number
-  hostawayListingId: string
   commissionRateOverride?: number // Optional override for first owner
 }
 
@@ -79,12 +84,14 @@ export interface CreatePropertyPayload {
  * All fields optional for partial updates
  */
 export interface UpdatePropertyPayload {
-  name?: string
+  listingName?: string
+  listingId?: string
+  externalName?: string
+  internalName?: string
   address?: string
   province?: string
   propertyType?: 'STR' | 'LTR'
   commissionRate?: number
-  hostawayListingId?: string
   owners?: UpdatePropertyOwner[] // Replace all owners
 }
 

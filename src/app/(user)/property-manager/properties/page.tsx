@@ -99,7 +99,7 @@ export default function PropertyManagerPropertiesPage() {
   // Filter and sort properties - inactive at bottom
   const filteredProperties = properties
     .filter(property => {
-      const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = property.listingName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         property.address.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesType = typeFilter === 'All Types' ||
         (typeFilter === 'STR' && property.propertyType === 'STR') ||
@@ -332,7 +332,7 @@ export default function PropertyManagerPropertiesPage() {
                         <HomeIcon className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{property.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{property.listingName}</div>
                         <div className="text-sm text-gray-500">{property.address}</div>
                       </div>
                     </div>
