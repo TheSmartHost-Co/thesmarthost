@@ -1,5 +1,7 @@
 // Property Types for HostMetrics Frontend
 
+import { PropertyChannel } from './propertyChannel'
+
 /**
  * Property owner information from client_properties junction table
  */
@@ -12,15 +14,16 @@ export interface PropertyOwner {
 
 /**
  * Main Property interface
- * Matches backend response with embedded owners array
+ * Matches backend response with embedded owners array and channels
  */
 export interface Property {
   id: string
-  listingName: string
-  listingId: string
-  externalName: string | null
-  internalName: string | null
+  listingName: string // Renamed from 'name'
+  listingId: string // Renamed from 'hostawayListingId'
+  externalName?: string // NEW: Public-facing name
+  internalName?: string // NEW: Internal reference name
   address: string
+  postalCode: string // NEW: Required postal code
   province: string
   propertyType: 'STR' | 'LTR'
   commissionRate: number
@@ -28,7 +31,7 @@ export interface Property {
   createdAt: string
   updatedAt: string
   owners: PropertyOwner[]
-  channels?: any[]
+  channels: PropertyChannel[] // NEW: Property channels array
 }
 
 /**
@@ -68,11 +71,12 @@ export interface CsvUpload {
  */
 export interface CreatePropertyPayload {
   clientId: string // First owner (will be marked as primary)
-  listingName: string
-  listingId: string
-  externalName?: string
-  internalName?: string
+  listingName: string // Renamed from 'name'
+  listingId: string // Renamed from 'hostawayListingId'
+  externalName?: string // NEW: Optional public-facing name
+  internalName?: string // NEW: Optional internal reference name
   address: string
+  postalCode: string // NEW: Required postal code
   province: string
   propertyType: 'STR' | 'LTR'
   commissionRate: number
@@ -84,11 +88,12 @@ export interface CreatePropertyPayload {
  * All fields optional for partial updates
  */
 export interface UpdatePropertyPayload {
-  listingName?: string
-  listingId?: string
-  externalName?: string
-  internalName?: string
+  listingName?: string // Renamed from 'name'
+  listingId?: string // Renamed from 'hostawayListingId'
+  externalName?: string // NEW: Optional public-facing name
+  internalName?: string // NEW: Optional internal reference name
   address?: string
+  postalCode?: string // NEW: Postal code
   province?: string
   propertyType?: 'STR' | 'LTR'
   commissionRate?: number

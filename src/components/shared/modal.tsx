@@ -9,10 +9,11 @@ interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
     children: ReactNode;
+    zIndex?: number; // Allow custom z-index for nested modals
   }
 
-  
-const Modal = ({ isOpen, onClose, children, style }: ModalProps) => {
+
+const Modal = ({ isOpen, onClose, children, style, zIndex = 60 }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'; // Prevent background scrolling when modal is open
@@ -28,11 +29,14 @@ const Modal = ({ isOpen, onClose, children, style }: ModalProps) => {
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 flex items-center justify-center z-[60]">
+    <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex }}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black opacity-10"
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
       ></div>
 
       {/* Modal box */}

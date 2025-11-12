@@ -10,6 +10,7 @@ import CreatePropertyModal from '@/components/property/create/createPropertyModa
 import UpdatePropertyModal from '@/components/property/update/updatePropertyModal'
 import DeletePropertyModal from '@/components/property/delete/deletePropertyModal'
 import PreviewPropertyModal from '@/components/property/preview/previewPropertyModal'
+import ChannelIconRow from '@/components/property/channels/channelIconRow'
 
 export default function PropertyManagerPropertiesPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -99,8 +100,11 @@ export default function PropertyManagerPropertiesPage() {
   // Filter and sort properties - inactive at bottom
   const filteredProperties = properties
     .filter(property => {
-      const matchesSearch = property.listingName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.toLowerCase().includes(searchTerm.toLowerCase())
+      const searchLower = searchTerm.toLowerCase()
+      const matchesSearch = property.listingName.toLowerCase().includes(searchLower) ||
+        property.address.toLowerCase().includes(searchLower) ||
+        property.listingId.toLowerCase().includes(searchLower) ||
+        (property.externalName && property.externalName.toLowerCase().includes(searchLower))
       const matchesType = typeFilter === 'All Types' ||
         (typeFilter === 'STR' && property.propertyType === 'STR') ||
         (typeFilter === 'LTR' && property.propertyType === 'LTR')
@@ -303,6 +307,15 @@ export default function PropertyManagerPropertiesPage() {
                   Property
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  Listing ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  External Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  Channels
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Owners
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
@@ -333,9 +346,18 @@ export default function PropertyManagerPropertiesPage() {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{property.listingName}</div>
-                        <div className="text-sm text-gray-500">{property.address}</div>
+                        <div className="text-sm text-gray-500">{property.address}, {property.postalCode}</div>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{property.listingId}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">{property.externalName || '—'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <ChannelIconRow channels={property.channels || []} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{formatOwnerDisplay(property)}</div>
@@ -414,7 +436,7 @@ export default function PropertyManagerPropertiesPage() {
             setSelectedProperty(null)
           }}
           property={selectedProperty}
-          onAddCoOwner={() => {
+          onEditProperty={() => {
             setShowPreviewModal(false)
             setShowUpdateModal(true)
           }}
