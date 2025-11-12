@@ -245,6 +245,7 @@ export interface WizardState {
   canGoNext: boolean
   
   // Step-specific states
+  selectedProperty?: any // Property object from property service
   uploadedFile?: UploadedFile
   previewState?: PreviewState
   validationState?: ValidationState
@@ -259,6 +260,7 @@ export enum WizardActionType {
   SET_STEP = 'SET_STEP',
   NEXT_STEP = 'NEXT_STEP',
   PREV_STEP = 'PREV_STEP',
+  SET_SELECTED_PROPERTY = 'SET_SELECTED_PROPERTY',
   SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
   SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
@@ -274,6 +276,7 @@ export type WizardAction =
   | { type: WizardActionType.SET_STEP; payload: WizardStep }
   | { type: WizardActionType.NEXT_STEP }
   | { type: WizardActionType.PREV_STEP }
+  | { type: WizardActionType.SET_SELECTED_PROPERTY; payload: any }
   | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
   | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }

@@ -1,10 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import FieldMappingForm from '@/components/csv-mapping/FieldMappingForm'
 import { CsvData, FieldMapping } from '@/services/types/csvMapping'
 import { parseCsvFile } from '@/utils/csvParser'
+import { getCalculationRules } from '@/services/calculationRuleService'
+import { CalculationRule } from '@/services/types/calculationRule'
+import { useUserStore } from '@/store/useUserStore'
+import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface ValidateStepProps {
   onNext?: () => void
@@ -16,6 +20,7 @@ interface ValidateStepProps {
   uploadedFile?: any
   validationState?: any
   onValidationComplete?: (state: any) => void
+  selectedProperty?: any
 }
 
 const ValidateStep: React.FC<ValidateStepProps> = ({
@@ -26,13 +31,19 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
   canGoBack,
   uploadedFile,
   validationState,
-  onValidationComplete
+  onValidationComplete,
+  selectedProperty
 }) => {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([])
   const [isValidMappings, setIsValidMappings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [calculationRules, setCalculationRules] = useState<CalculationRule[]>([])
+  const [loadingRules, setLoadingRules] = useState(false)
+
+  const { profile } = useUserStore()
+  const { showNotification } = useNotificationStore()
 
   // Load CSV data from uploaded file
   useEffect(() => {
@@ -76,6 +87,30 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
 
   const handleValidationChange = (isValid: boolean) => {
     setIsValidMappings(isValid)
+  }
+
+  // Load calculation rules for the selected property
+  const loadCalculationRules = async () => {
+    if (!selectedProperty?.id) {
+      showNotification('No property selected', 'error')
+      return
+    }
+
+    try {
+      setLoadingRules(true)
+      const response = await getCalculationRules(selectedProperty.id)
+      if (response.status === 'success') {
+        setCalculationRules(response.data)
+        showNotification(`Loaded ${response.data.length} existing field mappings`, 'success')
+      } else {
+        showNotification(response.message || 'Failed to load calculation rules', 'error')
+      }
+    } catch (error) {
+      console.error('Error loading calculation rules:', error)
+      showNotification('Error loading calculation rules', 'error')
+    } finally {
+      setLoadingRules(false)
+    }
   }
 
   if (loading) {
@@ -127,24 +162,50 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         </p>
       </div>
 
-      {/* CSV Info */}
+      {/* Property & File Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-blue-900">File Information</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              {uploadedFile?.name} - {csvData.totalRows} data rows, {csvData.headers.length} columns
-            </p>
+          <div className="space-y-2">
+            {selectedProperty && (
+              <div>
+                <h3 className="text-sm font-medium text-blue-900">Property</h3>
+                <p className="text-sm text-blue-700">
+                  {selectedProperty.listingName} ({selectedProperty.address})
+                </p>
+              </div>
+            )}
+            <div>
+              <h3 className="text-sm font-medium text-blue-900">File Information</h3>
+              <p className="text-sm text-blue-700">
+                {uploadedFile?.name} - {csvData.totalRows} data rows, {csvData.headers.length} columns
+              </p>
+            </div>
           </div>
           <CheckCircleIcon className="h-8 w-8 text-blue-600" />
         </div>
       </div>
+
+      {/* Load Previous Configuration */}
+      {selectedProperty && (
+        <div className="flex justify-center">
+          <button
+            onClick={loadCalculationRules}
+            disabled={loadingRules}
+            className="cursor-pointer flex items-center px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ArrowPathIcon className={`h-4 w-4 mr-2 ${loadingRules ? 'animate-spin' : ''}`} />
+            {loadingRules ? 'Loading...' : 'Load Previous Configuration'}
+          </button>
+        </div>
+      )}
 
       {/* Field Mapping Form */}
       <FieldMappingForm
         csvData={csvData}
         onMappingsChange={handleMappingsChange}
         onValidationChange={handleValidationChange}
+        calculationRules={calculationRules}
+        selectedProperty={selectedProperty}
       />
 
       {/* Action Buttons */}

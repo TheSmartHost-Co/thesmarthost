@@ -95,11 +95,17 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         canGoNext: true,
       }
 
+    case WizardActionType.SET_SELECTED_PROPERTY:
+      return {
+        ...state,
+        selectedProperty: action.payload,
+      }
+
     case WizardActionType.SET_UPLOADED_FILE:
       return {
         ...state,
         uploadedFile: action.payload,
-        canGoNext: true,
+        canGoNext: state.selectedProperty && action.payload ? true : false,
       }
 
     case WizardActionType.SET_PREVIEW_STATE:
@@ -164,6 +170,10 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }, [state.completedSteps, state.currentStep])
 
   // Step-specific handlers
+  const handlePropertySelected = useCallback((property: any) => {
+    dispatch({ type: WizardActionType.SET_SELECTED_PROPERTY, payload: property })
+  }, [])
+
   const handleFileUploaded = useCallback((uploadedFile: any) => {
     dispatch({ type: WizardActionType.SET_UPLOADED_FILE, payload: uploadedFile })
   }, [])
@@ -212,6 +222,8 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             {...commonProps}
             onFileUploaded={handleFileUploaded}
             uploadedFile={state.uploadedFile}
+            selectedProperty={state.selectedProperty}
+            onPropertySelected={handlePropertySelected}
           />
         )
 
@@ -222,6 +234,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={state.uploadedFile}
             validationState={state.validationState}
             onValidationComplete={handleValidationComplete}
+            selectedProperty={state.selectedProperty}
           />
         )
 

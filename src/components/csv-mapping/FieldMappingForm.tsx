@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { 
   CsvData, 
   Platform, 
@@ -10,18 +10,24 @@ import {
   OPTIONAL_BOOKING_FIELDS,
   PLATFORM_OPTIONS 
 } from '@/services/types/csvMapping'
+import { CalculationRule } from '@/services/types/calculationRule'
 import { suggestMappings, validateMappings } from '@/utils/csvParser'
+import CalculationRuleModal from '@/components/calculation-rules/calculationRuleModal'
 
 interface FieldMappingFormProps {
   csvData: CsvData
   onMappingsChange: (mappings: FieldMapping[]) => void
   onValidationChange: (isValid: boolean) => void
+  calculationRules?: CalculationRule[]
+  selectedProperty?: any
 }
 
 const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   csvData,
   onMappingsChange,
-  onValidationChange
+  onValidationChange,
+  calculationRules = [],
+  selectedProperty
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
@@ -36,6 +42,9 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   
   // Track input mode for each field per platform
   const [fieldInputModes, setFieldInputModes] = useState<Record<string, 'dropdown' | 'formula'>>({})
+  
+  // Custom fields modal state
+  const [isCustomFieldsModalOpen, setIsCustomFieldsModalOpen] = useState(false)
   
   const getFieldInputMode = (fieldName: string): 'dropdown' | 'formula' => {
     const key = `${fieldName}_${selectedPlatform}`
@@ -106,6 +115,13 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     onMappingsChange(fieldMappings)
   }, [platformMappings])
 
+  // Load mappings when calculation rules change
+  useEffect(() => {
+    if (calculationRules && calculationRules.length > 0) {
+      loadMappingsFromRules()
+    }
+  }, [calculationRules])
+
   const handleMappingChange = (bookingField: string, csvFormula: string) => {
     setPlatformMappings(prev => ({
       ...prev,
@@ -114,6 +130,46 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
         [bookingField]: csvFormula
       }
     }))
+  }
+
+  // Load mappings from calculation rules
+  const loadMappingsFromRules = () => {
+    if (!calculationRules || calculationRules.length === 0) {
+      return
+    }
+
+    const newPlatformMappings: Record<Platform, Record<string, string>> = {
+      'ALL': {},
+      'airbnbOfficial': {},
+      'vrbo': {},
+      'direct': {},
+      'hostaway': {}
+    }
+
+    // Group rules by platform
+    calculationRules.forEach(rule => {
+      const platform = rule.platform as Platform
+      if (platform in newPlatformMappings) {
+        newPlatformMappings[platform][rule.bookingField] = rule.csvFormula
+      }
+    })
+
+    // Set the mappings
+    setPlatformMappings(newPlatformMappings)
+
+    // Set input modes for formula fields
+    const newFieldInputModes: Record<string, 'dropdown' | 'formula'> = {}
+    calculationRules.forEach(rule => {
+      const key = `${rule.bookingField}_${rule.platform}`
+      // If the formula is not a simple column name, it's a formula
+      const headerNames = csvData.headers.map(h => h.name)
+      if (!headerNames.includes(rule.csvFormula)) {
+        newFieldInputModes[key] = 'formula'
+      } else {
+        newFieldInputModes[key] = 'dropdown'
+      }
+    })
+    setFieldInputModes(newFieldInputModes)
   }
 
   const handleSaveBaseMappings = () => {
@@ -140,13 +196,38 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
            platformMappings['ALL'][fieldName] !== undefined
   }
 
-  const getHeaderOptions = () => [
-    { value: '', label: 'Select CSV Column...' },
-    ...csvData.headers.map(header => ({
+  const getHeaderOptions = (): Array<{ value: string; label: string; disabled?: boolean }> => {
+    const csvOptions = csvData.headers.map(header => ({
       value: header.name,
-      label: `${header.name}${header.sampleValue ? ` (e.g., "${header.sampleValue}")` : ''}`
+      label: `${header.name}${header.sampleValue ? ` (e.g., "${header.sampleValue}")` : ''}`,
+      disabled: false
     }))
-  ]
+
+    // Get active custom fields for the current platform
+    const customFieldsForPlatform = calculationRules.filter(rule => 
+      rule.isActive && (rule.platform === selectedPlatform || rule.platform === 'ALL')
+    )
+
+    const customFieldOptions = customFieldsForPlatform.map(rule => ({
+      value: rule.bookingField,
+      label: `${rule.bookingField} (custom field)`,
+      disabled: false
+    }))
+
+    const options: Array<{ value: string; label: string; disabled?: boolean }> = [
+      { value: '', label: 'Select CSV Column...', disabled: false },
+      ...csvOptions
+    ]
+
+    if (customFieldOptions.length > 0) {
+      options.push(
+        { value: 'separator', label: '──────── Custom Fields ────────', disabled: true },
+        ...customFieldOptions
+      )
+    }
+
+    return options
+  }
 
   const renderMappingRow = (field: { field: string; label: string; required: boolean }) => {
     const currentValue = getCurrentFieldValue(field.field)
@@ -348,7 +429,11 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
               <div className="flex items-center space-x-2">
                 <select
                   value={currentValue}
-                  onChange={(e) => handleMappingChange(field.field, e.target.value)}
+                  onChange={(e) => {
+                    if (e.target.value !== 'separator') {
+                      handleMappingChange(field.field, e.target.value)
+                    }
+                  }}
                   className={`text-black appearance-none bg-white border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8 min-w-[250px] ${
                     isOverridden 
                       ? 'border-green-300 bg-green-50'
@@ -357,9 +442,17 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                         : 'border-gray-300'
                   }`}
                 >
-                  <option value="">Select CSV Column...</option>
-                  {getHeaderOptions().slice(1).map(option => (
-                    <option key={option.value} value={option.value}>
+                  {getHeaderOptions().map(option => (
+                    <option 
+                      key={option.value} 
+                      value={option.value}
+                      disabled={option.disabled}
+                      style={option.disabled ? { 
+                        backgroundColor: '#f3f4f6', 
+                        color: '#6b7280',
+                        fontStyle: 'italic'
+                      } : {}}
+                    >
                       {option.label}
                     </option>
                   ))}
@@ -416,6 +509,18 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
               </select>
               <ChevronDownIcon className="h-4 w-4 text-gray-400 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
             </div>
+            
+            {/* Custom Fields Button */}
+            {selectedProperty && (
+              <button
+                type="button"
+                onClick={() => setIsCustomFieldsModalOpen(true)}
+                className="cursor-pointer flex items-center px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Custom Fields
+              </button>
+            )}
           </div>
         </div>
         
@@ -510,6 +615,18 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Custom Fields Modal */}
+      <CalculationRuleModal
+        isOpen={isCustomFieldsModalOpen}
+        onClose={() => setIsCustomFieldsModalOpen(false)}
+        propertyId={selectedProperty?.id}
+        propertyName={selectedProperty?.listingName}
+        onRulesUpdate={(updatedRules) => {
+          // Optionally refresh calculation rules when modal closes
+          console.log('Custom fields updated:', updatedRules)
+        }}
+      />
     </div>
   )
 }
