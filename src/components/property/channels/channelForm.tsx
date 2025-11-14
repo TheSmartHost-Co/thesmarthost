@@ -4,9 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { PropertyChannel, LocalPropertyChannel, CHANNEL_OPTIONS } from '@/services/types/propertyChannel'
 import { validateChannelUrl } from '@/services/propertyChannelService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAirbnb, faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { HomeIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { getChannelIcon, getChannelDisplayName } from '@/services/channelUtils'
 
 interface ChannelFormProps {
   propertyId: string
@@ -17,44 +15,6 @@ interface ChannelFormProps {
     isActive: boolean
   }) => void
   onCancel: () => void
-}
-
-/**
- * Get icon for channel option (not currently used but kept for future)
- */
-const getChannelIcon = (channelName: string): React.ReactNode => {
-  switch (channelName) {
-    case 'airbnb':
-      return <FontAwesomeIcon icon={faAirbnb} className="w-4 h-4" />
-    case 'vrbo':
-      return <GlobeAltIcon className="w-4 h-4" />
-    case 'booking_com':
-      return <GlobeAltIcon className="w-4 h-4" />
-    case 'google':
-      return <FontAwesomeIcon icon={faGoogle} className="w-4 h-4" />
-    case 'direct':
-      return <HomeIcon className="w-4 h-4" />
-    case 'expedia':
-      return <GlobeAltIcon className="w-4 h-4" />
-    default:
-      return <GlobeAltIcon className="w-4 h-4" />
-  }
-}
-
-/**
- * Get display name for channel option
- */
-const getChannelDisplayName = (channelName: string): string => {
-  const displayNames: Record<string, string> = {
-    airbnb: 'Airbnb',
-    vrbo: 'VRBO',
-    booking_com: 'Booking.com',
-    google: 'Google',
-    direct: 'Direct',
-    expedia: 'Expedia',
-    custom: 'Custom',
-  }
-  return displayNames[channelName] || channelName
 }
 
 /**

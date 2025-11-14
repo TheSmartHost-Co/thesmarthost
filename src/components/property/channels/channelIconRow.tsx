@@ -2,53 +2,11 @@
 
 import React from 'react'
 import { PropertyChannel } from '@/services/types/propertyChannel'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAirbnb, faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { HomeIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { getChannelIcon, getChannelDisplayName } from '@/services/channelUtils'
 
 interface ChannelIconRowProps {
   channels: PropertyChannel[]
   maxVisible?: number
-}
-
-/**
- * Get icon component for channel type
- */
-const getChannelIcon = (channelName: string): React.ReactNode => {
-  const name = channelName.toLowerCase()
-
-  switch (name) {
-    case 'airbnb':
-      return <FontAwesomeIcon icon={faAirbnb} className="w-5 h-5" />
-    case 'vrbo':
-      return <GlobeAltIcon className="w-5 h-5" />
-    case 'booking_com':
-      return <GlobeAltIcon className="w-5 h-5" />
-    case 'google':
-      return <FontAwesomeIcon icon={faGoogle} className="w-5 h-5" />
-    case 'direct':
-      return <HomeIcon className="w-5 h-5" />
-    case 'expedia':
-      return <GlobeAltIcon className="w-5 h-5" />
-    default:
-      return <GlobeAltIcon className="w-5 h-5" />
-  }
-}
-
-/**
- * Get display name for channel
- */
-const getChannelDisplayName = (channelName: string): string => {
-  const name = channelName.toLowerCase()
-  const displayNames: Record<string, string> = {
-    airbnb: 'Airbnb',
-    vrbo: 'VRBO',
-    booking_com: 'Booking.com',
-    google: 'Google',
-    direct: 'Direct',
-    expedia: 'Expedia',
-  }
-  return displayNames[name] || channelName
 }
 
 /**

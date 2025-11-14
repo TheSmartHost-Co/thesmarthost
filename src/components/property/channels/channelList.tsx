@@ -3,9 +3,7 @@
 import React, { useState } from 'react'
 import { PropertyChannel, LocalPropertyChannel } from '@/services/types/propertyChannel'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAirbnb, faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { HomeIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { getChannelIcon, getChannelDisplayName } from '@/services/channelUtils'
 import ChannelForm from './channelForm'
 
 interface ChannelListProps {
@@ -21,46 +19,6 @@ interface ChannelListProps {
     channelData: { channelName: string; publicUrl: string; isActive: boolean }
   ) => void
   onDeleteChannel: (channelId: string) => void
-}
-
-/**
- * Get icon for channel type
- */
-const getChannelIcon = (channelName: string): React.ReactNode => {
-  const name = channelName.toLowerCase()
-
-  switch (name) {
-    case 'airbnb':
-      return <FontAwesomeIcon icon={faAirbnb} className="w-5 h-5" />
-    case 'vrbo':
-      return <GlobeAltIcon className="w-5 h-5" />
-    case 'booking_com':
-      return <GlobeAltIcon className="w-5 h-5" />
-    case 'google':
-      return <FontAwesomeIcon icon={faGoogle} className="w-5 h-5" />
-    case 'direct':
-      return <HomeIcon className="w-5 h-5" />
-    case 'expedia':
-      return <GlobeAltIcon className="w-5 h-5" />
-    default:
-      return <GlobeAltIcon className="w-5 h-5" />
-  }
-}
-
-/**
- * Get display name for channel
- */
-const getChannelDisplayName = (channelName: string): string => {
-  const name = channelName.toLowerCase()
-  const displayNames: Record<string, string> = {
-    airbnb: 'Airbnb',
-    vrbo: 'VRBO',
-    booking_com: 'Booking.com',
-    google: 'Google',
-    direct: 'Direct',
-    expedia: 'Expedia',
-  }
-  return displayNames[name] || channelName
 }
 
 /**
