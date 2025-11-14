@@ -15,7 +15,7 @@ interface ChannelIconRowProps {
  */
 const ChannelIconRow: React.FC<ChannelIconRowProps> = ({
   channels,
-  maxVisible = 4,
+  maxVisible = 7,
 }) => {
   // Filter to only active channels
   const activeChannels = channels.filter((channel) => channel.isActive)
@@ -28,8 +28,8 @@ const ChannelIconRow: React.FC<ChannelIconRowProps> = ({
   const remainingCount = activeChannels.length - maxVisible
 
   return (
-    <div className="flex items-center gap-2">
-      {visibleChannels.map((channel) => (
+    <div className="flex items-center">
+      {visibleChannels.map((channel, index) => (
         <button
           key={channel.id}
           onClick={(e) => {
@@ -39,6 +39,9 @@ const ChannelIconRow: React.FC<ChannelIconRowProps> = ({
           className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
           title={`${getChannelDisplayName(channel.channelName)} - Click to open`}
           aria-label={`Open ${getChannelDisplayName(channel.channelName)}`}
+          style={{
+            marginLeft: index === 0 ? 0 : -10, // Overlap icons
+          }}
         >
           {getChannelIcon(channel.channelName)}
         </button>
