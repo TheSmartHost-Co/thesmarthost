@@ -41,9 +41,11 @@ type ModalMode = 'list' | 'create' | 'edit'
 const PLATFORM_OPTIONS = [
   { value: 'ALL' as Platform, label: 'All Platforms' },
   { value: 'airbnb' as Platform, label: 'Airbnb' },
-  { value: 'vrbo' as Platform, label: 'VRBO' },
+  { value: 'booking' as Platform, label: 'Booking.com' },
+  { value: 'google' as Platform, label: 'Google Travel' },
   { value: 'direct' as Platform, label: 'Direct Booking' },
-  { value: 'hostaway' as Platform, label: 'Hostaway' }
+  { value: 'wechalet' as Platform, label: 'WeChalet' },
+  { value: 'monsieurchalets' as Platform, label: 'Monsieur Chalets' }
 ]
 
 const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
@@ -60,7 +62,7 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
   const [selectedRule, setSelectedRule] = useState<CalculationRule | null>(null)
   
   // Form state
-  const [platform, setPlatform] = useState<Platform>('ALL')
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['ALL'])
   const [bookingField, setBookingField] = useState('')
   const [csvFormula, setCsvFormula] = useState('')
   const [priority, setPriority] = useState('')
@@ -81,14 +83,14 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
   // Reset form when mode changes
   useEffect(() => {
     if (mode === 'create') {
-      setPlatform('ALL')
+      setSelectedPlatforms(['ALL'])
       setBookingField('')
       setCsvFormula('')
       setPriority('')
       setNotes('')
       setIsActive(true)
     } else if (mode === 'edit' && selectedRule) {
-      setPlatform(selectedRule.platform)
+      setSelectedPlatforms([selectedRule.platform])
       setBookingField(selectedRule.bookingField)
       setCsvFormula(selectedRule.csvFormula)
       setPriority(selectedRule.priority?.toString() || '')
@@ -147,29 +149,51 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
       return
     }
 
+    if (selectedPlatforms.length === 0) {
+      showNotification('At least one platform must be selected', 'error')
+      return
+    }
+
     try {
-      const payload: CreateCalculationRulePayload = {
-        propertyId,
-        userId: profile?.id,
-        platform,
-        bookingField: bookingField.trim(),
-        csvFormula: csvFormula.trim(),
-        priority: priority ? parseInt(priority) : undefined,
-        notes: notes.trim() || undefined
+      const createdRules: CalculationRule[] = []
+      
+      // Create rules for each selected platform
+      for (const platform of selectedPlatforms) {
+        const payload: CreateCalculationRulePayload = {
+          propertyId,
+          userId: profile?.id,
+          platform,
+          bookingField: bookingField.trim(),
+          csvFormula: csvFormula.trim(),
+          priority: priority ? parseInt(priority) : undefined,
+          notes: notes.trim() || undefined
+        }
+
+        const response = await createCalculationRule(payload)
+        if (response.status === 'success') {
+          createdRules.push(response.data)
+        } else {
+          showNotification(`Failed to create rule for ${platform}: ${response.message}`, 'error')
+          return
+        }
       }
 
-      const response = await createCalculationRule(payload)
-      if (response.status === 'success') {
-        setRules(prev => [...prev, response.data])
-        setMode('list')
-        showNotification('Calculation rule created successfully', 'success')
-        onRulesUpdate?.(rules)
-      } else {
-        showNotification(response.message || 'Failed to create calculation rule', 'error')
-      }
+      setRules(prev => [...prev, ...createdRules])
+      setMode('list')
+      
+      const platformNames = selectedPlatforms.map(p => 
+        PLATFORM_OPTIONS.find(opt => opt.value === p)?.label || p
+      ).join(', ')
+      
+      showNotification(
+        `Created custom field "${bookingField}" for ${platformNames}`, 
+        'success'
+      )
+      onRulesUpdate?.([...rules, ...createdRules])
+      
     } catch (error) {
-      console.error('Error creating calculation rule:', error)
-      showNotification('Error creating calculation rule', 'error')
+      console.error('Error creating calculation rules:', error)
+      showNotification('Error creating calculation rules', 'error')
     }
   }
 
@@ -189,8 +213,9 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
     }
 
     try {
+      // For edit mode, we only update the single selected rule (no multi-platform support in edit)
       const payload: UpdateCalculationRulePayload = {
-        platform,
+        platform: selectedPlatforms[0], // Only use first platform for edits
         bookingField: bookingField.trim(),
         csvFormula: csvFormula.trim(),
         priority: priority ? parseInt(priority) : undefined,
@@ -239,6 +264,27 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
     setCsvFormula(customField.csvFormula)
   }
 
+  const handlePlatformToggle = (platform: Platform) => {
+    setSelectedPlatforms(prev => {
+      // If selecting ALL, clear others
+      if (platform === 'ALL') {
+        return ['ALL']
+      }
+      
+      // If ALL is selected and we select something else, remove ALL
+      const withoutAll = prev.filter(p => p !== 'ALL')
+      
+      if (prev.includes(platform)) {
+        // Remove platform
+        const newSelection = withoutAll.filter(p => p !== platform)
+        return newSelection.length === 0 ? ['ALL'] : newSelection
+      } else {
+        // Add platform
+        return [...withoutAll, platform]
+      }
+    })
+  }
+
   const renderListMode = () => (
     <div className="space-y-6 p-5">
       {/* Header */}
@@ -264,7 +310,7 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
       </div>
 
       {/* Rules List */}
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-96 overflow-y-auto">
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -365,26 +411,41 @@ const CalculationRuleModal: React.FC<CalculationRuleModalProps> = ({
 
       {/* Form */}
       <form onSubmit={mode === 'create' ? handleCreate : handleUpdate} className="space-y-4">
-        {/* Platform */}
+        {/* Platform Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Platform
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            {mode === 'create' ? 'Platforms (select one or more)' : 'Platform'}
           </label>
-          <div className="relative">
-            <select
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value as Platform)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-black"
-              required
-            >
+          {mode === 'create' ? (
+            <div className="grid grid-cols-2 gap-3">
               {PLATFORM_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <label
+                  key={option.value}
+                  className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedPlatforms.includes(option.value)}
+                    onChange={() => handlePlatformToggle(option.value)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                  />
+                  <span className="text-sm text-gray-900">{option.label}</span>
+                </label>
               ))}
-            </select>
-            <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
+            </div>
+          ) : (
+            // Edit mode - show single platform as readonly
+            <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
+              {PLATFORM_OPTIONS.find(opt => opt.value === selectedPlatforms[0])?.label}
+            </div>
+          )}
+          {mode === 'create' && selectedPlatforms.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Selected: {selectedPlatforms.map(p => 
+                PLATFORM_OPTIONS.find(opt => opt.value === p)?.label
+              ).join(', ')}
+            </p>
+          )}
         </div>
 
         {/* Booking Field */}

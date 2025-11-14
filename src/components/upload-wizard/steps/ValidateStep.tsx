@@ -75,7 +75,9 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
     if (onValidationComplete) {
       onValidationComplete({
         fieldMappings,
-        isValid: isValidMappings,
+        results: {
+          isValid: isValidMappings
+        },
         csvData
       })
     }
@@ -234,7 +236,7 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
           <button
             onClick={onNext}
             disabled={!canGoNext || !isValidMappings}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Continue
           </button>

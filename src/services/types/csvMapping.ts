@@ -12,7 +12,7 @@ export interface CsvData {
   totalRows: number
 }
 
-export type Platform = 'ALL' | 'airbnbOfficial' | 'vrbo' | 'direct' | 'hostaway'
+export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets'
 
 export interface BookingField {
   field: string
@@ -58,10 +58,12 @@ export const ALL_BOOKING_FIELDS = [...REQUIRED_BOOKING_FIELDS, ...OPTIONAL_BOOKI
 // Predefined platform options
 export const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: 'ALL', label: 'All Platforms' },
-  { value: 'airbnbOfficial', label: 'Airbnb' },
-  { value: 'vrbo', label: 'VRBO' },
+  { value: 'airbnb', label: 'Airbnb' },
+  { value: 'booking', label: 'Booking.com' },
+  { value: 'google', label: 'Google Travel' },
   { value: 'direct', label: 'Direct Booking' },
-  { value: 'hostaway', label: 'Hostaway' }
+  { value: 'wechalet', label: 'WeChalet' },
+  { value: 'monsieurchalets', label: 'Monsieur Chalets' }
 ]
 
 

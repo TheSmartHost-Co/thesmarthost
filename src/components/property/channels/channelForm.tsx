@@ -25,7 +25,7 @@ interface ChannelFormProps {
 const getChannelIcon = (channelName: string): React.ReactNode => {
   switch (channelName) {
     case 'airbnb':
-      return <FontAwesomeIcon icon={faAirbnb} className="w-4 h-4" />
+      return <FontAwesomeIcon icon={faAirbnb} className="w-4 h-4" color="red"/>
     case 'vrbo':
       return <GlobeAltIcon className="w-4 h-4" />
     case 'booking_com':

@@ -19,7 +19,7 @@ const getChannelIcon = (channelName: string): React.ReactNode => {
 
   switch (name) {
     case 'airbnb':
-      return <FontAwesomeIcon icon={faAirbnb} className="w-5 h-5" />
+      return <FontAwesomeIcon icon={faAirbnb} className="w-5 h-5" color="red" />
     case 'vrbo':
       return <GlobeAltIcon className="w-5 h-5" />
     case 'booking_com':
