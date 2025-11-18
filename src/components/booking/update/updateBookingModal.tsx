@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Modal from '../../shared/modal'
 import { updateBooking, formatPlatformName } from '@/services/bookingService'
 import { getProperties } from '@/services/propertyService'
@@ -110,33 +110,6 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
     fetchProperties()
   }, [isOpen, profile?.id])
 
-  // Auto-calculate check-out date when check-in date or number of nights changes
-  useEffect(() => {
-    if (checkInDate && numNights) {
-      const checkIn = new Date(checkInDate)
-      const nights = parseInt(numNights)
-      
-      if (!isNaN(nights) && nights > 0) {
-        const checkOut = new Date(checkIn)
-        checkOut.setDate(checkOut.getDate() + nights)
-        setCheckOutDate(checkOut.toISOString().split('T')[0])
-      }
-    }
-  }, [checkInDate, numNights])
-
-  // Auto-calculate number of nights when check-in or check-out dates change
-  useEffect(() => {
-    if (checkInDate && checkOutDate) {
-      const checkIn = new Date(checkInDate)
-      const checkOut = new Date(checkOutDate)
-      
-      if (checkOut > checkIn) {
-        const diffTime = checkOut.getTime() - checkIn.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        setNumNights(diffDays.toString())
-      }
-    }
-  }, [checkInDate, checkOutDate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -341,15 +314,15 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
               />
             </div>
 
-            {/* Check-out Date (Auto-calculated) */}
+            {/* Check-out Date (Optional - calculated if not provided) */}
             <div>
-              <label className="block text-sm font-medium mb-1">Check-out Date (Auto-calculated)</label>
+              <label className="block text-sm font-medium mb-1">Check-out Date (Optional)</label>
               <input
                 type="date"
                 value={checkOutDate}
                 onChange={(e) => setCheckOutDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Will be calculated from check-in date + nights if not provided"
               />
             </div>
           </div>

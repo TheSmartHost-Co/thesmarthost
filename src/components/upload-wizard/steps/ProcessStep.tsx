@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon, DocumentCheckIcon } from '@heroicons/react/24/outline'
 import { uploadCsvFile } from '@/services/csvUploadService'
 import { createMultipleBookings } from '@/services/bookingService'
@@ -44,25 +44,16 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const [csvUploadId, setCsvUploadId] = useState<string | null>(null)
   const [importStats, setImportStats] = useState<any>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const hasStartedProcessing = useRef(false)
 
   const { profile } = useUserStore()
 
   useEffect(() => {
-    // Debug wizard state data
-    console.log('ProcessStep useEffect triggered with:', {
-      previewState: previewState ? 'exists' : 'missing',
-      selectedProperty: selectedProperty ? `${selectedProperty.listingName} (${selectedProperty.id})` : 'missing',
-      uploadedFile: uploadedFile ? `${uploadedFile.name} (${uploadedFile.size} bytes)` : 'missing',
-      uploadedFileStructure: uploadedFile,
-      profileId: profile?.id,
-      isProcessing
-    })
-
-    if (!previewState || !selectedProperty || !uploadedFile || !profile?.id || isProcessing) return
+    if (!previewState || !selectedProperty || !uploadedFile?.file || !profile?.id || hasStartedProcessing.current) return
     
-    // Start the processing immediately when component mounts
+    hasStartedProcessing.current = true
     startProcessing()
-  }, [previewState, selectedProperty, uploadedFile, profile, isProcessing])
+  }, [previewState, selectedProperty, uploadedFile, profile])
 
   const updateProgress = (status: ProcessingStatus, progress: number, task: string, completed?: string) => {
     setCurrentStatus(status)
@@ -82,8 +73,6 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   }
 
   const startProcessing = async () => {
-    if (isProcessing) return
-    
     setIsProcessing(true)
     try {
       // Step 1: Upload CSV file and create record (10%)
@@ -97,13 +86,6 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         throw new Error('No file uploaded. Please go back and upload a CSV file.')
       }
 
-      // Log file details for debugging
-      console.log('Uploading file:', {
-        name: uploadedFile.file.name,
-        size: uploadedFile.file.size,
-        type: uploadedFile.file.type,
-        lastModified: uploadedFile.file.lastModified
-      })
 
       const csvUploadResult = await uploadCsvFile({
         file: uploadedFile.file,

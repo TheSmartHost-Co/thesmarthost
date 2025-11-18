@@ -173,7 +173,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           {summaryItems.length > 0 && (
             <div>
               <h4 className="text-md font-medium text-gray-700 mb-3">Summary</h4>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+              <div className="text-black bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                 {summaryItems.map((item) => (
                   <div 
                     key={item.label} 

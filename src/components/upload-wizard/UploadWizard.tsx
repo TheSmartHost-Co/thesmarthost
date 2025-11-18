@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useReducer, useCallback } from 'react'
+import React, { useReducer, useCallback, useRef } from 'react'
 import { 
   WizardStep, 
   WizardState, 
@@ -104,7 +104,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     case WizardActionType.SET_UPLOADED_FILE:
       return {
         ...state,
-        uploadedFile: action.payload,
+        uploadedFile: action.payload, // Only metadata for navigation state
         canGoNext: state.selectedProperty && action.payload ? true : false,
       }
 
@@ -148,6 +148,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 
 const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => {
   const [state, dispatch] = useReducer(wizardReducer, initialState)
+  const uploadedFileRef = useRef<any>(null)
 
   // Navigation handlers
   const handleNext = useCallback(() => {
@@ -175,7 +176,8 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }, [])
 
   const handleFileUploaded = useCallback((uploadedFile: any) => {
-    dispatch({ type: WizardActionType.SET_UPLOADED_FILE, payload: uploadedFile })
+    uploadedFileRef.current = uploadedFile
+    dispatch({ type: WizardActionType.SET_UPLOADED_FILE, payload: { name: uploadedFile.name, size: uploadedFile.size } })
   }, [])
 
   const handlePreviewComplete = useCallback((previewState: any) => {
@@ -221,7 +223,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
           <UploadStep
             {...commonProps}
             onFileUploaded={handleFileUploaded}
-            uploadedFile={state.uploadedFile}
+            uploadedFile={uploadedFileRef.current}
             selectedProperty={state.selectedProperty}
             onPropertySelected={handlePropertySelected}
           />
@@ -231,7 +233,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
         return (
           <ValidateStep
             {...commonProps}
-            uploadedFile={state.uploadedFile}
+            uploadedFile={uploadedFileRef.current}
             validationState={state.validationState}
             onValidationComplete={handleValidationComplete}
             selectedProperty={state.selectedProperty}
@@ -242,7 +244,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
         return (
           <PreviewStep
             {...commonProps}
-            uploadedFile={state.uploadedFile!}
+            uploadedFile={uploadedFileRef.current!}
             previewState={state.previewState}
             validationState={state.validationState}
             selectedProperty={state.selectedProperty}
@@ -257,7 +259,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             validationState={state.validationState!}
             previewState={state.previewState}
             selectedProperty={state.selectedProperty}
-            uploadedFile={state.uploadedFile}
+            uploadedFile={uploadedFileRef.current}
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}
             onProcessingComplete={handleWizardComplete}

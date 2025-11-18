@@ -252,7 +252,7 @@ export function calculateBookingStats(bookings: Booking[]): BookingStats {
   const platforms = new Set(bookings.map(b => b.platform))
   const properties = new Set(bookings.map(b => b.propertyId))
   
-  const totalNights = bookings.reduce((sum, b) => sum + b.numNights, 0)
+  const totalNights = bookings.reduce((sum, b) => sum + Number(b.numNights), 0)
   const totalPayoutSum = bookings.reduce((sum, b) => sum + (b.totalPayout || 0), 0)
   const totalNetEarnings = bookings.reduce((sum, b) => sum + (b.netEarnings || 0), 0)
   

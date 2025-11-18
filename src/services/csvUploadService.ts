@@ -46,46 +46,30 @@ export async function uploadCsvFile(
     throw new Error('File must be a CSV file')
   }
 
-  console.log('Creating FormData with:', {
-    fileName: data.file.name,
-    fileSize: data.file.size,
-    fileType: data.file.type,
-    userId: data.user_id,
-    propertyId: data.property_id
-  })
+  // Create a fresh File object to avoid any corruption from React state management
+  const fileContent = await data.file.text()
+  const freshFile = new File([fileContent], data.file.name, { type: 'text/csv' })
 
   // Create FormData for file upload
   const formData = new FormData()
-  formData.append('csvFile', data.file, data.file.name)
+  formData.append('csvFile', freshFile)
   formData.append('user_id', data.user_id)
   formData.append('property_id', data.property_id)
 
-  // Log FormData contents for debugging
-  console.log('FormData entries:')
-  for (let [key, value] of formData.entries()) {
-    console.log(`${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value)
-  }
-
   try {
-    // Use fetch directly for FormData (apiClient might not handle it correctly)
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/csv-uploads`, {
       method: 'POST',
       body: formData,
     })
 
-    console.log('Upload response status:', response.status)
-
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Upload error response:', errorText)
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
     }
 
     const result = await response.json()
-    console.log('Upload success:', result)
     return result
   } catch (error) {
-    console.error('Upload failed:', error)
     throw error
   }
 }

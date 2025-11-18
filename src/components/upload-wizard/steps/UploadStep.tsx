@@ -122,7 +122,16 @@ const UploadStep: React.FC<UploadStepProps> = ({
     setTimeout(() => {
       setIsUploading(false)
       if (onFileUploaded) {
-        onFileUploaded(file)
+        // Create proper UploadedFile structure according to wizard types
+        const uploadedFile = {
+          file,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          detectedFormat: 'CSV' as const,
+          uploadedAt: new Date()
+        }
+        onFileUploaded(uploadedFile)
       }
     }, 1500)
   }

@@ -56,7 +56,9 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
 
       try {
         setLoading(true)
-        const data = await parseCsvFile(uploadedFile)
+        // Extract the actual File object from the UploadedFile structure
+        const fileToProcess = uploadedFile.file || uploadedFile
+        const data = await parseCsvFile(fileToProcess)
         setCsvData(data)
         setError(null)
       } catch (err) {
