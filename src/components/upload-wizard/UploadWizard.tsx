@@ -255,6 +255,9 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
           <ProcessStep
             {...commonProps}
             validationState={state.validationState!}
+            previewState={state.previewState}
+            selectedProperty={state.selectedProperty}
+            uploadedFile={state.uploadedFile}
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}
             onProcessingComplete={handleWizardComplete}
