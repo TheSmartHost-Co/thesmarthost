@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** November 4, 2025
+**Last Updated:** November 11, 2025
 
 ---
 
@@ -423,6 +423,13 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 - Create/Update/Delete/Preview modals
 - Owner management (add/remove co-owners)
 - Commission rate override per owner
+- **Channels Management (NEW):**
+  - Add/Edit/Delete channels for each property
+  - Support for multiple distribution channels (Airbnb, VRBO, Booking.com, Google, Direct, Expedia)
+  - Channel icons and display names
+  - Active/Inactive status toggle
+  - Immediate save (no batch operations)
+  - Real-time table updates
 
 **Layout & Navigation:**
 - Route groups architecture

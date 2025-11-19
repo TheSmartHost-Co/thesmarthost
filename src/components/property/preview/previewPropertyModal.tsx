@@ -4,10 +4,9 @@ import React from 'react'
 import Modal from '../../shared/modal'
 import { Property } from '@/services/types/property'
 import { hasCommissionOverride, getEffectiveCommissionRate } from '@/services/propertyService'
-import { HomeIcon, UserPlusIcon, PencilIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { HomeIcon, UserPlusIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAirbnb, faGoogle } from '@fortawesome/free-brands-svg-icons'
+import { getChannelIcon, getChannelDisplayName } from '@/services/channelUtils'
 
 interface PreviewPropertyModalProps {
   isOpen: boolean
@@ -22,42 +21,6 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   property,
   onEditProperty,
 }) => {
-  // Get icon for channel type
-  const getChannelIcon = (channelName: string): React.ReactNode => {
-    const name = channelName.toLowerCase()
-
-    switch (name) {
-      case 'airbnb':
-        return <FontAwesomeIcon icon={faAirbnb} className="w-5 h-5" color="red" />
-      case 'vrbo':
-        return <GlobeAltIcon className="w-5 h-5" />
-      case 'booking_com':
-        return <GlobeAltIcon className="w-5 h-5" />
-      case 'google':
-        return <FontAwesomeIcon icon={faGoogle} className="w-5 h-5" />
-      case 'direct':
-        return <HomeIcon className="w-5 h-5" />
-      case 'expedia':
-        return <GlobeAltIcon className="w-5 h-5" />
-      default:
-        return <GlobeAltIcon className="w-5 h-5" />
-    }
-  }
-
-  // Get display name for channel
-  const getChannelDisplayName = (channelName: string): string => {
-    const name = channelName.toLowerCase()
-    const displayNames: Record<string, string> = {
-      airbnb: 'Airbnb',
-      vrbo: 'VRBO',
-      booking_com: 'Booking.com',
-      google: 'Google',
-      direct: 'Direct',
-      expedia: 'Expedia',
-    }
-    return displayNames[name] || channelName
-  }
-
   const getTypeBadge = (type: 'STR' | 'LTR') => {
     if (type === 'STR') {
       return (
