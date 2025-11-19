@@ -12,7 +12,7 @@ export interface CsvData {
   totalRows: number
 }
 
-export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets'
+export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'direct-etransfer' | 'vrbo' | 'hostaway'
 
 export interface BookingField {
   field: string
@@ -63,7 +63,10 @@ export const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: 'google', label: 'Google Travel' },
   { value: 'direct', label: 'Direct Booking' },
   { value: 'wechalet', label: 'WeChalet' },
-  { value: 'monsieurchalets', label: 'Monsieur Chalets' }
+  { value: 'monsieurchalets', label: 'Monsieur Chalets' },
+  { value: 'direct-etransfer', label: 'Direct E-Transfer' },
+  { value: 'vrbo', label: 'VRBO' },
+  { value: 'hostaway', label: 'Hostaway' }
 ]
 
 

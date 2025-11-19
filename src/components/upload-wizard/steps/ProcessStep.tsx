@@ -56,6 +56,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   }, [previewState, selectedProperty, uploadedFile, profile])
 
   const updateProgress = (status: ProcessingStatus, progress: number, task: string, completed?: string) => {
+    console.log('ProcessStep updateProgress called with:', { status, progress, task, completed })
     setCurrentStatus(status)
     setProgress(progress)
     setCurrentTask(task)
@@ -64,12 +65,15 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       setCompletedTasks(prev => [...prev, completed])
     }
 
-    onProcessingUpdate?.({
+    const updatePayload = {
       status,
       progress,
       currentTask: task,
       completedTasks: completed ? [...completedTasks, completed] : completedTasks
-    })
+    }
+    
+    console.log('ProcessStep sending update payload:', updatePayload)
+    onProcessingUpdate?.(updatePayload)
   }
 
   const startProcessing = async () => {
@@ -144,6 +148,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         automatedActions: ['Bookings imported', 'Statistics updated']
       })
 
+      // Don't auto-navigate, let user click "View Results" button
+
     } catch (err) {
       console.error('Processing error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
@@ -169,7 +175,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         reservation_code: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
         guest_name: preview.guest_name || preview.guestName || 'Unknown Guest',
         check_in_date: formatDate(preview.check_in_date || preview.checkInDate),
-        check_out_date: formatDate(preview.check_out_date || preview.checkOutDate),
+        check_out_date: (preview.check_out_date || preview.checkOutDate) ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
         num_nights: parseInt(preview.num_nights || preview.nights) || 1,
         platform: mapPlatformName(preview.platform || 'direct'),
         listing_name: preview.listing_name || preview.propertyName,

@@ -72,6 +72,37 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
     loadCsvData()
   }, [uploadedFile])
 
+  // Load calculation rules for the selected property
+  const loadCalculationRules = async () => {
+    if (!selectedProperty?.id) {
+      return
+    }
+
+    try {
+      setLoadingRules(true)
+      const response = await getCalculationRules(selectedProperty.id)
+      if (response.status === 'success') {
+        setCalculationRules(response.data)
+        if (response.data.length > 0) {
+          showNotification(`Auto-loaded ${response.data.length} existing field mappings`, 'success')
+        }
+      } else {
+        console.warn('No calculation rules found or failed to load:', response.message)
+      }
+    } catch (error) {
+      console.error('Error loading calculation rules:', error)
+    } finally {
+      setLoadingRules(false)
+    }
+  }
+
+  // Auto-load calculation rules when property is selected
+  useEffect(() => {
+    if (selectedProperty?.id) {
+      loadCalculationRules()
+    }
+  }, [selectedProperty?.id])
+
   // Update validation state when mappings change
   useEffect(() => {
     if (onValidationComplete) {
@@ -91,30 +122,6 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
 
   const handleValidationChange = (isValid: boolean) => {
     setIsValidMappings(isValid)
-  }
-
-  // Load calculation rules for the selected property
-  const loadCalculationRules = async () => {
-    if (!selectedProperty?.id) {
-      showNotification('No property selected', 'error')
-      return
-    }
-
-    try {
-      setLoadingRules(true)
-      const response = await getCalculationRules(selectedProperty.id)
-      if (response.status === 'success') {
-        setCalculationRules(response.data)
-        showNotification(`Loaded ${response.data.length} existing field mappings`, 'success')
-      } else {
-        showNotification(response.message || 'Failed to load calculation rules', 'error')
-      }
-    } catch (error) {
-      console.error('Error loading calculation rules:', error)
-      showNotification('Error loading calculation rules', 'error')
-    } finally {
-      setLoadingRules(false)
-    }
   }
 
   if (loading) {
@@ -189,17 +196,13 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         </div>
       </div>
 
-      {/* Load Previous Configuration */}
-      {selectedProperty && (
+      {/* Auto-loading indicator */}
+      {selectedProperty && loadingRules && (
         <div className="flex justify-center">
-          <button
-            onClick={loadCalculationRules}
-            disabled={loadingRules}
-            className="cursor-pointer flex items-center px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowPathIcon className={`h-4 w-4 mr-2 ${loadingRules ? 'animate-spin' : ''}`} />
-            {loadingRules ? 'Loading...' : 'Load Previous Configuration'}
-          </button>
+          <div className="flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg">
+            <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+            Loading previous field mappings...
+          </div>
         </div>
       )}
 

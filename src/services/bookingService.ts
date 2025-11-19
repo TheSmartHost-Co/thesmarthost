@@ -348,12 +348,16 @@ export function formatCurrency(amount: number | null | undefined, currency = 'CA
  */
 export function formatPlatformName(platform: Platform): string {
   const platformNames: Record<Platform, string> = {
+    ALL: 'All Platforms',
     airbnb: 'Airbnb',
     booking: 'Booking.com',
     google: 'Google Travel',
     direct: 'Direct Booking',
     wechalet: 'We Chalet',
-    monsieurchalets: 'Monsieur Chalets'
+    monsieurchalets: 'Monsieur Chalets',
+    'direct-etransfer': 'Direct E-Transfer',
+    vrbo: 'VRBO',
+    hostaway: 'Hostaway'
   }
   
   return platformNames[platform] || platform

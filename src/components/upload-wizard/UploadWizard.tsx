@@ -73,11 +73,18 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       }
 
     case WizardActionType.NEXT_STEP:
+      // Only allow next step if canGoNext is true
+      if (!state.canGoNext) {
+        console.log('NEXT_STEP blocked: canGoNext is false')
+        return state
+      }
+      
       const nextStep = Math.min(state.currentStep + 1, WizardStep.COMPLETE) as WizardStep
       const newCompletedSteps = state.completedSteps.includes(state.currentStep)
         ? state.completedSteps
         : [...state.completedSteps, state.currentStep]
       
+      console.log('NEXT_STEP: transitioning from', state.currentStep, 'to', nextStep)
       return {
         ...state,
         currentStep: nextStep,
@@ -99,6 +106,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         selectedProperty: action.payload,
+        canGoNext: state.uploadedFile && action.payload ? true : false,
       }
 
     case WizardActionType.SET_UPLOADED_FILE:
@@ -123,18 +131,30 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       }
 
     case WizardActionType.SET_PROCESSING_STATE:
+      const statusValue = action.payload?.status
+      const isCompleteStatus = statusValue === 'complete'
+      console.log('Wizard reducer SET_PROCESSING_STATE:', {
+        statusValue,
+        statusType: typeof statusValue,
+        isCompleteStatus,
+        stringComparison: `"${statusValue}" === "complete"`,
+        currentCanGoNext: state.canGoNext
+      })
+      const newCanGoNext = isCompleteStatus
+      console.log('Setting canGoNext to:', newCanGoNext)
       return {
         ...state,
         processingState: action.payload,
-        canGoNext: action.payload?.status === 'complete',
+        canGoNext: newCanGoNext,
         canGoBack: false, // Can't go back during processing
       }
 
     case WizardActionType.SET_COMPLETION_STATE:
+      console.log('SET_COMPLETION_STATE: not changing canGoNext, keeping it as:', state.canGoNext)
       return {
         ...state,
         completionState: action.payload,
-        canGoNext: false,
+        // Don't change canGoNext here - let SET_PROCESSING_STATE control it
         canGoBack: false,
       }
 
@@ -152,10 +172,9 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
 
   // Navigation handlers
   const handleNext = useCallback(() => {
-    if (state.canGoNext) {
-      dispatch({ type: WizardActionType.NEXT_STEP })
-    }
-  }, [state.canGoNext])
+    console.log('handleNext called')
+    dispatch({ type: WizardActionType.NEXT_STEP })
+  }, [])
 
   const handleBack = useCallback(() => {
     if (state.canGoBack) {
@@ -177,7 +196,14 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
 
   const handleFileUploaded = useCallback((uploadedFile: any) => {
     uploadedFileRef.current = uploadedFile
-    dispatch({ type: WizardActionType.SET_UPLOADED_FILE, payload: { name: uploadedFile.name, size: uploadedFile.size } })
+    const uploadedFileState = {
+      file: uploadedFile.file,
+      name: uploadedFile.name,
+      size: uploadedFile.size,
+      type: uploadedFile.file?.type || 'text/csv',
+      uploadedAt: new Date()
+    }
+    dispatch({ type: WizardActionType.SET_UPLOADED_FILE, payload: uploadedFileState })
   }, [])
 
   const handlePreviewComplete = useCallback((previewState: any) => {
@@ -189,11 +215,17 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }, [])
 
   const handleProcessingUpdate = useCallback((processingState: any) => {
+    console.log('UploadWizard handleProcessingUpdate called with STATUS:', processingState?.status, 'FULL PAYLOAD:', processingState)
     dispatch({ type: WizardActionType.SET_PROCESSING_STATE, payload: processingState })
   }, [])
 
-  const handleWizardComplete = useCallback((completionState: any) => {
+  const handleProcessingComplete = useCallback((completionState: any) => {
     dispatch({ type: WizardActionType.SET_COMPLETION_STATE, payload: completionState })
+    // Don't automatically call onComplete - let user choose from CompleteStep
+  }, [])
+
+  const handleWizardComplete = useCallback(() => {
+    // This is called when user explicitly chooses to finish from CompleteStep
     onComplete?.()
   }, [onComplete])
 
@@ -262,7 +294,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={uploadedFileRef.current}
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}
-            onProcessingComplete={handleWizardComplete}
+            onProcessingComplete={handleProcessingComplete}
           />
         )
 
@@ -272,6 +304,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             {...commonProps}
             completionState={state.completionState!}
             onReset={handleReset}
+            onComplete={handleWizardComplete}
           />
         )
 

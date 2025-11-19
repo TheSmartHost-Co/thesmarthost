@@ -62,6 +62,9 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
     { value: 'direct', label: 'Direct Booking' },
     { value: 'wechalet', label: 'We Chalet' },
     { value: 'monsieurchalets', label: 'Monsieur Chalets' },
+    { value: 'direct-etransfer', label: 'Direct E-Transfer' },
+    { value: 'vrbo', label: 'VRBO' },
+    { value: 'hostaway', label: 'Hostaway' },
   ]
 
   // Fetch properties when modal opens

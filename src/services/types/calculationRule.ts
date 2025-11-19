@@ -3,7 +3,7 @@
 /**
  * Platform enum matching backend
  */
-export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets';
+export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'direct-etransfer' | 'vrbo' | 'hostaway';
 
 /**
  * Main Calculation Rule interface

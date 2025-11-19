@@ -130,7 +130,10 @@ export default function BookingsPage() {
     'Google Travel',
     'Direct Booking',
     'We Chalet',
-    'Monsieur Chalets'
+    'Monsieur Chalets',
+    'Direct E-Transfer',
+    'VRBO',
+    'Hostaway'
   ]
 
   const formatDate = (dateString: string) => {

@@ -32,9 +32,14 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
     'ALL': {},
-    'airbnbOfficial': {},
-    'vrbo': {},
+    'airbnb': {},
+    'booking': {},
+    'google': {},
     'direct': {},
+    'wechalet': {},
+    'monsieurchalets': {},
+    'direct-etransfer': {},
+    'vrbo': {},
     'hostaway': {}
   })
   const [hasBaseMappings, setHasBaseMappings] = useState(false)
@@ -138,24 +143,27 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return
     }
 
-    const newPlatformMappings: Record<Platform, Record<string, string>> = {
-      'ALL': {},
-      'airbnbOfficial': {},
-      'vrbo': {},
-      'direct': {},
-      'hostaway': {}
-    }
+    // Merge calculation rules with existing mappings (preserve algorithmic suggestions)
+    setPlatformMappings(prev => {
+      const updatedMappings = { ...prev }
+      
+      // Group rules by platform and merge with existing mappings
+      calculationRules.forEach(rule => {
+        const platform = rule.platform as Platform
+        if (platform in updatedMappings) {
+          // Only override if the field isn't already mapped or if it's empty
+          const existingValue = updatedMappings[platform][rule.bookingField]
+          if (!existingValue || existingValue.trim() === '') {
+            updatedMappings[platform] = {
+              ...updatedMappings[platform],
+              [rule.bookingField]: rule.csvFormula
+            }
+          }
+        }
+      })
 
-    // Group rules by platform
-    calculationRules.forEach(rule => {
-      const platform = rule.platform as Platform
-      if (platform in newPlatformMappings) {
-        newPlatformMappings[platform][rule.bookingField] = rule.csvFormula
-      }
+      return updatedMappings
     })
-
-    // Set the mappings
-    setPlatformMappings(newPlatformMappings)
 
     // Set input modes for formula fields
     const newFieldInputModes: Record<string, 'dropdown' | 'formula'> = {}
