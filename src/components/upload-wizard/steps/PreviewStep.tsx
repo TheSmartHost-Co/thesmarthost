@@ -86,6 +86,46 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     loadPreviewData()
   }, [uploadedFile, validationState])
 
+  // Formula evaluator function
+  const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[]): number | string => {
+    try {
+      // Check if it's a simple column reference first
+      const simpleColumnIndex = csvHeaders.findIndex(h => h.name === formula)
+      if (simpleColumnIndex !== -1) {
+        const value = csvRow[simpleColumnIndex]
+        const numValue = parseFloat(value)
+        return isNaN(numValue) ? value : numValue
+      }
+
+      // For complex formulas, replace column names with values
+      let expression = formula
+      csvHeaders.forEach((header, index) => {
+        const columnName = header.name
+        const columnValue = csvRow[index] || '0'
+        const numValue = parseFloat(columnValue)
+        const valueToUse = isNaN(numValue) ? '0' : numValue.toString()
+        
+        // Replace column name with value (use word boundaries to avoid partial matches)
+        const regex = new RegExp(`\\b${columnName}\\b`, 'g')
+        expression = expression.replace(regex, valueToUse)
+      })
+
+      // Evaluate the mathematical expression safely
+      // Only allow numbers, operators, parentheses, and decimal points
+      if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
+        console.warn(`Invalid formula expression: ${expression}`)
+        return formula // Return original formula if invalid
+      }
+
+      // Use Function constructor for safe evaluation
+      const result = new Function(`return ${expression}`)()
+      return isNaN(result) ? 0 : parseFloat(result.toFixed(2))
+    } catch (error) {
+      console.error(`Formula evaluation error for "${formula}":`, error)
+      return formula // Return original formula if evaluation fails
+    }
+  }
+
   const generateBookingPreviews = (csvData: CsvData, fieldMappings: any[]): BookingPreview[] => {
     const previews: BookingPreview[] = []
     
@@ -101,14 +141,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       // Apply field mappings to create booking object
       fieldMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
-          // Find the CSV column index by name
-          const csvColumnIndex = csvData.headers.findIndex(h => h.name === mapping.csvFormula)
-          if (csvColumnIndex !== -1 && row[csvColumnIndex]) {
-            booking[mapping.bookingField] = row[csvColumnIndex]
-          } else {
-            // Handle formulas later - for now just use the formula as is
-            booking[mapping.bookingField] = mapping.csvFormula
-          }
+          // Evaluate the formula (handles both simple mappings and complex calculations)
+          const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
+          booking[mapping.bookingField] = result
         }
       })
       

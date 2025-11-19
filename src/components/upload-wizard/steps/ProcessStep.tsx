@@ -169,30 +169,30 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
     return bookingPreviews.map((preview, index) => {
       // Convert preview booking to CreateBookingPayload format
       const payload: CreateBookingPayload = {
-        user_id: profile!.id,
-        property_id: propertyId,
-        csv_upload_id: csvUploadId,
-        reservation_code: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
-        guest_name: preview.guest_name || preview.guestName || 'Unknown Guest',
-        check_in_date: formatDate(preview.check_in_date || preview.checkInDate),
-        check_out_date: (preview.check_out_date || preview.checkOutDate) ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
-        num_nights: parseInt(preview.num_nights || preview.nights) || 1,
+        userId: profile!.id,
+        propertyId: propertyId,
+        csvUploadId: csvUploadId,
+        reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
+        guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
+        checkInDate: formatDate(preview.check_in_date || preview.checkInDate),
+        checkOutDate: (preview.check_out_date || preview.checkOutDate) ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
+        numNights: parseInt(preview.num_nights || preview.nights) || 1,
         platform: mapPlatformName(preview.platform || 'direct'),
-        listing_name: preview.listing_name || preview.propertyName,
+        listingName: preview.listing_name || preview.propertyName,
         // Financial fields
-        nightly_rate: parseFloat(preview.nightly_rate || preview.nightlyRate) || undefined,
-        extra_guest_fees: parseFloat(preview.extra_guest_fees || preview.extraGuestFees) || undefined,
-        cleaning_fee: parseFloat(preview.cleaning_fee || preview.cleaningFee) || undefined,
-        lodging_tax: parseFloat(preview.lodging_tax || preview.lodgingTax) || undefined,
-        bed_linen_fee: parseFloat(preview.bed_linen_fee || preview.bedLinenFee) || undefined,
+        nightlyRate: parseFloat(preview.nightly_rate || preview.nightlyRate) || undefined,
+        extraGuestFees: parseFloat(preview.extra_guest_fees || preview.extraGuestFees) || undefined,
+        cleaningFee: parseFloat(preview.cleaning_fee || preview.cleaningFee) || undefined,
+        lodgingTax: parseFloat(preview.lodging_tax || preview.lodgingTax) || undefined,
+        bedLinenFee: parseFloat(preview.bed_linen_fee || preview.bedLinenFee) || undefined,
         gst: parseFloat(preview.gst) || undefined,
         qst: parseFloat(preview.qst) || undefined,
-        channel_fee: parseFloat(preview.channel_fee || preview.channelFee) || undefined,
-        stripe_fee: parseFloat(preview.stripe_fee || preview.stripeFee) || undefined,
-        sales_tax: parseFloat(preview.sales_tax || preview.salesTax) || undefined,
-        total_payout: parseFloat(preview.total_payout || preview.totalAmount || preview.totalPayout) || undefined,
-        mgmt_fee: parseFloat(preview.mgmt_fee || preview.mgmtFee) || undefined,
-        net_earnings: parseFloat(preview.net_earnings || preview.netAmount || preview.netEarnings) || undefined,
+        channelFee: parseFloat(preview.channel_fee || preview.channelFee) || undefined,
+        stripeFee: parseFloat(preview.stripe_fee || preview.stripeFee) || undefined,
+        salesTax: parseFloat(preview.sales_tax || preview.salesTax) || undefined,
+        totalPayout: parseFloat(preview.total_payout || preview.totalAmount || preview.totalPayout) || undefined,
+        mgmtFee: parseFloat(preview.mgmt_fee || preview.mgmtFee) || undefined,
+        netEarnings: parseFloat(preview.net_earnings || preview.netAmount || preview.netEarnings) || undefined,
       }
 
       return payload
@@ -225,7 +225,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const generateImportStats = (bookingPayloads: CreateBookingPayload[], bulkResult: any) => {
     const totalBookings = bookingPayloads.length
     const totalRevenue = bookingPayloads.reduce((sum, booking) => 
-      sum + (booking.total_payout || 0), 0)
+      sum + (booking.totalPayout || 0), 0)
     
     const platformBreakdown = bookingPayloads.reduce((acc, booking) => {
       acc[booking.platform] = (acc[booking.platform] || 0) + 1
@@ -233,7 +233,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
     }, {} as Record<string, number>)
 
     const dates = bookingPayloads
-      .map(b => b.check_in_date)
+      .map(b => b.checkInDate)
       .filter(date => date)
       .sort()
 

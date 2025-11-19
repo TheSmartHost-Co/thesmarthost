@@ -31,7 +31,7 @@ export default function BookingsPage() {
 
       try {
         setLoading(true)
-        const response = await getBookings({ user_id: profile.id })
+        const response = await getBookings({ userId: profile.id })
         if (response.status === 'success') {
           setBookings(response.data)
         } else {

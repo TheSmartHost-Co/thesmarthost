@@ -44,57 +44,57 @@ export interface Booking {
  * Payload for creating a single booking
  */
 export interface CreateBookingPayload {
-  user_id: string
-  property_id: string
-  csv_upload_id?: string
-  reservation_code: string
-  guest_name: string
-  check_in_date: string
-  check_out_date?: string
-  num_nights: number
+  userId: string
+  propertyId: string
+  csvUploadId?: string
+  reservationCode: string
+  guestName: string
+  checkInDate: string
+  checkOutDate?: string
+  numNights: number
   platform: Platform
-  listing_name?: string
-  nightly_rate?: number
-  extra_guest_fees?: number
-  cleaning_fee?: number
-  lodging_tax?: number
-  bed_linen_fee?: number
+  listingName?: string
+  nightlyRate?: number
+  extraGuestFees?: number
+  cleaningFee?: number
+  lodgingTax?: number
+  bedLinenFee?: number
   gst?: number
   qst?: number
-  channel_fee?: number
-  stripe_fee?: number
-  total_payout?: number
-  mgmt_fee?: number
-  net_earnings?: number
-  sales_tax?: number
+  channelFee?: number
+  stripeFee?: number
+  totalPayout?: number
+  mgmtFee?: number
+  netEarnings?: number
+  salesTax?: number
 }
 
 /**
  * Payload for updating a booking
  */
 export interface UpdateBookingPayload {
-  user_id: string
-  property_id: string
-  reservation_code: string
-  guest_name: string
-  check_in_date: string
-  check_out_date?: string
-  num_nights: number
+  userId: string
+  propertyId: string
+  reservationCode: string
+  guestName: string
+  checkInDate: string
+  checkOutDate?: string
+  numNights: number
   platform: Platform
-  listing_name?: string
-  nightly_rate?: number
-  extra_guest_fees?: number
-  cleaning_fee?: number
-  lodging_tax?: number
-  bed_linen_fee?: number
+  listingName?: string
+  nightlyRate?: number
+  extraGuestFees?: number
+  cleaningFee?: number
+  lodgingTax?: number
+  bedLinenFee?: number
   gst?: number
   qst?: number
-  channel_fee?: number
-  stripe_fee?: number
-  total_payout?: number
-  mgmt_fee?: number
-  net_earnings?: number
-  sales_tax?: number
+  channelFee?: number
+  stripeFee?: number
+  totalPayout?: number
+  mgmtFee?: number
+  netEarnings?: number
+  salesTax?: number
 }
 
 /**
@@ -254,8 +254,8 @@ export interface BulkDeleteBookingResponse {
  * Filter options for booking queries
  */
 export interface BookingFilters {
-  user_id: string
-  property_id?: string
-  csv_upload_id?: string
+  userId: string
+  propertyId?: string
+  csvUploadId?: string
   platform?: Platform
 }

@@ -29,13 +29,13 @@ export async function getBookings(
   filters: BookingFilters
 ): Promise<BookingsResponse> {
   const params = new URLSearchParams()
-  params.append('user_id', filters.user_id)
+  params.append('userId', filters.userId)
   
-  if (filters.property_id) {
-    params.append('property_id', filters.property_id)
+  if (filters.propertyId) {
+    params.append('propertyId', filters.propertyId)
   }
-  if (filters.csv_upload_id) {
-    params.append('csv_upload_id', filters.csv_upload_id)
+  if (filters.csvUploadId) {
+    params.append('csvUploadId', filters.csvUploadId)
   }
   if (filters.platform) {
     params.append('platform', filters.platform)
@@ -54,7 +54,7 @@ export async function getBookingById(
   id: string,
   userId: string
 ): Promise<BookingResponse> {
-  return apiClient<BookingResponse>(`/bookings/${id}?user_id=${userId}`)
+  return apiClient<BookingResponse>(`/bookings/${id}?userId=${userId}`)
 }
 
 /**
@@ -114,9 +114,9 @@ export async function deleteBooking(
   id: string,
   userId: string
 ): Promise<DeleteBookingResponse> {
-  return apiClient<DeleteBookingResponse, { user_id: string }>(`/bookings/${id}`, {
+  return apiClient<DeleteBookingResponse, { userId: string }>(`/bookings/${id}`, {
     method: 'DELETE',
-    body: { user_id: userId }
+    body: { userId: userId }
   })
 }
 
@@ -130,9 +130,9 @@ export async function deleteBookingsByCsvUpload(
   csvUploadId: string,
   userId: string
 ): Promise<BulkDeleteBookingResponse> {
-  return apiClient<BulkDeleteBookingResponse, { user_id: string }>(`/bookings/csv/${csvUploadId}`, {
+  return apiClient<BulkDeleteBookingResponse, { userId: string }>(`/bookings/csv/${csvUploadId}`, {
     method: 'DELETE',
-    body: { user_id: userId }
+    body: { userId: userId }
   })
 }
 
@@ -149,13 +149,13 @@ export async function getBookingStats(
   csvUploadId?: string
 ): Promise<BookingStatsResponse> {
   const params = new URLSearchParams()
-  params.append('user_id', userId)
+  params.append('userId', userId)
   
   if (propertyId) {
-    params.append('property_id', propertyId)
+    params.append('propertyId', propertyId)
   }
   if (csvUploadId) {
-    params.append('csv_upload_id', csvUploadId)
+    params.append('csvUploadId', csvUploadId)
   }
 
   return apiClient<BookingStatsResponse>(`/bookings/stats?${params.toString()}`)
@@ -174,13 +174,13 @@ export async function getBookingsByPlatform(
   csvUploadId?: string
 ): Promise<PlatformBreakdownResponse> {
   const params = new URLSearchParams()
-  params.append('user_id', userId)
+  params.append('userId', userId)
   
   if (propertyId) {
-    params.append('property_id', propertyId)
+    params.append('propertyId', propertyId)
   }
   if (csvUploadId) {
-    params.append('csv_upload_id', csvUploadId)
+    params.append('csvUploadId', csvUploadId)
   }
 
   return apiClient<PlatformBreakdownResponse>(`/bookings/platform-breakdown?${params.toString()}`)
@@ -199,10 +199,10 @@ export async function getMonthlyBookingSummary(
   year?: number
 ): Promise<MonthlyBookingSummaryResponse> {
   const params = new URLSearchParams()
-  params.append('user_id', userId)
+  params.append('userId', userId)
   
   if (propertyId) {
-    params.append('property_id', propertyId)
+    params.append('propertyId', propertyId)
   }
   if (year) {
     params.append('year', year.toString())
@@ -222,7 +222,7 @@ export async function searchBookings(
   query: string
 ): Promise<BookingSearchResponse> {
   const params = new URLSearchParams()
-  params.append('user_id', userId)
+  params.append('userId', userId)
   params.append('query', query)
 
   return apiClient<BookingSearchResponse>(`/bookings/search?${params.toString()}`)
