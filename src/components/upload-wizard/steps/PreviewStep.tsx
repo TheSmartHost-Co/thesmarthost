@@ -122,8 +122,16 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       // Check if it's a simple column reference first
       const simpleValue = valueMap.get(formula.toLowerCase())
       if (simpleValue !== undefined) {
-        const numValue = parseFloat(simpleValue)
         console.log('Simple column mapping:', formula, '→', simpleValue)
+        
+        // For date-related formulas, always return the original string value
+        const formulaLower = formula.toLowerCase()
+        if (formulaLower.includes('date') || formulaLower.includes('check-in') || formulaLower.includes('checkin')) {
+          return simpleValue
+        }
+        
+        // For non-date fields, try to parse as number
+        const numValue = parseFloat(simpleValue)
         return isNaN(numValue) ? simpleValue : numValue
       }
 
