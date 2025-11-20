@@ -124,6 +124,11 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
     setIsValidMappings(isValid)
   }
 
+  // Function to refresh calculation rules (to be passed to FieldMappingForm)
+  const refreshCalculationRules = async () => {
+    await loadCalculationRules()
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -213,6 +218,7 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         onValidationChange={handleValidationChange}
         calculationRules={calculationRules}
         selectedProperty={selectedProperty}
+        onRefreshRules={refreshCalculationRules}
       />
 
       {/* Action Buttons */}

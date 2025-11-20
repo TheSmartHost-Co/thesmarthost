@@ -86,40 +86,80 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     loadPreviewData()
   }, [uploadedFile, validationState])
 
+  // Helper function to escape special regex characters
+  const escapeRegExp = (string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
   // Formula evaluator function
   const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[]): number | string => {
     try {
+      console.log('=== Formula Evaluation Debug ===')
+      console.log('Formula:', formula)
+      console.log('CSV Headers:', csvHeaders.map(h => h.name))
+      console.log('CSV Row:', csvRow)
+      
+      // Create a lowercase mapping for all columns
+      const valueMap = new Map<string, string>()
+      csvHeaders.forEach((header, index) => {
+        const columnValue = csvRow[index] || '0'
+        
+        // Special handling for date fields - keep original text format
+        const headerLower = header.name.toLowerCase()
+        if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin')) {
+          valueMap.set(headerLower, columnValue)
+          console.log(`Mapped "${header.name}" (${headerLower}) → "${columnValue}" [raw: "${columnValue}"] (DATE)`)
+          return
+        }
+        
+        const numValue = parseFloat(columnValue)
+        // For numeric calculations, use numbers. For text, keep original text
+        const valueToUse = isNaN(numValue) ? columnValue : numValue.toString()
+        valueMap.set(headerLower, valueToUse)
+        console.log(`Mapped "${header.name}" (${headerLower}) → "${valueToUse}" [raw: "${columnValue}"]`)
+      })
+      
       // Check if it's a simple column reference first
-      const simpleColumnIndex = csvHeaders.findIndex(h => h.name === formula)
-      if (simpleColumnIndex !== -1) {
-        const value = csvRow[simpleColumnIndex]
-        const numValue = parseFloat(value)
-        return isNaN(numValue) ? value : numValue
+      const simpleValue = valueMap.get(formula.toLowerCase())
+      if (simpleValue !== undefined) {
+        const numValue = parseFloat(simpleValue)
+        console.log('Simple column mapping:', formula, '→', simpleValue)
+        return isNaN(numValue) ? simpleValue : numValue
       }
 
-      // For complex formulas, replace column names with values
-      let expression = formula
-      csvHeaders.forEach((header, index) => {
-        const columnName = header.name
-        const columnValue = csvRow[index] || '0'
-        const numValue = parseFloat(columnValue)
-        const valueToUse = isNaN(numValue) ? '0' : numValue.toString()
+      // For complex formulas, split by operators and replace each term
+      let expression = formula.toLowerCase() // Convert entire formula to lowercase
+      console.log('Starting expression (lowercase):', expression)
+      
+      // Replace each mapped column with its value
+      valueMap.forEach((value, key) => {
+        // Use word boundaries to avoid partial matches
+        const regex = new RegExp(`\\b${escapeRegExp(key)}\\b`, 'g')
+        const beforeReplace = expression
+        expression = expression.replace(regex, value)
         
-        // Replace column name with value (use word boundaries to avoid partial matches)
-        const regex = new RegExp(`\\b${columnName}\\b`, 'g')
-        expression = expression.replace(regex, valueToUse)
+        if (expression !== beforeReplace) {
+          console.log(`  Replaced "${key}" with "${value}"`)
+          console.log(`  Expression: ${beforeReplace} → ${expression}`)
+        }
       })
 
+      console.log('Final expression:', expression)
+
       // Evaluate the mathematical expression safely
-      // Only allow numbers, operators, parentheses, and decimal points
       if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
         console.warn(`Invalid formula expression: ${expression}`)
+        console.warn('Expression contains non-numeric/operator characters')
         return formula // Return original formula if invalid
       }
 
       // Use Function constructor for safe evaluation
       const result = new Function(`return ${expression}`)()
-      return isNaN(result) ? 0 : parseFloat(result.toFixed(2))
+      const finalResult = isNaN(result) ? 0 : parseFloat(result.toFixed(2))
+      console.log('Final result:', finalResult)
+      console.log('=== End Debug ===')
+      
+      return finalResult
     } catch (error) {
       console.error(`Formula evaluation error for "${formula}":`, error)
       return formula // Return original formula if evaluation fails
@@ -138,12 +178,74 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         rowIndex: i + 1
       }
       
+      // Sort mappings to handle dependencies (process CSV columns first, then calculated fields)
+      const sortedMappings = [...fieldMappings].sort((a, b) => {
+        // CSV column references should be processed first
+        const aIsDirect = csvData.headers.some(h => h.name.toLowerCase() === a.csvFormula.toLowerCase())
+        const bIsDirect = csvData.headers.some(h => h.name.toLowerCase() === b.csvFormula.toLowerCase())
+        
+        if (aIsDirect && !bIsDirect) return -1
+        if (!aIsDirect && bIsDirect) return 1
+        return 0
+      })
+      
       // Apply field mappings to create booking object
-      fieldMappings.forEach(mapping => {
+      sortedMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
-          // Evaluate the formula (handles both simple mappings and complex calculations)
-          const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
-          booking[mapping.bookingField] = result
+          // Check if this is a simple CSV column reference
+          const isSimpleColumn = csvData.headers.some(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
+          
+          if (isSimpleColumn) {
+            // For simple column mappings, use original CSV data only
+            const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
+            booking[mapping.bookingField] = result
+            
+            // Debug logging for date fields
+            if (mapping.bookingField.includes('date')) {
+              console.log(`BOOKING PREVIEW: ${mapping.bookingField} = ${result} (simple mapping)`)
+            }
+          } else {
+            // For complex formulas, create extended headers that include both CSV columns and already calculated booking fields
+            const extendedHeaders = [
+              ...csvData.headers,
+              ...Object.keys(booking).map((field, index) => ({
+                name: field,
+                index: csvData.headers.length + index
+              }))
+            ]
+            
+            // Create extended row that includes both CSV values and calculated values
+            // Be careful with date fields - preserve original format
+            const extendedRow = [
+              ...row,
+              ...Object.keys(booking).map(field => {
+                const value = booking[field]
+                // For date-related fields, if we have a value that looks like just a year, 
+                // try to find the original date in the CSV
+                if ((field.includes('date') || field.includes('check')) && 
+                    value && String(value).match(/^\d{4}$/)) {
+                  // Look for the original date value in CSV
+                  const originalDateIndex = csvData.headers.findIndex(h => 
+                    h.name.toLowerCase().includes('date') || 
+                    h.name.toLowerCase().includes('check')
+                  )
+                  if (originalDateIndex !== -1 && row[originalDateIndex]) {
+                    return row[originalDateIndex]
+                  }
+                }
+                return String(value || '0')
+              })
+            ]
+            
+            // Evaluate the formula (handles complex calculations with references to other fields)
+            const result = evaluateFormula(mapping.csvFormula, extendedRow, extendedHeaders)
+            booking[mapping.bookingField] = result
+            
+            // Debug logging for date fields
+            if (mapping.bookingField.includes('date')) {
+              console.log(`BOOKING PREVIEW: ${mapping.bookingField} = ${result} (complex formula)`)
+            }
+          }
         }
       })
       
@@ -296,13 +398,18 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   <td className="px-3 py-2 text-sm text-gray-500">
                     {booking.rowIndex}
                   </td>
-                  {mappedFields.map((field: any) => (
-                    <td key={field.field} className="px-3 py-2 text-sm text-gray-900">
-                      <div className="max-w-32 truncate" title={booking[field.field]}>
-                        {booking[field.field] || <span className="text-gray-400">—</span>}
-                      </div>
-                    </td>
-                  ))}
+                  {mappedFields.map((field: any) => {
+                    const value = booking[field.field]
+                    const isDateField = field.field.includes('date') || field.field === 'check_in_date' || field.field === 'check_out_date'
+                    
+                    return (
+                      <td key={field.field} className="px-3 py-2 text-sm text-gray-900">
+                        <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`} title={value}>
+                          {value || <span className="text-gray-400">—</span>}
+                        </div>
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

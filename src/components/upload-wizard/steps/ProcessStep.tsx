@@ -174,8 +174,16 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         csvUploadId: csvUploadId,
         reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
         guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
-        checkInDate: formatDate(preview.check_in_date || preview.checkInDate),
-        checkOutDate: (preview.check_out_date || preview.checkOutDate) ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
+        checkInDate: (() => {
+          const rawDate = preview.check_in_date || preview.checkInDate
+          console.log(`Converting booking ${index}: raw check_in_date =`, rawDate)
+          return formatDate(rawDate)
+        })(),
+        checkOutDate: (() => {
+          const rawDate = preview.check_out_date || preview.checkOutDate
+          console.log(`Converting booking ${index}: raw check_out_date =`, rawDate)
+          return rawDate ? formatDate(rawDate) : undefined
+        })(),
         numNights: parseInt(preview.num_nights || preview.nights) || 1,
         platform: mapPlatformName(preview.platform || 'direct'),
         listingName: preview.listing_name || preview.propertyName,
@@ -202,20 +210,35 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const formatDate = (dateString: string): string => {
     if (!dateString) return new Date().toISOString().split('T')[0]
     
+    // If it's already in YYYY-MM-DD format, DON'T TOUCH IT
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      console.log(`Date already in correct format: ${dateString}`)
+      return dateString
+    }
+    
     try {
       const date = new Date(dateString)
-      return date.toISOString().split('T')[0]
-    } catch {
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date: ${dateString}, using today`)
+        return new Date().toISOString().split('T')[0]
+      }
+      const formatted = date.toISOString().split('T')[0]
+      console.log(`Formatted date: ${dateString} → ${formatted}`)
+      return formatted
+    } catch (error) {
+      console.warn(`Error parsing date: ${dateString}`, error)
       return new Date().toISOString().split('T')[0]
     }
   }
 
-  const mapPlatformName = (platform: string): 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' => {
+  const mapPlatformName = (platform: string): 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'vrbo' | 'hostaway' => {
     const platformLower = platform.toLowerCase()
     
     if (platformLower.includes('airbnb')) return 'airbnb'
     if (platformLower.includes('booking')) return 'booking'
     if (platformLower.includes('google')) return 'google'
+    if (platformLower.includes('vrbo')) return 'vrbo'
+    if (platformLower.includes('hostaway')) return 'hostaway'
     if (platformLower.includes('wechalet') || platformLower.includes('we chalet')) return 'wechalet'
     if (platformLower.includes('monsieur') || platformLower.includes('chalets')) return 'monsieurchalets'
     

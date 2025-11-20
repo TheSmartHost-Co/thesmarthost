@@ -20,6 +20,7 @@ interface FieldMappingFormProps {
   onValidationChange: (isValid: boolean) => void
   calculationRules?: CalculationRule[]
   selectedProperty?: any
+  onRefreshRules?: () => Promise<void>
 }
 
 const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
@@ -27,7 +28,8 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   onMappingsChange,
   onValidationChange,
   calculationRules = [],
-  selectedProperty
+  selectedProperty,
+  onRefreshRules
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
@@ -631,8 +633,11 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
         propertyId={selectedProperty?.id}
         propertyName={selectedProperty?.listingName}
         onRulesUpdate={(updatedRules) => {
-          // Optionally refresh calculation rules when modal closes
+          // Refresh calculation rules when new rules are created
           console.log('Custom fields updated:', updatedRules)
+          if (onRefreshRules) {
+            onRefreshRules()
+          }
         }}
       />
     </div>
