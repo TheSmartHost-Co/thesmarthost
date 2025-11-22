@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { CalendarDaysIcon, MagnifyingGlassIcon, FunnelIcon, PlusIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect, useRef } from 'react'
+import { CalendarDaysIcon, MagnifyingGlassIcon, FunnelIcon, PlusIcon, PencilIcon, TrashIcon, EyeIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName } from '@/services/bookingService'
 import { Booking } from '@/services/types/booking'
 import { useUserStore } from '@/store/useUserStore'
@@ -14,7 +14,10 @@ import PreviewBookingModal from '@/components/booking/preview/previewBookingModa
 export default function BookingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [platformFilter, setPlatformFilter] = useState('All Platforms')
+  const [propertyFilter, setPropertyFilter] = useState('All Properties')
+  const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const filterPopoverRef = useRef<HTMLDivElement>(null)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
@@ -47,6 +50,20 @@ export default function BookingsPage() {
 
     fetchBookings()
   }, [profile?.id])
+
+  // Close filter popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
+        setShowFilterPopover(false)
+      }
+    }
+
+    if (showFilterPopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showFilterPopover])
 
   const handleAddBooking = (newBooking: Booking) => {
     setBookings(prev => [newBooking, ...prev])
@@ -115,8 +132,11 @@ export default function BookingsPage() {
     
     const matchesPlatform = platformFilter === 'All Platforms' || 
       formatPlatformName(booking.platform) === platformFilter
+      
+    const matchesProperty = propertyFilter === 'All Properties' ||
+      booking.propertyName === propertyFilter
 
-    return matchesSearch && matchesPlatform
+    return matchesSearch && matchesPlatform && matchesProperty
   })
 
   // Calculate stats
@@ -135,6 +155,27 @@ export default function BookingsPage() {
     'VRBO',
     'Hostaway'
   ]
+  
+  // Property options for filter - derived from existing bookings
+  const uniqueProperties = Array.from(new Set(
+    bookings
+      .map(b => b.propertyName)
+      .filter(name => name && name.trim() !== '')
+  )).sort()
+  
+  const propertyOptions = ['All Properties', ...uniqueProperties]
+  
+  // Count active filters
+  const activeFiltersCount = [
+    platformFilter !== 'All Platforms',
+    propertyFilter !== 'All Properties'
+  ].filter(Boolean).length
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setPlatformFilter('All Platforms')
+    setPropertyFilter('All Properties')
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-CA', {
@@ -279,17 +320,87 @@ export default function BookingsPage() {
                   placeholder="Search by guest, reservation, property..."
                 />
               </div>
-              <select
-                value={platformFilter}
-                onChange={(e) => setPlatformFilter(e.target.value)}
-                className="text-black border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {platformOptions.map((platform) => (
-                  <option key={platform} value={platform}>
-                    {platform}
-                  </option>
-                ))}
-              </select>
+              
+              <div className="relative" ref={filterPopoverRef}>
+                <button
+                  onClick={() => setShowFilterPopover(!showFilterPopover)}
+                  className="relative inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <FunnelIcon className="h-4 w-4 mr-2" />
+                  Filters
+                  {activeFiltersCount > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </button>
+                
+                {showFilterPopover && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+                        <button
+                          onClick={() => setShowFilterPopover(false)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Platform Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Platform
+                          </label>
+                          <select
+                            value={platformFilter}
+                            onChange={(e) => setPlatformFilter(e.target.value)}
+                            className="w-full text-black border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            {platformOptions.map((platform) => (
+                              <option key={platform} value={platform}>
+                                {platform}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        {/* Property Filter */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Property
+                          </label>
+                          <select
+                            value={propertyFilter}
+                            onChange={(e) => setPropertyFilter(e.target.value)}
+                            className="w-full text-black border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            {propertyOptions.map((property) => (
+                              <option key={property} value={property}>
+                                {property}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      
+                      {/* Filter Actions */}
+                      {activeFiltersCount > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <button
+                            onClick={clearAllFilters}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Clear all filters
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
