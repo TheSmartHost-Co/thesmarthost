@@ -130,13 +130,33 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   }, [calculationRules])
 
   const handleMappingChange = (bookingField: string, csvFormula: string) => {
-    setPlatformMappings(prev => ({
-      ...prev,
-      [selectedPlatform]: {
-        ...prev[selectedPlatform],
-        [bookingField]: csvFormula
-      }
-    }))
+    // Check if the selected value is a custom field (calculation rule)
+    const customField = calculationRules.find(rule => 
+      rule.bookingField === csvFormula && rule.isActive
+    )
+    
+    if (customField) {
+      // Auto-fill the formula from the calculation rule
+      setPlatformMappings(prev => ({
+        ...prev,
+        [selectedPlatform]: {
+          ...prev[selectedPlatform],
+          [bookingField]: customField.csvFormula // Use the actual formula, not the field name
+        }
+      }))
+      
+      // Switch to formula mode since this is a calculated field
+      setFieldInputMode(bookingField, 'formula')
+    } else {
+      // Regular CSV column mapping
+      setPlatformMappings(prev => ({
+        ...prev,
+        [selectedPlatform]: {
+          ...prev[selectedPlatform],
+          [bookingField]: csvFormula
+        }
+      }))
+    }
   }
 
   // Load mappings from calculation rules
@@ -145,42 +165,29 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return
     }
 
-    // Merge calculation rules with existing mappings (preserve algorithmic suggestions)
-    setPlatformMappings(prev => {
-      const updatedMappings = { ...prev }
-      
-      // Group rules by platform and merge with existing mappings
-      calculationRules.forEach(rule => {
-        const platform = rule.platform as Platform
-        if (platform in updatedMappings) {
-          // Only override if the field isn't already mapped or if it's empty
-          const existingValue = updatedMappings[platform][rule.bookingField]
-          if (!existingValue || existingValue.trim() === '') {
-            updatedMappings[platform] = {
-              ...updatedMappings[platform],
-              [rule.bookingField]: rule.csvFormula
-            }
-          }
-        }
+    const activeRules = calculationRules.filter(rule => rule.isActive === true)
+    
+    if (activeRules.length === 0) {
+      return
+    }
+
+    // Do NOT push rules into platformMappings.
+    // Let them appear only as "custom fields" that the user can select.
+
+    setFieldInputModes(prev => {
+      const next = { ...prev }
+      const headerNames = csvData.headers.map(h => h.name.toLowerCase())
+
+      activeRules.forEach(rule => {
+        const key = `${rule.bookingField}_${rule.platform}`
+        const isSimpleColumn = headerNames.includes(rule.csvFormula.toLowerCase())
+        next[key] = isSimpleColumn ? 'dropdown' : 'formula'
       })
 
-      return updatedMappings
+      return next
     })
-
-    // Set input modes for formula fields
-    const newFieldInputModes: Record<string, 'dropdown' | 'formula'> = {}
-    calculationRules.forEach(rule => {
-      const key = `${rule.bookingField}_${rule.platform}`
-      // If the formula is not a simple column name, it's a formula
-      const headerNames = csvData.headers.map(h => h.name)
-      if (!headerNames.includes(rule.csvFormula)) {
-        newFieldInputModes[key] = 'formula'
-      } else {
-        newFieldInputModes[key] = 'dropdown'
-      }
-    })
-    setFieldInputModes(newFieldInputModes)
   }
+
 
   const handleSaveBaseMappings = () => {
     if (hasBaseMappings) {
