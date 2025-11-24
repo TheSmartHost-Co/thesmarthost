@@ -269,9 +269,9 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       const mappedOptionalFields = OPTIONAL_BOOKING_FIELDS.filter(field => {
         const isMapped = allMappings[field.field] && allMappings[field.field].trim() !== ''
         const isNumeric = ['number'].includes(field.type) || 
-                         ['total_price', 'accommodation_fee', 'cleaning_fee', 'airbnb_sales_tax', 
-                          'lodging_tax', 'non_airbnb_sales_tax', 'other_guest_fees', 'channel_fee', 
-                          'payment_fees', 'total_payout', 'net_earnings'].includes(field.field)
+                         ['nightly_rate', 'cleaning_fee', 'sales_tax', 'lodging_tax', 'extra_guest_fees', 
+                          'channel_fee', 'stripe_fee', 'total_payout', 'net_earnings', 'mgmt_fee', 
+                          'bed_linen_fee', 'gst', 'qst'].includes(field.field)
         return isMapped && isNumeric
       })
       
