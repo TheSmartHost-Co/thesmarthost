@@ -104,16 +104,22 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       setCsvUploadId(csvUploadResult.data.id)
       updateProgress(ProcessingStatus.PARSING, 25, 'Processing booking data...', 'CSV file uploaded successfully')
 
-      // Step 2: Convert preview data to booking payloads (40%)
-      updateProgress(ProcessingStatus.PARSING, 40, 'Converting booking data...')
+      // Step 2: Use pre-confirmed booking payloads from PreviewStep (40%)
+      updateProgress(ProcessingStatus.PARSING, 40, 'Preparing confirmed booking data...')
       
-      const bookingPayloads = convertPreviewToBookings(
-        previewState?.bookingPreviews || [],
-        csvUploadResult.data.id,
-        selectedProperty.id
-      )
+      // Get confirmed payloads from PreviewStep (no recalculation needed!)
+      const confirmedPayloads = previewState?.confirmedPayloads
+      if (!confirmedPayloads || confirmedPayloads.length === 0) {
+        throw new Error('No confirmed booking data received from preview step')
+      }
+      
+      // Set the CSV upload ID for each payload (now that we have it)
+      const bookingPayloads = confirmedPayloads.map((payload:CreateBookingPayload)=> ({
+        ...payload,
+        csvUploadId: csvUploadResult.data.id
+      }))
 
-      updateProgress(ProcessingStatus.VALIDATING, 60, 'Validating booking data...', 'Booking data converted')
+      updateProgress(ProcessingStatus.VALIDATING, 60, 'Validating booking data...', 'Confirmed data prepared')
 
       // Step 3: Create multiple bookings (80%)
       updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 80, 'Saving bookings to database...')
@@ -161,89 +167,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
     }
   }
 
-  const convertPreviewToBookings = (
-    bookingPreviews: any[],
-    csvUploadId: string,
-    propertyId: string
-  ): CreateBookingPayload[] => {
-    return bookingPreviews.map((preview, index) => {
-      // Convert preview booking to CreateBookingPayload format
-      const payload: CreateBookingPayload = {
-        userId: profile!.id,
-        propertyId: propertyId,
-        csvUploadId: csvUploadId,
-        reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
-        guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
-        checkInDate: (() => {
-          const rawDate = preview.check_in_date || preview.checkInDate
-          console.log(`Converting booking ${index}: raw check_in_date =`, rawDate)
-          return formatDate(rawDate)
-        })(),
-        checkOutDate: (() => {
-          const rawDate = preview.check_out_date || preview.checkOutDate
-          console.log(`Converting booking ${index}: raw check_out_date =`, rawDate)
-          return rawDate ? formatDate(rawDate) : undefined
-        })(),
-        numNights: parseInt(preview.num_nights || preview.nights) || 1,
-        platform: mapPlatformName(preview.platform || 'direct'),
-        listingName: preview.listing_name || preview.propertyName,
-        // Financial fields
-        nightlyRate: parseFloat(preview.nightly_rate || preview.nightlyRate) || undefined,
-        extraGuestFees: parseFloat(preview.extra_guest_fees || preview.extraGuestFees) || undefined,
-        cleaningFee: parseFloat(preview.cleaning_fee || preview.cleaningFee) || undefined,
-        lodgingTax: parseFloat(preview.lodging_tax || preview.lodgingTax) || undefined,
-        bedLinenFee: parseFloat(preview.bed_linen_fee || preview.bedLinenFee) || undefined,
-        gst: parseFloat(preview.gst) || undefined,
-        qst: parseFloat(preview.qst) || undefined,
-        channelFee: parseFloat(preview.channel_fee || preview.channelFee) || undefined,
-        stripeFee: parseFloat(preview.stripe_fee || preview.stripeFee) || undefined,
-        salesTax: parseFloat(preview.sales_tax || preview.salesTax) || undefined,
-        totalPayout: parseFloat(preview.total_payout || preview.totalAmount || preview.totalPayout) || undefined,
-        mgmtFee: parseFloat(preview.mgmt_fee || preview.mgmtFee) || undefined,
-        netEarnings: parseFloat(preview.net_earnings || preview.netAmount || preview.netEarnings) || undefined,
-      }
-
-      return payload
-    })
-  }
-
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return new Date().toISOString().split('T')[0]
-    
-    // If it's already in YYYY-MM-DD format, DON'T TOUCH IT
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      console.log(`Date already in correct format: ${dateString}`)
-      return dateString
-    }
-    
-    try {
-      const date = new Date(dateString)
-      if (isNaN(date.getTime())) {
-        console.warn(`Invalid date: ${dateString}, using today`)
-        return new Date().toISOString().split('T')[0]
-      }
-      const formatted = date.toISOString().split('T')[0]
-      console.log(`Formatted date: ${dateString} → ${formatted}`)
-      return formatted
-    } catch (error) {
-      console.warn(`Error parsing date: ${dateString}`, error)
-      return new Date().toISOString().split('T')[0]
-    }
-  }
-
-  const mapPlatformName = (platform: string): 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'vrbo' | 'hostaway' => {
-    const platformLower = platform.toLowerCase()
-    
-    if (platformLower.includes('airbnb')) return 'airbnb'
-    if (platformLower.includes('booking')) return 'booking'
-    if (platformLower.includes('google')) return 'google'
-    if (platformLower.includes('vrbo')) return 'vrbo'
-    if (platformLower.includes('hostaway')) return 'hostaway'
-    if (platformLower.includes('wechalet') || platformLower.includes('we chalet')) return 'wechalet'
-    if (platformLower.includes('monsieur') || platformLower.includes('chalets')) return 'monsieurchalets'
-    
-    return 'direct'
-  }
+  // All booking conversion logic moved to PreviewStep!
+  // ProcessStep now only handles the upload process
 
   const generateImportStats = (bookingPayloads: CreateBookingPayload[], bulkResult: any) => {
     const totalBookings = bookingPayloads.length

@@ -1,9 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { parseCsvFile } from '@/utils/csvParser'
 import { CsvData } from '@/services/types/csvMapping'
+import { CreateBookingPayload } from '@/services/types/booking'
+import { useUserStore } from '@/store/useUserStore'
 
 interface PreviewStepProps {
   onNext?: () => void
@@ -40,6 +42,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [previewCount, setPreviewCount] = useState(5) // Show first 5 bookings by default
+  const [isConfirming, setIsConfirming] = useState(false)
+  const [confirmedPayloads, setConfirmedPayloads] = useState<CreateBookingPayload[] | null>(null)
+
+  const { profile } = useUserStore()
 
   // Load CSV data and generate booking previews
   useEffect(() => {
@@ -281,6 +287,110 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return requiredFields.filter((field: string) => !mappedFields.includes(field))
   }
 
+  // Generate booking payloads from preview data (moved from ProcessStep)
+  const generateBookingPayloads = (): CreateBookingPayload[] => {
+    if (!bookingPreviews || !selectedProperty || !profile) {
+      throw new Error('Missing required data for booking generation')
+    }
+
+    return bookingPreviews.map((preview, index) => {
+      // Convert preview booking to CreateBookingPayload format
+      console.log("hussein" + preview)
+      const payload: CreateBookingPayload = {
+        userId: profile.id,
+        propertyId: selectedProperty.id,
+        csvUploadId: '', // Will be set by ProcessStep when CSV upload record is created
+        reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
+        guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
+        checkInDate: formatDate(preview.check_in_date || preview.checkInDate),
+        checkOutDate: preview.check_out_date || preview.checkOutDate ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
+        numNights: parseInt(String(preview.num_nights || preview.nights)) || 1,
+        platform: mapPlatformName(String(preview.platform || 'direct')),
+        listingName: preview.listing_name || preview.propertyName,
+        // Financial fields - use the exact values from preview (already calculated)
+        nightlyRate: parseFloat(String(preview.nightly_rate || preview.nightlyRate || 0)) || undefined,
+        extraGuestFees: parseFloat(String(preview.extra_guest_fees || preview.extraGuestFees || 0)) || undefined,
+        cleaningFee: parseFloat(String(preview.cleaning_fee || preview.cleaningFee || 0)) || undefined,
+        lodgingTax: parseFloat(String(preview.lodging_tax || preview.lodgingTax || 0)) || undefined,
+        bedLinenFee: parseFloat(String(preview.bed_linen_fee || preview.bedLinenFee || 0)) || undefined,
+        gst: parseFloat(String(preview.gst || 0)) || undefined,
+        qst: parseFloat(String(preview.qst || 0)) || undefined,
+        channelFee: parseFloat(String(preview.channel_fee || preview.channelFee || 0)) || undefined,
+        stripeFee: parseFloat(String(preview.stripe_fee || preview.stripeFee || 0)) || undefined,
+        salesTax: parseFloat(String(preview.sales_tax || preview.salesTax || 0)) || undefined,
+        totalPayout: parseFloat(String(preview.total_payout || preview.totalAmount || preview.totalPayout || 0)) || undefined,
+        mgmtFee: parseFloat(String(preview.mgmt_fee || preview.mgmtFee || 0)) || undefined,
+        netEarnings: parseFloat(String(preview.net_earnings || preview.netAmount || preview.netEarnings || 0)) || undefined,
+      }
+
+      return payload
+    })
+  }
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return new Date().toISOString().split('T')[0]
+    
+    // If it's already in YYYY-MM-DD format, keep it
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString
+    }
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date: ${dateString}, using today`)
+        return new Date().toISOString().split('T')[0]
+      }
+      return date.toISOString().split('T')[0]
+    } catch (error) {
+      console.warn(`Error parsing date: ${dateString}`, error)
+      return new Date().toISOString().split('T')[0]
+    }
+  }
+
+  const mapPlatformName = (platform: string): 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'vrbo' | 'hostaway' => {
+    const platformLower = platform.toLowerCase()
+    
+    if (platformLower.includes('airbnb')) return 'airbnb'
+    if (platformLower.includes('booking')) return 'booking'
+    if (platformLower.includes('google')) return 'google'
+    if (platformLower.includes('vrbo')) return 'vrbo'
+    if (platformLower.includes('hostaway')) return 'hostaway'
+    if (platformLower.includes('wechalet') || platformLower.includes('we chalet')) return 'wechalet'
+    if (platformLower.includes('monsieur') || platformLower.includes('chalets')) return 'monsieurchalets'
+    
+    return 'direct'
+  }
+
+  // Handle "Confirm Values" button click
+  const handleConfirmValues = async () => {
+    try {
+      setIsConfirming(true)
+      
+      // Generate booking payloads from current preview data
+      const payloads = generateBookingPayloads()
+      setConfirmedPayloads(payloads)
+      
+      // Update parent component with confirmed data
+      onPreviewComplete?.({
+        csvData,
+        bookingPreviews,
+        confirmedPayloads: payloads,
+        totalBookings: csvData?.totalRows || 0,
+        isConfirmed: true
+      })
+      
+      // Proceed to next step (ProcessStep)
+      onNext?.()
+      
+    } catch (error) {
+      console.error('Error confirming values:', error)
+      setError('Failed to confirm booking values. Please try again.')
+    } finally {
+      setIsConfirming(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -441,19 +551,39 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       <div className="flex justify-between pt-6 border-t border-gray-200">
         <button
           onClick={onBack}
-          disabled={!canGoBack}
+          disabled={!canGoBack || isConfirming}
           className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Back to Field Mapping
         </button>
         
-        <button
-          onClick={onNext}
-          disabled={!canGoNext || !hasValidMappings}
-          className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {hasValidMappings ? 'Continue to Import' : 'Fix Required Fields First'}
-        </button>
+        <div className="flex items-center space-x-3">
+          {hasValidMappings && (
+            <div className="text-sm text-gray-600">
+              Ready to import {bookingPreviews.length} bookings
+            </div>
+          )}
+          
+          <button
+            onClick={handleConfirmValues}
+            disabled={!canGoNext || !hasValidMappings || isConfirming}
+            className="cursor-pointer px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+          >
+            {isConfirming ? (
+              <>
+                <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                Confirming...
+              </>
+            ) : hasValidMappings ? (
+              <>
+                <CheckCircleIcon className="h-4 w-4 mr-2" />
+                Confirm & Import
+              </>
+            ) : (
+              'Fix Required Fields First'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -391,12 +391,12 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                       key={fieldName}
                       type="button"
                       onClick={() => {
-                        const newValue = currentValue + `[${fieldName}]`
+                        const newValue = currentValue + `${fieldName}`
                         handleMappingChange(field.field, newValue)
                       }}
                       className="cursor-pointer text-black px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
                     >
-                      [{fieldName}]
+                      {fieldName}
                     </button>
                   ))}
                   <button
