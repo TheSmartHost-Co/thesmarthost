@@ -270,19 +270,25 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return [...new Set(columns)] // Remove duplicates
     }
 
-    const getMappedOptionalFields = () => {
-      // Get optional booking fields that are already mapped on ALL platform
-      const allMappings = platformMappings['ALL']
-      const mappedOptionalFields = OPTIONAL_BOOKING_FIELDS.filter(field => {
-        const isMapped = allMappings[field.field] && allMappings[field.field].trim() !== ''
-        const isNumeric = ['number'].includes(field.type) || 
-                         ['nightly_rate', 'cleaning_fee', 'sales_tax', 'lodging_tax', 'extra_guest_fees', 
-                          'channel_fee', 'stripe_fee', 'total_payout', 'net_earnings', 'mgmt_fee', 
-                          'bed_linen_fee', 'gst', 'qst'].includes(field.field)
-        return isMapped && isNumeric
-      })
+    const getNumericCsvHeaders = () => {
+      // Get CSV headers that look numeric/financial for quick insert
+      const usedHeaders = new Set(Object.values(platformMappings['ALL']).filter(val => val.trim() !== ''))
       
-      return mappedOptionalFields.map(field => field.field)
+      return csvData.headers.filter(header => {
+        // Exclude text-based headers (guest info, reservations, etc.)
+        const textPatterns = ['guest', 'name', 'channel', 'platform', 'listing', 'property', 'reservation', 'confirmation', 'code', 'id']
+        const headerLower = header.name.toLowerCase().replace(/[^a-z]/g, '')
+        const isTextHeader = textPatterns.some(pattern => headerLower.includes(pattern))
+        
+        // Exclude date fields 
+        const isDateHeader = headerLower.includes('date') || headerLower.includes('checkin') || headerLower.includes('checkout')
+        
+        // Exclude already used headers
+        const isAlreadyUsed = usedHeaders.has(header.name)
+        
+        // Include if it looks numeric and not already used
+        return !isTextHeader && !isDateHeader && !isAlreadyUsed
+      }).slice(0, 8) // Limit to first 8 to avoid UI overflow
     }
     
     return (
@@ -383,20 +389,21 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                   />
                 </div>
                 
-                {/* Quick Insert Buttons - Mapped optional booking fields */}
+                {/* Quick Insert Buttons - Available CSV headers */}
                 <div className="flex flex-wrap gap-1">
                   <span className="text-xs text-gray-500 mr-2">Quick insert:</span>
-                  {getMappedOptionalFields().slice(0, 6).map(fieldName => (
+                  {getNumericCsvHeaders().map(header => (
                     <button
-                      key={fieldName}
+                      key={header.name}
                       type="button"
                       onClick={() => {
-                        const newValue = currentValue + `${fieldName}`
+                        const newValue = currentValue + `${header.name}`
                         handleMappingChange(field.field, newValue)
                       }}
-                      className="cursor-pointer text-black px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+                      className="cursor-pointer text-black px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded border"
+                      title={`Insert ${header.name}${header.sampleValue ? ` (e.g. ${header.sampleValue})` : ''}`}
                     >
-                      {fieldName}
+                      {header.name}
                     </button>
                   ))}
                   <button
