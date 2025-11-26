@@ -13,8 +13,9 @@ import {
 
 // Step Components
 import UploadStep from './steps/UploadStep'
-import PreviewStep from './steps/PreviewStep'
 import ValidateStep from './steps/ValidateStep'
+import PropertyMappingStep from './steps/PropertyMappingStep'
+import PreviewStep from './steps/PreviewStep'
 import ProcessStep from './steps/ProcessStep'
 import CompleteStep from './steps/CompleteStep'
 
@@ -35,6 +36,7 @@ const defaultConfig: WizardConfig = {
     RequiredField.RESERVATION_ID,
     RequiredField.GUEST_NAME,
     RequiredField.PROPERTY_NAME,
+    RequiredField.LISTING_NAME,
     RequiredField.CHECK_IN_DATE,
     RequiredField.CHECK_OUT_DATE,
     RequiredField.TOTAL_AMOUNT,
@@ -106,14 +108,15 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         selectedProperty: action.payload,
-        canGoNext: state.uploadedFile && action.payload ? true : false,
+        // Legacy support - for backwards compatibility with single property flow
+        canGoNext: state.uploadedFile ? true : false,
       }
 
     case WizardActionType.SET_UPLOADED_FILE:
       return {
         ...state,
         uploadedFile: action.payload, // Only metadata for navigation state
-        canGoNext: state.selectedProperty && action.payload ? true : false,
+        canGoNext: action.payload ? true : false, // Only need file uploaded for multi-property flow
       }
 
     case WizardActionType.SET_PREVIEW_STATE:
@@ -128,6 +131,13 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         ...state,
         validationState: action.payload,
         canGoNext: action.payload?.results?.isValid || false,
+      }
+
+    case WizardActionType.SET_PROPERTY_MAPPING_STATE:
+      return {
+        ...state,
+        propertyMappingState: action.payload,
+        canGoNext: action.payload?.isValid || false,
       }
 
     case WizardActionType.SET_PROCESSING_STATE:
@@ -214,6 +224,10 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
     dispatch({ type: WizardActionType.SET_VALIDATION_STATE, payload: validationState })
   }, [])
 
+  const handlePropertyMappingComplete = useCallback((propertyMappingState: any) => {
+    dispatch({ type: WizardActionType.SET_PROPERTY_MAPPING_STATE, payload: propertyMappingState })
+  }, [])
+
   const handleProcessingUpdate = useCallback((processingState: any) => {
     console.log('UploadWizard handleProcessingUpdate called with STATUS:', processingState?.status, 'FULL PAYLOAD:', processingState)
     dispatch({ type: WizardActionType.SET_PROCESSING_STATE, payload: processingState })
@@ -272,6 +286,17 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
           />
         )
 
+      case WizardStep.PROPERTY_MAPPING:
+        return (
+          <PropertyMappingStep
+            {...commonProps}
+            uniqueListings={state.validationState?.uniqueListings || []}
+            bookingCounts={state.validationState?.bookingCounts || {}}
+            propertyMappingState={state.propertyMappingState}
+            onPropertyMappingComplete={handlePropertyMappingComplete}
+          />
+        )
+
       case WizardStep.PREVIEW:
         return (
           <PreviewStep
@@ -279,7 +304,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={uploadedFileRef.current!}
             previewState={state.previewState}
             validationState={state.validationState}
-            selectedProperty={state.selectedProperty}
+            propertyMappingState={state.propertyMappingState}
             onPreviewComplete={handlePreviewComplete}
           />
         )
@@ -290,7 +315,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             {...commonProps}
             validationState={state.validationState!}
             previewState={state.previewState}
-            selectedProperty={state.selectedProperty}
+            propertyMappingState={state.propertyMappingState}
             uploadedFile={uploadedFileRef.current}
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}

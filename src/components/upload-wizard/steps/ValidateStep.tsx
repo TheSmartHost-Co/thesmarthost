@@ -103,15 +103,75 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
     }
   }, [selectedProperty?.id])
 
+  // Extract unique listing names from CSV data
+  const extractUniqueListings = (csvData: any, fieldMappings: any[]): string[] => {
+    const listingMapping = fieldMappings.find(m => m.bookingField === 'listing_name' || m.bookingField === 'listingName')
+    
+    if (!listingMapping || !listingMapping.csvFormula || !csvData) {
+      return []
+    }
+    
+    // Find the column index for the listing name
+    const listingColumnIndex = csvData.headers.findIndex((h: any) => 
+      h.name.toLowerCase() === listingMapping.csvFormula.toLowerCase()
+    )
+    
+    if (listingColumnIndex === -1) {
+      return []
+    }
+    
+    // Extract unique listing names from all rows
+    const listings = csvData.rows
+      .map((row: string[]) => row[listingColumnIndex])
+      .filter((listing: string) => listing && listing.trim())
+      .map((listing: string) => listing.trim())
+    
+    // Return unique listings sorted alphabetically
+    return [...new Set(listings as string[])].sort()
+  }
+
+  // Count bookings per listing name
+  const countBookingsPerListing = (csvData: any, fieldMappings: any[], uniqueListings: string[]): Record<string, number> => {
+    const listingMapping = fieldMappings.find(m => m.bookingField === 'listing_name' || m.bookingField === 'listingName')
+    
+    if (!listingMapping || !listingMapping.csvFormula || !csvData) {
+      return {}
+    }
+    
+    const listingColumnIndex = csvData.headers.findIndex((h: any) => 
+      h.name.toLowerCase() === listingMapping.csvFormula.toLowerCase()
+    )
+    
+    if (listingColumnIndex === -1) {
+      return {}
+    }
+    
+    const counts: Record<string, number> = {}
+    
+    csvData.rows.forEach((row: string[]) => {
+      const listing = row[listingColumnIndex]?.trim()
+      if (listing) {
+        counts[listing] = (counts[listing] || 0) + 1
+      }
+    })
+    
+    return counts
+  }
+
   // Update validation state when mappings change
   useEffect(() => {
-    if (onValidationComplete) {
+    if (onValidationComplete && csvData) {
+      const uniqueListings = extractUniqueListings(csvData, fieldMappings)
+      const bookingCounts = countBookingsPerListing(csvData, fieldMappings, uniqueListings)
+      
       onValidationComplete({
         fieldMappings,
         results: {
           isValid: isValidMappings
         },
-        csvData
+        csvData,
+        uniqueListings,
+        bookingCounts
       })
     }
   }, [fieldMappings, isValidMappings, csvData, onValidationComplete])

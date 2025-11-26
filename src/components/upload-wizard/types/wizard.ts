@@ -6,9 +6,10 @@
 export enum WizardStep {
   UPLOAD = 1,
   VALIDATE = 2,
-  PREVIEW = 3,
-  PROCESS = 4,
-  COMPLETE = 5,
+  PROPERTY_MAPPING = 3,
+  PREVIEW = 4,
+  PROCESS = 5,
+  COMPLETE = 6,
 }
 
 /**
@@ -49,6 +50,7 @@ export enum RequiredField {
   RESERVATION_ID = 'reservationId',
   GUEST_NAME = 'guestName',
   PROPERTY_NAME = 'propertyName',
+  LISTING_NAME = 'listingName',
   CHECK_IN_DATE = 'checkInDate',
   CHECK_OUT_DATE = 'checkOutDate',
   TOTAL_AMOUNT = 'totalAmount',
@@ -177,6 +179,8 @@ export interface ValidationState {
     end: string
   }
   detectedPlatforms: string[]
+  uniqueListings?: string[]           // Extracted listing names for property mapping
+  bookingCounts?: Record<string, number>  // Count of bookings per listing
 }
 
 /**
@@ -245,10 +249,11 @@ export interface WizardState {
   canGoNext: boolean
   
   // Step-specific states
-  selectedProperty?: any // Property object from property service
+  selectedProperty?: any // Property object from property service (legacy - for backwards compatibility)
   uploadedFile?: UploadedFile
-  previewState?: PreviewState
   validationState?: ValidationState
+  propertyMappingState?: PropertyMappingState
+  previewState?: PreviewState
   processingState?: ProcessingState
   completionState?: CompletionState
 }
@@ -262,8 +267,9 @@ export enum WizardActionType {
   PREV_STEP = 'PREV_STEP',
   SET_SELECTED_PROPERTY = 'SET_SELECTED_PROPERTY',
   SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
-  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
+  SET_PROPERTY_MAPPING_STATE = 'SET_PROPERTY_MAPPING_STATE',
+  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
   SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
   RESET_WIZARD = 'RESET_WIZARD',
@@ -278,11 +284,38 @@ export type WizardAction =
   | { type: WizardActionType.PREV_STEP }
   | { type: WizardActionType.SET_SELECTED_PROPERTY; payload: any }
   | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
-  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }
+  | { type: WizardActionType.SET_PROPERTY_MAPPING_STATE; payload: PropertyMappingState }
+  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
   | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }
   | { type: WizardActionType.RESET_WIZARD }
+
+/**
+ * Property mapping for multi-property uploads
+ */
+export interface PropertyMapping {
+  listingName: string               // "Casa Madera"
+  propertyId: string | null         // Selected existing property ID
+  isNewProperty?: boolean           // Creating new property flag
+  newPropertyData?: {               // New property details
+    name: string
+    address: string
+    propertyType: 'STR' | 'LTR'
+    commissionRate: number
+  }
+  bookingCount?: number            // How many bookings for this listing
+}
+
+/**
+ * Property mapping step state
+ */
+export interface PropertyMappingState {
+  uniqueListings: string[]         // Extracted from CSV listing_name column
+  propertyMappings: PropertyMapping[]
+  isValid: boolean                 // All mappings complete and valid
+  totalBookings: number           // Total bookings across all properties
+}
 
 /**
  * Wizard configuration

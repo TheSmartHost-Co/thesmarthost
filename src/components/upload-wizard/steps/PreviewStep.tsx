@@ -20,7 +20,7 @@ interface PreviewStepProps {
   uploadedFile?: any
   previewState?: any
   validationState?: any
-  selectedProperty?: any
+  propertyMappingState?: any
   onPreviewComplete?: (state: any) => void
 }
 
@@ -37,14 +37,16 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   canGoBack,
   uploadedFile,
   validationState,
-  selectedProperty,
+  propertyMappingState,
   onPreviewComplete
 }) => {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [bookingPreviews, setBookingPreviews] = useState<BookingPreview[]>([])
+  const [groupedBookings, setGroupedBookings] = useState<Record<string, BookingPreview[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [previewCount, setPreviewCount] = useState(5) // Show first 5 bookings by default
+  const [propertyDisplayCounts, setPropertyDisplayCounts] = useState<Record<string, number>>({})
   const [isConfirming, setIsConfirming] = useState(false)
   const [confirmedPayloads, setConfirmedPayloads] = useState<CreateBookingPayload[] | null>(null)
   
@@ -91,10 +93,15 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         const previews = generateBookingPreviews(data, validationState.fieldMappings)
         setBookingPreviews(previews)
         
+        // Group bookings by property for multi-property display
+        const grouped = groupBookingsByProperty(previews)
+        setGroupedBookings(grouped)
+        
         // Notify parent component
         onPreviewComplete?.({
           csvData: data,
           bookingPreviews: previews,
+          groupedBookings: grouped,
           totalBookings: data.totalRows
         })
         
@@ -113,6 +120,28 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   // Helper function to escape special regex characters
   const escapeRegExp = (string: string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // Group bookings by their listing name for multi-property display
+  const groupBookingsByProperty = (bookings: BookingPreview[]): Record<string, BookingPreview[]> => {
+    const groups: Record<string, BookingPreview[]> = {}
+    
+    bookings.forEach(booking => {
+      const listingName = booking.listing_name || booking.propertyName || 'Unknown Property'
+      if (!groups[listingName]) {
+        groups[listingName] = []
+      }
+      groups[listingName].push(booking)
+    })
+    
+    return groups
+  }
+
+  // Get property mapping info for a listing name
+  const getPropertyMapping = (listingName: string) => {
+    return propertyMappingState?.propertyMappings?.find(
+      (mapping: any) => mapping.listingName === listingName
+    )
   }
 
   // Formula evaluator function
@@ -372,8 +401,13 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
   // Generate booking payloads from preview data (moved from ProcessStep)
   const generateBookingPayloads = (): CreateBookingPayload[] => {
-    if (!bookingPreviews || !selectedProperty || !profile) {
+    if (!bookingPreviews || !profile) {
       throw new Error('Missing required data for booking generation')
+    }
+
+    // Multi-property flow requires property mappings
+    if (!propertyMappingState?.propertyMappings) {
+      throw new Error('No property mappings found')
     }
 
     return bookingPreviews.map((preview, index) => {
@@ -381,7 +415,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       console.log("hussein" + preview)
       const payload: CreateBookingPayload = {
         userId: profile.id,
-        propertyId: selectedProperty.id,
+        propertyId: 'TEMP', // Will be updated in ProcessStep with correct property ID
         csvUploadId: '', // Will be set by ProcessStep when CSV upload record is created
         reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
         guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
@@ -523,21 +557,13 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         </p>
       </div>
 
-      {/* Property & Summary Info */}
+      {/* Summary Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
-            {selectedProperty && (
-              <>
-                <h3 className="text-sm font-medium text-blue-900">Property</h3>
-                <p className="text-sm text-blue-700 mb-2">
-                  {selectedProperty.listingName} ({selectedProperty.address})
-                </p>
-              </>
-            )}
             <h3 className="text-sm font-medium text-blue-900">Summary</h3>
             <p className="text-sm text-blue-700">
-              {csvData?.totalRows} total bookings • {mappedFields.length} fields mapped
+              {csvData?.totalRows} total bookings • {mappedFields.length} fields mapped • {Object.keys(groupedBookings).length} properties
             </p>
           </div>
           <CheckCircleIcon className="h-8 w-8 text-blue-600" />
@@ -573,82 +599,115 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         </div>
       </div>
 
-      {/* Booking Previews */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <h4 className="text-sm font-medium text-gray-900">Booking Previews</h4>
-          <p className="text-xs text-gray-600 mt-1">
-            Preview of how your bookings will look after import
-          </p>
-        </div>
+      {/* Multi-Property Booking Previews */}
+      <div className="space-y-6">
+        <h4 className="text-lg font-medium text-gray-900">Property Booking Previews</h4>
         
-        <div className="overflow-x-auto max-h-96">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                {mappedFields.map((field: any) => (
-                  <th key={field.field} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    {field.field}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {bookingPreviews.slice(0, previewCount).map((booking, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 text-sm text-gray-500">
-                    {booking.rowIndex}
-                  </td>
-                  {mappedFields.map((field: any) => {
-                    const value = booking[field.field]
-                    const isDateField = field.field.includes('date') || field.field === 'check_in_date' || field.field === 'check_out_date'
-                    const isEditable = getEditableFields().includes(field.field)
-                    const hasBeenEdited = isFieldEdited(index, field.field)
-                    
-                    return (
-                      <td key={field.field} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
-                        <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`}>
-                          <div 
-                            className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : ''}`}
-                            title={value}
-                          >
-                            {value || <span className="text-gray-400">—</span>}
-                            {hasBeenEdited && (
-                              <span className="ml-1 text-xs text-yellow-600">*</span>
-                            )}
-                          </div>
-                        </div>
-                        {isEditable && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEditField(index, field.field, getFieldValue(booking, field.field))
-                            }}
-                            className="cursor-pointer absolute right-1 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
-                            title={`Edit ${formatFieldName(field.field)}`}
-                          >
-                            <PencilIcon className="h-3 w-3" />
-                          </button>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Show More Button */}
-        {bookingPreviews.length > previewCount && (
-          <div className="p-4 border-t border-gray-200 text-center">
-            <button
-              onClick={() => setPreviewCount(prev => Math.min(prev + 5, bookingPreviews.length))}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Show More Bookings ({previewCount} of {bookingPreviews.length} shown)
-            </button>
+        {Object.entries(groupedBookings).map(([listingName, bookings]) => {
+          const propertyMapping = getPropertyMapping(listingName)
+          const displayCount = propertyDisplayCounts[listingName] || Math.min(bookings.length, 3) // Show first 3 per property
+          
+          return (
+            <div key={listingName} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {/* Property Header */}
+              <div className="px-4 py-3 bg-blue-50 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-sm font-medium text-blue-900">{listingName}</h5>
+                    <p className="text-xs text-blue-700">
+                      {bookings.length} bookings • {propertyMapping?.isNewProperty ? 'New Property' : 'Existing Property'}
+                    </p>
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    {propertyMapping?.isNewProperty ? '🏠 Creating New' : '✓ Mapped'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Bookings Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                      {mappedFields.map((field: any) => (
+                        <th key={field.field} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          {field.field}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {bookings.slice(0, displayCount).map((booking, index) => {
+                      const globalIndex = bookingPreviews.findIndex(b => b.rowIndex === booking.rowIndex)
+                      
+                      return (
+                        <tr key={booking.rowIndex} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-sm text-gray-500">
+                            {booking.rowIndex}
+                          </td>
+                          {mappedFields.map((field: any) => {
+                            const value = booking[field.field]
+                            const isDateField = field.field.includes('date') || field.field === 'check_in_date' || field.field === 'check_out_date'
+                            const isEditable = getEditableFields().includes(field.field)
+                            const hasBeenEdited = isFieldEdited(globalIndex, field.field)
+                            
+                            return (
+                              <td key={field.field} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
+                                <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`}>
+                                  <div 
+                                    className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : ''}`}
+                                    title={value}
+                                  >
+                                    {value || <span className="text-gray-400">—</span>}
+                                    {hasBeenEdited && (
+                                      <span className="ml-1 text-xs text-yellow-600">*</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {isEditable && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEditField(globalIndex, field.field, getFieldValue(booking, field.field))
+                                    }}
+                                    className="cursor-pointer absolute right-1 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                    title={`Edit ${formatFieldName(field.field)}`}
+                                  >
+                                    <PencilIcon className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Show More for This Property */}
+              {bookings.length > displayCount && (
+                <div className="p-3 bg-gray-50 border-t border-gray-200 text-center">
+                  <button 
+                    onClick={() => setPropertyDisplayCounts(prev => ({
+                      ...prev,
+                      [listingName]: bookings.length
+                    }))}
+                    className="cursor-pointer text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    View all {bookings.length} bookings for {listingName}
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        
+        {Object.keys(groupedBookings).length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No bookings to preview. Please check your field mappings.
           </div>
         )}
       </div>
