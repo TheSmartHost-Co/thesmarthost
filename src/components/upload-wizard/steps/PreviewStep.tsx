@@ -1,11 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { parseCsvFile } from '@/utils/csvParser'
 import { CsvData } from '@/services/types/csvMapping'
 import { CreateBookingPayload } from '@/services/types/booking'
 import { useUserStore } from '@/store/useUserStore'
+import EditFieldModal from '@/components/field-value-changed/EditFieldModal'
+import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
+import { isFinancialField, formatFieldName } from '@/services/fieldValuesChangedService'
 
 interface PreviewStepProps {
   onNext?: () => void
@@ -44,6 +47,21 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const [previewCount, setPreviewCount] = useState(5) // Show first 5 bookings by default
   const [isConfirming, setIsConfirming] = useState(false)
   const [confirmedPayloads, setConfirmedPayloads] = useState<CreateBookingPayload[] | null>(null)
+  
+  // Field editing state
+  const [fieldEdits, setFieldEdits] = useState<PreviewFieldEdit[]>([])
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingField, setEditingField] = useState<{
+    bookingIndex: number
+    fieldName: string
+    originalValue: string
+    currentValue?: string
+    bookingInfo: {
+      reservationCode: string
+      guestName: string
+      checkInDate: string
+    }
+  } | null>(null)
 
   const { profile } = useUserStore()
 
@@ -287,6 +305,71 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return requiredFields.filter((field: string) => !mappedFields.includes(field))
   }
 
+  // Field editing helper functions
+  const handleEditField = (bookingIndex: number, fieldName: string, originalValue: string) => {
+    const booking = bookingPreviews[bookingIndex]
+    if (!booking) return
+
+    // Get current edited value if it exists
+    const existingEdit = fieldEdits.find(edit => 
+      edit.bookingIndex === bookingIndex && edit.fieldName === fieldName
+    )
+
+    setEditingField({
+      bookingIndex,
+      fieldName,
+      originalValue,
+      currentValue: existingEdit?.newValue,
+      bookingInfo: {
+        reservationCode: booking.reservation_code || booking.reservationId || `Row ${bookingIndex + 1}`,
+        guestName: booking.guest_name || booking.guestName || 'Unknown Guest',
+        checkInDate: booking.check_in_date || booking.checkInDate || ''
+      }
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = (edit: PreviewFieldEdit) => {
+    setFieldEdits(prev => {
+      // Remove any existing edit for this booking/field combination
+      const filtered = prev.filter(e => 
+        !(e.bookingIndex === edit.bookingIndex && e.fieldName === edit.fieldName)
+      )
+      // Add the new edit
+      return [...filtered, edit]
+    })
+    
+    // Update the booking preview with the new value
+    setBookingPreviews(prev => prev.map((booking, index) => {
+      if (index === edit.bookingIndex) {
+        return {
+          ...booking,
+          [edit.fieldName]: edit.newValue
+        }
+      }
+      return booking
+    }))
+  }
+
+  const getFieldValue = (booking: BookingPreview, fieldName: string): string => {
+    return String(booking[fieldName] || '')
+  }
+
+  const isFieldEdited = (bookingIndex: number, fieldName: string): boolean => {
+    return fieldEdits.some(edit => 
+      edit.bookingIndex === bookingIndex && edit.fieldName === fieldName
+    )
+  }
+
+  const getEditableFields = (): string[] => {
+    // Financial fields that can be edited
+    return [
+      'nightly_rate', 'cleaning_fee', 'total_payout', 'net_earnings', 
+      'sales_tax', 'mgmt_fee', 'extra_guest_fees', 'lodging_tax', 
+      'qst', 'gst', 'channel_fee', 'stripe_fee', 'bed_linen_fee'
+    ]
+  }
+
   // Generate booking payloads from preview data (moved from ProcessStep)
   const generateBookingPayloads = (): CreateBookingPayload[] => {
     if (!bookingPreviews || !selectedProperty || !profile) {
@@ -376,6 +459,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         csvData,
         bookingPreviews,
         confirmedPayloads: payloads,
+        fieldEdits: fieldEdits,
         totalBookings: csvData?.totalRows || 0,
         isConfirmed: true
       })
@@ -519,12 +603,34 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   {mappedFields.map((field: any) => {
                     const value = booking[field.field]
                     const isDateField = field.field.includes('date') || field.field === 'check_in_date' || field.field === 'check_out_date'
+                    const isEditable = getEditableFields().includes(field.field)
+                    const hasBeenEdited = isFieldEdited(index, field.field)
                     
                     return (
-                      <td key={field.field} className="px-3 py-2 text-sm text-gray-900">
-                        <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`} title={value}>
-                          {value || <span className="text-gray-400">—</span>}
+                      <td key={field.field} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
+                        <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`}>
+                          <div 
+                            className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : ''}`}
+                            title={value}
+                          >
+                            {value || <span className="text-gray-400">—</span>}
+                            {hasBeenEdited && (
+                              <span className="ml-1 text-xs text-yellow-600">*</span>
+                            )}
+                          </div>
                         </div>
+                        {isEditable && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditField(index, field.field, getFieldValue(booking, field.field))
+                            }}
+                            className="cursor-pointer absolute right-1 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 opacity-0 group-hover:opacity-100"
+                            title={`Edit ${formatFieldName(field.field)}`}
+                          >
+                            <PencilIcon className="h-3 w-3" />
+                          </button>
+                        )}
                       </td>
                     )
                   })}
@@ -585,6 +691,23 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Edit Field Modal */}
+      {editingField && (
+        <EditFieldModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingField(null)
+          }}
+          fieldName={editingField.fieldName}
+          originalValue={editingField.originalValue}
+          currentValue={editingField.currentValue}
+          bookingIndex={editingField.bookingIndex}
+          bookingInfo={editingField.bookingInfo}
+          onSave={handleSaveEdit}
+        />
+      )}
     </div>
   )
 }

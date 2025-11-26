@@ -7,6 +7,8 @@ import { createMultipleBookings } from '@/services/bookingService'
 import { CreateBookingPayload } from '@/services/types/booking'
 import { useUserStore } from '@/store/useUserStore'
 import { ProcessingStatus } from '../types/wizard'
+import { createMultipleFieldChanges } from '@/services/fieldValuesChangedService'
+import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 
 interface ProcessStepProps {
   onNext?: () => void
@@ -132,10 +134,100 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         throw new Error(bulkResult.message || 'Failed to save bookings')
       }
 
-      updateProgress(ProcessingStatus.CALCULATING_METRICS, 90, 'Calculating import statistics...', 'Bookings saved to database')
+      console.log('Bulk bookings result:', bulkResult)
+
+      // First check what structure bulkResult.data has
+      console.log('bulkResult.data structure:', bulkResult.data)
+      console.log('Is bulkResult.data an array?', Array.isArray(bulkResult.data))
+      
+      // Get the bookings array - it might be bulkResult.data.bookings or bulkResult.data directly
+      const createdBookings = Array.isArray(bulkResult.data) 
+        ? bulkResult.data 
+        : (bulkResult.data.bookings || [])
+      
+      console.log('Created bookings array:', createdBookings)
+
+      // Step 3.5: Save field value changes if any edits were made
+      if (previewState?.fieldEdits && previewState.fieldEdits.length > 0) {
+        console.log('Field edits detected:', previewState.fieldEdits)
+        updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 85, 'Saving field change history...')
+        
+        try {
+          
+          // Map field edits to include actual booking IDs from the created bookings
+          const fieldChangesToSave = previewState.fieldEdits.map((edit: PreviewFieldEdit) => {
+            // Get the original booking payload to find reservation code
+            const originalBookingPayload = bookingPayloads[edit.bookingIndex]
+            if (!originalBookingPayload) {
+              console.warn(`Could not find original booking payload at index ${edit.bookingIndex}`)
+              return null
+            }
+            
+            console.log(`Looking for booking with index ${edit.bookingIndex}, reservation code: "${originalBookingPayload.reservationCode}"`)
+            
+            // Find the corresponding created booking by matching reservation code
+            // Convert both to strings and trim to handle any type/whitespace issues
+            const createdBooking = createdBookings.find((booking: any) => {
+              const bookingCode = String(booking.reservationCode || booking.reservation_code || '').trim()
+              const payloadCode = String(originalBookingPayload.reservationCode || '').trim()
+              const match = bookingCode === payloadCode
+              if (!match && edit.bookingIndex === 0) {
+                // Debug first mismatch
+                console.log(`Comparing: "${bookingCode}" vs "${payloadCode}" - Match: ${match}`)
+              }
+              return match
+            })
+            
+            if (!createdBooking) {
+              console.warn(`Could not find created booking for reservation code "${originalBookingPayload.reservationCode}" at index ${edit.bookingIndex}`)
+              console.warn('Original payload:', originalBookingPayload)
+              console.warn('Available bookings:', createdBookings.map((b: any, i: number) => ({
+                index: i,
+                reservationCode: b.reservationCode || b.reservation_code,
+                id: b.id
+              })))
+              return null
+            }
+            
+            console.log(`Mapping field edit: ${edit.fieldName} for booking ${createdBooking.id} (${createdBooking.reservationCode})`)
+            
+            return {
+              bookingId: createdBooking.id,
+              userId: profile!.id,
+              fieldName: edit.fieldName,
+              originalValue: edit.originalValue,
+              editedValue: edit.newValue,
+              changeReason: edit.reason || null
+            }
+          }).filter(Boolean) // Remove any null entries
+          
+          console.log('Field changes to save:', fieldChangesToSave)
+          
+          if (fieldChangesToSave.length > 0) {
+            const fieldChangeResult = await createMultipleFieldChanges({
+              fieldChanges: fieldChangesToSave
+            })
+            
+            console.log('Field change save result:', fieldChangeResult)
+            
+            if (fieldChangeResult.status === 'success') {
+              updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 90, 'Field changes saved', `${fieldChangesToSave.length} field edits recorded`)
+            } else {
+              // Log error but don't fail the whole import
+              console.error('Failed to save field changes:', fieldChangeResult.message)
+            }
+          }
+        } catch (error) {
+          // Log error but don't fail the whole import since bookings were created successfully
+          console.error('Error saving field changes:', error)
+        }
+      } else {
+        updateProgress(ProcessingStatus.CALCULATING_METRICS, 90, 'Calculating import statistics...', 'Bookings saved to database')
+      }
 
       // Step 4: Generate completion stats (100%)
-      const stats = generateImportStats(bookingPayloads, bulkResult.data)
+      const fieldEditCount = previewState?.fieldEdits?.length || 0
+      const stats = generateImportStats(bookingPayloads, createdBookings, fieldEditCount)
       setImportStats(stats)
 
       updateProgress(ProcessingStatus.COMPLETE, 100, 'Import completed successfully!', 'Statistics calculated')
@@ -170,7 +262,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   // All booking conversion logic moved to PreviewStep!
   // ProcessStep now only handles the upload process
 
-  const generateImportStats = (bookingPayloads: CreateBookingPayload[], bulkResult: any) => {
+  const generateImportStats = (bookingPayloads: CreateBookingPayload[], bulkResult: any, fieldEditCount: number = 0) => {
     const totalBookings = bookingPayloads.length
     const totalRevenue = bookingPayloads.reduce((sum, booking) => 
       sum + (booking.totalPayout || 0), 0)
@@ -194,7 +286,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         start: dates[0] || new Date().toISOString().split('T')[0],
         end: dates[dates.length - 1] || new Date().toISOString().split('T')[0]
       },
-      platformBreakdown
+      platformBreakdown,
+      fieldEditsApplied: fieldEditCount
     }
   }
 
@@ -298,6 +391,14 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
                 {Object.keys(importStats.platformBreakdown).length}
               </div>
             </div>
+            {importStats.fieldEditsApplied > 0 && (
+              <div>
+                <span className="text-green-700">Field Edits:</span>
+                <div className="font-semibold text-green-900">
+                  {importStats.fieldEditsApplied}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
