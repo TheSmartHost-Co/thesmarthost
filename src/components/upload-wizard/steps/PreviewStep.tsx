@@ -96,6 +96,11 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         // Group bookings by property for multi-property display
         const grouped = groupBookingsByProperty(previews)
         setGroupedBookings(grouped)
+
+        console.log('Total booking previews:', previews.length)
+        console.log('Unique listing names found:', Object.keys(grouped))
+        console.log('Grouped bookings:', grouped)
+        console.log('Property mapping state:', propertyMappingState)
         
         // Notify parent component
         onPreviewComplete?.({
@@ -147,21 +152,17 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   // Formula evaluator function
   const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[]): number | string => {
     try {
-      console.log('=== Formula Evaluation Debug ===')
-      console.log('Formula:', formula)
-      console.log('CSV Headers:', csvHeaders.map(h => h.name))
-      console.log('CSV Row:', csvRow)
+      // Removed excessive logging
       
       // Create a lowercase mapping for all columns
       const valueMap = new Map<string, string>()
       csvHeaders.forEach((header, index) => {
         const columnValue = csvRow[index] || '0'
         
-        // Special handling for date fields - keep original text format
+        // Special handling for date fields and listing names - keep original text format
         const headerLower = header.name.toLowerCase()
         if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin')) {
           valueMap.set(headerLower, columnValue)
-          console.log(`Mapped "${header.name}" (${headerLower}) → "${columnValue}" [raw: "${columnValue}"] (DATE)`)
           return
         }
         
@@ -169,13 +170,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         // For numeric calculations, use numbers. For text, keep original text
         const valueToUse = isNaN(numValue) ? columnValue : numValue.toString()
         valueMap.set(headerLower, valueToUse)
-        console.log(`Mapped "${header.name}" (${headerLower}) → "${valueToUse}" [raw: "${columnValue}"]`)
       })
       
       // Check if it's a simple column reference first
       const simpleValue = valueMap.get(formula.toLowerCase())
       if (simpleValue !== undefined) {
-        console.log('Simple column mapping:', formula, '→', simpleValue)
+        // Simple column mapping found
         
         // For date-related formulas, always return the original string value
         const formulaLower = formula.toLowerCase()
@@ -190,7 +190,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       // For complex formulas, split by operators and replace each term
       let expression = formula.toLowerCase() // Convert entire formula to lowercase
-      console.log('Starting expression (lowercase):', expression)
+
       
       // Replace each mapped column with its value
       valueMap.forEach((value, key) => {
@@ -199,13 +199,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         const beforeReplace = expression
         expression = expression.replace(regex, value)
         
-        if (expression !== beforeReplace) {
-          console.log(`  Replaced "${key}" with "${value}"`)
-          console.log(`  Expression: ${beforeReplace} → ${expression}`)
-        }
       })
-
-      console.log('Final expression:', expression)
 
       // Evaluate the mathematical expression safely
       if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
@@ -217,8 +211,6 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       // Use Function constructor for safe evaluation
       const result = new Function(`return ${expression}`)()
       const finalResult = isNaN(result) ? 0 : parseFloat(result.toFixed(2))
-      console.log('Final result:', finalResult)
-      console.log('=== End Debug ===')
       
       return finalResult
     } catch (error) {
@@ -230,8 +222,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const generateBookingPreviews = (csvData: CsvData, fieldMappings: any[]): BookingPreview[] => {
     const previews: BookingPreview[] = []
     
-    // Take only the first few rows for preview
-    const rowsToPreview = Math.min(csvData.rows.length, 10)
+    // Take all rows for multi-property flow (we need to see all properties)
+    const rowsToPreview = csvData.rows.length
     
     for (let i = 0; i < rowsToPreview; i++) {
       const row = csvData.rows[i]
@@ -257,13 +249,19 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           const isSimpleColumn = csvData.headers.some(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
           
           if (isSimpleColumn) {
-            // For simple column mappings, use original CSV data only
-            const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
-            booking[mapping.bookingField] = result
+            // For listing names, use direct CSV extraction to avoid parseFloat truncation
+            if (mapping.bookingField === 'listing_name' || mapping.bookingField === 'listingName') {
+              const columnIndex = csvData.headers.findIndex(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
+              booking[mapping.bookingField] = columnIndex !== -1 ? (row[columnIndex] || '').trim() : ''
+            } else {
+              // For other simple column mappings, use formula evaluation
+              const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
+              booking[mapping.bookingField] = result
+            }
             
             // Debug logging for date fields
             if (mapping.bookingField.includes('date')) {
-              console.log(`BOOKING PREVIEW: ${mapping.bookingField} = ${result} (simple mapping)`)
+              // Mapped booking field
             }
           } else {
             // For complex formulas, create extended headers that include both CSV columns and already calculated booking fields
@@ -304,7 +302,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
             
             // Debug logging for date fields
             if (mapping.bookingField.includes('date')) {
-              console.log(`BOOKING PREVIEW: ${mapping.bookingField} = ${result} (complex formula)`)
+              // Complex formula mapped
             }
           }
         }
@@ -412,7 +410,6 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
     return bookingPreviews.map((preview, index) => {
       // Convert preview booking to CreateBookingPayload format
-      console.log("hussein" + preview)
       const payload: CreateBookingPayload = {
         userId: profile.id,
         propertyId: 'TEMP', // Will be updated in ProcessStep with correct property ID

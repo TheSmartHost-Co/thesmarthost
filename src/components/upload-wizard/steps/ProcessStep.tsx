@@ -6,6 +6,7 @@ import { uploadCsvFile } from '@/services/csvUploadService'
 import { createMultipleBookings } from '@/services/bookingService'
 import { CreateBookingPayload } from '@/services/types/booking'
 import { createProperty } from '@/services/propertyService'
+import { createClient } from '@/services/clientService'
 import { useUserStore } from '@/store/useUserStore'
 import { ProcessingStatus } from '../types/wizard'
 import { createMultipleFieldChanges } from '@/services/fieldValuesChangedService'
@@ -104,13 +105,21 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
             throw new Error(`Missing property data for ${mapping.listingName}`)
           }
           
+          const clientId = mapping.newPropertyData.clientId
+          
+          if (!clientId) {
+            throw new Error(`No valid client ID for property "${mapping.listingName}"`)
+          }
+          
           const propertyResult = await createProperty({
-            clientId: profile!.id,
+            clientId,
             listingName: mapping.newPropertyData.name,
-            listingId: mapping.newPropertyData.name.toLowerCase().replace(/\s+/g, '-'),
-            address: mapping.newPropertyData.address || 'Address TBD',
-            postalCode: '',
-            province: '',
+            listingId: mapping.newPropertyData.listingId,
+            externalName: mapping.newPropertyData.externalName || '',
+            internalName: mapping.newPropertyData.internalName || '',
+            address: mapping.newPropertyData.address,
+            postalCode: mapping.newPropertyData.postalCode,
+            province: mapping.newPropertyData.province,
             propertyType: mapping.newPropertyData.propertyType,
             commissionRate: mapping.newPropertyData.commissionRate
           })

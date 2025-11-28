@@ -10,7 +10,9 @@ import {
 } from '@heroicons/react/24/outline'
 import { PropertyMapping, PropertyMappingState } from '../types/wizard'
 import { Property } from '@/services/types/property'
+import { Client } from '@/services/types/client'
 import { getProperties } from '@/services/propertyService'
+import { getClientsByParentId, createClient } from '@/services/clientService'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 
@@ -42,6 +44,11 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
   const [loadingProperties, setLoadingProperties] = useState(true)
   const [propertyMappings, setPropertyMappings] = useState<PropertyMapping[]>([])
   const [showNewPropertyForms, setShowNewPropertyForms] = useState<Record<string, boolean>>({})
+  
+  // Client state
+  const [clients, setClients] = useState<Client[]>([])
+  const [loadingClients, setLoadingClients] = useState(false)
+  const [showNewClientForms, setShowNewClientForms] = useState<Record<string, boolean>>({})
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -113,8 +120,26 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
     setShowNewPropertyForms(prev => ({ ...prev, [listingName]: false }))
   }
 
-  const handleCreateNewProperty = (listingName: string) => {
+  const handleCreateNewProperty = async (listingName: string) => {
     setShowNewPropertyForms(prev => ({ ...prev, [listingName]: true }))
+    
+    // Load clients when creating new property
+    if (clients.length === 0 && profile?.id) {
+      try {
+        setLoadingClients(true)
+        const response = await getClientsByParentId(profile.id)
+        if (response.status === 'success') {
+          setClients(response.data.filter(c => c.isActive))
+        } else {
+          showNotification('Failed to load clients', 'error')
+        }
+      } catch (error) {
+        console.error('Error loading clients:', error)
+        showNotification('Error loading clients', 'error')
+      } finally {
+        setLoadingClients(false)
+      }
+    }
     
     setPropertyMappings(prev => prev.map(mapping => 
       mapping.listingName === listingName 
@@ -124,9 +149,16 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
             isNewProperty: true,
             newPropertyData: {
               name: listingName, // Default to listing name
+              listingId: listingName.toLowerCase().replace(/\s+/g, '-'), // Auto-generate from name
+              externalName: '',
+              internalName: '',
               address: '',
+              postalCode: '',
+              province: '',
               propertyType: 'STR',
-              commissionRate: 10
+              commissionRate: 10,
+              clientId: '', // Will be selected from dropdown
+              newClientData: undefined // For inline client creation
             }
           }
         : mapping
@@ -139,6 +171,126 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
         ? { 
             ...mapping, 
             newPropertyData: { ...mapping.newPropertyData, [field]: value }
+          }
+        : mapping
+    ))
+  }
+
+  const handleClientSelect = (listingName: string, clientId: string) => {
+    setPropertyMappings(prev => prev.map(mapping => 
+      mapping.listingName === listingName && mapping.newPropertyData
+        ? { 
+            ...mapping, 
+            newPropertyData: { 
+              ...mapping.newPropertyData, 
+              clientId,
+              newClientData: undefined // Clear new client data when selecting existing
+            }
+          }
+        : mapping
+    ))
+    // Hide new client form if it was showing
+    setShowNewClientForms(prev => ({ ...prev, [listingName]: false }))
+  }
+
+  const handleCreateNewClient = (listingName: string) => {
+    setShowNewClientForms(prev => ({ ...prev, [listingName]: true }))
+    setPropertyMappings(prev => prev.map(mapping => 
+      mapping.listingName === listingName && mapping.newPropertyData
+        ? { 
+            ...mapping, 
+            newPropertyData: { 
+              ...mapping.newPropertyData, 
+              clientId: 'new', // Special value to indicate new client
+              newClientData: {
+                name: '',
+                email: ''
+              }
+            }
+          }
+        : mapping
+    ))
+  }
+
+  const handleNewClientDataChange = (listingName: string, field: string, value: string) => {
+    setPropertyMappings(prev => prev.map(mapping => 
+      mapping.listingName === listingName && mapping.newPropertyData?.newClientData
+        ? { 
+            ...mapping, 
+            newPropertyData: { 
+              ...mapping.newPropertyData, 
+              newClientData: { ...mapping.newPropertyData.newClientData, [field]: value }
+            }
+          }
+        : mapping
+    ))
+  }
+
+  const handleSaveNewClient = async (listingName: string) => {
+    const mapping = propertyMappings.find(m => m.listingName === listingName)
+    const newClientData = mapping?.newPropertyData?.newClientData
+    
+    if (!newClientData?.name || !newClientData?.email) {
+      showNotification('Client name and email are required', 'error')
+      return
+    }
+
+    if (!profile?.id) {
+      showNotification('User profile not found', 'error')
+      return
+    }
+
+    try {
+      // Create the client immediately
+      const clientResult = await createClient({
+        parentId: profile.id,
+        name: newClientData.name,
+        email: newClientData.email
+      })
+
+      if (clientResult.status !== 'success') {
+        showNotification(clientResult.message || 'Failed to create client', 'error')
+        return
+      }
+
+      // Add new client to the clients list
+      const newClient = clientResult.data
+      setClients(prev => [...prev, newClient])
+
+      // Update the property mapping to select the new client
+      setPropertyMappings(prev => prev.map(mapping => 
+        mapping.listingName === listingName && mapping.newPropertyData
+          ? { 
+              ...mapping, 
+              newPropertyData: { 
+                ...mapping.newPropertyData, 
+                clientId: newClient.id,
+                newClientData: undefined // Clear the form data
+              }
+            }
+          : mapping
+      ))
+
+      // Hide the new client form
+      setShowNewClientForms(prev => ({ ...prev, [listingName]: false }))
+      showNotification('Client created successfully', 'success')
+    } catch (error) {
+      console.error('Error creating client:', error)
+      showNotification('Error creating client', 'error')
+    }
+  }
+
+  const handleCancelNewClient = (listingName: string) => {
+    setShowNewClientForms(prev => ({ ...prev, [listingName]: false }))
+    setPropertyMappings(prev => prev.map(mapping => 
+      mapping.listingName === listingName && mapping.newPropertyData
+        ? { 
+            ...mapping, 
+            newPropertyData: { 
+              ...mapping.newPropertyData, 
+              clientId: '',
+              newClientData: undefined
+            }
           }
         : mapping
     ))
@@ -269,60 +421,241 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
                 <div className="space-y-3 bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h5 className="font-medium text-gray-900">Create New Property</h5>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Property Name
-                      </label>
-                      <input
-                        type="text"
-                        value={mapping?.newPropertyData?.name || ''}
-                        onChange={(e) => handleNewPropertyDataChange(listingName, 'name', e.target.value)}
-                        className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter property name"
-                      />
+                  <div className="space-y-3">
+                    {/* Listing Name and Listing ID */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Listing Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.name || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'name', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Lake Estate"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Listing ID *
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.listingId || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'listingId', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., HOST-123"
+                        />
+                      </div>
+                    </div>
+
+                    {/* External and Internal Name */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          External Name
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.externalName || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'externalName', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Public-facing name (optional)"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Internal Name
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.internalName || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'internalName', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Internal reference (optional)"
+                        />
+                      </div>
                     </div>
                     
+                    {/* Address */}
                     <div>
-                      <label className="text-black block text-sm font-medium text-gray-700 mb-1">
-                        Address
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Address *
                       </label>
                       <input
                         type="text"
                         value={mapping?.newPropertyData?.address || ''}
                         onChange={(e) => handleNewPropertyDataChange(listingName, 'address', e.target.value)}
                         className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter property address"
+                        placeholder="e.g., 123 Main St, Calgary, AB"
                       />
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Property Type
-                      </label>
-                      <select
-                        value={mapping?.newPropertyData?.propertyType || 'STR'}
-                        onChange={(e) => handleNewPropertyDataChange(listingName, 'propertyType', e.target.value)}
-                        className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="STR">Short-term Rental (STR)</option>
-                        <option value="LTR">Long-term Rental (LTR)</option>
-                      </select>
+
+                    {/* Postal Code and Province */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Postal Code *
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.postalCode || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'postalCode', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., T2P 1A1"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Province *
+                        </label>
+                        <input
+                          type="text"
+                          value={mapping?.newPropertyData?.province || ''}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'province', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Alberta"
+                        />
+                      </div>
                     </div>
-                    
-                    <div>
+
+                    {/* Property Type and Commission */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Property Type *
+                        </label>
+                        <select
+                          value={mapping?.newPropertyData?.propertyType || 'STR'}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'propertyType', e.target.value)}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="STR">STR (Short-Term Rental)</option>
+                          <option value="LTR">LTR (Long-Term Rental)</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Commission Rate (%) *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={mapping?.newPropertyData?.commissionRate || 10}
+                          onChange={(e) => handleNewPropertyDataChange(listingName, 'commissionRate', parseFloat(e.target.value))}
+                          className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 15"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Client Selection */}
+                    <div className="border-t border-gray-200 pt-3 mt-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Commission Rate (%)
+                        Property Owner (Client) *
                       </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        value={mapping?.newPropertyData?.commissionRate || 10}
-                        onChange={(e) => handleNewPropertyDataChange(listingName, 'commissionRate', parseFloat(e.target.value))}
-                        className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      
+                      {!showNewClientForms[listingName] ? (
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-1 relative">
+                            <select
+                              value={mapping?.newPropertyData?.clientId || ''}
+                              onChange={(e) => handleClientSelect(listingName, e.target.value)}
+                              className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                              disabled={loadingClients}
+                            >
+                              <option value="">Select property owner...</option>
+                              {clients.map((client) => (
+                                <option key={client.id} value={client.id}>
+                                  {client.name} {client.email ? `(${client.email})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                          </div>
+                          
+                          <button
+                            onClick={() => handleCreateNewClient(listingName)}
+                            className="px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center"
+                          >
+                            <PlusIcon className="h-4 w-4 mr-1" />
+                            New Client
+                          </button>
+                        </div>
+                      ) : (
+                        /* Inline New Client Form */
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
+                          <h6 className="font-medium text-blue-900">Create New Client</h6>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-blue-700 mb-1">
+                                Client Name *
+                              </label>
+                              <input
+                                type="text"
+                                value={mapping?.newPropertyData?.newClientData?.name || ''}
+                                onChange={(e) => handleNewClientDataChange(listingName, 'name', e.target.value)}
+                                className="text-black w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g., John Doe"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-blue-700 mb-1">
+                                Email *
+                              </label>
+                              <input
+                                type="email"
+                                value={mapping?.newPropertyData?.newClientData?.email || ''}
+                                onChange={(e) => handleNewClientDataChange(listingName, 'email', e.target.value)}
+                                className="text-black w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="john@example.com"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => handleCancelNewClient(listingName)}
+                              className="px-3 py-2 text-sm text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveNewClient(listingName)}
+                              disabled={!mapping?.newPropertyData?.newClientData?.name || !mapping?.newPropertyData?.newClientData?.email}
+                              className="px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Save Client
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Selected Client Display */}
+                      {mapping?.newPropertyData?.clientId && mapping?.newPropertyData?.clientId !== 'new' && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
+                          <div className="flex items-center">
+                            <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
+                            <div className="text-sm">
+                              <span className="font-medium text-green-900">
+                                {clients.find(c => c.id === mapping?.newPropertyData?.clientId)?.name}
+                              </span>
+                              <span className="text-green-700 ml-2">
+                                • {clients.find(c => c.id === mapping?.newPropertyData?.clientId)?.email}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -335,7 +668,15 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
                     </button>
                     <button
                       onClick={() => setShowNewPropertyForms(prev => ({ ...prev, [listingName]: false }))}
-                      disabled={!mapping?.newPropertyData?.name || !mapping?.newPropertyData?.address}
+                      disabled={
+                        !mapping?.newPropertyData?.name || 
+                        !mapping?.newPropertyData?.listingId || 
+                        !mapping?.newPropertyData?.address || 
+                        !mapping?.newPropertyData?.postalCode || 
+                        !mapping?.newPropertyData?.province ||
+                        !mapping?.newPropertyData?.clientId ||
+                        (mapping?.newPropertyData?.clientId === 'new' && (!mapping?.newPropertyData?.newClientData?.name || !mapping?.newPropertyData?.newClientData?.email))
+                      }
                       className="text-black px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Save Property

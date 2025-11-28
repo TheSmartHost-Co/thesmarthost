@@ -300,9 +300,19 @@ export interface PropertyMapping {
   isNewProperty?: boolean           // Creating new property flag
   newPropertyData?: {               // New property details
     name: string
+    listingId: string
+    externalName?: string
+    internalName?: string
     address: string
+    postalCode: string
+    province: string
     propertyType: 'STR' | 'LTR'
     commissionRate: number
+    clientId: string
+    newClientData?: {               // For inline client creation
+      name: string
+      email: string
+    }
   }
   bookingCount?: number            // How many bookings for this listing
 }
