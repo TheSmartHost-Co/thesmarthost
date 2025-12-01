@@ -53,6 +53,10 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   // Custom fields modal state
   const [isCustomFieldsModalOpen, setIsCustomFieldsModalOpen] = useState(false)
   
+  // Platform override state
+  const [platformOverride, setPlatformOverride] = useState<string>('')
+  const [isPlatformOverrideActive, setIsPlatformOverrideActive] = useState(false)
+  
   const getFieldInputMode = (fieldName: string): 'dropdown' | 'formula' => {
     const key = `${fieldName}_${selectedPlatform}`
     return fieldInputModes[key] || 'dropdown'
@@ -157,6 +161,34 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
         }
       }))
     }
+  }
+
+  const handlePlatformOverride = (platform: string) => {
+    setPlatformOverride(platform)
+    setIsPlatformOverrideActive(true)
+    
+    // Set the platform mapping to the override value
+    setPlatformMappings(prev => ({
+      ...prev,
+      [selectedPlatform]: {
+        ...prev[selectedPlatform],
+        'platform': `PLATFORM:${platform}`
+      }
+    }))
+  }
+
+  const clearPlatformOverride = () => {
+    setIsPlatformOverrideActive(false)
+    setPlatformOverride('')
+    
+    // Clear the platform mapping
+    setPlatformMappings(prev => ({
+      ...prev,
+      [selectedPlatform]: {
+        ...prev[selectedPlatform],
+        'platform': ''
+      }
+    }))
   }
 
   // Load mappings from calculation rules
@@ -310,6 +342,11 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                 </span>
                 {isRequired && selectedPlatform === 'ALL' && (
                   <span className="text-xs text-red-500">Required</span>
+                )}
+                {field.field === 'platform' && isPlatformOverrideActive && platformOverride && (
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                    🎯 Overridden: {PLATFORM_OPTIONS.find(opt => opt.value === platformOverride)?.label}
+                  </span>
                 )}
                 {isRequired && selectedPlatform !== 'ALL' && (
                   <span className="text-xs text-gray-500">🔒 Required (Inherited)</span>
@@ -482,6 +519,47 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                   ))}
                 </select>
                 <ChevronDownIcon className="h-4 w-4 text-gray-400 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                
+                {/* Platform Override Button - Show only for platform field */}
+                {field.field === 'platform' && (
+                  <div className="ml-2">
+                    {!isPlatformOverrideActive ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsPlatformOverrideActive(true)}
+                          className="px-3 py-2 text-xs bg-orange-100 text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-200 transition-colors flex items-center"
+                          title="Override platform - useful when CSV doesn't have a platform column"
+                        >
+                          🎯 Override
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={platformOverride}
+                          onChange={(e) => handlePlatformOverride(e.target.value)}
+                          className="text-black px-2 py-1 text-xs border border-orange-300 rounded bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          <option value="">Select Platform...</option>
+                          {PLATFORM_OPTIONS.filter(opt => opt.value !== 'ALL').map(opt => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={clearPlatformOverride}
+                          className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800"
+                          title="Clear platform override"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
