@@ -28,6 +28,19 @@ export interface FieldMapping {
   isOverride?: boolean // True if this overrides the ALL platform setting
 }
 
+// Complete state object that preserves all form state including formulas
+export interface CompleteFieldMappingState {
+  // The final field mappings array (what we currently save)
+  fieldMappings: FieldMapping[]
+  // All the internal state that needs to be preserved
+  platformMappings: Record<Platform, Record<string, string>>
+  fieldInputModes: Record<string, 'dropdown' | 'formula'>
+  selectedPlatform: Platform
+  platformOverride: string
+  isPlatformOverrideActive: boolean
+  hasBaseMappings: boolean
+}
+
 // Required booking fields that must be mapped
 export const REQUIRED_BOOKING_FIELDS: BookingField[] = [
   { field: 'reservation_code', label: 'Reservation Code', required: true, type: 'string' },

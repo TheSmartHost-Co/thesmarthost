@@ -6,6 +6,7 @@ import {
   CsvData, 
   Platform, 
   FieldMapping, 
+  CompleteFieldMappingState,
   REQUIRED_BOOKING_FIELDS, 
   OPTIONAL_BOOKING_FIELDS,
   PLATFORM_OPTIONS 
@@ -22,6 +23,8 @@ interface FieldMappingFormProps {
   selectedProperty?: any
   onRefreshRules?: () => Promise<void>
   initialFieldMappings?: FieldMapping[]
+  initialCompleteState?: CompleteFieldMappingState
+  onCompleteStateChange?: (completeState: CompleteFieldMappingState) => void
 }
 
 const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
@@ -31,7 +34,9 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   calculationRules = [],
   selectedProperty,
   onRefreshRules,
-  initialFieldMappings
+  initialFieldMappings,
+  initialCompleteState,
+  onCompleteStateChange
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
@@ -59,8 +64,12 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   const [platformOverride, setPlatformOverride] = useState<string>('')
   const [isPlatformOverrideActive, setIsPlatformOverrideActive] = useState(false)
   
-  // Track if we've initialized from props
-  const hasInitialized = useRef(false)
+  // Track previous props to detect changes
+  const prevCompleteStateRef = useRef<string | undefined>(undefined)
+  const prevFieldMappingsRef = useRef<string | undefined>(undefined)
+  const hasRestoredRef = useRef(false)
+  // Track the last emitted complete state to prevent duplicate emissions
+  const lastEmittedStateRef = useRef<string | undefined>(undefined)
   
   const getFieldInputMode = (fieldName: string): 'dropdown' | 'formula' => {
     const key = `${fieldName}_${selectedPlatform}`
@@ -77,8 +86,36 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
 
   // Initialize platform mappings
   useEffect(() => {
-    // If we have initial field mappings and haven't initialized yet, restore them
-    if (initialFieldMappings && initialFieldMappings.length > 0 && !hasInitialized.current) {
+    // Create unique keys to detect actual changes
+    const currentCompleteStateKey = initialCompleteState ? JSON.stringify(initialCompleteState) : undefined
+    const currentFieldMappingsKey = initialFieldMappings ? JSON.stringify(initialFieldMappings) : undefined
+    
+    // Check if we have new data to restore
+    const shouldRestoreCompleteState = initialCompleteState && 
+      currentCompleteStateKey !== prevCompleteStateRef.current && 
+      !hasRestoredRef.current
+    
+    const shouldRestoreFieldMappings = initialFieldMappings && 
+      initialFieldMappings.length > 0 && 
+      currentFieldMappingsKey !== prevFieldMappingsRef.current && 
+      !hasRestoredRef.current && 
+      !initialCompleteState
+    
+    const shouldInitialize = !initialCompleteState && 
+      (!initialFieldMappings || initialFieldMappings.length === 0) && 
+      !hasRestoredRef.current
+    
+    if (shouldRestoreCompleteState) {
+      setPlatformMappings(initialCompleteState.platformMappings)
+      setFieldInputModes(initialCompleteState.fieldInputModes)
+      setSelectedPlatform(initialCompleteState.selectedPlatform)
+      setPlatformOverride(initialCompleteState.platformOverride)
+      setIsPlatformOverrideActive(initialCompleteState.isPlatformOverrideActive)
+      setHasBaseMappings(initialCompleteState.hasBaseMappings)
+      prevCompleteStateRef.current = currentCompleteStateKey
+      hasRestoredRef.current = true
+    } else if (shouldRestoreFieldMappings) {
+      // Fallback: restore from just field mappings (legacy)
       const restoredMappings: Record<Platform, Record<string, string>> = {
         'ALL': {},
         'airbnb': {},
@@ -92,24 +129,24 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
         'hostaway': {}
       }
       
-      // Restore mappings from initial field mappings
       initialFieldMappings.forEach(mapping => {
         const platform = mapping.platform || 'ALL'
         restoredMappings[platform][mapping.bookingField] = mapping.csvFormula
       })
       
       setPlatformMappings(restoredMappings)
-      hasInitialized.current = true
-    } else if (!hasInitialized.current) {
-      // Otherwise, auto-suggest mappings
+      prevFieldMappingsRef.current = currentFieldMappingsKey
+      hasRestoredRef.current = true
+    } else if (shouldInitialize) {
+      // First time initialization - auto-suggest mappings
       const suggestions = suggestMappings(csvData.headers)
       setPlatformMappings(prev => ({
         ...prev,
         'ALL': suggestions
       }))
-      hasInitialized.current = true
+      hasRestoredRef.current = true
     }
-  }, [csvData, initialFieldMappings])
+  }, [csvData, initialFieldMappings, initialCompleteState])
 
   // Validate ALL platform mappings
   useEffect(() => {
@@ -157,6 +194,62 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     
     onMappingsChange(fieldMappings)
   }, [platformMappings])
+
+  // Emit complete state changes for persistence (with deduplication and debouncing)
+  useEffect(() => {
+    if (onCompleteStateChange && hasRestoredRef.current) {
+      // Only start emitting after we've finished restoring
+      const timer = setTimeout(() => {
+        const fieldMappings: FieldMapping[] = []
+        
+        // Convert platform mappings to field mappings
+        Object.entries(platformMappings['ALL'])
+          .filter(([_, csvFormula]) => csvFormula.trim() !== '')
+          .forEach(([bookingField, csvFormula]) => {
+            fieldMappings.push({
+              bookingField,
+              csvFormula,
+              platform: 'ALL',
+              isOverride: false
+            })
+          })
+        
+        Object.entries(platformMappings).forEach(([platform, mappings]) => {
+          if (platform !== 'ALL') {
+            Object.entries(mappings)
+              .filter(([_, csvFormula]) => csvFormula.trim() !== '')
+              .forEach(([bookingField, csvFormula]) => {
+                fieldMappings.push({
+                  bookingField,
+                  csvFormula,
+                  platform: platform as Platform,
+                  isOverride: true
+                })
+              })
+          }
+        })
+
+        const completeState: CompleteFieldMappingState = {
+          fieldMappings,
+          platformMappings,
+          fieldInputModes,
+          selectedPlatform,
+          platformOverride,
+          isPlatformOverrideActive,
+          hasBaseMappings
+        }
+        
+        // Only emit if the state has actually changed
+        const currentStateKey = JSON.stringify(completeState)
+        if (currentStateKey !== lastEmittedStateRef.current) {
+          onCompleteStateChange(completeState)
+          lastEmittedStateRef.current = currentStateKey
+        }
+      }, 50) // 50ms debounce
+
+      return () => clearTimeout(timer)
+    }
+  }, [platformMappings, fieldInputModes, selectedPlatform, platformOverride, isPlatformOverrideActive, hasBaseMappings, onCompleteStateChange])
 
   // Load mappings when calculation rules change
   useEffect(() => {

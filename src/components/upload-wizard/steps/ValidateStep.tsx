@@ -21,8 +21,10 @@ interface ValidateStepProps {
   validationState?: any
   onValidationComplete?: (state: any) => void
   selectedProperty?: any
-  fieldMappings?: FieldMapping[] // Add persisted field mappings
-  onFieldMappingsUpdate?: (mappings: FieldMapping[]) => void // Add callback for updates
+  fieldMappings?: FieldMapping[] // Legacy persisted field mappings
+  onFieldMappingsUpdate?: (mappings: FieldMapping[]) => void // Legacy callback for updates
+  completeFieldMappingState?: any // Complete field mapping state including formulas
+  onCompleteFieldMappingStateUpdate?: (completeState: any) => void // Complete state callback
 }
 
 const ValidateStep: React.FC<ValidateStepProps> = ({
@@ -36,7 +38,9 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
   onValidationComplete,
   selectedProperty,
   fieldMappings: persistedFieldMappings,
-  onFieldMappingsUpdate
+  onFieldMappingsUpdate,
+  completeFieldMappingState,
+  onCompleteFieldMappingStateUpdate
 }) => {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(persistedFieldMappings || [])
@@ -109,12 +113,12 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
 
   // Update field mappings when persisted mappings change (e.g., when navigating back)
   useEffect(() => {
-    // Only restore if the persisted mappings are different from current mappings
+    // Restore from persisted mappings if we have them and current is empty
     if (persistedFieldMappings && persistedFieldMappings.length > 0 && fieldMappings.length === 0) {
       setFieldMappings(persistedFieldMappings)
       showNotification('Field mappings restored from previous session', 'info')
     }
-  }, []) // Empty dependency array - only run once on mount
+  }, [persistedFieldMappings]) // Run when persistedFieldMappings change
 
   // Extract unique listing names from CSV data
   const extractUniqueListings = (csvData: any, fieldMappings: any[]): string[] => {
@@ -297,6 +301,12 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         selectedProperty={selectedProperty}
         onRefreshRules={refreshCalculationRules}
         initialFieldMappings={fieldMappings}
+        initialCompleteState={completeFieldMappingState}
+        onCompleteStateChange={(completeState) => {
+          if (onCompleteFieldMappingStateUpdate) {
+            onCompleteFieldMappingStateUpdate(completeState)
+          }
+        }}
       />
 
       {/* Action Buttons */}

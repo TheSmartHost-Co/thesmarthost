@@ -242,63 +242,6 @@ export interface CompletionState {
 }
 
 /**
- * Complete wizard state
- */
-export interface WizardState {
-  currentStep: WizardStep
-  completedSteps: WizardStep[]
-  canGoBack: boolean
-  canGoNext: boolean
-  
-  // Step-specific states
-  selectedProperty?: any // Property object from property service (legacy - for backwards compatibility)
-  uploadedFile?: UploadedFile
-  validationState?: ValidationState
-  propertyMappingState?: PropertyMappingState
-  previewState?: PreviewState
-  processingState?: ProcessingState
-  completionState?: CompletionState
-  
-  // Field mappings to persist between steps
-  fieldMappings?: any[] // Persisted field mappings from validation step
-}
-
-/**
- * Wizard action types for state management
- */
-export enum WizardActionType {
-  SET_STEP = 'SET_STEP',
-  NEXT_STEP = 'NEXT_STEP',
-  PREV_STEP = 'PREV_STEP',
-  SET_SELECTED_PROPERTY = 'SET_SELECTED_PROPERTY',
-  SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
-  SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
-  SET_PROPERTY_MAPPING_STATE = 'SET_PROPERTY_MAPPING_STATE',
-  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
-  SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
-  SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
-  SET_FIELD_MAPPINGS = 'SET_FIELD_MAPPINGS',
-  RESET_WIZARD = 'RESET_WIZARD',
-}
-
-/**
- * Wizard actions for state updates
- */
-export type WizardAction =
-  | { type: WizardActionType.SET_STEP; payload: WizardStep }
-  | { type: WizardActionType.NEXT_STEP }
-  | { type: WizardActionType.PREV_STEP }
-  | { type: WizardActionType.SET_SELECTED_PROPERTY; payload: any }
-  | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
-  | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }
-  | { type: WizardActionType.SET_PROPERTY_MAPPING_STATE; payload: PropertyMappingState }
-  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
-  | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
-  | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }
-  | { type: WizardActionType.SET_FIELD_MAPPINGS; payload: any[] }
-  | { type: WizardActionType.RESET_WIZARD }
-
-/**
  * Property mapping for multi-property uploads
  */
 export interface PropertyMapping {
@@ -323,6 +266,71 @@ export interface PropertyMapping {
   }
   bookingCount?: number            // How many bookings for this listing
 }
+
+/**
+ * Complete wizard state
+ */
+export interface WizardState {
+  currentStep: WizardStep
+  completedSteps: WizardStep[]
+  canGoBack: boolean
+  canGoNext: boolean
+  
+  // Step-specific states
+  selectedProperty?: any // Property object from property service (legacy - for backwards compatibility)
+  uploadedFile?: UploadedFile
+  validationState?: ValidationState
+  propertyMappingState?: PropertyMappingState
+  previewState?: PreviewState
+  processingState?: ProcessingState
+  completionState?: CompletionState
+  
+  // Field mappings to persist between steps
+  fieldMappings?: any[] // Persisted field mappings from validation step (legacy)
+  completeFieldMappingState?: any // Complete field mapping state including formulas
+  
+  // Property mappings to persist between steps
+  propertyMappings?: PropertyMapping[] // Persisted property mappings from property mapping step
+}
+
+/**
+ * Wizard action types for state management
+ */
+export enum WizardActionType {
+  SET_STEP = 'SET_STEP',
+  NEXT_STEP = 'NEXT_STEP',
+  PREV_STEP = 'PREV_STEP',
+  SET_SELECTED_PROPERTY = 'SET_SELECTED_PROPERTY',
+  SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
+  SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
+  SET_PROPERTY_MAPPING_STATE = 'SET_PROPERTY_MAPPING_STATE',
+  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
+  SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
+  SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
+  SET_FIELD_MAPPINGS = 'SET_FIELD_MAPPINGS',
+  SET_COMPLETE_FIELD_MAPPING_STATE = 'SET_COMPLETE_FIELD_MAPPING_STATE',
+  SET_PROPERTY_MAPPINGS = 'SET_PROPERTY_MAPPINGS',
+  RESET_WIZARD = 'RESET_WIZARD',
+}
+
+/**
+ * Wizard actions for state updates
+ */
+export type WizardAction =
+  | { type: WizardActionType.SET_STEP; payload: WizardStep }
+  | { type: WizardActionType.NEXT_STEP }
+  | { type: WizardActionType.PREV_STEP }
+  | { type: WizardActionType.SET_SELECTED_PROPERTY; payload: any }
+  | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
+  | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }
+  | { type: WizardActionType.SET_PROPERTY_MAPPING_STATE; payload: PropertyMappingState }
+  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
+  | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
+  | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }
+  | { type: WizardActionType.SET_FIELD_MAPPINGS; payload: any[] }
+  | { type: WizardActionType.SET_COMPLETE_FIELD_MAPPING_STATE; payload: any }
+  | { type: WizardActionType.SET_PROPERTY_MAPPINGS; payload: PropertyMapping[] }
+  | { type: WizardActionType.RESET_WIZARD }
 
 /**
  * Property mapping step state

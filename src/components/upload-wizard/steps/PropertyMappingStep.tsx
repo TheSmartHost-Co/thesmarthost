@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { 
   CheckCircleIcon, 
   ExclamationTriangleIcon, 
@@ -27,6 +27,8 @@ interface PropertyMappingStepProps {
   bookingCounts?: Record<string, number>
   propertyMappingState?: PropertyMappingState
   onPropertyMappingComplete?: (state: PropertyMappingState) => void
+  propertyMappings?: PropertyMapping[] // Persisted property mappings
+  onPropertyMappingsUpdate?: (mappings: PropertyMapping[]) => void // Real-time updates
 }
 
 const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
@@ -38,7 +40,9 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
   uniqueListings = [],
   bookingCounts = {},
   propertyMappingState,
-  onPropertyMappingComplete
+  onPropertyMappingComplete,
+  propertyMappings: persistedPropertyMappings,
+  onPropertyMappingsUpdate
 }) => {
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(true)
@@ -49,21 +53,67 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
   const [showNewClientForms, setShowNewClientForms] = useState<Record<string, boolean>>({})
+  
+  // Track previous props to detect changes
+  const prevPropertyMappingsRef = useRef<string | undefined>(undefined)
+  const prevUniqueListingsRef = useRef<string | undefined>(undefined)
+  const hasInitializedRef = useRef(false)
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
   // Initialize property mappings when component loads
   useEffect(() => {
-    if (uniqueListings.length > 0) {
+    // Create unique keys to detect actual changes
+    const currentPropertyMappingsKey = persistedPropertyMappings ? JSON.stringify(persistedPropertyMappings) : undefined
+    const currentUniqueListingsKey = uniqueListings ? JSON.stringify(uniqueListings) : undefined
+    
+    // Check if we should restore persisted mappings
+    const shouldRestorePropertyMappings = persistedPropertyMappings && 
+      persistedPropertyMappings.length > 0 && 
+      currentPropertyMappingsKey !== prevPropertyMappingsRef.current && 
+      !hasInitializedRef.current
+      
+    // Check if we should initialize from unique listings
+    const shouldInitializeFromListings = uniqueListings.length > 0 && 
+      currentUniqueListingsKey !== prevUniqueListingsRef.current && 
+      !hasInitializedRef.current && 
+      (!persistedPropertyMappings || persistedPropertyMappings.length === 0)
+    
+    if (shouldRestorePropertyMappings) {
+      setPropertyMappings(persistedPropertyMappings)
+      
+      // Restore form visibility states
+      const newPropertyFormsState: Record<string, boolean> = {}
+      const newClientFormsState: Record<string, boolean> = {}
+      
+      persistedPropertyMappings.forEach(mapping => {
+        if (mapping.isNewProperty && mapping.newPropertyData) {
+          newPropertyFormsState[mapping.listingName] = true
+          if (mapping.newPropertyData.clientId === 'new' && mapping.newPropertyData.newClientData) {
+            newClientFormsState[mapping.listingName] = true
+          }
+        }
+      })
+      
+      setShowNewPropertyForms(newPropertyFormsState)
+      setShowNewClientForms(newClientFormsState)
+      prevPropertyMappingsRef.current = currentPropertyMappingsKey
+      hasInitializedRef.current = true
+      
+      showNotification('Property mappings restored from previous session', 'info')
+    } else if (shouldInitializeFromListings) {
+      // Initialize with default mappings when unique listings change or first time
       const initialMappings = uniqueListings.map(listingName => ({
         listingName,
         propertyId: null,
         bookingCount: bookingCounts[listingName] || 0
       }))
       setPropertyMappings(initialMappings)
+      prevUniqueListingsRef.current = currentUniqueListingsKey
+      hasInitializedRef.current = true
     }
-  }, [uniqueListings, bookingCounts])
+  }, [uniqueListings, bookingCounts, persistedPropertyMappings, showNotification])
 
   // Load user's existing properties
   useEffect(() => {
@@ -107,7 +157,12 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
     }
 
     onPropertyMappingComplete?.(mappingState)
-  }, [propertyMappings, uniqueListings, onPropertyMappingComplete])
+    
+    // Update the wizard state with the new mappings for real-time persistence
+    if (onPropertyMappingsUpdate) {
+      onPropertyMappingsUpdate(propertyMappings)
+    }
+  }, [propertyMappings, uniqueListings, onPropertyMappingComplete, onPropertyMappingsUpdate])
 
   const handlePropertySelect = (listingName: string, propertyId: string) => {
     setPropertyMappings(prev => prev.map(mapping => 
