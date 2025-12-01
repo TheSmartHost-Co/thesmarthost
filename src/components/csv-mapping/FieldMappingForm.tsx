@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { 
   CsvData, 
@@ -21,6 +21,7 @@ interface FieldMappingFormProps {
   calculationRules?: CalculationRule[]
   selectedProperty?: any
   onRefreshRules?: () => Promise<void>
+  initialFieldMappings?: FieldMapping[]
 }
 
 const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
@@ -29,7 +30,8 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   onValidationChange,
   calculationRules = [],
   selectedProperty,
-  onRefreshRules
+  onRefreshRules,
+  initialFieldMappings
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
@@ -57,6 +59,9 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   const [platformOverride, setPlatformOverride] = useState<string>('')
   const [isPlatformOverrideActive, setIsPlatformOverrideActive] = useState(false)
   
+  // Track if we've initialized from props
+  const hasInitialized = useRef(false)
+  
   const getFieldInputMode = (fieldName: string): 'dropdown' | 'formula' => {
     const key = `${fieldName}_${selectedPlatform}`
     return fieldInputModes[key] || 'dropdown'
@@ -70,14 +75,41 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     }))
   }
 
-  // Auto-suggest mappings for ALL platform when CSV data changes
+  // Initialize platform mappings
   useEffect(() => {
-    const suggestions = suggestMappings(csvData.headers)
-    setPlatformMappings(prev => ({
-      ...prev,
-      'ALL': suggestions
-    }))
-  }, [csvData])
+    // If we have initial field mappings and haven't initialized yet, restore them
+    if (initialFieldMappings && initialFieldMappings.length > 0 && !hasInitialized.current) {
+      const restoredMappings: Record<Platform, Record<string, string>> = {
+        'ALL': {},
+        'airbnb': {},
+        'booking': {},
+        'google': {},
+        'direct': {},
+        'wechalet': {},
+        'monsieurchalets': {},
+        'direct-etransfer': {},
+        'vrbo': {},
+        'hostaway': {}
+      }
+      
+      // Restore mappings from initial field mappings
+      initialFieldMappings.forEach(mapping => {
+        const platform = mapping.platform || 'ALL'
+        restoredMappings[platform][mapping.bookingField] = mapping.csvFormula
+      })
+      
+      setPlatformMappings(restoredMappings)
+      hasInitialized.current = true
+    } else if (!hasInitialized.current) {
+      // Otherwise, auto-suggest mappings
+      const suggestions = suggestMappings(csvData.headers)
+      setPlatformMappings(prev => ({
+        ...prev,
+        'ALL': suggestions
+      }))
+      hasInitialized.current = true
+    }
+  }, [csvData, initialFieldMappings])
 
   // Validate ALL platform mappings
   useEffect(() => {

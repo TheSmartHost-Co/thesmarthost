@@ -61,6 +61,7 @@ const initialState: WizardState = {
   completedSteps: [],
   canGoBack: false,
   canGoNext: false,
+  fieldMappings: undefined,
 }
 
 // Wizard state reducer
@@ -130,6 +131,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         validationState: action.payload,
+        fieldMappings: action.payload?.fieldMappings, // Store field mappings separately
         canGoNext: action.payload?.results?.isValid || false,
       }
 
@@ -138,6 +140,16 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         ...state,
         propertyMappingState: action.payload,
         canGoNext: action.payload?.isValid || false,
+      }
+
+    case WizardActionType.SET_FIELD_MAPPINGS:
+      return {
+        ...state,
+        fieldMappings: action.payload,
+        validationState: state.validationState ? {
+          ...state.validationState,
+          fieldMappings: action.payload
+        } : undefined
       }
 
     case WizardActionType.SET_PROCESSING_STATE:
@@ -243,6 +255,10 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
     onComplete?.()
   }, [onComplete])
 
+  const handleFieldMappingsUpdate = useCallback((mappings: any[]) => {
+    dispatch({ type: WizardActionType.SET_FIELD_MAPPINGS, payload: mappings })
+  }, [])
+
   const handleCancel = useCallback(() => {
     dispatch({ type: WizardActionType.RESET_WIZARD })
     onCancel?.()
@@ -283,6 +299,8 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             validationState={state.validationState}
             onValidationComplete={handleValidationComplete}
             selectedProperty={state.selectedProperty}
+            fieldMappings={state.fieldMappings}
+            onFieldMappingsUpdate={handleFieldMappingsUpdate}
           />
         )
 

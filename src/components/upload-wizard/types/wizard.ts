@@ -181,6 +181,8 @@ export interface ValidationState {
   detectedPlatforms: string[]
   uniqueListings?: string[]           // Extracted listing names for property mapping
   bookingCounts?: Record<string, number>  // Count of bookings per listing
+  fieldMappings?: any[]              // Field mappings from validation step
+  csvData?: any                      // CSV data for preview step
 }
 
 /**
@@ -256,6 +258,9 @@ export interface WizardState {
   previewState?: PreviewState
   processingState?: ProcessingState
   completionState?: CompletionState
+  
+  // Field mappings to persist between steps
+  fieldMappings?: any[] // Persisted field mappings from validation step
 }
 
 /**
@@ -272,6 +277,7 @@ export enum WizardActionType {
   SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
   SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
+  SET_FIELD_MAPPINGS = 'SET_FIELD_MAPPINGS',
   RESET_WIZARD = 'RESET_WIZARD',
 }
 
@@ -289,6 +295,7 @@ export type WizardAction =
   | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
   | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }
+  | { type: WizardActionType.SET_FIELD_MAPPINGS; payload: any[] }
   | { type: WizardActionType.RESET_WIZARD }
 
 /**
