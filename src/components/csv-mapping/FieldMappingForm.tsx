@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, CheckIcon, PlusIcon, FolderIcon } from '@heroicons/react/24/outline'
 import { 
   CsvData, 
   Platform, 
@@ -13,7 +13,10 @@ import {
 } from '@/services/types/csvMapping'
 import { CalculationRule } from '@/services/types/calculationRule'
 import { suggestMappings, validateMappings } from '@/utils/csvParser'
+import { getTemplateRulesByName } from '@/services/calculationRuleService'
 import CalculationRuleModal from '@/components/calculation-rules/calculationRuleModal'
+import { useUserStore } from '@/store/useUserStore'
+import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface FieldMappingFormProps {
   csvData: CsvData
@@ -59,6 +62,10 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   
   // Custom fields modal state
   const [isCustomFieldsModalOpen, setIsCustomFieldsModalOpen] = useState(false)
+  const [loadedCalculationRules, setLoadedCalculationRules] = useState<CalculationRule[]>([])
+
+  const { profile } = useUserStore()
+  const { showNotification } = useNotificationStore()
   
   // Platform override state
   const [platformOverride, setPlatformOverride] = useState<string>('')
@@ -259,8 +266,9 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   }, [calculationRules])
 
   const handleMappingChange = (bookingField: string, csvFormula: string) => {
-    // Check if the selected value is a custom field (calculation rule)
-    const customField = calculationRules.find(rule => 
+    // Check if the selected value is a custom field (calculation rule) from both sources
+    const allRules = [...calculationRules, ...loadedCalculationRules]
+    const customField = allRules.find(rule => 
       rule.bookingField === csvFormula && rule.isActive
     )
     
@@ -370,6 +378,27 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
            platformMappings['ALL'][fieldName] !== undefined
   }
 
+  // Load rules from a specific template (called from CalculationRuleModal)
+  const handleLoadTemplateRules = async (templateName: string) => {
+    if (!profile?.id) {
+      showNotification('User not found', 'error')
+      return
+    }
+
+    try {
+      const response = await getTemplateRulesByName(profile.id, templateName)
+      if (response.status === 'success') {
+        setLoadedCalculationRules(response.data)
+        showNotification(`Loaded ${response.data.length} rules from template "${templateName}"`, 'success')
+      } else {
+        showNotification(response.message || 'Failed to load template rules', 'error')
+      }
+    } catch (error) {
+      console.error('Error loading template rules:', error)
+      showNotification('Error loading template rules', 'error')
+    }
+  }
+
   const getHeaderOptions = (): Array<{ value: string; label: string; disabled?: boolean }> => {
     const csvOptions = csvData.headers.map(header => ({
       value: header.name,
@@ -377,14 +406,15 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       disabled: false
     }))
 
-    // Get active custom fields for the current platform
-    const customFieldsForPlatform = calculationRules.filter(rule => 
+    // Get active custom fields for the current platform (from both props and loaded rules)
+    const allRules = [...calculationRules, ...loadedCalculationRules]
+    const customFieldsForPlatform = allRules.filter(rule => 
       rule.isActive && (rule.platform === selectedPlatform || rule.platform === 'ALL')
     )
 
     const customFieldOptions = customFieldsForPlatform.map(rule => ({
       value: rule.bookingField,
-      label: `${rule.bookingField} (custom field)`,
+      label: `${rule.bookingField} (${rule.templateName || 'custom field'})`,
       disabled: false
     }))
 
@@ -738,7 +768,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
             </div>
             
             {/* Custom Fields Button */}
-            {selectedProperty && (
+            
               <button
                 type="button"
                 onClick={() => setIsCustomFieldsModalOpen(true)}
@@ -747,7 +777,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                 <PlusIcon className="h-4 w-4 mr-1" />
                 Custom Fields
               </button>
-            )}
+            
           </div>
         </div>
         
@@ -847,8 +877,8 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       <CalculationRuleModal
         isOpen={isCustomFieldsModalOpen}
         onClose={() => setIsCustomFieldsModalOpen(false)}
-        propertyId={selectedProperty?.id}
-        propertyName={selectedProperty?.listingName}
+        userId={profile?.id}
+        onTemplateSelect={handleLoadTemplateRules}
         onRulesUpdate={(updatedRules) => {
           // Refresh calculation rules when new rules are created
           console.log('Custom fields updated:', updatedRules)
