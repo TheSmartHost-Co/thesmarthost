@@ -14,17 +14,20 @@ async function apiClient<T, B = unknown>(
     { method = 'GET', body, headers = {} }: ApiClientOptions<B> = {}
 ): Promise<T> {
 
-
+    const isFormData = body instanceof FormData;
+    
     const config: RequestInit = {
         method,
-        headers: {
+        headers: isFormData ? {
+            ...headers, // Don't set Content-Type for FormData - let browser handle it
+        } : {
             'Content-Type': 'application/json',
             ...headers,
         },
     };
 
     if (body) {
-        config.body = JSON.stringify(body);
+        config.body = isFormData ? body as any : JSON.stringify(body);
     }
 
     console.log('Making request to:', `${baseURL}${endpoint}`) // Debug log
