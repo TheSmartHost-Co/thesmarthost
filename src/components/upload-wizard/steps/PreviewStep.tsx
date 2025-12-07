@@ -758,13 +758,13 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <h4 className="text-sm font-medium text-gray-900 mb-3">Field Mappings</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {mappedFields.map((field: any, index: number) => (
+          {validationState?.fieldMappings?.filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim()).map((mapping: any, index: number) => (
             <div key={index} className="text-xs bg-white border rounded px-2 py-1">
-              <span className="font-medium text-gray-900">{field.field}</span>
+              <span className="font-medium text-gray-900">{mapping.bookingField}</span>
               <span className="text-gray-500"> ← </span>
-              <span className="text-gray-600">{field.source}</span>
-              {field.platform !== 'ALL' && (
-                <span className="ml-1 text-blue-600">({field.platform})</span>
+              <span className="text-gray-600">{mapping.csvFormula}</span>
+              {mapping.platform !== 'ALL' && (
+                <span className="ml-1 text-blue-600">({mapping.platform})</span>
               )}
             </div>
           ))}
@@ -822,11 +822,6 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                       {mappedFields.map((field: any, fieldIndex: number) => (
                         <th key={`${field.field}-${fieldIndex}`} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           {field.field}
-                          {field.hasOverride && (
-                            <span className="ml-1 text-xs text-blue-600">
-                              ({field.overridePlatforms?.join(', ') || 'override'})
-                            </span>
-                          )}
                         </th>
                       ))}
                     </tr>
@@ -846,30 +841,39 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                             const isEditable = getEditableFields().includes(field.field)
                             const hasBeenEdited = isFieldEdited(globalIndex, field.field)
                             
-                            // Check if this field has a platform-specific override applied
-                            const hasplatformOverride = field.hasOverride
+                            // Determine if THIS specific booking is using a platform override
+                            const bookingPlatform = csvData ? determineBookingPlatform(
+                              csvData.rows[booking.rowIndex - 1], // Convert 1-based to 0-based index
+                              validationState.fieldMappings,
+                              csvData.headers
+                            ) : 'ALL'
+                            
+                            // Check if this specific booking is using a platform-specific override for this field
+                            const platformSpecificMapping = validationState.fieldMappings.find((m: any) => 
+                              m.bookingField === field.field && 
+                              m.platform === bookingPlatform && 
+                              m.isOverride === true
+                            )
+                            
+                            const isUsingPlatformOverride = platformSpecificMapping !== undefined
                             
                             return (
                               <td key={`${booking.rowIndex}-${field.field}-${fieldIndex}`} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
                                 <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`}>
                                   <div 
-                                    className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : hasplatformOverride ? 'bg-blue-50 px-1 rounded' : ''}`}
-                                    title={`${value}${hasplatformOverride ? ` (${field.platform} override)` : ''}`}
+                                    className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : isUsingPlatformOverride ? 'bg-blue-50 px-1 rounded' : ''}`}
+                                    title={`${value}${isUsingPlatformOverride ? ` (${bookingPlatform} override)` : ''}`}
                                   >
                                     {value || <span className="text-gray-400">—</span>}
                                     {hasBeenEdited && (
                                       <span className="ml-1 text-xs text-yellow-600">*</span>
                                     )}
-                                    {hasplatformOverride && (
+                                    {isUsingPlatformOverride && (
                                       <span 
-                                        className="ml-1 text-xs text-blue-600"
-                                        title={
-                                          field.overridePlatforms && field.overridePlatforms.length
-                                            ? `Platform-specific override for ${field.overridePlatforms.join(', ')}`
-                                            : 'Platform-specific override'
-                                        }
+                                        className="ml-1 text-xs text-white bg-blue-600 px-1 rounded"
+                                        title={`Platform-specific override for ${bookingPlatform}`}
                                       >
-                                        {field.overridePlatforms?.map((p: string) => p[0].toUpperCase()).join('')}
+                                        {bookingPlatform[0].toUpperCase()}
                                       </span>
                                     )}
                                   </div>
