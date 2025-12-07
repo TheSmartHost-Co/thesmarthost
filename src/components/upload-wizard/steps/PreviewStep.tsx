@@ -219,6 +219,97 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     }
   }
 
+  // Helper function to determine the platform for a specific booking row
+  const determineBookingPlatform = (row: string[], fieldMappings: any[], csvHeaders: any[]): string => {
+    // Find the platform field mapping
+    const platformMapping = fieldMappings.find(m => 
+      (m.bookingField === 'platform' || m.bookingField === 'Platform') && 
+      m.csvFormula && 
+      m.csvFormula.trim()
+    )
+    
+    if (!platformMapping) {
+      return 'ALL' // Default to ALL if no platform mapping exists
+    }
+    
+    // Extract platform value from the row
+    let platformValue = ''
+    
+    // Check if it's a simple column reference
+    const isSimpleColumn = csvHeaders.some(h => h.name.toLowerCase() === platformMapping.csvFormula.toLowerCase())
+    
+    if (isSimpleColumn) {
+      const columnIndex = csvHeaders.findIndex(h => h.name.toLowerCase() === platformMapping.csvFormula.toLowerCase())
+      if (columnIndex !== -1) {
+        platformValue = (row[columnIndex] || '').trim().toLowerCase()
+      }
+    } else {
+      // For formula-based platform determination, evaluate the formula
+      try {
+        const result = evaluateFormula(platformMapping.csvFormula, row, csvHeaders)
+        platformValue = String(result || '').trim().toLowerCase()
+      } catch (error) {
+        console.warn('Error evaluating platform formula:', error)
+        platformValue = ''
+      }
+    }
+    
+    // Handle platform override (PLATFORM:airbnb format)
+    if (platformValue.startsWith('platform:')) {
+      platformValue = platformValue.replace('platform:', '')
+    }
+    
+    // Map platform value to supported platform names
+    if (platformValue.includes('airbnb')) return 'airbnb'
+    if (platformValue.includes('booking')) return 'booking'
+    if (platformValue.includes('google')) return 'google'
+    if (platformValue.includes('vrbo')) return 'vrbo'
+    if (platformValue.includes('hostaway')) return 'hostaway'
+    if (platformValue.includes('wechalet') || platformValue.includes('we chalet')) return 'wechalet'
+    if (platformValue.includes('monsieur') || platformValue.includes('chalets')) return 'monsieurchalets'
+    if (platformValue.includes('direct-etransfer')) return 'direct-etransfer'
+    if (platformValue.includes('direct')) return 'direct'
+    
+    return 'ALL' // Default fallback
+  }
+  
+  // Helper function to get applicable mappings for a specific platform
+  const getApplicableMappings = (allMappings: any[], bookingPlatform: string): any[] => {
+    // Get base mappings (ALL platform)
+    const baseMappings = allMappings.filter(m => m.platform === 'ALL' || !m.platform)
+    
+    // Get platform-specific overrides
+    const platformOverrides = allMappings.filter(m => 
+      m.platform === bookingPlatform && m.isOverride === true
+    )
+    
+    // Debug logging
+    if (bookingPlatform === 'airbnb' || bookingPlatform === 'vrbo') {
+      console.log(`getApplicableMappings for ${bookingPlatform}:`)
+      console.log('Base mappings:', baseMappings.length)
+      console.log('Platform overrides found:', platformOverrides)
+      console.log('All mappings passed in:', allMappings.filter(m => m.platform === bookingPlatform))
+      console.log('Available platform values:', [...new Set(allMappings.map(m => m.platform))])
+    }
+    
+    // Create result array starting with base mappings
+    const applicableMappings = [...baseMappings]
+    
+    // Apply platform overrides (replace base mappings for same fields)
+    platformOverrides.forEach(override => {
+      const baseIndex = applicableMappings.findIndex(m => m.bookingField === override.bookingField)
+      if (baseIndex >= 0) {
+        // Replace base mapping with platform override
+        applicableMappings[baseIndex] = override
+      } else {
+        // Add new platform-specific field
+        applicableMappings.push(override)
+      }
+    })
+    
+    return applicableMappings
+  }
+
   const generateBookingPreviews = (csvData: CsvData, fieldMappings: any[]): BookingPreview[] => {
     const previews: BookingPreview[] = []
     
@@ -231,8 +322,44 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         rowIndex: i + 1
       }
       
+      // Step 1: Determine the platform for this booking row
+      const bookingPlatform = determineBookingPlatform(row, fieldMappings, csvData.headers)
+      
+      // Debug logging for all rows to see platform detection
+      if (i < 8) { // Check all 8 rows in your CSV
+        console.log(`Row ${i + 1}: Detected platform = "${bookingPlatform}"`)
+        // Debug the actual platform value in CSV
+        const platformMapping = fieldMappings.find(m => m.bookingField === 'platform')
+        if (platformMapping) {
+          const columnIndex = csvData.headers.findIndex(h => h.name.toLowerCase() === platformMapping.csvFormula.toLowerCase())
+          if (columnIndex !== -1) {
+            const rawValue = row[columnIndex]
+            const processedValue = (rawValue || '').trim().toLowerCase()
+            console.log(`Row ${i + 1}: Raw CSV platform value = "${rawValue}" -> processed = "${processedValue}"`)
+            
+            // Additional debug for mapping logic
+            if (processedValue.includes('airbnb')) console.log(`Row ${i + 1}: Should map to airbnb`)
+            if (processedValue.includes('vrbo')) console.log(`Row ${i + 1}: Should map to vrbo`) 
+          } else {
+            console.log(`Row ${i + 1}: Platform formula = "${platformMapping.csvFormula}"`)
+          }
+        } else {
+          console.log(`Row ${i + 1}: No platform mapping found`)
+        }
+      }
+      
+      // Step 2: Get applicable mappings (ALL + platform-specific overrides)
+      const applicableMappings = getApplicableMappings(fieldMappings, bookingPlatform)
+      
+      // Debug logging for platform override usage
+      if (i < 3) {
+        const overrideCount = applicableMappings.filter(m => m.platform === bookingPlatform && m.isOverride).length
+        const baseCount = applicableMappings.filter(m => m.platform === 'ALL' || !m.platform).length
+        console.log(`Row ${i + 1}: Using ${baseCount} base mappings + ${overrideCount} ${bookingPlatform} overrides`)
+      }
+      
       // Sort mappings to handle dependencies (process CSV columns first, then calculated fields)
-      const sortedMappings = [...fieldMappings].sort((a, b) => {
+      const sortedMappings = [...applicableMappings].sort((a, b) => {
         // CSV column references should be processed first
         const aIsDirect = csvData.headers.some(h => h.name.toLowerCase() === a.csvFormula.toLowerCase())
         const bIsDirect = csvData.headers.some(h => h.name.toLowerCase() === b.csvFormula.toLowerCase())
@@ -242,7 +369,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         return 0
       })
       
-      // Apply field mappings to create booking object
+      // Step 3: Apply platform-aware field mappings to create booking object
       sortedMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
           // Check if this is a simple CSV column reference
@@ -317,13 +444,61 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const getMappedFields = () => {
     if (!validationState?.fieldMappings) return []
     
-    return validationState.fieldMappings
+    const allMappings = validationState.fieldMappings
       .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
-      .map((mapping: any) => ({
-        field: mapping.bookingField,
-        source: mapping.csvFormula,
-        platform: mapping.platform
-      }))
+    
+    console.log('Raw field mappings received:', allMappings)
+    console.log('Platform-specific mappings:', allMappings.filter((m: any) => m.platform !== 'ALL' && m.platform && m.isOverride))
+    console.log('ALL platform mappings:', allMappings.filter((m: any) => m.platform === 'ALL' || !m.platform))
+    
+    const uniqueFields = new Map<string, any>()
+    
+    // First, add base (ALL) mappings
+    allMappings
+      .filter((m: any) => m.platform === 'ALL' || !m.platform)
+      .forEach((m: any) => {
+        if (!uniqueFields.has(m.bookingField)) {
+          uniqueFields.set(m.bookingField, {
+            field: m.bookingField,
+            source: m.csvFormula,
+            platform: 'ALL',
+            isOverride: false,
+            hasOverride: false,
+            overridePlatforms: new Set<string>()
+          })
+        }
+      })
+    
+    // Then mark which fields have platform overrides
+    allMappings
+      .filter((m: any) => m.platform && m.platform !== 'ALL' && m.isOverride)
+      .forEach((m: any) => {
+        const existing = uniqueFields.get(m.bookingField)
+        if (existing) {
+          existing.hasOverride = true
+          existing.overridePlatforms.add(m.platform)
+        } else {
+          // Field exists only as platform override, no ALL mapping
+          uniqueFields.set(m.bookingField, {
+            field: m.bookingField,
+            source: m.csvFormula,
+            platform: m.platform,
+            isOverride: true,
+            hasOverride: true,
+            overridePlatforms: new Set([m.platform])
+          })
+        }
+      })
+    
+    // Convert Sets to arrays for rendering
+    const result = Array.from(uniqueFields.values()).map(f => ({
+      ...f,
+      overridePlatforms: Array.from(f.overridePlatforms || [])
+    }))
+    
+    console.log('Field mappings for display (with override info):', result)
+    
+    return result
   }
 
   const getRequiredFieldsMissing = () => {
@@ -594,6 +769,23 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
             </div>
           ))}
         </div>
+        
+        {/* Platform Override Legend */}
+        {mappedFields.some((f: any) => f.platform !== 'ALL' && f.isOverride) && (
+          <div className="mt-3 pt-3 border-t border-gray-300">
+            <h5 className="text-xs font-medium text-gray-700 mb-2">Legend:</h5>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+              <div className="flex items-center">
+                <div className="w-4 h-3 bg-blue-50 border rounded mr-2"></div>
+                <span>Platform-specific override applied</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-3 bg-yellow-50 border rounded mr-2"></div>
+                <span>Manually edited value</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Multi-Property Booking Previews */}
@@ -627,9 +819,14 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                      {mappedFields.map((field: any) => (
-                        <th key={field.field} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      {mappedFields.map((field: any, fieldIndex: number) => (
+                        <th key={`${field.field}-${fieldIndex}`} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           {field.field}
+                          {field.hasOverride && (
+                            <span className="ml-1 text-xs text-blue-600">
+                              ({field.overridePlatforms?.join(', ') || 'override'})
+                            </span>
+                          )}
                         </th>
                       ))}
                     </tr>
@@ -643,22 +840,37 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                           <td className="px-3 py-2 text-sm text-gray-500">
                             {booking.rowIndex}
                           </td>
-                          {mappedFields.map((field: any) => {
+                          {mappedFields.map((field: any, fieldIndex: number) => {
                             const value = booking[field.field]
                             const isDateField = field.field.includes('date') || field.field === 'check_in_date' || field.field === 'check_out_date'
                             const isEditable = getEditableFields().includes(field.field)
                             const hasBeenEdited = isFieldEdited(globalIndex, field.field)
                             
+                            // Check if this field has a platform-specific override applied
+                            const hasplatformOverride = field.hasOverride
+                            
                             return (
-                              <td key={field.field} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
+                              <td key={`${booking.rowIndex}-${field.field}-${fieldIndex}`} className={`px-3 py-2 text-sm text-gray-900 ${isEditable ? 'group relative' : ''}`}>
                                 <div className={`${isDateField ? 'min-w-24' : 'max-w-32'} truncate`}>
                                   <div 
-                                    className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : ''}`}
-                                    title={value}
+                                    className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : hasplatformOverride ? 'bg-blue-50 px-1 rounded' : ''}`}
+                                    title={`${value}${hasplatformOverride ? ` (${field.platform} override)` : ''}`}
                                   >
                                     {value || <span className="text-gray-400">—</span>}
                                     {hasBeenEdited && (
                                       <span className="ml-1 text-xs text-yellow-600">*</span>
+                                    )}
+                                    {hasplatformOverride && (
+                                      <span 
+                                        className="ml-1 text-xs text-blue-600"
+                                        title={
+                                          field.overridePlatforms && field.overridePlatforms.length
+                                            ? `Platform-specific override for ${field.overridePlatforms.join(', ')}`
+                                            : 'Platform-specific override'
+                                        }
+                                      >
+                                        {field.overridePlatforms?.map((p: string) => p[0].toUpperCase()).join('')}
+                                      </span>
                                     )}
                                   </div>
                                 </div>

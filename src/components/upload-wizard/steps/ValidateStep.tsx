@@ -194,6 +194,9 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
   }, [fieldMappings, isValidMappings, csvData, onValidationComplete])
 
   const handleMappingsChange = (mappings: FieldMapping[]) => {
+    console.log('ValidateStep - Field mappings being sent to wizard:', mappings)
+    console.log('ValidateStep - Platform overrides being sent:', mappings.filter(m => m.isOverride === true))
+    
     setFieldMappings(mappings)
     // Update the wizard state with the new mappings
     if (onFieldMappingsUpdate) {
