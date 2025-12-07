@@ -30,23 +30,53 @@ async function apiClient<T, B = unknown>(
         config.body = isFormData ? body as any : JSON.stringify(body);
     }
 
-    console.log('Making request to:', `${baseURL}${endpoint}`) // Debug log
+    const fullUrl = `${baseURL}${endpoint}`;
+    console.log('test change');
     
-    const response = await fetch(`${baseURL}${endpoint}`, config);
+    // Comprehensive API logging like Postman
+    console.group(`🚀 API Request: ${method} ${endpoint}`);
+    console.log('📍 URL:', fullUrl);
+    console.log('🔧 Method:', method);
+    console.log('📝 Headers:', config.headers);
+    if (body) {
+        console.log('📦 Body:', isFormData ? 'FormData (check network tab)' : body);
+    }
+    console.groupEnd();
+    
+    const response = await fetch(fullUrl, config);
+    
+    // Response logging
+    console.group(`📥 API Response: ${response.status} ${response.statusText}`);
+    console.log('📍 URL:', fullUrl);
+    console.log('✅ Status:', `${response.status} ${response.statusText}`);
+    console.log('📝 Headers:', Object.fromEntries(response.headers.entries()));
+    
+    const responseClone = response.clone(); // Clone to avoid consuming body twice
     
     if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         try {
-            const errorBody = await response.json();
+            const errorBody = await responseClone.json();
             errorMessage = errorBody.message || errorMessage
-            console.log('API Error:', errorBody)
+            console.log('❌ Error Body:', errorBody)
         } catch {
-            console.log('API Error (no JSON):', response.statusText)
+            console.log('❌ Error (no JSON):', response.statusText)
         }
+        console.groupEnd();
         throw new Error(errorMessage);
     }
 
-    return response.json() as Promise<T>;
+    // Log successful response body
+    try {
+        const responseBody = await responseClone.json();
+        console.log('📦 Response Body:', responseBody);
+        console.groupEnd();
+        return responseBody as T;
+    } catch (error) {
+        console.log('❌ Failed to parse response JSON:', error);
+        console.groupEnd();
+        throw new Error('Invalid JSON response');
+    }
 }
 
 export default apiClient;

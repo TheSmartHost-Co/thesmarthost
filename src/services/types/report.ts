@@ -45,46 +45,140 @@ export interface ReportsResponse {
  * Report generation request payload
  */
 export interface ReportGenerationPayload {
-  property_id: string
-  start_date: string
-  end_date: string
+  propertyIds: string[]
+  startDate: string
+  endDate: string
   format: ReportFormat
-  logo_id?: string
+  logoId?: string
 }
 
 /**
- * Report preview response (PDF format)
+ * Property info in preview response
  */
-export interface ReportPreviewPDFResponse {
+export interface PropertyInfo {
+  propertyId: string
+  listingName: string
+  address: string
+  primaryOwner: {
+    id: string
+    name: string
+    email: string
+  }
+  coOwners: Array<{
+    id: string
+    name: string
+    email: string
+  }>
+}
+
+/**
+ * Owner info in preview response
+ */
+export interface OwnerInfo {
+  id: string
+  name: string
+  email: string
+}
+
+/**
+ * Enhanced report summary with multi-property support
+ */
+export interface EnhancedReportSummary {
+  overall?: {
+    totalBookings: number
+    totalNights: number
+    totalNightlyRate: number
+    totalRoomRevenue: number
+    totalExtraGuestFees: number
+    totalCleaningFees: number
+    totalLodgingTax: number
+    totalBedLinenFees: number
+    totalGst: number
+    totalQst: number
+    totalChannelFees: number
+    totalStripeFees: number
+    totalPayout: number
+    totalMgmtFee: number
+    totalNetEarnings: number
+    totalSalesTax: number
+    totalRevenue: number
+  }
+  byProperty?: Array<{
+    propertyId: string
+    propertyName: string
+    totalBookings: number
+    totalNights: number
+    totalPayout: number
+    totalNetEarnings: number
+    totalRevenue: number
+  }>
+  // Enhanced summary fields
+  averageNightlyRate?: number
+  rentCollected?: string
+  taxesCollected?: string
+  
+  // Individual totals (backward compatibility & direct access)
+  totalBookings?: number
+  totalNights?: number
+  totalNightlyRate?: number
+  totalRoomRevenue?: number
+  totalExtraGuestFees?: number
+  totalCleaningFees?: number
+  totalLodgingTax?: number
+  totalBedLinenFees?: number
+  totalGst?: number
+  totalQst?: number
+  totalChannelFees?: number
+  totalStripeFees?: number
+  totalPayout?: number
+  totalMgmtFee?: number
+  totalNetEarnings?: number
+  totalSalesTax?: number
+  totalRevenue?: number
+}
+
+/**
+ * Report preview response (unified)
+ */
+export interface ReportPreviewResponse {
   status: 'success' | 'failed'
   message?: string
   data: {
-    format: 'pdf'
-    pdfPreview: string // base64 string
-    summary: ReportSummary
+    format: ReportFormat
+    pdfPreview?: string // base64 PDF content for PDF format
+    reportData?: {
+      properties: PropertyInfo[]
+      allOwners: OwnerInfo[]
+      property?: PropertyInfo // backward compatibility
+      bookings: (BookingData & { propertyName: string })[]
+      summary: EnhancedReportSummary
+      reportingPeriod: string
+      generatedAt: string
+      logo?: any
+    }
+    summary: EnhancedReportSummary
+    properties?: PropertyInfo[]
+    allOwners?: OwnerInfo[]
+    reportingPeriod?: string
+    generatedAt?: string
   }
 }
 
 /**
- * Report preview response (CSV/Excel format)
- */
-export interface ReportPreviewDataResponse {
-  status: 'success' | 'failed'
-  message?: string
-  data: {
-    format: 'csv' | 'excel'
-    bookings: BookingData[]
-    summary: ReportSummary
-  }
-}
-
-/**
- * Report generation response
+ * Report generation response  
  */
 export interface ReportGenerationResponse {
   status: 'success' | 'failed'
   message?: string
-  data: Report
+  data: {
+    reportId: string
+    fileId: string
+    downloadUrl: string
+    version: string
+    format: ReportFormat
+    generatedAt: string
+    filename?: string
+  }
 }
 
 /**

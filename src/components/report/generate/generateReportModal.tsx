@@ -15,11 +15,11 @@ import type {
   Report, 
   ReportFormat, 
   ReportGenerationPayload,
-  ReportPreviewPDFResponse,
-  ReportPreviewDataResponse,
+  ReportPreviewResponse,
+  ReportGenerationResponse,
   Logo,
   BookingData,
-  ReportSummary
+  EnhancedReportSummary
 } from '@/services/types/report'
 import { XMarkIcon, DocumentIcon, CloudArrowUpIcon, EyeIcon, CogIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
@@ -27,7 +27,7 @@ import Modal from '@/components/shared/modal'
 interface GenerateReportModalProps {
   isOpen: boolean
   onClose: () => void
-  onReportGenerated: (report: Report) => void
+  onReportGenerated: () => Promise<void>
   properties: Property[]
 }
 
@@ -40,11 +40,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const { showNotification } = useNotificationStore()
 
   // Form state
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
   const [format, setFormat] = useState<ReportFormat>('pdf')
   const [selectedLogoId, setSelectedLogoId] = useState<string>('')
+  const [selectAllProperties, setSelectAllProperties] = useState<boolean>(false)
 
   // Data state
   const [logos, setLogos] = useState<Logo[]>([])
@@ -53,8 +54,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   // Preview state
   const [previewData, setPreviewData] = useState<{
     pdf?: string
-    bookings?: BookingData[]
-    summary?: ReportSummary
+    bookings?: (BookingData & { propertyName: string })[]
+    summary?: EnhancedReportSummary
+    properties?: any[]
   } | null>(null)
   const [showPreview, setShowPreview] = useState<boolean>(false)
 
@@ -78,11 +80,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   }, [isOpen])
 
   const resetForm = () => {
-    setSelectedPropertyId('')
+    setSelectedPropertyIds([])
     setStartDate('')
     setEndDate('')
     setFormat('pdf')
     setSelectedLogoId('')
+    setSelectAllProperties(false)
     setPreviewData(null)
     setShowPreview(false)
   }
@@ -105,8 +108,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   }
 
   const validateForm = (): boolean => {
-    if (!selectedPropertyId) {
-      showNotification('Please select a property', 'error')
+    if (!selectedPropertyIds.length) {
+      showNotification('Please select at least one property', 'error')
+      return false
+    }
+    if (format === 'pdf' && selectedPropertyIds.length > 1) {
+      showNotification('PDF format only supports one property at a time', 'error')
       return false
     }
     if (!startDate) {
@@ -145,16 +152,18 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
 
   const buildPayload = (): ReportGenerationPayload => {
     return {
-      property_id: selectedPropertyId,
-      start_date: startDate,
-      end_date: endDate,
+      propertyIds: selectedPropertyIds,
+      startDate,
+      endDate,
       format,
-      logo_id: selectedLogoId || undefined,
+      logoId: selectedLogoId || undefined,
     }
   }
 
   const handlePreview = async () => {
     if (!validateForm()) return
+
+    console.log('Generating preview with format:', format)
 
     try {
       setPreviewing(true)
@@ -164,17 +173,30 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
       const res = await previewReport(payload)
       
       if (res.status === 'success') {
-        if (res.data.format === 'pdf') {
-          const pdfRes = res as ReportPreviewPDFResponse
+        // Handle different response formats
+        if (res.data.pdfPreview) {
+          // PDF format - contains base64 PDF
           setPreviewData({
-            pdf: pdfRes.data.pdfPreview,
-            summary: pdfRes.data.summary
+            pdf: res.data.pdfPreview,
+            bookings: undefined,
+            summary: res.data.summary,
+            properties: res.data.properties || []
+          })
+        } else if (res.data.reportData) {
+          // CSV/Excel format - contains structured data
+          setPreviewData({
+            pdf: undefined,
+            bookings: res.data.reportData.bookings || [],
+            summary: res.data.reportData.summary,
+            properties: res.data.reportData.properties || []
           })
         } else {
-          const dataRes = res as ReportPreviewDataResponse
+          // Fallback for other formats
           setPreviewData({
-            bookings: dataRes.data.bookings,
-            summary: dataRes.data.summary
+            pdf: undefined,
+            bookings: [],
+            summary: res.data.summary,
+            properties: res.data.properties || []
           })
         }
         setShowPreview(true)
@@ -201,7 +223,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
       
       if (res.status === 'success') {
         showNotification('Report generated successfully!', 'success')
-        onReportGenerated(res.data)
+        
+        await onReportGenerated() // Refresh reports list from server
         onClose()
       } else {
         showNotification(res.message || 'Failed to generate report', 'error')
@@ -251,7 +274,39 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     event.target.value = ''
   }
 
-  const isFormValid = selectedPropertyId && startDate && endDate && format
+  // Format change handler
+  const handleFormatChange = (newFormat: ReportFormat) => {
+    setFormat(newFormat)
+    // Clear property selection when switching formats
+    setSelectedPropertyIds([])
+    setSelectAllProperties(false)
+  }
+
+  // Property selection handlers
+  const handlePropertyToggle = (propertyId: string) => {
+    if (format === 'pdf') {
+      // PDF only allows single selection
+      setSelectedPropertyIds([propertyId])
+    } else {
+      // CSV/Excel allow multiple selection
+      setSelectedPropertyIds(prev => 
+        prev.includes(propertyId)
+          ? prev.filter(id => id !== propertyId)
+          : [...prev, propertyId]
+      )
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAllProperties(checked)
+    if (checked) {
+      setSelectedPropertyIds(properties.map(p => p.id))
+    } else {
+      setSelectedPropertyIds([])
+    }
+  }
+
+  const isFormValid = selectedPropertyIds.length > 0 && startDate && endDate && format
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style={`w-full ${showPreview ? 'max-w-7xl' : 'max-w-4xl'} mx-4`}>
@@ -264,25 +319,111 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         {!showPreview ? (
           // Form View
           <div className="space-y-6">
+            {/* Format Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Format *
+              </label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="pdf"
+                    checked={format === 'pdf'}
+                    onChange={(e) => handleFormatChange(e.target.value as ReportFormat)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">PDF</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="csv"
+                    checked={format === 'csv'}
+                    onChange={(e) => handleFormatChange(e.target.value as ReportFormat)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">CSV</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="excel"
+                    checked={format === 'excel'}
+                    onChange={(e) => handleFormatChange(e.target.value as ReportFormat)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Excel</span>
+                </label>
+              </div>
+            </div>
+
             {/* Property Selection */}
             <div>
-              <label htmlFor="property" className="block text-sm font-medium text-gray-700 mb-2">
-                Property *
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {format === 'pdf' ? 'Property *' : 'Properties *'}
               </label>
-              <select
-                id="property"
-                value={selectedPropertyId}
-                onChange={(e) => setSelectedPropertyId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={properties.length === 0}
-              >
-                <option value="">Select a property</option>
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.listingName} ({property.address})
-                  </option>
-                ))}
-              </select>
+              
+              {format === 'pdf' ? (
+                // Single select dropdown for PDF
+                <select
+                  value={selectedPropertyIds[0] || ''}
+                  onChange={(e) => handlePropertyToggle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={properties.length === 0}
+                >
+                  <option value="">Select a property</option>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.listingName} ({property.address})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                // Multi-select checkboxes for CSV/Excel
+                <div className="space-y-3">
+                  {/* Select All */}
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectAllProperties}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium">Select All Properties</span>
+                  </label>
+                  
+                  {/* Property List */}
+                  <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
+                    {properties.map((property) => (
+                      <label key={property.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedPropertyIds.includes(property.id)}
+                          onChange={() => handlePropertyToggle(property.id)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">
+                          {property.listingName} ({property.address})
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  {selectedPropertyIds.length > 0 && (
+                    <p className="text-sm text-gray-600">
+                      {selectedPropertyIds.length} {selectedPropertyIds.length === 1 ? 'property' : 'properties'} selected
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {properties.length === 0 && (
+                <p className="text-sm text-gray-500 mt-1">No properties available</p>
+              )}
             </div>
 
             {/* Date Range */}
@@ -313,47 +454,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
               </div>
             </div>
 
-            {/* Format Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Format *
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setFormat('pdf')}
-                  className={`p-3 border rounded-lg text-center transition-colors ${
-                    format === 'pdf'
-                      ? 'border-red-500 bg-red-50 text-red-700'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <DocumentIcon className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-sm font-medium">PDF</div>
-                </button>
-                <button
-                  onClick={() => setFormat('csv')}
-                  className={`p-3 border rounded-lg text-center transition-colors ${
-                    format === 'csv'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <DocumentIcon className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-sm font-medium">CSV</div>
-                </button>
-                <button
-                  onClick={() => setFormat('excel')}
-                  className={`p-3 border rounded-lg text-center transition-colors ${
-                    format === 'excel'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <DocumentIcon className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-sm font-medium">Excel</div>
-                </button>
-              </div>
-            </div>
 
             {/* Logo Selection */}
             <div>
@@ -490,22 +590,91 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
               </button>
             </div>
 
-            {/* Summary */}
+            {/* Summary - Compact Left-Aligned */}
             {previewData?.summary && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Report Summary</h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Total Revenue:</span>
-                    <span className="block font-medium">${(previewData.summary.totalRevenue || 0).toLocaleString()}</span>
+              <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm font-mono max-w-2xl">
+                <div className="border-b border-gray-200 pb-2 mb-3">
+                  <h4 className="font-bold text-gray-900">FINANCIAL SUMMARY</h4>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  {/* Left Column */}
+                  <div className="space-y-3">
+                    {/* Key Metrics */}
+                    <div>
+                      <div className="text-xs font-bold text-gray-700 mb-1">OVERVIEW</div>
+                      <div className="space-y-1">
+                        <div>Total Bookings: <span className="font-semibold">{previewData.summary.overall?.totalBookings || previewData.summary.totalBookings || 0}</span></div>
+                        <div>Total Nights: <span className="font-semibold">{previewData.summary.overall?.totalNights || previewData.summary.totalNights || 0}</span></div>
+                        <div>Avg Rate/Night: <span className="font-semibold">${(previewData.summary.averageNightlyRate || 0).toFixed(2)}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Revenue */}
+                    <div>
+                      <div className="text-xs font-bold text-gray-700 mb-1">REVENUE</div>
+                      <div className="space-y-1">
+                        <div>Room Revenue: <span className="font-semibold">${(previewData.summary.overall?.totalRoomRevenue || previewData.summary.totalRoomRevenue || 0).toLocaleString()}</span></div>
+                        <div>Extra Guest Fees: <span className="font-semibold">${(previewData.summary.overall?.totalExtraGuestFees || previewData.summary.totalExtraGuestFees || 0).toLocaleString()}</span></div>
+                        <div>Cleaning Fees: <span className="font-semibold">${(previewData.summary.overall?.totalCleaningFees || previewData.summary.totalCleaningFees || 0).toLocaleString()}</span></div>
+                        <div className="border-t border-gray-200 pt-1 font-bold">Total Revenue: <span className="text-green-600">${(previewData.summary.overall?.totalRevenue || previewData.summary.totalRevenue || 0).toLocaleString()}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Taxes */}
+                    <div>
+                      <div className="text-xs font-bold text-gray-700 mb-1">TAXES</div>
+                      <div className="space-y-1">
+                        <div>Lodging Tax: <span className="font-semibold">${(previewData.summary.overall?.totalLodgingTax || previewData.summary.totalLodgingTax || 0).toLocaleString()}</span></div>
+                        <div>GST: <span className="font-semibold">${(previewData.summary.overall?.totalGst || previewData.summary.totalGst || 0).toLocaleString()}</span></div>
+                        <div>QST: <span className="font-semibold">${(previewData.summary.overall?.totalQst || previewData.summary.totalQst || 0).toLocaleString()}</span></div>
+                        <div className="border-t border-gray-200 pt-1 font-bold">Total Tax: <span className="font-semibold">${(previewData.summary.overall?.totalSalesTax || previewData.summary.totalSalesTax || 0).toLocaleString()}</span></div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Total Bookings:</span>
-                    <span className="block font-medium">{previewData.summary.totalBookings || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Total Nights:</span>
-                    <span className="block font-medium">{previewData.summary.totalNights || 0}</span>
+
+                  {/* Right Column */}
+                  <div className="space-y-3">
+                    {/* Platform Fees */}
+                    <div>
+                      <div className="text-xs font-bold text-gray-700 mb-1">PLATFORM FEES</div>
+                      <div className="space-y-1">
+                        <div>Channel Fees: <span className="font-semibold">${(previewData.summary.overall?.totalChannelFees || previewData.summary.totalChannelFees || 0).toLocaleString()}</span></div>
+                        <div>Stripe Fees: <span className="font-semibold">${(previewData.summary.overall?.totalStripeFees || previewData.summary.totalStripeFees || 0).toLocaleString()}</span></div>
+                        <div>Management Fee: <span className="font-semibold">${(previewData.summary.overall?.totalMgmtFee || previewData.summary.totalMgmtFee || 0).toLocaleString()}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Final Totals */}
+                    <div>
+                      <div className="text-xs font-bold text-gray-700 mb-1">FINAL AMOUNTS</div>
+                      <div className="space-y-1">
+                        <div className="font-bold">TOTAL PAYOUT: <span className="text-blue-600">${(previewData.summary.overall?.totalPayout || previewData.summary.totalPayout || 0).toLocaleString()}</span></div>
+                        <div className="font-bold">NET EARNINGS: <span className="text-green-600">${(previewData.summary.overall?.totalNetEarnings || previewData.summary.totalNetEarnings || 0).toLocaleString()}</span></div>
+                        {previewData.summary.rentCollected && (
+                          <div>Rent Collected: <span className="font-semibold">${previewData.summary.rentCollected}</span></div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Property Breakdown */}
+                    {previewData.summary.byProperty && previewData.summary.byProperty.length > 1 && (
+                      <div>
+                        <div className="text-xs font-bold text-gray-700 mb-1">BY PROPERTY</div>
+                        <div className="space-y-1">
+                          {previewData.summary.byProperty.map((property) => (
+                            <div key={property.propertyId} className="text-xs">
+                              <div className="font-semibold">{property.propertyName}</div>
+                              <div className="ml-2">
+                                <div>Revenue: ${property.totalRevenue.toLocaleString()}</div>
+                                <div>Net: <span className="text-green-600">${property.totalNetEarnings.toLocaleString()}</span></div>
+                                <div>Bookings: {property.totalBookings} | Nights: {property.totalNights}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -523,9 +692,20 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                   <p className="text-gray-600 mb-6">Your PDF report has been generated successfully. Click the button below to view it in a new tab.</p>
                   <button
                     onClick={() => {
-                      const blob = new Blob([Uint8Array.from(atob(previewData.pdf!), c => c.charCodeAt(0))], { type: 'application/pdf' })
-                      const url = URL.createObjectURL(blob)
-                      window.open(url, '_blank')
+                      try {
+                        const binaryString = atob(previewData.pdf!)
+                        const bytes = new Uint8Array(binaryString.length)
+                        for (let i = 0; i < binaryString.length; i++) {
+                          bytes[i] = binaryString.charCodeAt(i)
+                        }
+                        const blob = new Blob([bytes], { type: 'application/pdf' })
+                        const url = URL.createObjectURL(blob)
+                        window.open(url, '_blank')
+                        setTimeout(() => URL.revokeObjectURL(url), 1000)
+                      } catch (error) {
+                        console.error('Error opening PDF:', error)
+                        showNotification('Failed to open PDF preview', 'error')
+                      }
                     }}
                     className="px-6 py-3 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center mx-auto"
                   >
@@ -539,6 +719,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Property</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Reservation</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Guest Name</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Check In</th>
@@ -562,6 +743,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                     <tbody className="bg-white divide-y divide-gray-200">
                       {previewData.bookings.map((booking) => (
                         <tr key={booking.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{booking.propertyName || '-'}</td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{booking.reservationCode || '-'}</td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{booking.guestName || '-'}</td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
@@ -611,6 +793,55 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                         </tr>
                       ))}
                     </tbody>
+                    {/* Totals Row */}
+                    <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                      <tr className="font-medium">
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold" colSpan={2}>TOTALS</td>
+                        <td className="px-3 py-3 text-sm text-gray-900">-</td>
+                        <td className="px-3 py-3 text-sm text-gray-900">-</td>
+                        <td className="px-3 py-3 text-sm text-gray-900">-</td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          {previewData.summary?.overall?.totalNights || previewData.summary?.totalNights || 0}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900">-</td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalNightlyRate || previewData.summary?.totalNightlyRate || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalExtraGuestFees || previewData.summary?.totalExtraGuestFees || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalCleaningFees || previewData.summary?.totalCleaningFees || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalLodgingTax || previewData.summary?.totalLodgingTax || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalBedLinenFees || previewData.summary?.totalBedLinenFees || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalGst || previewData.summary?.totalGst || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalQst || previewData.summary?.totalQst || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalChannelFees || previewData.summary?.totalChannelFees || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalStripeFees || previewData.summary?.totalStripeFees || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold text-blue-600">
+                          ${(previewData.summary?.overall?.totalPayout || previewData.summary?.totalPayout || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold">
+                          ${(previewData.summary?.overall?.totalMgmtFee || previewData.summary?.totalMgmtFee || 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-900 font-semibold text-green-600">
+                          ${(previewData.summary?.overall?.totalNetEarnings || previewData.summary?.totalNetEarnings || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               ) : null}

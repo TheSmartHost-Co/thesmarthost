@@ -5,8 +5,7 @@ import type {
   ReportsResponse,
   ReportGenerationPayload,
   ReportGenerationResponse,
-  ReportPreviewPDFResponse,
-  ReportPreviewDataResponse,
+  ReportPreviewResponse,
   LogosResponse,
   LogoUploadResponse,
 } from './types/report'
@@ -41,8 +40,8 @@ export async function getReports(filters?: {
  */
 export async function previewReport(
   data: ReportGenerationPayload
-): Promise<ReportPreviewPDFResponse | ReportPreviewDataResponse> {
-  return apiClient<ReportPreviewPDFResponse | ReportPreviewDataResponse, ReportGenerationPayload>(
+): Promise<ReportPreviewResponse> {
+  return apiClient<ReportPreviewResponse, ReportGenerationPayload>(
     '/reports/preview',
     {
       method: 'POST',

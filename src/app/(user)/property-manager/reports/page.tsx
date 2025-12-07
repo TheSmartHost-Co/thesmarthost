@@ -95,7 +95,7 @@ export default function ReportsPage() {
       const res = await deleteReport(reportId)
       if (res.status === 'success') {
         showNotification('Report deleted successfully', 'success')
-        setReports(reports.filter(report => report.id !== reportId))
+        await loadReports() // Refresh from server instead of manual filter
       } else {
         showNotification(res.message || 'Failed to delete report', 'error')
       }
@@ -118,8 +118,8 @@ export default function ReportsPage() {
     setCurrentPage(1)
   }
 
-  const handleReportGenerated = (newReport: Report) => {
-    setReports([newReport, ...reports])
+  const handleReportGenerated = async () => {
+    await loadReports() // Refresh from server instead of optimistic update
     setShowGenerateModal(false)
   }
 
