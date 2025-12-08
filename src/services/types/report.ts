@@ -20,6 +20,8 @@ export interface Report {
   propertyId: string
   propertyName: string
   propertyAddress: string
+  propertyNames?: string[] // For multi-property reports
+  propertyAddresses?: string[] // For multi-property reports
   startDate: string
   endDate: string
   createdAt: string

@@ -256,10 +256,29 @@ export default function ReportsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {report.propertyName}
+                              {(() => {
+                                // Handle multi-property reports
+                                if (report.propertyNames && report.propertyNames.length > 1) {
+                                  if (report.propertyNames.length === 2) {
+                                    return `${report.propertyNames[0]}, ${report.propertyNames[1]}`
+                                  }
+                                  const remaining = report.propertyNames.length - 2
+                                  return `${report.propertyNames[0]}, ${report.propertyNames[1]}, ... ${remaining} more`
+                                }
+                                // Handle single property reports
+                                return report.propertyName
+                              })()}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {report.propertyAddress}
+                              {(() => {
+                                // Handle multi-property addresses
+                                if (report.propertyAddresses && report.propertyAddresses.length > 1) {
+                                  const remaining = report.propertyAddresses.length - 1
+                                  return `${report.propertyAddresses[0]}, ... ${remaining} more`
+                                }
+                                // Handle single property address
+                                return report.propertyAddress
+                              })()}
                             </div>
                           </div>
                         </td>
