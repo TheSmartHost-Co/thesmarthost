@@ -11,6 +11,7 @@ import {
   CogIcon,
   CloudArrowUpIcon,
   CalendarDaysIcon,
+  InboxArrowDownIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarItems = [
@@ -33,6 +34,11 @@ const sidebarItems = [
     name: 'Bookings',
     href: '/property-manager/bookings',
     icon: CalendarDaysIcon,
+  },
+  {
+    name: 'Incoming Bookings',
+    href: '/property-manager/incoming-bookings',
+    icon: InboxArrowDownIcon,
   },
   {
     name: 'Upload Bookings',
