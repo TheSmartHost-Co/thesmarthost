@@ -5,6 +5,7 @@ import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus } from '@/services/incomingBookingService'
 import type { IncomingBooking } from '@/services/types/incomingBooking'
+import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
 import { 
   InboxArrowDownIcon, 
   CheckIcon, 
@@ -37,6 +38,8 @@ export default function IncomingBookingsPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [error, setError] = useState<string | null>(null)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<IncomingBooking | null>(null)
   
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -83,8 +86,20 @@ export default function IncomingBookingsPage() {
       }
     } catch (error) {
       console.error(`Error updating booking status:`, error)
-      showNotification(`Failed to ${newStatus} booking`, 'error')
+      // Extract the error message from the thrown error
+      const message = error instanceof Error ? error.message : `Failed to ${newStatus} booking`
+      showNotification(message, 'error')
     }
+  }
+
+  const handleReviewBooking = (booking: IncomingBooking) => {
+    setSelectedBooking(booking)
+    setReviewModalOpen(true)
+  }
+
+  const handleReviewModalClose = () => {
+    setReviewModalOpen(false)
+    setSelectedBooking(null)
   }
 
   const formatDate = (dateString: string | null) => {
@@ -235,7 +250,11 @@ export default function IncomingBookingsPage() {
                 const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
                 
                 return (
-                  <li key={booking.id} className="p-6 hover:bg-gray-50">
+                  <li 
+                    key={booking.id} 
+                    className="p-6 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleReviewBooking(booking)}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
@@ -276,15 +295,18 @@ export default function IncomingBookingsPage() {
                           <div className="mt-2 text-xs text-gray-500">
                             Received: {formatDate(booking.webhookReceivedAt)} | 
                             ID: {booking.externalReservationId}
-                            {booking.propertyName && (
-                              <> | Property: {booking.propertyName}</>
+                            {(booking.listingName || booking.propertyName) && (
+                              <> | Property: {booking.listingName || booking.propertyName}</>
+                            )}
+                            {booking.numNights && (
+                              <> | {booking.numNights} nights</>
                             )}
                           </div>
                         </div>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                         {booking.status === 'pending' && (
                           <>
                             <button
@@ -304,11 +326,19 @@ export default function IncomingBookingsPage() {
                           </>
                         )}
                         
+                        {booking.status === 'imported' && booking.importedBookingId && (
+                          <span className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-800 bg-green-100 rounded-md">
+                            <CheckIcon className="h-4 w-4 mr-1" />
+                            Imported
+                          </span>
+                        )}
+                        
                         <button
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          onClick={() => handleReviewBooking(booking)}
+                          className="cursor-pointer inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
                           <EyeIcon className="h-4 w-4 mr-1" />
-                          Review
+                          {booking.status === 'imported' ? 'View' : 'Review'}
                         </button>
                       </div>
                     </div>
@@ -319,6 +349,14 @@ export default function IncomingBookingsPage() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      <ReviewIncomingBookingsModal
+        isOpen={reviewModalOpen}
+        onClose={handleReviewModalClose}
+        booking={selectedBooking}
+        onUpdate={fetchIncomingBookings}
+      />
     </div>
   )
 }

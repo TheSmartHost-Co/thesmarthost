@@ -25,6 +25,23 @@ export interface IncomingBooking {
   createdAt: string;
   updatedAt: string | null;
   
+  // Financial fields from webhook data
+  listingName: string | null;
+  numNights: number | null;
+  nightlyRate: number | null;
+  extraGuestFees: number | null;
+  cleaningFee: number | null;
+  lodgingTax: number | null;
+  bedLinenFee: number | null;
+  gst: number | null;
+  qst: number | null;
+  channelFee: number | null;
+  stripeFee: number | null;
+  totalPayout: number | null;
+  mgmtFee: number | null;
+  netEarnings: number | null;
+  salesTax: number | null;
+  
   // Joined data from queries
   propertyName?: string | null;
   propertyAddress?: string | null;
@@ -64,7 +81,7 @@ export interface CreateIncomingBookingPayload {
 
 export interface UpdateIncomingBookingMappingPayload {
   propertyId: string;
-  clientId: string;
+  clientId?: string;  // Optional - will auto-select primary client if not provided
   fieldMappings: Record<string, string>;
 }
 
