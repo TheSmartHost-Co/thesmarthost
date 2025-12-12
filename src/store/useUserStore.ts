@@ -7,6 +7,8 @@
     fullName: string
     role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT'
     email?: string
+    phoneNumber?: string | null
+    companyName?: string | null
   }
 
   interface UserStore {

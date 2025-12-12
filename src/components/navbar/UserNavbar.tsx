@@ -22,7 +22,7 @@ export default function UserNavbar() {
         <div className="flex items-center space-x-4">
           {/* Settings Link */}
           <Link
-            href="/settings"
+            href="/property-manager/settings"
             className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
           >
             <CogIcon className="w-5 h-5 mr-2" />
