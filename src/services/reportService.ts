@@ -8,6 +8,7 @@ import type {
   ReportPreviewResponse,
   LogosResponse,
   LogoUploadResponse,
+  SingleReportResponse,
 } from './types/report'
 
 /**
@@ -127,6 +128,29 @@ export async function uploadLogo(logoFile: File): Promise<LogoUploadResponse> {
 export async function deleteLogo(logoId: string): Promise<{ status: 'success' | 'failed', message?: string }> {
   return apiClient<{ status: 'success' | 'failed', message?: string }>(
     `/reports/logos/${logoId}`,
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
+/**
+ * Get a single report with file details
+ * @param reportId - ID of the report to fetch
+ * @returns Promise with report details and files
+ */
+export async function getSingleReport(reportId: string): Promise<SingleReportResponse> {
+  return apiClient<SingleReportResponse>(`/reports/${reportId}`)
+}
+
+/**
+ * Delete a report file
+ * @param fileId - ID of the file to delete
+ * @returns Promise with deletion result
+ */
+export async function deleteReportFile(fileId: string): Promise<{ status: 'success' | 'failed', message?: string }> {
+  return apiClient<{ status: 'success' | 'failed', message?: string }>(
+    `/reports/files/${fileId}`,
     {
       method: 'DELETE',
     }

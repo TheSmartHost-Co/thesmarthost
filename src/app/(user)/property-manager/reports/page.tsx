@@ -9,6 +9,7 @@ import type { Property } from '@/services/types/property'
 import type { Report, ReportFormat } from '@/services/types/report'
 import { PlusIcon, TrashIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline'
 import GenerateReportModal from '@/components/report/generate/generateReportModal'
+import ViewReportModal from '@/components/report/view/viewReportModal'
 
 export default function ReportsPage() {
   const { profile } = useUserStore()
@@ -31,6 +32,8 @@ export default function ReportsPage() {
 
   // UI state
   const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false)
+  const [showViewModal, setShowViewModal] = useState<boolean>(false)
+  const [selectedReportId, setSelectedReportId] = useState<string>('')
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null)
 
   // Load data on mount
@@ -121,6 +124,15 @@ export default function ReportsPage() {
   const handleReportGenerated = async () => {
     await loadReports() // Refresh from server instead of optimistic update
     setShowGenerateModal(false)
+  }
+
+  const handleViewReport = (reportId: string) => {
+    setSelectedReportId(reportId)
+    setShowViewModal(true)
+  }
+
+  const handleReportUpdated = async () => {
+    await loadReports() // Refresh the reports list after file deletion
   }
 
   // Pagination logic
@@ -255,31 +267,40 @@ export default function ReportsPage() {
                       <tr key={report.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {(() => {
-                                // Handle multi-property reports
-                                if (report.propertyNames && report.propertyNames.length > 1) {
-                                  if (report.propertyNames.length === 2) {
-                                    return `${report.propertyNames[0]}, ${report.propertyNames[1]}`
+                            <button
+                              onClick={() => handleViewReport(report.id)}
+                              className="text-left hover:bg-gray-50 rounded-md p-1 -m-1 transition-colors"
+                            >
+                              <div className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                                {(() => {
+                                  // Handle multi-property reports
+                                  if (report.isMultiProperty && report.properties?.length > 1) {
+                                    if (report.properties.length === 2) {
+                                      return `${report.properties[0].listingName}, ${report.properties[1].listingName}`
+                                    } else if (report.properties.length === 3) {
+                                      const remaining = report.properties.length - 2
+                                      return `${report.properties[0].listingName}, ${report.properties[1].listingName}, +${remaining} more`
+                                    } else {
+                                      const remaining = report.properties.length - 2
+                                      return `${report.properties[0].listingName}, ${report.properties[1].listingName}, +${remaining} more`
+                                    }
                                   }
-                                  const remaining = report.propertyNames.length - 2
-                                  return `${report.propertyNames[0]}, ${report.propertyNames[1]}, ... ${remaining} more`
-                                }
-                                // Handle single property reports
-                                return report.propertyName
-                              })()}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {(() => {
-                                // Handle multi-property addresses
-                                if (report.propertyAddresses && report.propertyAddresses.length > 1) {
-                                  const remaining = report.propertyAddresses.length - 1
-                                  return `${report.propertyAddresses[0]}, ... ${remaining} more`
-                                }
-                                // Handle single property address
-                                return report.propertyAddress
-                              })()}
-                            </div>
+                                  // Handle single property reports
+                                  return report.propertyName
+                                })()}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {(() => {
+                                  // Handle multi-property addresses
+                                  if (report.isMultiProperty && report.properties?.length > 1) {
+                                    const remaining = report.properties.length - 1
+                                    return `${report.properties[0].address}, +${remaining} more`
+                                  }
+                                  // Handle single property address
+                                  return report.propertyAddress
+                                })()}
+                              </div>
+                            </button>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -403,6 +424,14 @@ export default function ReportsPage() {
         onClose={() => setShowGenerateModal(false)}
         onReportGenerated={handleReportGenerated}
         properties={properties}
+      />
+
+      {/* View Report Modal */}
+      <ViewReportModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        reportId={selectedReportId}
+        onReportUpdated={handleReportUpdated}
       />
     </div>
   )

@@ -6,10 +6,23 @@ export type ReportFormat = 'pdf' | 'csv' | 'excel'
  * Report file metadata
  */
 export interface ReportFile {
-  fileId: string
-  downloadUrl: string
+  id: string
+  format: ReportFormat
+  version: string
+  isCurrent: boolean
   generatedAt: string
-  version: number
+  notes: string | null
+  downloadUrl: string
+  fileName: string
+}
+
+/**
+ * Property info in report
+ */
+export interface ReportProperty {
+  id: string
+  listingName: string
+  address: string
 }
 
 /**
@@ -20,12 +33,14 @@ export interface Report {
   propertyId: string
   propertyName: string
   propertyAddress: string
-  propertyNames?: string[] // For multi-property reports
-  propertyAddresses?: string[] // For multi-property reports
+  propertyIds: string[]
+  properties: ReportProperty[]
+  propertyCount: number
+  isMultiProperty: boolean
   startDate: string
   endDate: string
   createdAt: string
-  updatedAt: string
+  updatedAt: string | null
   availableFormats: ReportFormat[]
   files: {
     pdf?: ReportFile
@@ -257,4 +272,32 @@ export interface LogoUploadResponse {
   status: 'success' | 'failed'
   message?: string
   data: Logo
+}
+
+/**
+ * Single report response with file details
+ */
+export interface SingleReportResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    id: string
+    startDate: string
+    endDate: string
+    createdAt: string
+    updatedAt: string | null
+    propertyIds: string[]
+    properties: ReportProperty[]
+    isMultiProperty: boolean
+    propertyCount: number
+    propertyId?: string
+    propertyName?: string
+    filesByFormat: Record<string, ReportFile[]>
+    fileStats: {
+      totalFiles: number
+      availableFormats: string[]
+      totalVersions: number
+      currentVersions: number
+    }
+  }
 }
