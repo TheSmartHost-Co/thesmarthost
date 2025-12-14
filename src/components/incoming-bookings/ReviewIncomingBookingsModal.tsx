@@ -7,9 +7,11 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateIncomingBookingMapping, updateIncomingBookingStatus, updateIncomingBookingFinancials } from '@/services/incomingBookingService'
 import { getProperties } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
+import { getPropertyWebhookMappingByPlatform, createPropertyWebhookMapping } from '@/services/propertyWebhookMappingService'
 import type { IncomingBooking, UpdateIncomingBookingMappingPayload, FieldChange } from '@/services/types/incomingBooking'
 import type { Property } from '@/services/types/property'
 import type { Client } from '@/services/types/client'
+import type { Platform } from '@/services/types/propertyWebhookMapping'
 import WebhookFieldMappingForm from '@/components/webhook-mapping/WebhookFieldMappingForm'
 import { 
   XMarkIcon, 
@@ -105,6 +107,14 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
     }
   }, [booking])
 
+  // Load property mappings when selectedPropertyId changes
+  useEffect(() => {
+    if (selectedPropertyId && currentBooking?.platform) {
+      const platform = currentBooking.platform.toLowerCase() as Platform
+      loadPropertyMappings(selectedPropertyId, platform)
+    }
+  }, [selectedPropertyId, currentBooking?.platform])
+
   const fetchPropertiesAndClients = async () => {
     if (!profile?.id) return
 
@@ -126,6 +136,23 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
     }
   }
 
+  const loadPropertyMappings = async (propertyId: string, platform: Platform = 'hostaway') => {
+    try {
+      const mappingResponse = await getPropertyWebhookMappingByPlatform(propertyId, platform)
+      
+      if (mappingResponse.status === 'success') {
+        console.log('Loaded existing property mappings:', mappingResponse.data.fieldMappings)
+        setWebhookFieldMappings(mappingResponse.data.fieldMappings)
+        showNotification('Loaded existing field mappings for this property', 'success')
+        return true
+      }
+      return false
+    } catch (error) {
+      console.log('No existing mappings found for property, will use auto-suggestions')
+      return false
+    }
+  }
+
   const handleSaveMapping = async () => {
     if (!booking?.id || !selectedPropertyId) {
       showNotification('Please select a property', 'error')
@@ -144,9 +171,27 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
         mappingData.clientId = selectedClientId
       }
       
+      // Save to incoming booking
       const response = await updateIncomingBookingMapping(booking.id, mappingData)
 
       if (response.status === 'success') {
+        // Also save as property template for future bookings
+        if (currentBooking?.platform && Object.keys(webhookFieldMappings).length > 0) {
+          try {
+            const platform = currentBooking.platform.toLowerCase() as Platform
+            await createPropertyWebhookMapping({
+              propertyId: selectedPropertyId,
+              platform,
+              fieldMappings: webhookFieldMappings,
+              isActive: true
+            })
+            console.log('Saved field mappings as property template for future bookings')
+          } catch (templateError) {
+            console.log('Template save failed (may already exist):', templateError)
+            // Don't show error to user - this is a nice-to-have feature
+          }
+        }
+
         showNotification('Mapping saved successfully', 'success')
         onUpdate()
         onClose()
@@ -186,6 +231,23 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
       if (mappingResponse.status !== 'success') {
         showNotification(mappingResponse.message || 'Failed to save mapping', 'error')
         return
+      }
+
+      // Also save as property template for future bookings
+      if (currentBooking?.platform && Object.keys(webhookFieldMappings).length > 0) {
+        try {
+          const platform = currentBooking.platform.toLowerCase() as Platform
+          await createPropertyWebhookMapping({
+            propertyId: selectedPropertyId,
+            platform,
+            fieldMappings: webhookFieldMappings,
+            isActive: true
+          })
+          console.log('Saved field mappings as property template for future bookings')
+        } catch (templateError) {
+          console.log('Template save failed (may already exist):', templateError)
+          // Don't show error to user - this is a nice-to-have feature
+        }
       }
 
       // Then approve the booking
