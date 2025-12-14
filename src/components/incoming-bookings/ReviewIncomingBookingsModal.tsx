@@ -10,6 +10,7 @@ import { getClientsByParentId } from '@/services/clientService'
 import type { IncomingBooking, UpdateIncomingBookingMappingPayload, FieldChange } from '@/services/types/incomingBooking'
 import type { Property } from '@/services/types/property'
 import type { Client } from '@/services/types/client'
+import WebhookFieldMappingForm from '@/components/webhook-mapping/WebhookFieldMappingForm'
 import { 
   XMarkIcon, 
   ChevronDownIcon, 
@@ -42,9 +43,12 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({})
+  const [webhookFieldMappings, setWebhookFieldMappings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [showFieldMapping, setShowFieldMapping] = useState(false)
+  const [showAdvancedMapping, setShowAdvancedMapping] = useState(false)
   const [showRawData, setShowRawData] = useState(false)
+  const [isMappingValid, setIsMappingValid] = useState(false)
   const [isEditingFinancials, setIsEditingFinancials] = useState(false)
   const [editedFinancials, setEditedFinancials] = useState<Record<string, any>>({})
   const [originalFinancials, setOriginalFinancials] = useState<Record<string, any>>({})
@@ -74,6 +78,9 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
       setSelectedPropertyId(booking.propertyId || '')
       setSelectedClientId(booking.clientId || '')
       setFieldMappings(booking.fieldMappings || {})
+      
+      // Initialize webhook field mappings from existing field mappings
+      setWebhookFieldMappings(booking.fieldMappings || {})
       
       // Initialize financial fields for editing
       const financials = {
@@ -127,7 +134,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
       setLoading(true)
       const mappingData: UpdateIncomingBookingMappingPayload = {
         propertyId: selectedPropertyId,
-        fieldMappings
+        fieldMappings: webhookFieldMappings // Use the webhook field mappings
       }
       
       // Only include clientId if explicitly selected
@@ -164,7 +171,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
       // First save the mapping
       const mappingData: UpdateIncomingBookingMappingPayload = {
         propertyId: selectedPropertyId,
-        fieldMappings
+        fieldMappings: webhookFieldMappings // Use the webhook field mappings
       }
       
       // Only include clientId if explicitly selected
@@ -561,7 +568,43 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
               )}
             </div>
 
-            {/* Field Mapping Section */}
+            {/* Advanced Field Mapping Section */}
+            <div className="border border-gray-200 rounded-lg">
+              <button
+                onClick={() => setShowAdvancedMapping(!showAdvancedMapping)}
+                className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <span className="flex items-center">
+                  <MapIcon className="h-5 w-5 mr-2" />
+                  Advanced Field Mapping
+                  {!isMappingValid && (
+                    <span className="ml-2 text-xs text-red-500">(Required fields missing)</span>
+                  )}
+                  {isMappingValid && (
+                    <span className="ml-2 text-xs text-green-600">✓ Valid</span>
+                  )}
+                </span>
+                {showAdvancedMapping ? (
+                  <ChevronDownIcon className="h-5 w-5" />
+                ) : (
+                  <ChevronRightIcon className="h-5 w-5" />
+                )}
+              </button>
+              {showAdvancedMapping && (
+                <div className="px-4 pb-4 border-t border-gray-200">
+                  <div className="pt-3">
+                    <WebhookFieldMappingForm
+                      webhookData={currentBooking.rawWebhookData || {}}
+                      initialMappings={webhookFieldMappings}
+                      onMappingsChange={setWebhookFieldMappings}
+                      onValidationChange={setIsMappingValid}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Simple Field Mapping Section (Legacy) */}
             <div className="border border-gray-200 rounded-lg">
               <button
                 onClick={() => setShowFieldMapping(!showFieldMapping)}
@@ -569,7 +612,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
               >
                 <span className="flex items-center">
                   <MapIcon className="h-5 w-5 mr-2" />
-                  Field Mapping (Optional)
+                  Simple Field Mapping (Legacy)
                 </span>
                 {showFieldMapping ? (
                   <ChevronDownIcon className="h-5 w-5" />
@@ -580,7 +623,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
               {showFieldMapping && (
                 <div className="px-4 pb-4 border-t border-gray-200">
                   <p className="text-sm text-gray-600 mb-3 pt-3">
-                    Configure how webhook fields map to your booking system
+                    Basic field mapping configuration (use Advanced Mapping above for better control)
                   </p>
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
