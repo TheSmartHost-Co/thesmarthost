@@ -53,3 +53,39 @@ When you generate a new key, you need to store it safely. It will only be visibl
 95124
 e70f173f0b76d8c45ca08c856a30dad0799960fd267d0cd5336dce9a088703c7
 Copy and paste this token in the partner system to activate the connection with this partner
+
+
+Awesome! I'm ready to work on the field mappings for incoming bookings. This will be the final piece to make the
+  webhook integration fully customizable.
+
+  🎯 Field Mappings - What We'll Build:
+
+  Current State:
+
+  - Basic field mapping UI exists (collapsible section)
+  - Only shows 2 example fields (guestName, totalAmount)
+  - Mappings are saved but not actually used during import
+
+  What We Need:
+
+  1. Comprehensive Field List - All financial and booking fields that can be mapped
+  2. Dynamic Mapping UI - Show webhook data structure and let users map fields
+  3. Apply Mappings - Actually use the mappings when creating bookings
+  4. Save Mappings per Listing - Reuse mappings for future bookings from same property
+  5. Preview Mapped Values - Show what values will be imported
+
+  🔧 Key Features to Implement:
+
+  1. Smart Field Detection
+    - Analyze incoming webhook data structure
+    - Auto-suggest likely field mappings
+    - Handle nested data (like financeField array)
+  2. Mapping Templates
+    - Save mapping configurations per PMS platform
+    - Auto-apply saved mappings to new bookings
+  3. Value Transformation
+    - Handle different data formats (dates, currencies)
+    - Extract values from nested structures
+
+  Ready to start implementing the field mappings system! Should we begin with enhancing the UI to show all available
+  fields, or would you prefer to start with the backend logic to apply the mappings?

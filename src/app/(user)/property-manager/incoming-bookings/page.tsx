@@ -102,6 +102,17 @@ export default function IncomingBookingsPage() {
     setSelectedBooking(null)
   }
 
+  const handleBookingUpdate = (updatedBooking: IncomingBooking) => {
+    // Update the specific booking in the list
+    setBookings(prevBookings => 
+      prevBookings.map(booking => 
+        booking.id === updatedBooking.id ? updatedBooking : booking
+      )
+    )
+    // Update the selected booking if it's the same one
+    setSelectedBooking(updatedBooking)
+  }
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString()
@@ -356,6 +367,7 @@ export default function IncomingBookingsPage() {
         onClose={handleReviewModalClose}
         booking={selectedBooking}
         onUpdate={fetchIncomingBookings}
+        onBookingUpdate={handleBookingUpdate}
       />
     </div>
   )

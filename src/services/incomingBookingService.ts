@@ -5,6 +5,7 @@ import {
   CreateIncomingBookingPayload, 
   UpdateIncomingBookingMappingPayload,
   UpdateIncomingBookingStatusPayload,
+  UpdateIncomingBookingFinancialsPayload,
   DeleteIncomingBookingPayload,
   FieldMappingsResponse,
   PendingBookingsCountResponse
@@ -65,4 +66,17 @@ export function deleteIncomingBooking(
     method: 'DELETE',
     body: deleteData,
   });
+}
+
+export function updateIncomingBookingFinancials(
+  bookingId: string,
+  data: UpdateIncomingBookingFinancialsPayload
+): Promise<IncomingBookingResponse> {
+  return apiClient<IncomingBookingResponse, UpdateIncomingBookingFinancialsPayload>(
+    `/incoming-bookings/${bookingId}/financials`,
+    {
+      method: 'PUT',
+      body: data,
+    }
+  );
 }

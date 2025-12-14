@@ -113,3 +113,37 @@ export interface PendingBookingsCountResponse {
     count: number;
   };
 }
+
+// Field change tracking
+export interface FieldChange {
+  fieldName: string;
+  originalValue: string;
+  editedValue: string;
+  changeReason?: string;
+}
+
+// Update financial data payload
+export interface UpdateIncomingBookingFinancialsPayload {
+  userId: string;
+  financialData: {
+    guestName?: string;
+    guestEmail?: string;
+    checkInDate?: string;
+    checkOutDate?: string;
+    numNights?: number;
+    nightlyRate?: number | null;
+    cleaningFee?: number | null;
+    lodgingTax?: number | null;
+    salesTax?: number | null;
+    totalPayout?: number | null;
+    extraGuestFees?: number | null;
+    bedLinenFee?: number | null;
+    gst?: number | null;
+    qst?: number | null;
+    channelFee?: number | null;
+    stripeFee?: number | null;
+    mgmtFee?: number | null;
+    netEarnings?: number | null;
+  };
+  fieldChanges?: FieldChange[];
+}
