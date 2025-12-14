@@ -19,11 +19,25 @@ export function extractWebhookValue(webhookData: any, path: string): any {
       return handleFinanceFieldLookup(webhookData, path)
     }
     
+    // Determine starting point based on path format
+    let startingData = webhookData
+    let pathParts = path.split('.')
+    
+    // If path starts with 'data' and webhookData has a data property, use that
+    if (pathParts[0] === 'data' && webhookData.data) {
+      startingData = webhookData.data
+      pathParts = pathParts.slice(1) // Remove 'data' from path
+    }
+    // If path doesn't start with 'data' but webhookData has a data property, assume we want the data
+    else if (pathParts[0] !== 'data' && webhookData.data && !webhookData[pathParts[0]]) {
+      startingData = webhookData.data
+    }
+    
     // Handle regular dot notation paths with array support
-    return path.split('.').reduce((obj, key) => {
+    return pathParts.reduce((obj, key) => {
       if (obj === null || obj === undefined) return undefined
       
-      // Handle array indexing like data.listingCustomFields[0].value
+      // Handle array indexing like listingCustomFields[0].value
       if (key.includes('[') && key.includes(']')) {
         const arrayKey = key.substring(0, key.indexOf('['))
         const indexStr = key.substring(key.indexOf('[') + 1, key.indexOf(']'))
@@ -38,7 +52,7 @@ export function extractWebhookValue(webhookData: any, path: string): any {
       }
       
       return obj[key]
-    }, webhookData)
+    }, startingData)
     
   } catch (error) {
     console.warn(`Failed to extract value from path "${path}":`, error)
@@ -48,20 +62,25 @@ export function extractWebhookValue(webhookData: any, path: string): any {
 
 /**
  * Handles special financeField array lookups for Hostaway webhooks
- * Supports paths like: data.financeField.find(f => f.name === "baseRate")?.total
+ * Supports paths like: financeField.find(f => f.name === "baseRate").total
  */
 function handleFinanceFieldLookup(webhookData: any, path: string): any {
   const financeFieldMatch = path.match(/financeField\.find\(f => f\.(\w+) === ["']([^"']+)["']\)\.?(\w+)?/)
   
-  if (financeFieldMatch && webhookData?.data?.financeField) {
+  if (financeFieldMatch) {
     const [, searchProperty, searchValue, returnProperty] = financeFieldMatch
     
-    const financeField = webhookData.data.financeField.find((field: any) => 
-      field[searchProperty] === searchValue
-    )
+    // Try to find financeField in webhookData.data first, then in webhookData itself
+    const financeFieldArray = webhookData?.data?.financeField || webhookData?.financeField
     
-    if (financeField) {
-      return returnProperty ? financeField[returnProperty] : financeField
+    if (Array.isArray(financeFieldArray)) {
+      const financeField = financeFieldArray.find((field: any) => 
+        field[searchProperty] === searchValue
+      )
+      
+      if (financeField) {
+        return returnProperty ? financeField[returnProperty] : financeField
+      }
     }
   }
   
@@ -187,19 +206,19 @@ export function suggestWebhookMappings(webhookData: any): WebhookFieldMapping {
   // Hostaway webhook structure
   if (webhookData?.data && webhookData?.object === 'reservation') {
     return {
-      guestName: 'data.guestName',
-      guestEmail: 'data.guestEmail',
-      checkInDate: 'data.arrivalDate',
-      checkOutDate: 'data.departureDate',
-      numNights: 'data.nights',
-      listingName: 'data.listingName',
-      platform: 'data.channelName',
-      totalAmount: 'data.totalPrice',
-      cleaningFee: 'data.cleaningFee',
-      nightlyRate: 'data.financeField.find(f => f.name === "baseRate").total',
-      lodgingTax: 'data.financeField.find(f => f.name === "lodgingTax").total',
-      salesTax: 'data.financeField.find(f => f.name === "salesTax").total',
-      gst: 'data.financeField.find(f => f.name === "vat").total',
+      guestName: 'guestName',
+      guestEmail: 'guestEmail',
+      checkInDate: 'arrivalDate',
+      checkOutDate: 'departureDate',
+      numNights: 'nights',
+      listingName: 'listingName',
+      platform: 'channelName',
+      totalAmount: 'totalPrice',
+      cleaningFee: 'cleaningFee',
+      nightlyRate: 'financeField.find(f => f.name === "baseRate").total',
+      lodgingTax: 'financeField.find(f => f.name === "lodgingTax").total',
+      salesTax: 'financeField.find(f => f.name === "salesTax").total',
+      gst: 'financeField.find(f => f.name === "vat").total',
     }
   }
   

@@ -20,7 +20,8 @@ import {
   CurrencyDollarIcon,
   CheckIcon,
   BuildingOfficeIcon,
-  PencilIcon
+  PencilIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 
 interface ReviewIncomingBookingsModalProps {
@@ -53,6 +54,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   const [editedFinancials, setEditedFinancials] = useState<Record<string, any>>({})
   const [originalFinancials, setOriginalFinancials] = useState<Record<string, any>>({})
   const [currentBooking, setCurrentBooking] = useState<IncomingBooking | null>(booking)
+  const [webhookDataSearch, setWebhookDataSearch] = useState('')
   
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -284,6 +286,36 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   const handleCancelFinancialEdits = () => {
     setEditedFinancials(originalFinancials)
     setIsEditingFinancials(false)
+  }
+
+  const highlightSearchTerm = (text: string, searchTerm: string): string => {
+    if (!searchTerm.trim()) return text
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    return text.replace(regex, '<mark class="bg-yellow-200">$1</mark>')
+  }
+
+  const getFilteredWebhookData = () => {
+    if (!webhookDataSearch.trim()) {
+      return JSON.stringify(currentBooking?.rawWebhookData, null, 2)
+    }
+    
+    const searchLower = webhookDataSearch.toLowerCase()
+    const rawData = JSON.stringify(currentBooking?.rawWebhookData, null, 2)
+    
+    // Split by lines and filter lines that contain the search term
+    const lines = rawData.split('\n')
+    const filteredLines = lines.filter(line => 
+      line.toLowerCase().includes(searchLower)
+    )
+    
+    if (filteredLines.length === 0) {
+      return `No results found for "${webhookDataSearch}"`
+    }
+    
+    return filteredLines.map(line => 
+      highlightSearchTerm(line, webhookDataSearch)
+    ).join('\n')
   }
 
   if (!currentBooking) return null
@@ -604,57 +636,6 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
               )}
             </div>
 
-            {/* Simple Field Mapping Section (Legacy) */}
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                onClick={() => setShowFieldMapping(!showFieldMapping)}
-                className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <span className="flex items-center">
-                  <MapIcon className="h-5 w-5 mr-2" />
-                  Simple Field Mapping (Legacy)
-                </span>
-                {showFieldMapping ? (
-                  <ChevronDownIcon className="h-5 w-5" />
-                ) : (
-                  <ChevronRightIcon className="h-5 w-5" />
-                )}
-              </button>
-              {showFieldMapping && (
-                <div className="px-4 pb-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-600 mb-3 pt-3">
-                    Basic field mapping configuration (use Advanced Mapping above for better control)
-                  </p>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Guest Name Field
-                        </label>
-                        <input
-                          type="text"
-                          value={fieldMappings.guestName || 'guestName'}
-                          onChange={(e) => setFieldMappings(prev => ({ ...prev, guestName: e.target.value }))}
-                          className="text-black w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Total Amount Field
-                        </label>
-                        <input
-                          type="text"
-                          value={fieldMappings.totalAmount || 'totalPrice'}
-                          onChange={(e) => setFieldMappings(prev => ({ ...prev, totalAmount: e.target.value }))}
-                          className="text-black w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Raw Data Section */}
             <div className="border border-gray-200 rounded-lg">
               <button
@@ -673,9 +654,30 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
               </button>
               {showRawData && (
                 <div className="px-4 pb-4 border-t border-gray-200">
-                  <pre className="text-black text-xs bg-gray-100 p-3 rounded overflow-auto max-h-60">
-                    {JSON.stringify(currentBooking.rawWebhookData, null, 2)}
-                  </pre>
+                  {/* Search Bar */}
+                  <div className="mb-3 pt-3">
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={webhookDataSearch}
+                        onChange={(e) => setWebhookDataSearch(e.target.value)}
+                        placeholder="Search webhook data..."
+                        className="text-black w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    {webhookDataSearch && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Showing lines containing "{webhookDataSearch}"
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Webhook Data Display */}
+                  <div 
+                    className="text-black text-xs bg-gray-100 p-3 rounded overflow-auto max-h-60"
+                    dangerouslySetInnerHTML={{ __html: `<pre>${getFilteredWebhookData()}</pre>` }}
+                  />
                 </div>
               )}
             </div>

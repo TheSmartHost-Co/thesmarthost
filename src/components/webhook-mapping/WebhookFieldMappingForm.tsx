@@ -65,7 +65,10 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
   const [availablePaths, setAvailablePaths] = useState<string[]>([])
 
   useEffect(() => {
-    let paths = extractWebhookPaths(webhookData)
+    // Start from webhookData.data if it exists (Hostaway structure), otherwise use whole object
+    const dataToProcess = webhookData?.data ? webhookData.data : webhookData
+    let paths = extractWebhookPaths(dataToProcess, '')
+    let mappingsToSet = initialMappings
     
     // Auto-suggest mappings for webhook structure
     if (Object.keys(initialMappings).length === 0) {
@@ -77,17 +80,12 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
         const value = extractWebhookValue(webhookData, path)
         if (value !== undefined && value !== null) {
           validMappings[field] = path
-          // Add the valid auto-suggested paths to available paths if they're not already there
-          if (!paths.includes(path)) {
-            paths.push(path)
-          }
         }
       })
       
+      mappingsToSet = validMappings
       console.log('Auto-suggested mappings:', autoMappings)
       console.log('Valid mappings:', validMappings)
-      console.log('Available paths total:', paths.length)
-      console.log('Sample paths:', paths.slice(0, 20))
       
       setMappings(validMappings)
       onMappingsChange(validMappings)
@@ -96,13 +94,13 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
     // Add common finance field paths for Hostaway if they exist
     if (webhookData?.data?.financeField && Array.isArray(webhookData.data.financeField)) {
       const financeFieldPaths = [
-        'data.financeField.find(f => f.name === "baseRate").total',
-        'data.financeField.find(f => f.name === "cleaningFee").total',
-        'data.financeField.find(f => f.name === "lodgingTax").total',
-        'data.financeField.find(f => f.name === "salesTax").total',
-        'data.financeField.find(f => f.name === "vat").total',
-        'data.financeField.find(f => f.name === "weeklyDiscount").total',
-        'data.financeField.find(f => f.name === "totalPriceFromChannel").total'
+        'financeField.find(f => f.name === "baseRate").total',
+        'financeField.find(f => f.name === "cleaningFee").total',
+        'financeField.find(f => f.name === "lodgingTax").total',
+        'financeField.find(f => f.name === "salesTax").total',
+        'financeField.find(f => f.name === "vat").total',
+        'financeField.find(f => f.name === "weeklyDiscount").total',
+        'financeField.find(f => f.name === "totalPriceFromChannel").total'
       ]
       
       financeFieldPaths.forEach(path => {
@@ -115,6 +113,16 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
         }
       })
     }
+    
+    // CRITICAL: Ensure all current mappings are included in available paths
+    Object.values(mappingsToSet).forEach(path => {
+      if (path && path.trim() && !paths.includes(path)) {
+        paths.push(path)
+      }
+    })
+    
+    console.log('Available paths total:', paths.length)
+    console.log('Sample paths:', paths.slice(0, 20))
     
     setAvailablePaths(paths.sort())
   }, [webhookData, initialMappings])
@@ -310,17 +318,6 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
         })}
       </div>
 
-      {/* Webhook Data Preview */}
-      <details className="border border-gray-200 rounded-lg">
-        <summary className="px-4 py-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50">
-          Raw Webhook Data (for reference)
-        </summary>
-        <div className="px-4 pb-4 border-t border-gray-200">
-          <pre className="text-black text-xs bg-gray-100 p-3 rounded overflow-auto max-h-60">
-            {JSON.stringify(webhookData, null, 2)}
-          </pre>
-        </div>
-      </details>
     </div>
   )
 }
