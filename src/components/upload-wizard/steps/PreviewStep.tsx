@@ -179,7 +179,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         
         // Special handling for date fields and listing names - keep original text format
         const headerLower = header.name.toLowerCase()
-        if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin')) {
+        if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin') || 
+            headerLower.includes('listing') || headerLower.includes('property')) {
           valueMap.set(headerLower, columnValue)
           return
         }
@@ -195,13 +196,14 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       if (simpleValue !== undefined) {
         // Simple column mapping found
         
-        // For date-related formulas, always return the original string value
+        // For date-related formulas and listing names, always return the original string value
         const formulaLower = formula.toLowerCase()
-        if (formulaLower.includes('date') || formulaLower.includes('check-in') || formulaLower.includes('checkin')) {
+        if (formulaLower.includes('date') || formulaLower.includes('check-in') || formulaLower.includes('checkin') ||
+            formulaLower.includes('listing') || formulaLower.includes('property')) {
           return simpleValue
         }
         
-        // For non-date fields, try to parse as number
+        // For non-date/non-listing fields, try to parse as number
         const numValue = parseFloat(simpleValue)
         return isNaN(numValue) ? simpleValue : numValue
       }
@@ -890,21 +892,57 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           </span>
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {mappedFields.map((mapping: any, index: number) => (
-            <div key={index} className="text-xs bg-white border rounded px-2 py-1">
-              <span className="font-medium text-gray-900">{mapping.field}</span>
-              <span className="text-gray-500"> ← </span>
-              <span className="text-gray-600">{mapping.source}</span>
-              {mapping.mode === 'per-property' && mapping.usedByProperties && (
-                <div className="mt-1 text-xs text-blue-600">
-                  Used by: {mapping.usedByProperties.join(', ')}
-                </div>
-              )}
-              {mapping.platform !== 'ALL' && (
-                <span className="ml-1 text-blue-600">({mapping.platform})</span>
-              )}
-            </div>
-          ))}
+          {mappedFields.map((mapping: any, index: number) => {
+            // For per-property mode, get all property mappings for this field
+            const propertySpecificMappings = mapping.mode === 'per-property' && fieldMappingState?.propertyMappings ? 
+              Object.entries(fieldMappingState.propertyMappings).map(([propertyId, config]: [string, any]) => {
+                const fieldMappings = config.fieldMappings || []
+                const fieldMapping = fieldMappings.find((m: any) => m.bookingField === mapping.field)
+                if (fieldMapping) {
+                  const propMapping = propertyIdentificationState?.propertyMappings?.find(
+                    (pm: any) => pm.propertyId === propertyId
+                  )
+                  const propertyName = propMapping?.listingName || propertyId
+                  return {
+                    propertyName,
+                    csvSource: fieldMapping.csvFormula
+                  }
+                }
+                return null
+              }).filter(Boolean) : []
+            
+            const hasMultipleMappings = propertySpecificMappings.length > 1 && 
+              new Set(propertySpecificMappings.map((m: any) => m?.csvSource)).size > 1
+            
+            return (
+              <div key={index} className="text-xs bg-white border rounded px-2 py-1">
+                <span className="font-medium text-gray-900">{mapping.field}</span>
+                {mapping.mode === 'per-property' && hasMultipleMappings ? (
+                  <div className="mt-1 space-y-1">
+                    <div className="text-orange-600 font-medium">Property-specific mappings:</div>
+                    {propertySpecificMappings.map((propMapping: any, idx: number) => (
+                      <div key={idx} className="text-blue-600">
+                        {propMapping.propertyName} ← {propMapping.csvSource}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-gray-500"> ← </span>
+                    <span className="text-gray-600">{mapping.source}</span>
+                    {mapping.mode === 'per-property' && mapping.usedByProperties && (
+                      <div className="mt-1 text-blue-600">
+                        Used by: {mapping.usedByProperties.join(', ')}
+                      </div>
+                    )}
+                  </>
+                )}
+                {mapping.platform !== 'ALL' && (
+                  <span className="ml-1 text-blue-600">({mapping.platform})</span>
+                )}
+              </div>
+            )
+          })}
         </div>
         
         {/* Platform Override Legend */}

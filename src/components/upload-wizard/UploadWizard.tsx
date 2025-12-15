@@ -392,7 +392,9 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             {...commonProps}
             validationState={state.validationState!}
             previewState={state.previewState}
-            propertyMappingState={state.propertyMappingState}
+            propertyMappingState={state.propertyMappingState || state.propertyIdentificationState}
+            propertyIdentificationState={state.propertyIdentificationState}
+            fieldMappingState={state.fieldMappingState}
             uploadedFile={uploadedFileRef.current}
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}

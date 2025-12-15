@@ -1,345 +1,174 @@
-# CSV Upload Wizard Redesign Plan
+Update(CLAUDE.md)
+  ⎿  Updated CLAUDE.md with 116 additions and 2 removals
+       438    - useUserStore with localStorage persistence
+       439    - useNotificationStore for toasts
+       440
+       441 -  ### ⏳ Upcoming Features
+       441 +  **CSV Upload Wizard (Multi-Property):**
+       442 +  - ✅ Property identification step (map CSV listings to properties)
+       443 +  - ✅ Field mapping step (global and per-property modes)
+       444 +  - ✅ Preview step with property-specific field mappings
+       445 +  - ✅ Process step for multi-property imports
+       446 +  - ✅ Fixed duplicate column display issue
+       447 +  - ✅ Property creation inline during identification
+       448
+       449 -  **Next Sprint:**
+       449 +  ### 🚧 PRIORITY: Property Field Mapping System
+       450 +
+       451 +  **CRITICAL NEXT TASKS** - These must be implemented to complete the CSV upload
+     workfl
+           + ow:
+       452 +
+       453 +  #### 1. Database Schema Updates
+       454 +  **File:** Backend database migration
+       455 +  **Table:** `property_field_mappings`
+       456 +  ```sql
+       457 +  CREATE TABLE property_field_mappings (
+       458 +    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       459 +    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+       460 +    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+       461 +    mapping_name VARCHAR(255) NOT NULL, -- e.g., "Hostaway Template", "Airbnb
+     Template"
+       462 +    field_mappings JSONB NOT NULL, -- Array of FieldMapping objects
+       463 +    platform VARCHAR(50), -- 'ALL', 'airbnb', 'booking', etc.
+       464 +    is_default BOOLEAN DEFAULT false, -- Whether this is the default template for this
+           + property
+       465 +    created_at TIMESTAMPTZ DEFAULT NOW(),
+       466 +    updated_at TIMESTAMPTZ DEFAULT NOW(),
+       467 +    UNIQUE(property_id, mapping_name, platform)
+       468 +  );
+       469 +  ```
+       470 +
+       471 +  #### 2. Backend API Routes
+       472 +  **Files:** Backend routes and controllers
+       473 +  ```typescript
+       474 +  // GET /api/property-field-mappings/:propertyId - Get all templates for a property
+       475 +  // POST /api/property-field-mappings - Save a new template
+       476 +  // PUT /api/property-field-mappings/:id - Update a template
+       477 +  // DELETE /api/property-field-mappings/:id - Delete a template
+       478 +  // POST /api/property-field-mappings/:id/set-default - Set as default template
+       479 +  ```
+       480 +
+       481 +  #### 3. Frontend Service Integration
+       482 +  **File:** `src/services/propertyFieldMappingService.ts`
+       483 +  ```typescript
+       484 +  export interface PropertyFieldMappingTemplate {
+       485 +    id: string
+       486 +    propertyId: string
+       487 +    userId: string
+       488 +    mappingName: string
+       489 +    fieldMappings: FieldMapping[]
+       490 +    platform: Platform
+       491 +    isDefault: boolean
+       492 +    createdAt: string
+       493 +    updatedAt: string
+       494 +  }
+       495 +
+       496 +  // API functions:
+       497 +  // getPropertyFieldMappings(propertyId: string)
+       498 +  // savePropertyFieldMapping(template: CreatePropertyFieldMappingPayload)
+       499 +  // updatePropertyFieldMapping(id: string, updates:
+     UpdatePropertyFieldMappingPayload)
+       500 +  // deletePropertyFieldMapping(id: string)
+       501 +  // setDefaultTemplate(id: string)
+       502 +  ```
+       503 +
+       504 +  #### 4. Auto-Loading System in Field Mapping Step
+       505 +  **File:** `src/components/upload-wizard/steps/FieldMappingStep.tsx`
+       506 +
+       507 +  **Requirements:**
+       508 +  - When user switches to per-property mode and selects a property tab, auto-load
+     saved
+           +  templates for that property
+       509 +  - Show a dropdown/selector for available templates: "Hostaway Template", "Airbnb
+     Temp
+           + late", "Custom", etc.
+       510 +  - If property has a default template, auto-load it immediately
+       511 +  - Add "Save as Template" button to save current mappings as a reusable template
+       512 +  - Template selector should show: Template name, platform, created date
+       513 +  - Templates should be property-specific (each property has its own set of templates)
+       514 +
+       515 +  #### 5. Template Management Modal
+       516 +  **File:** `src/components/property-field-mapping/PropertyFieldMappingModal.tsx`
+       517 +
+       518 +  **Features:**
+       519 +  - Accessible from Property Management page and Field Mapping Step
+       520 +  - List all saved templates for a property
+       521 +  - Create/Edit/Delete templates
+       522 +  - Set default template
+       523 +  - Preview template mappings
+       524 +  - Import template from another property (copy functionality)
+       525 +  - Template validation (ensure all required fields are mapped)
+       526 +
+       527 +  #### 6. Integration Points
+       528 +
+       529 +  **Property Management Integration:**
+       530 +  - Add "Field Mapping Templates" button/tab in property details
+       531 +  - Show template count in property list: "3 templates configured"
+       532 +  - Quick access to manage templates per property
+       533 +
+       534 +  **Field Mapping Step Integration:**
+       535 +  - Template dropdown in per-property mode
+       536 +  - Auto-load default template when switching properties
+       537 +  - "Save Current Mappings" button
+       538 +  - Template indicator: "Using: Hostaway Template (default)"
+       539 +  - Ability to modify loaded template and save as new or update existing
+       540 +
+       541 +  #### 7. User Experience Flow
+       542 +  ```
+       543 +  1. User uploads CSV and identifies properties
+       544 +  2. User switches to per-property mode in Field Mapping Step
+       545 +  3. For each property tab:
+       546 +     a. If property has default template → Auto-load it
+       547 +     b. If no default → Show template selector dropdown
+       548 +     c. User can select existing template or create new mappings
+       549 +     d. User can save current mappings as new template
+       550 +     e. User can modify loaded template and update it
+       551 +  4. Templates persist for future CSV uploads
+       552 +  5. Property managers can pre-configure templates for common platforms
+       553 +  ```
+       554 +
+       555 +  ### ⏳ Other Upcoming Features
+       556 +
+       557 +  **Later Sprints:**
+       558    - Bookings management
+       559    - Reports dashboard
+       560    - Analytics charts
 
-## Executive Summary
+     Tip: Use # to memorize shortcut to quickly add to CLAUDE.md
 
-This document outlines the plan to redesign the CSV upload wizard to support property-specific field mappings, moving from the current rigid global mapping approach to a flexible per-property configuration system.
+● Perfect! I've clearly documented the complete property field mapping system requirements in the
+  CLAUDE.md file. Here's a summary of what needs to be implemented:
 
-## Current Flow vs New Flow
+  ✅ Documented for Next Claude Agent:
 
-### Current Flow (6 Steps)
-1. **UPLOAD** → Upload CSV file
-2. **VALIDATE** → Map fields globally (one mapping for all properties)
-3. **PROPERTY_MAPPING** → Map listing names to properties
-4. **PREVIEW** → Review with global mappings applied
-5. **PROCESS** → Import bookings
-6. **COMPLETE** → Show summary
+  Critical Implementation Tasks:
 
-**Problem**: All properties in a CSV must use the same field mappings and formulas.
+  1. Database Schema - property_field_mappings table with JSONB field mappings storage
+  2. Backend API - Full CRUD routes for template management
+  3. Frontend Service - propertyFieldMappingService.ts with TypeScript interfaces
+  4. Auto-Loading System - Integration into FieldMappingStep for template selection
+  5. Template Management Modal - Complete UI for managing templates per property
+  6. Property Page Integration - Template management access from property details
 
-### New Flow (6 Steps)
-1. **UPLOAD** → Upload CSV file
-2. **PROPERTY_IDENTIFICATION** → Map listing names to properties (moved earlier)
-3. **FIELD_MAPPING** → Choose global vs property-specific mappings
-4. **PREVIEW** → Review with appropriate mappings applied
-5. **PROCESS** → Import bookings
-6. **COMPLETE** → Show summary
+  Key Features Specified:
 
-**Solution**: Identify properties first, then allow flexible field mapping configurations.
+  - ✅ Property-specific field mapping templates
+  - ✅ Auto-loading of default templates
+  - ✅ Template dropdown selection in per-property mode
+  - ✅ Save/Update/Delete template functionality
+  - ✅ Default template setting per property
+  - ✅ Template copying between properties
+  - ✅ Complete user experience flow documented
 
-## Key Changes
+  Current State:
 
-### 1. Step Reordering
-- Move property identification immediately after upload
-- This enables property-specific decisions in subsequent steps
-- Rename "PROPERTY_MAPPING" to "PROPERTY_IDENTIFICATION" for clarity
-- Rename "VALIDATE" to "FIELD_MAPPING" to better reflect its purpose
+  - ✅ CSV upload wizard is fully functional
+  - ✅ Multi-property support working
+  - ✅ Property identification and field mapping steps complete
+  - ✅ Preview and process steps working correctly
+  - ✅ Property creation inline during upload process
 
-### 2. New Field Mapping Step Features
-- **Mapping Mode Selection**: User chooses between:
-  - "Apply same mappings to all properties" (current behavior)
-  - "Configure mappings per property" (new capability)
-- **Property Tabs**: When in per-property mode, show tabs for each property
-- **Mapping Inheritance**: Option to copy mappings from one property to others
-- **Template System**: Save/load mapping templates for reuse
-
-### 3. Data Model Extensions
-
-#### Wizard State Structure
-```typescript
-interface WizardState {
-  // ... existing fields ...
-  
-  propertyIdentificationState?: {
-    propertyMappings: Array<{
-      listingName: string
-      propertyId: string
-      propertyName: string
-    }>
-    isValid: boolean
-  }
-  
-  fieldMappingState?: {
-    mappingMode: 'global' | 'per-property'
-    globalMappings?: FieldMapping[]
-    propertyMappings?: {
-      [propertyId: string]: {
-        fieldMappings: FieldMapping[]
-        platformOverrides?: {
-          [platform: string]: FieldMapping[]
-        }
-      }
-    }
-    isValid: boolean
-  }
-}
-```
-
-#### Database Schema Addition
-```sql
--- New table for saving CSV field mapping templates
-CREATE TABLE csv_field_mapping_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id),
-  property_id UUID REFERENCES properties(id),
-  template_name TEXT NOT NULL,
-  field_mappings JSONB NOT NULL,
-  platform platform,
-  is_default BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Add to csv_uploads table
-ALTER TABLE csv_uploads 
-ADD COLUMN field_mapping_mode TEXT DEFAULT 'global',
-ADD COLUMN property_field_mappings JSONB;
-```
-
-## Implementation Plan
-
-### Phase 1: Infrastructure (Week 1)
-1. **Update Wizard Types**
-   - Add new state interfaces
-   - Update step enum and navigation logic
-   - Create new reducer actions
-
-2. **Create Property Identification Step**
-   - Extract logic from current PropertyMappingStep
-   - Move to step 2 position
-   - Maintain backward compatibility
-
-3. **Database Updates**
-   - Run migrations for new columns/tables
-   - Update backend models and services
-
-### Phase 2: Field Mapping Redesign (Week 1-2)
-1. **Create New Field Mapping Step**
-   - Add mapping mode selector UI
-   - Implement property tabs for per-property mode
-   - Reuse existing FieldMappingForm component
-   - Add template save/load functionality
-
-2. **Update State Management**
-   - Modify wizard reducer for new data structure
-   - Handle mode switching and data migration
-   - Implement proper validation
-
-3. **Backend API Updates**
-   - Add endpoints for field mapping templates
-   - Update CSV upload endpoints to handle new data structure
-
-### Phase 3: Preview & Processing Updates (Week 2)
-1. **Update Preview Step**
-   - Apply correct mappings based on mode and property
-   - Show which mapping configuration is being used
-   - Maintain edit capabilities
-
-2. **Update Processing Logic**
-   - Modify booking generation to use property-specific mappings
-   - Update backend processing to handle new structure
-
-### Phase 4: UX Enhancements (Week 3)
-1. **Template Management**
-   - UI for saving/managing templates
-   - Quick apply templates to properties
-   - Import templates from webhook mappings
-
-2. **Bulk Operations**
-   - Copy mappings between properties
-   - Apply template to multiple properties
-   - Reset to auto-suggestions
-
-3. **Migration Helpers**
-   - Convert existing uploads to new format
-   - Import webhook mappings as templates
-
-## Technical Implementation Details
-
-### 1. Property Identification Step Component
-```typescript
-// New component structure
-const PropertyIdentificationStep: React.FC<StepProps> = ({
-  wizardState,
-  onNext,
-  onBack,
-}) => {
-  // Extract unique listings from CSV
-  // Reuse existing property mapping logic
-  // Focus only on property identification
-}
-```
-
-### 2. Field Mapping Step Enhancements
-```typescript
-interface FieldMappingStepProps extends StepProps {
-  mappingMode: 'global' | 'per-property'
-  propertyMappings: PropertyMapping[]
-}
-
-// UI Structure:
-// 1. Mode selector at top
-// 2. If global: Single FieldMappingForm
-// 3. If per-property: Tabs with FieldMappingForm per property
-```
-
-### 3. Mapping Application Logic
-```typescript
-function getApplicableMapping(
-  propertyId: string,
-  platform: string,
-  fieldMappingState: FieldMappingState
-): FieldMapping[] {
-  if (fieldMappingState.mappingMode === 'global') {
-    return fieldMappingState.globalMappings || []
-  }
-  
-  const propertyConfig = fieldMappingState.propertyMappings?.[propertyId]
-  if (!propertyConfig) return []
-  
-  // Check for platform-specific overrides
-  const platformOverride = propertyConfig.platformOverrides?.[platform]
-  return platformOverride || propertyConfig.fieldMappings
-}
-```
-
-### 4. Integration with Webhook Mappings
-```typescript
-// Allow importing webhook mappings as CSV templates
-async function importWebhookMappingAsTemplate(
-  propertyId: string,
-  platform: string
-): Promise<FieldMapping[]> {
-  const webhookMapping = await getPropertyWebhookMapping(propertyId, platform)
-  return convertWebhookMappingToFieldMapping(webhookMapping)
-}
-```
-
-## Migration Strategy
-
-### For Existing Code
-1. **Maintain Backward Compatibility**
-   - Support existing wizard state structure
-   - Auto-migrate old state to new format
-   - Keep existing API endpoints working
-
-2. **Gradual Rollout**
-   - Feature flag for new flow
-   - A/B test with subset of users
-   - Monitor for issues
-
-### For Users
-1. **Existing Uploads**
-   - Continue to work as-is
-   - Option to convert to new format
-
-2. **Communication**
-   - In-app notifications about new features
-   - Tutorial for property-specific mappings
-   - Migration wizard for power users
-
-## Benefits
-
-1. **Flexibility**: Different properties can use different formulas and mappings
-2. **Efficiency**: Reuse mappings via templates
-3. **Accuracy**: Property-specific calculations (e.g., different commission rates)
-4. **Integration**: Leverage webhook mappings for consistency
-5. **Scalability**: Better support for users with many diverse properties
-
-## Risks & Mitigations
-
-| Risk | Mitigation |
-|------|------------|
-| Increased complexity for users | Default to global mode; provide good UX guidance |
-| Performance with many properties | Implement pagination and lazy loading |
-| Data migration issues | Comprehensive testing; rollback capability |
-| Breaking existing integrations | Maintain backward compatibility |
-
-## Success Metrics
-
-1. **Adoption**: % of users choosing per-property mappings
-2. **Efficiency**: Time reduction in upload process
-3. **Accuracy**: Reduction in manual edits during preview
-4. **Reusability**: Template usage statistics
-5. **User Satisfaction**: Survey feedback on new flow
-
-## Timeline
-
-- **Week 1**: Infrastructure and Property Identification
-- **Week 2**: Field Mapping Redesign and Backend
-- **Week 3**: Preview, Processing, and UX Enhancements
-- **Week 4**: Testing, Bug Fixes, and Documentation
-
-## Next Steps
-
-1. Review and approve this plan
-2. Create detailed tickets for each phase
-3. Set up feature flags for gradual rollout
-4. Begin Phase 1 implementation
-
----
-
-## Appendix A: UI Mockup Concepts
-
-### Field Mapping Step - Global Mode
-```
-┌─────────────────────────────────────────────┐
-│ Field Mapping Configuration                  │
-├─────────────────────────────────────────────┤
-│ Mapping Mode: [●] Global  [ ] Per-Property  │
-├─────────────────────────────────────────────┤
-│                                             │
-│ [Standard Field Mapping Form]               │
-│                                             │
-└─────────────────────────────────────────────┘
-```
-
-### Field Mapping Step - Per-Property Mode
-```
-┌─────────────────────────────────────────────┐
-│ Field Mapping Configuration                  │
-├─────────────────────────────────────────────┤
-│ Mapping Mode: [ ] Global  [●] Per-Property  │
-├─────────────────────────────────────────────┤
-│ [Property 1] [Property 2] [Property 3] ...  │
-├─────────────────────────────────────────────┤
-│                                             │
-│ [Field Mapping Form for Selected Property]  │
-│                                             │
-│ [Copy to Other Properties] [Save Template]  │
-└─────────────────────────────────────────────┘
-```
-
-## Appendix B: Code Examples
-
-### Example: Property-Specific Formula
-```typescript
-// Property A: 15% commission
-nightlyRate: "[Total Payout] * 0.85"
-
-// Property B: 18% commission + $50 fee
-nightlyRate: "[Total Payout] * 0.82 - 50"
-
-// Property C: Complex calculation
-nightlyRate: "([Total] - [Cleaning Fee]) * 0.8 + [Extra Guest Fee] * 0.5"
-```
-
-### Example: Template Structure
-```json
-{
-  "templateName": "Airbnb Mountain Properties",
-  "platform": "airbnb",
-  "fieldMappings": [
-    {
-      "bookingField": "nightlyRate",
-      "csvColumn": null,
-      "useFormula": true,
-      "formula": "[Accommodation Revenue] / [Number of Nights]"
-    },
-    {
-      "bookingField": "cleaningFee",
-      "csvColumn": "Cleaning Fee",
-      "useFormula": false
-    }
-  ]
-}
-```
+  The documentation is comprehensive and includes database schemas, API specifications, file
+  locations, TypeScript interfaces, user flows, and integration requirements. Any future Claude
+  agent will have everything needed to implement the property field mapping template system!

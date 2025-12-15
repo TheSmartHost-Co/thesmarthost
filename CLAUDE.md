@@ -438,9 +438,123 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 - useUserStore with localStorage persistence
 - useNotificationStore for toasts
 
-### ⏳ Upcoming Features
+**CSV Upload Wizard (Multi-Property):**
+- ✅ Property identification step (map CSV listings to properties)
+- ✅ Field mapping step (global and per-property modes)
+- ✅ Preview step with property-specific field mappings
+- ✅ Process step for multi-property imports
+- ✅ Fixed duplicate column display issue
+- ✅ Property creation inline during identification
 
-**Next Sprint:**
+### 🚧 PRIORITY: Property Field Mapping System
+
+**CRITICAL NEXT TASKS** - These must be implemented to complete the CSV upload workflow:
+
+#### 1. Database Schema Updates
+**File:** Backend database migration
+**Table:** `property_field_mappings`
+```sql
+CREATE TABLE property_field_mappings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  mapping_name VARCHAR(255) NOT NULL, -- e.g., "Hostaway Template", "Airbnb Template"
+  field_mappings JSONB NOT NULL, -- Array of FieldMapping objects
+  platform VARCHAR(50), -- 'ALL', 'airbnb', 'booking', etc.
+  is_default BOOLEAN DEFAULT false, -- Whether this is the default template for this property
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(property_id, mapping_name, platform)
+);
+```
+
+#### 2. Backend API Routes
+**Files:** Backend routes and controllers
+```typescript
+// GET /api/property-field-mappings/:propertyId - Get all templates for a property
+// POST /api/property-field-mappings - Save a new template
+// PUT /api/property-field-mappings/:id - Update a template
+// DELETE /api/property-field-mappings/:id - Delete a template
+// POST /api/property-field-mappings/:id/set-default - Set as default template
+```
+
+#### 3. Frontend Service Integration
+**File:** `src/services/propertyFieldMappingService.ts`
+```typescript
+export interface PropertyFieldMappingTemplate {
+  id: string
+  propertyId: string
+  userId: string
+  mappingName: string
+  fieldMappings: FieldMapping[]
+  platform: Platform
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// API functions:
+// getPropertyFieldMappings(propertyId: string)
+// savePropertyFieldMapping(template: CreatePropertyFieldMappingPayload)
+// updatePropertyFieldMapping(id: string, updates: UpdatePropertyFieldMappingPayload)
+// deletePropertyFieldMapping(id: string)
+// setDefaultTemplate(id: string)
+```
+
+#### 4. Auto-Loading System in Field Mapping Step
+**File:** `src/components/upload-wizard/steps/FieldMappingStep.tsx`
+
+**Requirements:**
+- When user switches to per-property mode and selects a property tab, auto-load saved templates for that property
+- Show a dropdown/selector for available templates: "Hostaway Template", "Airbnb Template", "Custom", etc.
+- If property has a default template, auto-load it immediately
+- Add "Save as Template" button to save current mappings as a reusable template
+- Template selector should show: Template name, platform, created date
+- Templates should be property-specific (each property has its own set of templates)
+
+#### 5. Template Management Modal
+**File:** `src/components/property-field-mapping/PropertyFieldMappingModal.tsx`
+
+**Features:**
+- Accessible from Property Management page and Field Mapping Step
+- List all saved templates for a property
+- Create/Edit/Delete templates
+- Set default template
+- Preview template mappings
+- Import template from another property (copy functionality)
+- Template validation (ensure all required fields are mapped)
+
+#### 6. Integration Points
+
+**Property Management Integration:**
+- Add "Field Mapping Templates" button/tab in property details
+- Show template count in property list: "3 templates configured"
+- Quick access to manage templates per property
+
+**Field Mapping Step Integration:**
+- Template dropdown in per-property mode
+- Auto-load default template when switching properties
+- "Save Current Mappings" button
+- Template indicator: "Using: Hostaway Template (default)"
+- Ability to modify loaded template and save as new or update existing
+
+#### 7. User Experience Flow
+```
+1. User uploads CSV and identifies properties
+2. User switches to per-property mode in Field Mapping Step
+3. For each property tab:
+   a. If property has default template → Auto-load it
+   b. If no default → Show template selector dropdown
+   c. User can select existing template or create new mappings
+   d. User can save current mappings as new template
+   e. User can modify loaded template and update it
+4. Templates persist for future CSV uploads
+5. Property managers can pre-configure templates for common platforms
+```
+
+### ⏳ Other Upcoming Features
+
+**Later Sprints:**
 - Bookings management
 - Reports dashboard
 - Analytics charts

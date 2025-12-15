@@ -5,8 +5,6 @@ import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon, DocumentCheckI
 import { uploadCsvFile } from '@/services/csvUploadService'
 import { createMultipleBookings } from '@/services/bookingService'
 import { CreateBookingPayload } from '@/services/types/booking'
-import { createProperty } from '@/services/propertyService'
-import { createClient } from '@/services/clientService'
 import { useUserStore } from '@/store/useUserStore'
 import { ProcessingStatus } from '../types/wizard'
 import { createMultipleFieldChanges } from '@/services/fieldValuesChangedService'
@@ -22,6 +20,8 @@ interface ProcessStepProps {
   validationState?: any
   previewState?: any
   propertyMappingState?: any
+  propertyIdentificationState?: any
+  fieldMappingState?: any
   uploadedFile?: any
   processingState?: any
   onProcessingUpdate?: (state: any) => void
@@ -35,6 +35,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   validationState,
   previewState,
   propertyMappingState,
+  propertyIdentificationState,
+  fieldMappingState,
   uploadedFile,
   processingState,
   onProcessingUpdate,
@@ -48,17 +50,19 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const [csvUploadId, setCsvUploadId] = useState<string | null>(null)
   const [importStats, setImportStats] = useState<any>(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [createdProperties, setCreatedProperties] = useState<Record<string, string>>({}) // listingName -> propertyId
   const hasStartedProcessing = useRef(false)
 
   const { profile } = useUserStore()
 
   useEffect(() => {
-    if (!previewState || !propertyMappingState?.propertyMappings || !uploadedFile?.file || !profile?.id || hasStartedProcessing.current) return
+    // Check for property mappings in the new state structure
+    const hasPropertyMappings = propertyIdentificationState?.propertyMappings?.length > 0
+    
+    if (!previewState || !hasPropertyMappings || !uploadedFile?.file || !profile?.id || hasStartedProcessing.current) return
     
     hasStartedProcessing.current = true
     startProcessing()
-  }, [previewState, propertyMappingState, uploadedFile, profile])
+  }, [previewState, propertyIdentificationState, uploadedFile, profile])
 
   const updateProgress = (status: ProcessingStatus, progress: number, task: string, completed?: string) => {
     console.log('ProcessStep updateProgress called with:', { status, progress, task, completed })
@@ -84,59 +88,38 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const startProcessing = async () => {
     setIsProcessing(true)
     try {
-      // Step 1: Create new properties if needed (10-30%)
-      updateProgress(ProcessingStatus.UPLOADING, 10, 'Creating new properties...')
-      
-      const propertyMappings = propertyMappingState?.propertyMappings || []
-      const newPropertiesToCreate = propertyMappings.filter((mapping: any) => mapping.isNewProperty)
-      const existingPropertyMappings = propertyMappings.filter((mapping: any) => !mapping.isNewProperty && mapping.propertyId)
-      const propertyIdMap: Record<string, string> = {}
-      
-      // Add existing property mappings to the map first
-      existingPropertyMappings.forEach((mapping: any) => {
-        propertyIdMap[mapping.listingName] = mapping.propertyId
+      console.log('ProcessStep startProcessing - received states:', {
+        previewState: previewState,
+        propertyIdentificationState: propertyIdentificationState,
+        fieldMappingState: fieldMappingState,
+        hasConfirmedPayloads: !!previewState?.confirmedPayloads,
+        confirmedPayloadsLength: previewState?.confirmedPayloads?.length
       })
       
-      if (newPropertiesToCreate.length > 0) {
-        updateProgress(ProcessingStatus.PARSING, 15, `Creating ${newPropertiesToCreate.length} new properties...`)
-        
-        for (const mapping of newPropertiesToCreate) {
-          if (!mapping.newPropertyData) {
-            throw new Error(`Missing property data for ${mapping.listingName}`)
-          }
-          
-          const clientId = mapping.newPropertyData.clientId
-          
-          if (!clientId) {
-            throw new Error(`No valid client ID for property "${mapping.listingName}"`)
-          }
-          
-          const propertyResult = await createProperty({
-            clientId,
-            listingName: mapping.newPropertyData.name,
-            listingId: mapping.newPropertyData.listingId,
-            externalName: mapping.newPropertyData.externalName || '',
-            internalName: mapping.newPropertyData.internalName || '',
-            address: mapping.newPropertyData.address,
-            postalCode: mapping.newPropertyData.postalCode,
-            province: mapping.newPropertyData.province,
-            propertyType: mapping.newPropertyData.propertyType,
-            commissionRate: mapping.newPropertyData.commissionRate
-          })
-          
-          if (propertyResult.status !== 'success') {
-            throw new Error(`Failed to create property "${mapping.listingName}": ${propertyResult.message}`)
-          }
-          
-          propertyIdMap[mapping.listingName] = propertyResult.data.id
-          console.log(`Created property: ${mapping.listingName} -> ${propertyResult.data.id}`)
+      // Step 1: Build property ID mapping from existing properties (10-30%)
+      updateProgress(ProcessingStatus.UPLOADING, 10, 'Preparing property mappings...')
+      
+      // Use property mappings from property identification step (all properties should already exist)
+      const propertyMappings = propertyIdentificationState?.propertyMappings || []
+      const propertyIdMap: Record<string, string> = {}
+      
+      console.log('ProcessStep property mappings analysis:', {
+        totalMappings: propertyMappings.length,
+        propertyMappings
+      })
+      
+      // Build the property ID mapping
+      propertyMappings.forEach((mapping: any) => {
+        if (mapping.propertyId && mapping.listingName) {
+          propertyIdMap[mapping.listingName] = mapping.propertyId
         }
-        
-        setCreatedProperties(propertyIdMap)
-        updateProgress(ProcessingStatus.PARSING, 25, 'New properties created', `${newPropertiesToCreate.length} properties created`)
-      } else {
-        updateProgress(ProcessingStatus.PARSING, 25, 'Using existing properties', 'Property mappings prepared')
+      })
+      
+      if (Object.keys(propertyIdMap).length === 0) {
+        throw new Error('No property mappings found. Please ensure all listings are mapped to properties.')
       }
+      
+      updateProgress(ProcessingStatus.PARSING, 25, 'Property mappings prepared', `${Object.keys(propertyIdMap).length} properties mapped`)
 
       // Step 2: Upload CSV file and create record (30-40%)
       updateProgress(ProcessingStatus.UPLOADING, 30, 'Uploading CSV file...')
@@ -145,12 +128,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         throw new Error('No file uploaded. Please go back and upload a CSV file.')
       }
 
-      // For multi-property, use the first created/mapped property ID
+      // For multi-property, use the first mapped property ID for CSV upload record
       const firstPropertyId = Object.values(propertyIdMap)[0]
-      
-      if (!firstPropertyId) {
-        throw new Error('No property mappings found. Cannot create CSV upload record.')
-      }
       
       const csvUploadResult = await uploadCsvFile({
         file: uploadedFile.file,
@@ -272,8 +251,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
           generateReports: true
         },
         automatedActions: [
-          `${createdBookings.length} bookings imported`, 
-          `${newPropertiesToCreate.length} properties created`,
+          `${createdBookings.length} bookings imported`,
+          `${Object.keys(propertyIdMap).length} properties processed`,
           'Multi-property statistics updated'
         ]
       })
@@ -317,8 +296,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
 
     return {
       bookingsImported: totalBookings,
-      propertiesUpdated: Object.keys(propertyIdMap).length,
-      propertiesCreated: Object.keys(createdProperties).length,
+      propertiesProcessed: Object.keys(propertyIdMap).length,
       totalRevenue,
       calculationStatus: '100%',
       dateRange: {
