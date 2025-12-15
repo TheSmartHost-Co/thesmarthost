@@ -13,8 +13,7 @@ import {
 
 // Step Components
 import UploadStep from './steps/UploadStep'
-import ValidateStep from './steps/ValidateStep'
-import PropertyMappingStep from './steps/PropertyMappingStep'
+import FieldMappingStep from './steps/FieldMappingStep'
 import PropertyIdentificationStep from './steps/PropertyIdentificationStep'
 import PreviewStep from './steps/PreviewStep'
 import ProcessStep from './steps/ProcessStep'
@@ -364,18 +363,12 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
 
       case WizardStep.FIELD_MAPPING:
         return (
-          <ValidateStep
+          <FieldMappingStep
             {...commonProps}
             uploadedFile={uploadedFileRef.current}
-            validationState={state.validationState}
             fieldMappingState={state.fieldMappingState}
             propertyIdentificationState={state.propertyIdentificationState}
             onValidationComplete={handleFieldMappingComplete}
-            selectedProperty={state.selectedProperty}
-            fieldMappings={state.fieldMappings}
-            onFieldMappingsUpdate={handleFieldMappingsUpdate}
-            completeFieldMappingState={state.completeFieldMappingState}
-            onCompleteFieldMappingStateUpdate={handleCompleteFieldMappingStateUpdate}
           />
         )
 

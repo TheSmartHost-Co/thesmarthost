@@ -1,5 +1,7 @@
 // Upload Wizard Types for HostMetrics Booking Import
 
+import { FieldMapping } from '@/services/types/csvMapping'
+
 /**
  * Wizard Step Enumeration
  */
@@ -272,16 +274,6 @@ export interface PropertyMapping {
  */
 export type FieldMappingMode = 'global' | 'per-property'
 
-/**
- * Field mapping configuration
- */
-export interface FieldMapping {
-  bookingField: string
-  csvColumn: string | null
-  useFormula: boolean
-  formula?: string
-  isRequired?: boolean
-}
 
 /**
  * Field mapping state (replaces validation state for field mappings)

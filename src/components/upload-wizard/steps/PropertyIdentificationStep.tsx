@@ -3,15 +3,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import PropertySelector from '@/components/shared/PropertySelector'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
-import { getClientsByParentId } from '@/services/clientService'
 import { getProperties } from '@/services/propertyService'
-import { Client } from '@/services/types/client'
 import { Property } from '@/services/types/property'
 import { PropertyMapping, PropertyIdentificationState } from '../types/wizard'
 import { parseCsvFile } from '@/utils/csvParser'
-import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 
 interface StepProps {
   uploadedFile: any
@@ -45,10 +42,9 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
   const user = useUserStore(state => state.profile)
   const showNotification = useNotificationStore(state => state.showNotification)
 
-  // State for property selection
-  const [properties, setProperties] = useState<Property[]>([])
-  const [clients, setClients] = useState<Client[]>([])
+  // State for CSV analysis and properties
   const [loading, setLoading] = useState(true)
+  const [properties, setProperties] = useState<Property[]>([])
   
   // State for CSV analysis
   const [uniqueListings, setUniqueListings] = useState<string[]>(initialUniqueListings || [])
@@ -63,6 +59,25 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
   // Modal states
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false)
   const [currentListingForNewProperty, setCurrentListingForNewProperty] = useState<string | null>(null)
+
+  // Load properties once
+  useEffect(() => {
+    const loadProperties = async () => {
+      if (!user?.id) return
+
+      try {
+        const res = await getProperties(user.id)
+        if (res.status === 'success') {
+          setProperties(res.data || [])
+        }
+      } catch (error) {
+        console.error('Error loading properties:', error)
+        showNotification('Failed to load properties', 'error')
+      }
+    }
+
+    loadProperties()
+  }, [user, showNotification])
 
   // Parse CSV and extract unique listings if not already provided
   useEffect(() => {
@@ -129,32 +144,6 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     analyzeCSV()
   }, [uploadedFile, showNotification, initialUniqueListings, storedMappings])
 
-  // Load properties and clients
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user?.id) return
-
-      try {
-        const [propertiesRes, clientsRes] = await Promise.all([
-          getProperties(user.id),
-          getClientsByParentId(user.id)
-        ])
-
-        if (propertiesRes.status === 'success') {
-          setProperties(propertiesRes.data || [])
-        }
-
-        if (clientsRes.status === 'success') {
-          setClients(clientsRes.data || [])
-        }
-      } catch (error) {
-        console.error('Error loading data:', error)
-        showNotification('Failed to load properties', 'error')
-      }
-    }
-
-    loadData()
-  }, [user, showNotification])
 
   // Update property mapping
   const updatePropertyMapping = useCallback((listingName: string, propertyId: string | null) => {
@@ -175,7 +164,7 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
 
   // Handle property created
   const handlePropertyCreated = (newProperty: Property) => {
-    // Update properties list
+    // Add new property to list
     setProperties(prev => [...prev, newProperty])
     
     // Map the listing to the new property
@@ -267,14 +256,26 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <div className="w-64">
-                      <PropertySelector
-                        properties={properties}
+                    <div className="w-64 relative">
+                      <select
                         value={mapping.propertyId || ''}
-                        onChange={(propertyId) => updatePropertyMapping(mapping.listingName, propertyId || null)}
-                        placeholder="Select a property"
+                        onChange={(e) => updatePropertyMapping(mapping.listingName, e.target.value || null)}
+                        className="
+                          appearance-none w-full px-3 py-2 pr-8 
+                          border border-gray-300 rounded-lg bg-white
+                          text-sm text-gray-900 
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                        "
                         required
-                      />
+                      >
+                        <option value="">Select a property</option>
+                        {properties.map((property) => (
+                          <option key={property.id} value={property.id}>
+                            {property.listingName} {property.address && `- ${property.address}`}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                     
                     <button

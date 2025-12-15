@@ -20,6 +20,8 @@ interface PreviewStepProps {
   uploadedFile?: any
   previewState?: any
   validationState?: any
+  fieldMappingState?: any
+  propertyIdentificationState?: any
   propertyMappingState?: any
   onPreviewComplete?: (state: any) => void
 }
@@ -37,6 +39,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   canGoBack,
   uploadedFile,
   validationState,
+  fieldMappingState,
+  propertyIdentificationState,
   propertyMappingState,
   onPreviewComplete
 }) => {
@@ -76,8 +80,14 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         return
       }
 
-      if (!validationState?.fieldMappings) {
+      if (!fieldMappingState || (!fieldMappingState.globalMappings && !fieldMappingState.propertyMappings)) {
         setError('No field mappings found')
+        setLoading(false)
+        return
+      }
+
+      if (!propertyIdentificationState?.propertyMappings?.length) {
+        setError('No property mappings found')
         setLoading(false)
         return
       }
@@ -89,8 +99,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         const data = await parseCsvFile(fileToProcess)
         setCsvData(data)
         
-        // Generate booking previews
-        const previews = generateBookingPreviews(data, validationState.fieldMappings)
+        // Generate booking previews with property-specific mappings
+        const previews = generateBookingPreviewsWithPropertyMappings(
+          data, 
+          fieldMappingState, 
+          propertyIdentificationState
+        )
         setBookingPreviews(previews)
         
         // Group bookings by property for multi-property display
@@ -100,7 +114,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         console.log('Total booking previews:', previews.length)
         console.log('Unique listing names found:', Object.keys(grouped))
         console.log('Grouped bookings:', grouped)
-        console.log('Property mapping state:', propertyMappingState)
+        console.log('Property mapping state:', propertyIdentificationState)
+        console.log('Field mapping state:', fieldMappingState)
         
         // Notify parent component
         onPreviewComplete?.({
@@ -120,23 +135,24 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     }
 
     loadPreviewData()
-  }, [uploadedFile, validationState])
+  }, [uploadedFile, fieldMappingState, propertyIdentificationState])
 
   // Helper function to escape special regex characters
   const escapeRegExp = (string: string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
-  // Group bookings by their listing name for multi-property display
+  // Group bookings by their mapped property ID (merge different listing names for same property)
   const groupBookingsByProperty = (bookings: BookingPreview[]): Record<string, BookingPreview[]> => {
     const groups: Record<string, BookingPreview[]> = {}
     
     bookings.forEach(booking => {
-      const listingName = booking.listing_name || booking.propertyName || 'Unknown Property'
-      if (!groups[listingName]) {
-        groups[listingName] = []
+      // Use property_id as the grouping key to merge different listing names for same property
+      const groupKey = booking.property_id || booking.listing_name || 'Unknown Property'
+      if (!groups[groupKey]) {
+        groups[groupKey] = []
       }
-      groups[listingName].push(booking)
+      groups[groupKey].push(booking)
     })
     
     return groups
@@ -144,7 +160,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
   // Get property mapping info for a listing name
   const getPropertyMapping = (listingName: string) => {
-    return propertyMappingState?.propertyMappings?.find(
+    return propertyIdentificationState?.propertyMappings?.find(
+      (mapping: any) => mapping.listingName === listingName
+    ) || propertyMappingState?.propertyMappings?.find(
       (mapping: any) => mapping.listingName === listingName
     )
   }
@@ -310,6 +328,95 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return applicableMappings
   }
 
+  // New function to generate previews with property-specific mappings
+  const generateBookingPreviewsWithPropertyMappings = (
+    csvData: CsvData, 
+    fieldMappingState: any, 
+    propertyIdentificationState: any
+  ): BookingPreview[] => {
+    const previews: BookingPreview[] = []
+    const { mappingMode, globalMappings, propertyMappings } = fieldMappingState
+    const { propertyMappings: propMappings } = propertyIdentificationState
+
+    // Find the listing name column index
+    const listingColumnIndex = findListingColumnIndex(csvData.headers)
+    if (listingColumnIndex === -1) {
+      console.error('Could not find listing name column')
+      return []
+    }
+
+    for (let i = 0; i < csvData.rows.length; i++) {
+      const row = csvData.rows[i]
+      const booking: BookingPreview = {
+        rowIndex: i + 1
+      }
+
+      // Extract the listing name for this row
+      const listingName = (row[listingColumnIndex] || '').trim()
+      if (!listingName) {
+        console.warn(`Row ${i + 1}: No listing name found`)
+        continue
+      }
+
+      // Find the property mapping for this listing
+      const propertyMapping = propMappings.find((pm: any) => pm.listingName === listingName)
+      if (!propertyMapping || !propertyMapping.propertyId) {
+        console.warn(`Row ${i + 1}: No property mapping found for listing "${listingName}"`)
+        continue
+      }
+
+      // Get the appropriate field mappings based on mode
+      let applicableFieldMappings: any[] = []
+      
+      if (mappingMode === 'global') {
+        applicableFieldMappings = globalMappings || []
+      } else if (mappingMode === 'per-property') {
+        const propertyFieldConfig = propertyMappings?.[propertyMapping.propertyId]
+        applicableFieldMappings = propertyFieldConfig?.fieldMappings || []
+      }
+
+      if (!applicableFieldMappings.length) {
+        console.warn(`Row ${i + 1}: No field mappings found for property ${propertyMapping.propertyId}`)
+        continue
+      }
+
+      // Apply field mappings to create booking object
+      applicableFieldMappings.forEach(mapping => {
+        if (mapping.csvFormula && mapping.csvFormula.trim()) {
+          const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
+          booking[mapping.bookingField] = result
+        }
+      })
+
+      // Add property information
+      booking.property_id = propertyMapping.propertyId
+      
+      // Only set listing_name from CSV if it wasn't set by field mappings
+      if (!booking.listing_name) {
+        booking.listing_name = listingName
+      }
+      
+      previews.push(booking)
+    }
+    
+    return previews
+  }
+
+  // Helper function to find listing column index
+  const findListingColumnIndex = (headers: any[]): number => {
+    const variations = ['listing_name', 'listingname', 'property', 'property_name', 'listing']
+    
+    for (const variation of variations) {
+      const index = headers.findIndex(h => 
+        h.name.toLowerCase().replace(/\s+/g, '_') === variation
+      )
+      if (index !== -1) return index
+    }
+    
+    return -1
+  }
+
+  // Legacy function - keeping for backward compatibility if needed
   const generateBookingPreviews = (csvData: CsvData, fieldMappings: any[]): BookingPreview[] => {
     const previews: BookingPreview[] = []
     
@@ -441,64 +548,84 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return previews
   }
 
+  // Helper function to get all field mappings for platform detection
+  const getAllFieldMappings = () => {
+    if (fieldMappingState?.mappingMode === 'global' && fieldMappingState.globalMappings) {
+      return fieldMappingState.globalMappings
+    }
+    
+    if (fieldMappingState?.mappingMode === 'per-property' && fieldMappingState.propertyMappings) {
+      // For per-property mode, collect all field mappings from all properties
+      const allMappings: any[] = []
+      Object.values(fieldMappingState.propertyMappings).forEach((config: any) => {
+        if (config.fieldMappings) {
+          allMappings.push(...config.fieldMappings)
+        }
+      })
+      return allMappings
+    }
+    
+    return []
+  }
+
   const getMappedFields = () => {
-    if (!validationState?.fieldMappings) return []
+    if (!fieldMappingState) return []
     
-    const allMappings = validationState.fieldMappings
-      .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
+    const { mappingMode, globalMappings, propertyMappings } = fieldMappingState
     
-    console.log('Raw field mappings received:', allMappings)
-    console.log('Platform-specific mappings:', allMappings.filter((m: any) => m.platform !== 'ALL' && m.platform && m.isOverride))
-    console.log('ALL platform mappings:', allMappings.filter((m: any) => m.platform === 'ALL' || !m.platform))
+    if (mappingMode === 'global' && globalMappings) {
+      return globalMappings
+        .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
+        .map((mapping: any) => ({
+          field: mapping.bookingField,
+          source: mapping.csvFormula,
+          mode: 'global',
+          platform: mapping.platform || 'ALL'
+        }))
+    }
     
-    const uniqueFields = new Map<string, any>()
-    
-    // First, add base (ALL) mappings
-    allMappings
-      .filter((m: any) => m.platform === 'ALL' || !m.platform)
-      .forEach((m: any) => {
-        if (!uniqueFields.has(m.bookingField)) {
-          uniqueFields.set(m.bookingField, {
-            field: m.bookingField,
-            source: m.csvFormula,
-            platform: 'ALL',
-            isOverride: false,
-            hasOverride: false,
-            overridePlatforms: new Set<string>()
+    if (mappingMode === 'per-property' && propertyMappings) {
+      // For per-property mode, collect unique booking fields only (not field-source combinations)
+      const uniqueFields = new Set<string>()
+      const fieldInfoMap = new Map<string, any>()
+      
+      Object.entries(propertyMappings).forEach(([propertyId, config]: [string, any]) => {
+        const fieldMappings = config.fieldMappings || []
+        
+        fieldMappings
+          .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
+          .forEach((mapping: any) => {
+            const fieldName = mapping.bookingField
+            uniqueFields.add(fieldName)
+            
+            // Store first occurrence info for display purposes
+            if (!fieldInfoMap.has(fieldName)) {
+              fieldInfoMap.set(fieldName, {
+                field: fieldName,
+                source: mapping.csvFormula, // Show first source found
+                mode: 'per-property',
+                platform: mapping.platform || 'ALL',
+                usedByProperties: []
+              })
+            }
+            
+            // Add property name to the field info
+            const fieldInfo = fieldInfoMap.get(fieldName)
+            const propMapping = propertyIdentificationState?.propertyMappings?.find(
+              (pm: any) => pm.propertyId === propertyId
+            )
+            const propertyName = propMapping?.listingName || propertyId
+            
+            if (propertyName && !fieldInfo.usedByProperties.includes(propertyName)) {
+              fieldInfo.usedByProperties.push(propertyName)
+            }
           })
-        }
       })
+      
+      return Array.from(fieldInfoMap.values())
+    }
     
-    // Then mark which fields have platform overrides
-    allMappings
-      .filter((m: any) => m.platform && m.platform !== 'ALL' && m.isOverride)
-      .forEach((m: any) => {
-        const existing = uniqueFields.get(m.bookingField)
-        if (existing) {
-          existing.hasOverride = true
-          existing.overridePlatforms.add(m.platform)
-        } else {
-          // Field exists only as platform override, no ALL mapping
-          uniqueFields.set(m.bookingField, {
-            field: m.bookingField,
-            source: m.csvFormula,
-            platform: m.platform,
-            isOverride: true,
-            hasOverride: true,
-            overridePlatforms: new Set([m.platform])
-          })
-        }
-      })
-    
-    // Convert Sets to arrays for rendering
-    const result = Array.from(uniqueFields.values()).map(f => ({
-      ...f,
-      overridePlatforms: Array.from(f.overridePlatforms || [])
-    }))
-    
-    console.log('Field mappings for display (with override info):', result)
-    
-    return result
+    return []
   }
 
   const getRequiredFieldsMissing = () => {
@@ -756,13 +883,23 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       {/* Field Mappings Summary */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-gray-900 mb-3">Field Mappings</h4>
+        <h4 className="text-sm font-medium text-gray-900 mb-3">
+          Field Mappings 
+          <span className="ml-2 text-xs text-gray-600">
+            ({fieldMappingState?.mappingMode === 'global' ? 'Global' : 'Per-Property'})
+          </span>
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {validationState?.fieldMappings?.filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim()).map((mapping: any, index: number) => (
+          {mappedFields.map((mapping: any, index: number) => (
             <div key={index} className="text-xs bg-white border rounded px-2 py-1">
-              <span className="font-medium text-gray-900">{mapping.bookingField}</span>
+              <span className="font-medium text-gray-900">{mapping.field}</span>
               <span className="text-gray-500"> ← </span>
-              <span className="text-gray-600">{mapping.csvFormula}</span>
+              <span className="text-gray-600">{mapping.source}</span>
+              {mapping.mode === 'per-property' && mapping.usedByProperties && (
+                <div className="mt-1 text-xs text-blue-600">
+                  Used by: {mapping.usedByProperties.join(', ')}
+                </div>
+              )}
               {mapping.platform !== 'ALL' && (
                 <span className="ml-1 text-blue-600">({mapping.platform})</span>
               )}
@@ -792,19 +929,41 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       <div className="space-y-6">
         <h4 className="text-lg font-medium text-gray-900">Property Booking Previews</h4>
         
-        {Object.entries(groupedBookings).map(([listingName, bookings]) => {
-          const propertyMapping = getPropertyMapping(listingName)
-          const displayCount = propertyDisplayCounts[listingName] || Math.min(bookings.length, 3) // Show first 3 per property
+        {Object.entries(groupedBookings).map(([groupKey, bookings]) => {
+          // groupKey is now property_id, so we need to find the property info differently
+          const isPropertyId = groupKey.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+          
+          // Get unique listing names for this property
+          const uniqueListings = [...new Set(bookings.map(b => b.listing_name).filter(Boolean))]
+          
+          // Find property mapping - if groupKey is property ID, find any mapping with that propertyId
+          let propertyMapping = null
+          let propertyName = groupKey
+          
+          if (isPropertyId) {
+            // Find the first property mapping that matches this property ID
+            propertyMapping = propertyIdentificationState?.propertyMappings?.find((pm: any) => pm.propertyId === groupKey)
+            propertyName = `Property (${uniqueListings.join(', ')})`
+          } else {
+            // Fallback for unmapped listings
+            propertyMapping = getPropertyMapping(groupKey)
+            propertyName = groupKey
+          }
+          
+          const displayCount = propertyDisplayCounts[groupKey] || Math.min(bookings.length, 3) // Show first 3 per property
           
           return (
-            <div key={listingName} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               {/* Property Header */}
               <div className="px-4 py-3 bg-blue-50 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h5 className="text-sm font-medium text-blue-900">{listingName}</h5>
+                    <h5 className="text-sm font-medium text-blue-900">{propertyName}</h5>
                     <p className="text-xs text-blue-700">
                       {bookings.length} bookings • {propertyMapping?.isNewProperty ? 'New Property' : 'Existing Property'}
+                      {uniqueListings.length > 1 && (
+                        <span className="ml-2">• Merged from: {uniqueListings.join(', ')}</span>
+                      )}
                     </p>
                   </div>
                   <div className="text-xs text-blue-600">
@@ -844,12 +1003,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                             // Determine if THIS specific booking is using a platform override
                             const bookingPlatform = csvData ? determineBookingPlatform(
                               csvData.rows[booking.rowIndex - 1], // Convert 1-based to 0-based index
-                              validationState.fieldMappings,
+                              getAllFieldMappings(),
                               csvData.headers
                             ) : 'ALL'
                             
                             // Check if this specific booking is using a platform-specific override for this field
-                            const platformSpecificMapping = validationState.fieldMappings.find((m: any) => 
+                            const platformSpecificMapping = getAllFieldMappings().find((m: any) => 
                               m.bookingField === field.field && 
                               m.platform === bookingPlatform && 
                               m.isOverride === true
@@ -906,11 +1065,11 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   <button 
                     onClick={() => setPropertyDisplayCounts(prev => ({
                       ...prev,
-                      [listingName]: bookings.length
+                      [groupKey]: bookings.length
                     }))}
                     className="cursor-pointer text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    View all {bookings.length} bookings for {listingName}
+                    View all {bookings.length} bookings for {propertyName}
                   </button>
                 </div>
               )}
