@@ -5,8 +5,8 @@
  */
 export enum WizardStep {
   UPLOAD = 1,
-  VALIDATE = 2,
-  PROPERTY_MAPPING = 3,
+  PROPERTY_IDENTIFICATION = 2,
+  FIELD_MAPPING = 3,
   PREVIEW = 4,
   PROCESS = 5,
   COMPLETE = 6,
@@ -268,6 +268,52 @@ export interface PropertyMapping {
 }
 
 /**
+ * Field mapping mode for CSV processing
+ */
+export type FieldMappingMode = 'global' | 'per-property'
+
+/**
+ * Field mapping configuration
+ */
+export interface FieldMapping {
+  bookingField: string
+  csvColumn: string | null
+  useFormula: boolean
+  formula?: string
+  isRequired?: boolean
+}
+
+/**
+ * Field mapping state (replaces validation state for field mappings)
+ */
+export interface FieldMappingState {
+  mappingMode: FieldMappingMode
+  globalMappings?: FieldMapping[]
+  propertyMappings?: {
+    [propertyId: string]: {
+      fieldMappings: FieldMapping[]
+      platformOverrides?: {
+        [platform: string]: FieldMapping[]
+      }
+    }
+  }
+  isValid: boolean
+  csvData?: any // CSV data carried forward from upload
+  uniqueListings?: string[] // Carried forward from property identification
+}
+
+/**
+ * Property identification state (simplified from PropertyMappingState)
+ */
+export interface PropertyIdentificationState {
+  uniqueListings: string[]         // Extracted from CSV listing_name column
+  propertyMappings: PropertyMapping[]
+  isValid: boolean                 // All mappings complete and valid
+  totalBookings: number           // Total bookings across all properties
+  bookingCounts?: Record<string, number> // Count of bookings per listing
+}
+
+/**
  * Complete wizard state
  */
 export interface WizardState {
@@ -279,15 +325,17 @@ export interface WizardState {
   // Step-specific states
   selectedProperty?: any // Property object from property service (legacy - for backwards compatibility)
   uploadedFile?: UploadedFile
-  validationState?: ValidationState
-  propertyMappingState?: PropertyMappingState
+  validationState?: ValidationState // Legacy - to be deprecated
+  propertyIdentificationState?: PropertyIdentificationState // New - replaces propertyMappingState
+  fieldMappingState?: FieldMappingState // New - replaces validation for field mappings
+  propertyMappingState?: PropertyMappingState // Legacy - to be replaced by propertyIdentificationState
   previewState?: PreviewState
   processingState?: ProcessingState
   completionState?: CompletionState
   
   // Field mappings to persist between steps
   fieldMappings?: any[] // Persisted field mappings from validation step (legacy)
-  completeFieldMappingState?: any // Complete field mapping state including formulas
+  completeFieldMappingState?: any // Complete field mapping state including formulas (legacy)
   
   // Property mappings to persist between steps
   propertyMappings?: PropertyMapping[] // Persisted property mappings from property mapping step
@@ -304,6 +352,8 @@ export enum WizardActionType {
   SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
   SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
   SET_PROPERTY_MAPPING_STATE = 'SET_PROPERTY_MAPPING_STATE',
+  SET_PROPERTY_IDENTIFICATION_STATE = 'SET_PROPERTY_IDENTIFICATION_STATE',
+  SET_FIELD_MAPPING_STATE = 'SET_FIELD_MAPPING_STATE',
   SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
   SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
@@ -324,6 +374,8 @@ export type WizardAction =
   | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
   | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }
   | { type: WizardActionType.SET_PROPERTY_MAPPING_STATE; payload: PropertyMappingState }
+  | { type: WizardActionType.SET_PROPERTY_IDENTIFICATION_STATE; payload: PropertyIdentificationState }
+  | { type: WizardActionType.SET_FIELD_MAPPING_STATE; payload: FieldMappingState }
   | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
   | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }

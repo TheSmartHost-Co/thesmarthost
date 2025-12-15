@@ -15,6 +15,7 @@ import {
 import UploadStep from './steps/UploadStep'
 import ValidateStep from './steps/ValidateStep'
 import PropertyMappingStep from './steps/PropertyMappingStep'
+import PropertyIdentificationStep from './steps/PropertyIdentificationStep'
 import PreviewStep from './steps/PreviewStep'
 import ProcessStep from './steps/ProcessStep'
 import CompleteStep from './steps/CompleteStep'
@@ -146,6 +147,21 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         canGoNext: action.payload?.isValid || false,
       }
 
+    case WizardActionType.SET_PROPERTY_IDENTIFICATION_STATE:
+      return {
+        ...state,
+        propertyIdentificationState: action.payload,
+        propertyMappings: action.payload?.propertyMappings, // Store property mappings separately
+        canGoNext: action.payload?.isValid || false,
+      }
+
+    case WizardActionType.SET_FIELD_MAPPING_STATE:
+      return {
+        ...state,
+        fieldMappingState: action.payload,
+        canGoNext: action.payload?.isValid || false,
+      }
+
     case WizardActionType.SET_FIELD_MAPPINGS:
       return {
         ...state,
@@ -265,6 +281,14 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
     dispatch({ type: WizardActionType.SET_PROPERTY_MAPPING_STATE, payload: propertyMappingState })
   }, [])
 
+  const handlePropertyIdentificationComplete = useCallback((propertyIdentificationState: any) => {
+    dispatch({ type: WizardActionType.SET_PROPERTY_IDENTIFICATION_STATE, payload: propertyIdentificationState })
+  }, [])
+
+  const handleFieldMappingComplete = useCallback((fieldMappingState: any) => {
+    dispatch({ type: WizardActionType.SET_FIELD_MAPPING_STATE, payload: fieldMappingState })
+  }, [])
+
   const handleProcessingUpdate = useCallback((processingState: any) => {
     console.log('UploadWizard handleProcessingUpdate called with STATUS:', processingState?.status, 'FULL PAYLOAD:', processingState)
     dispatch({ type: WizardActionType.SET_PROCESSING_STATE, payload: processingState })
@@ -324,31 +348,34 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
           />
         )
 
-      case WizardStep.VALIDATE:
+      case WizardStep.PROPERTY_IDENTIFICATION:
+        return (
+          <PropertyIdentificationStep
+            {...commonProps}
+            uploadedFile={uploadedFileRef.current}
+            uniqueListings={state.propertyIdentificationState?.uniqueListings || []}
+            bookingCounts={state.propertyIdentificationState?.bookingCounts || {}}
+            propertyMappingState={state.propertyIdentificationState}
+            onPropertyMappingComplete={handlePropertyIdentificationComplete}
+            propertyMappings={state.propertyMappings}
+            onPropertyMappingsUpdate={handlePropertyMappingsUpdate}
+          />
+        )
+
+      case WizardStep.FIELD_MAPPING:
         return (
           <ValidateStep
             {...commonProps}
             uploadedFile={uploadedFileRef.current}
             validationState={state.validationState}
-            onValidationComplete={handleValidationComplete}
+            fieldMappingState={state.fieldMappingState}
+            propertyIdentificationState={state.propertyIdentificationState}
+            onValidationComplete={handleFieldMappingComplete}
             selectedProperty={state.selectedProperty}
             fieldMappings={state.fieldMappings}
             onFieldMappingsUpdate={handleFieldMappingsUpdate}
             completeFieldMappingState={state.completeFieldMappingState}
             onCompleteFieldMappingStateUpdate={handleCompleteFieldMappingStateUpdate}
-          />
-        )
-
-      case WizardStep.PROPERTY_MAPPING:
-        return (
-          <PropertyMappingStep
-            {...commonProps}
-            uniqueListings={state.validationState?.uniqueListings || []}
-            bookingCounts={state.validationState?.bookingCounts || {}}
-            propertyMappingState={state.propertyMappingState}
-            onPropertyMappingComplete={handlePropertyMappingComplete}
-            propertyMappings={state.propertyMappings}
-            onPropertyMappingsUpdate={handlePropertyMappingsUpdate}
           />
         )
 
@@ -359,7 +386,9 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={uploadedFileRef.current!}
             previewState={state.previewState}
             validationState={state.validationState}
-            propertyMappingState={state.propertyMappingState}
+            fieldMappingState={state.fieldMappingState}
+            propertyIdentificationState={state.propertyIdentificationState}
+            propertyMappingState={state.propertyMappingState || state.propertyIdentificationState}
             onPreviewComplete={handlePreviewComplete}
           />
         )
