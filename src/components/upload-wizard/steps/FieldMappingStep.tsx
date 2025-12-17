@@ -16,7 +16,8 @@ import {
   getPropertyFieldMappings,
   createPropertyFieldMapping,
   platformFieldMappingsToFieldMappings,
-  fieldMappingsToPlatformFieldMappings
+  fieldMappingsToPlatformFieldMappings,
+  updatePropertyFieldMapping
 } from '@/services/propertyFieldMappingService'
 import type { PropertyFieldMappingTemplate } from '@/services/types/propertyFieldMapping'
 import { 
@@ -322,6 +323,12 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
       if (response.status === 'success') {
         showNotification(`Template "${templateName}" saved successfully`, 'success')
         setAvailableTemplates(prev => [...prev, response.data])
+        // Update selected template to the newly created one
+        setSelectedTemplatesByProperty(prev => ({
+          ...prev,
+          [propertyId]: response.data
+        }))
+        setSelectedTemplate(response.data)
       } else {
         showNotification(response.message || 'Failed to save template', 'error')
       }
@@ -332,6 +339,56 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
       setLoadingTemplate(false)
     }
   }, [user, propertyMappings, availableTemplates, showNotification])
+
+  const handleUpdateTemplate = useCallback(async (propertyId: string, template: PropertyFieldMappingTemplate) => {
+    if (!user?.id) {
+      showNotification('User profile not found', 'error')
+      return
+    }
+
+    const currentMappings = propertyMappings[propertyId] || []
+    if (currentMappings.length === 0) {
+      showNotification('No field mappings to update', 'error')
+      return
+    }
+
+    const confirmMessage = `Update template "${template.mappingName}" with current field mappings?`
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      setLoadingTemplate(true)
+      const platformMappings = fieldMappingsToPlatformFieldMappings(currentMappings)
+      
+      const response = await updatePropertyFieldMapping(template.id, {
+        fieldMappings: platformMappings
+      })
+
+      if (response.status === 'success') {
+        showNotification(`Template "${template.mappingName}" updated successfully`, 'success')
+        
+        // Update the available templates list
+        setAvailableTemplates(prev => prev.map(t => 
+          t.id === template.id ? response.data : t
+        ))
+        
+        // Update the selected template
+        setSelectedTemplatesByProperty(prev => ({
+          ...prev,
+          [propertyId]: response.data
+        }))
+        setSelectedTemplate(response.data)
+      } else {
+        showNotification(response.message || 'Failed to update template', 'error')
+      }
+    } catch (error) {
+      console.error('Error updating template:', error)
+      showNotification('Failed to update template', 'error')
+    } finally {
+      setLoadingTemplate(false)
+    }
+  }, [user, propertyMappings, showNotification])
 
   const handleLoadTemplate = useCallback((template: PropertyFieldMappingTemplate, propertyId: string) => {
     loadTemplateToProperty(template, propertyId)
@@ -550,13 +607,24 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
                     </select>
                   )}
                   
+                  {selectedTemplate ? (
+                    <button
+                      onClick={() => handleUpdateTemplate(activePropertyTab, selectedTemplate)}
+                      disabled={loadingTemplate || (propertyMappings[activePropertyTab]?.length || 0) === 0}
+                      className="cursor-pointer text-sm text-green-600 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                      <BookmarkIcon className="h-4 w-4 mr-1" />
+                      Update Template
+                    </button>
+                  ) : null}
+                  
                   <button
                     onClick={() => handleSaveAsTemplate(activePropertyTab)}
                     disabled={loadingTemplate || (propertyMappings[activePropertyTab]?.length || 0) === 0}
                     className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
                     <BookmarkIcon className="h-4 w-4 mr-1" />
-                    Save Template
+                    Save as New Template
                   </button>
                   
                   <button
