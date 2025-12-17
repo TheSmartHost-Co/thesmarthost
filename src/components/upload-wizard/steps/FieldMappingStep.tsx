@@ -2,14 +2,23 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
-import { ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, BookmarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline'
 import FieldMappingForm from '@/components/csv-mapping/FieldMappingForm'
+import PropertyFieldMappingModal from '@/components/property-field-mapping/propertyFieldMappingModal'
 import { CsvData, FieldMapping } from '@/services/types/csvMapping'
 import { parseCsvFile } from '@/utils/csvParser'
 import { getCalculationRules } from '@/services/calculationRuleService'
 import { CalculationRule } from '@/services/types/calculationRule'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { 
+  getDefaultPropertyFieldMapping,
+  getPropertyFieldMappings,
+  createPropertyFieldMapping,
+  platformFieldMappingsToFieldMappings,
+  fieldMappingsToPlatformFieldMappings
+} from '@/services/propertyFieldMappingService'
+import type { PropertyFieldMappingTemplate } from '@/services/types/propertyFieldMapping'
 import { 
   FieldMappingState, 
   FieldMappingMode, 
@@ -55,6 +64,15 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   )
   const [activePropertyTab, setActivePropertyTab] = useState<string | null>(null)
 
+  // Template management state
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [templateModalPropertyId, setTemplateModalPropertyId] = useState<string>('')
+  const [templateModalPropertyName, setTemplateModalPropertyName] = useState<string>('')
+  const [loadingTemplate, setLoadingTemplate] = useState(false)
+  const [availableTemplates, setAvailableTemplates] = useState<PropertyFieldMappingTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<PropertyFieldMappingTemplate | null>(null)
+  const [selectedTemplatesByProperty, setSelectedTemplatesByProperty] = useState<Record<string, PropertyFieldMappingTemplate | null>>({})
+
   // Field mappings state - separated by mode
   const [globalMappings, setGlobalMappings] = useState<FieldMapping[]>(
     fieldMappingState?.globalMappings || []
@@ -83,6 +101,67 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
       setActivePropertyTab(properties[0].id)
     }
   }, [mappingMode, properties, activePropertyTab])
+
+  // Update selected template when switching properties
+  useEffect(() => {
+    if (activePropertyTab) {
+      setSelectedTemplate(selectedTemplatesByProperty[activePropertyTab] || null)
+    }
+  }, [activePropertyTab, selectedTemplatesByProperty])
+
+  // Load templates for active property
+  useEffect(() => {
+    const loadTemplatesForProperty = async () => {
+      if (mappingMode === 'per-property' && activePropertyTab) {
+        try {
+          setLoadingTemplate(true)
+          const response = await getPropertyFieldMappings(activePropertyTab)
+          if (response.status === 'success') {
+            setAvailableTemplates(response.data)
+            
+            // Check if there's a default template and auto-load it
+            const defaultTemplate = response.data.find(t => t.isDefault)
+            if (defaultTemplate && (!propertyMappings[activePropertyTab] || propertyMappings[activePropertyTab].length === 0)) {
+              loadTemplateToProperty(defaultTemplate, activePropertyTab)
+            }
+          }
+        } catch (error) {
+          console.error('Error loading templates for property:', error)
+        } finally {
+          setLoadingTemplate(false)
+        }
+      }
+    }
+
+    loadTemplatesForProperty()
+  }, [mappingMode, activePropertyTab])
+
+  // Auto-load default template for property
+  const loadTemplateToProperty = useCallback((template: PropertyFieldMappingTemplate, propertyId: string) => {
+    try {
+      const fieldMappings = platformFieldMappingsToFieldMappings(template.fieldMappings)
+      setPropertyMappings(prev => ({
+        ...prev,
+        [propertyId]: fieldMappings
+      }))
+      
+      // Track selected template per property
+      setSelectedTemplatesByProperty(prev => ({
+        ...prev,
+        [propertyId]: template
+      }))
+      
+      // Update current selected template if this is the active property
+      if (propertyId === activePropertyTab) {
+        setSelectedTemplate(template)
+      }
+      
+      showNotification(`Loaded template: ${template.mappingName}`, 'success')
+    } catch (error) {
+      console.error('Error loading template:', error)
+      showNotification('Failed to load template', 'error')
+    }
+  }, [showNotification, activePropertyTab])
 
   // Load CSV data
   useEffect(() => {
@@ -170,6 +249,68 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     setPropertyMappings(newPropertyMappings)
     showNotification('Global mappings applied to all properties', 'success')
   }, [properties, globalMappings, showNotification])
+
+  // Template management handlers
+  const handleOpenTemplateModal = useCallback((propertyId: string) => {
+    const property = properties.find(p => p.id === propertyId)
+    setTemplateModalPropertyId(propertyId)
+    setTemplateModalPropertyName(property?.name || 'Property')
+    setShowTemplateModal(true)
+  }, [properties])
+
+  const handleTemplateSelect = useCallback((template: PropertyFieldMappingTemplate | null) => {
+    if (template && templateModalPropertyId) {
+      loadTemplateToProperty(template, templateModalPropertyId)
+    }
+    setShowTemplateModal(false)
+  }, [templateModalPropertyId, loadTemplateToProperty])
+
+  const handleSaveAsTemplate = useCallback(async (propertyId: string) => {
+    if (!user?.id) {
+      showNotification('User profile not found', 'error')
+      return
+    }
+
+    const currentMappings = propertyMappings[propertyId] || []
+    if (currentMappings.length === 0) {
+      showNotification('No field mappings to save', 'error')
+      return
+    }
+
+    const templateName = prompt('Enter a name for this template:')
+    if (!templateName?.trim()) {
+      return
+    }
+
+    try {
+      setLoadingTemplate(true)
+      const platformMappings = fieldMappingsToPlatformFieldMappings(currentMappings)
+      
+      const response = await createPropertyFieldMapping({
+        propertyId,
+        userId: user.id,
+        mappingName: templateName.trim(),
+        fieldMappings: platformMappings,
+        isDefault: availableTemplates.length === 0 // Set as default if it's the first template
+      })
+
+      if (response.status === 'success') {
+        showNotification(`Template "${templateName}" saved successfully`, 'success')
+        setAvailableTemplates(prev => [...prev, response.data])
+      } else {
+        showNotification(response.message || 'Failed to save template', 'error')
+      }
+    } catch (error) {
+      console.error('Error saving template:', error)
+      showNotification('Failed to save template', 'error')
+    } finally {
+      setLoadingTemplate(false)
+    }
+  }, [user, propertyMappings, availableTemplates, showNotification])
+
+  const handleLoadTemplate = useCallback((template: PropertyFieldMappingTemplate, propertyId: string) => {
+    loadTemplateToProperty(template, propertyId)
+  }, [loadTemplateToProperty])
 
   // Validation
   const isValid = useMemo(() => {
@@ -310,6 +451,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
       {/* Property Tabs (Per-Property Mode) */}
       {mappingMode === 'per-property' && (
         <div className="mb-6">
+          {/* Property Tabs */}
           <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex space-x-8 min-w-max">
               {properties.map((property) => (
@@ -332,13 +474,85 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
               ))}
             </nav>
           </div>
+
+          {/* Template Actions for Active Property */}
+          {activePropertyTab && (
+            <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <h4 className="text-sm font-medium text-gray-900">Field Mapping Templates</h4>
+                  
+                  {loadingTemplate ? (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <ArrowPathIcon className="h-4 w-4 animate-spin mr-2" />
+                      Loading templates...
+                    </div>
+                  ) : availableTemplates.length > 0 ? (
+                    <div className="text-sm text-gray-600">
+                      {availableTemplates.length} template{availableTemplates.length !== 1 ? 's' : ''} available
+                      {selectedTemplate && (
+                        <span className="ml-2 text-blue-600">
+                          • Using: {selectedTemplate.mappingName}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No templates yet</div>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  {availableTemplates.length > 0 && (
+                    <select
+                      value={selectedTemplate?.id || ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const template = availableTemplates.find(t => t.id === e.target.value)
+                          if (template) {
+                            handleLoadTemplate(template, activePropertyTab)
+                          }
+                        }
+                      }}
+                      className="text-black text-sm border border-gray-300 rounded px-3 py-1"
+                      disabled={loadingTemplate}
+                    >
+                      <option value="">Select template...</option>
+                      {availableTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.mappingName} {template.isDefault ? '(Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  
+                  <button
+                    onClick={() => handleSaveAsTemplate(activePropertyTab)}
+                    disabled={loadingTemplate || (propertyMappings[activePropertyTab]?.length || 0) === 0}
+                    className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    <BookmarkIcon className="h-4 w-4 mr-1" />
+                    Save Template
+                  </button>
+                  
+                  <button
+                    onClick={() => handleOpenTemplateModal(activePropertyTab)}
+                    disabled={loadingTemplate}
+                    className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    <Cog6ToothIcon className="h-4 w-4 mr-1" />
+                    Manage Templates
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Field Mapping Form */}
       <div className="mb-8">
         <FieldMappingForm
-          key={mappingMode === 'per-property' ? `property-${activePropertyTab}` : 'global'}
+          key={mappingMode === 'per-property' ? `property-${activePropertyTab}-${selectedTemplate?.id || 'no-template'}` : 'global'}
           csvData={csvData}
           initialFieldMappings={getCurrentMappings()}
           onMappingsChange={handleFieldMappingsUpdate}
@@ -430,6 +644,16 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Template Management Modal */}
+      <PropertyFieldMappingModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        propertyId={templateModalPropertyId}
+        propertyName={templateModalPropertyName}
+        onTemplateChange={handleTemplateSelect}
+        initialTemplate={selectedTemplate}
+      />
     </div>
   )
 }
