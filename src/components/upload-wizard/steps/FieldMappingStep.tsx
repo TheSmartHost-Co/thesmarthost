@@ -98,6 +98,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   // Set initial active tab
   useEffect(() => {
     if (mappingMode === 'per-property' && properties.length > 0 && !activePropertyTab) {
+      console.log('🏠 Setting initial active tab:', properties[0].id)
       setActivePropertyTab(properties[0].id)
     }
   }, [mappingMode, properties, activePropertyTab])
@@ -105,7 +106,8 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   // Update selected template when switching properties
   useEffect(() => {
     if (activePropertyTab) {
-      setSelectedTemplate(selectedTemplatesByProperty[activePropertyTab] || null)
+      const propertyTemplate = selectedTemplatesByProperty[activePropertyTab] || null
+      setSelectedTemplate(propertyTemplate)
     }
   }, [activePropertyTab, selectedTemplatesByProperty])
 
@@ -121,6 +123,8 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
             
             // Check if there's a default template and auto-load it
             const defaultTemplate = response.data.find(t => t.isDefault)
+            const existingMappings = propertyMappings[activePropertyTab]
+                  
             if (defaultTemplate && (!propertyMappings[activePropertyTab] || propertyMappings[activePropertyTab].length === 0)) {
               loadTemplateToProperty(defaultTemplate, activePropertyTab)
             }
@@ -138,21 +142,34 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
   // Auto-load default template for property
   const loadTemplateToProperty = useCallback((template: PropertyFieldMappingTemplate, propertyId: string) => {
+    
     try {
       const fieldMappings = platformFieldMappingsToFieldMappings(template.fieldMappings)
-      setPropertyMappings(prev => ({
-        ...prev,
-        [propertyId]: fieldMappings
-      }))
+      
+      
+      // Update both states synchronously using functional updates to ensure consistency
+      setPropertyMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [propertyId]: fieldMappings
+        }
+        
+        return newMappings
+      })
       
       // Track selected template per property
-      setSelectedTemplatesByProperty(prev => ({
-        ...prev,
-        [propertyId]: template
-      }))
+      setSelectedTemplatesByProperty(prev => {
+        const newTemplatesByProperty = {
+          ...prev,
+          [propertyId]: template
+        }
+        
+        return newTemplatesByProperty
+      })
       
       // Update current selected template if this is the active property
       if (propertyId === activePropertyTab) {
+        
         setSelectedTemplate(template)
       }
       
@@ -212,7 +229,9 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     }
     
     if (activePropertyTab && propertyMappings[activePropertyTab]) {
-      return propertyMappings[activePropertyTab]
+      const mappings = propertyMappings[activePropertyTab]
+      
+      return mappings
     }
     
     return []
@@ -220,13 +239,19 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
   // Update field mappings
   const handleFieldMappingsUpdate = useCallback((mappings: FieldMapping[]) => {
+    
     if (mappingMode === 'global') {
+      console.log('💾 Saving to global mappings')
       setGlobalMappings(mappings)
     } else if (activePropertyTab) {
-      setPropertyMappings(prev => ({
-        ...prev,
-        [activePropertyTab]: mappings
-      }))
+      setPropertyMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [activePropertyTab]: mappings
+        }
+        
+        return newMappings
+      })
     }
   }, [mappingMode, activePropertyTab])
 

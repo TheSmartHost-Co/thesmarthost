@@ -42,17 +42,51 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   onCompleteStateChange
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
-  const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
-    'ALL': {},
-    'airbnb': {},
-    'booking': {},
-    'google': {},
-    'direct': {},
-    'wechalet': {},
-    'monsieurchalets': {},
-    'direct-etransfer': {},
-    'vrbo': {},
-    'hostaway': {}
+  
+  // Initialize platform mappings with initial data instead of empty state
+  const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>(() => {
+    // If we have initial field mappings, use them to initialize the state
+    if (initialFieldMappings && initialFieldMappings.length > 0) {
+      const initialMappings: Record<Platform, Record<string, string>> = {
+        'ALL': {},
+        'airbnb': {},
+        'booking': {},
+        'google': {},
+        'direct': {},
+        'wechalet': {},
+        'monsieurchalets': {},
+        'direct-etransfer': {},
+        'vrbo': {},
+        'hostaway': {}
+      }
+      
+      initialFieldMappings.forEach(mapping => {
+        const platform = mapping.platform || 'ALL'
+        initialMappings[platform][mapping.bookingField] = mapping.csvFormula
+      })
+      
+      return initialMappings
+    }
+    
+    // If we have complete state, use its platform mappings
+    if (initialCompleteState) {
+      return initialCompleteState.platformMappings
+    }
+    
+    // Default empty state
+    
+    return {
+      'ALL': {},
+      'airbnb': {},
+      'booking': {},
+      'google': {},
+      'direct': {},
+      'wechalet': {},
+      'monsieurchalets': {},
+      'direct-etransfer': {},
+      'vrbo': {},
+      'hostaway': {}
+    }
   })
   const [hasBaseMappings, setHasBaseMappings] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
@@ -74,7 +108,10 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   // Track previous props to detect changes
   const prevCompleteStateRef = useRef<string | undefined>(undefined)
   const prevFieldMappingsRef = useRef<string | undefined>(undefined)
-  const hasRestoredRef = useRef(false)
+  // Set hasRestoredRef to true if we initialized with data
+  const hasRestoredRef = useRef(
+    (initialFieldMappings && initialFieldMappings.length > 0) || !!initialCompleteState
+  )
   // Track the last emitted complete state to prevent duplicate emissions
   const lastEmittedStateRef = useRef<string | undefined>(undefined)
   
@@ -91,67 +128,27 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     }))
   }
 
-  // Initialize platform mappings
+  // Simplified initialization effect - only handle auto-suggestions for truly empty forms
   useEffect(() => {
-    // Create unique keys to detect actual changes
-    const currentCompleteStateKey = initialCompleteState ? JSON.stringify(initialCompleteState) : undefined
-    const currentFieldMappingsKey = initialFieldMappings ? JSON.stringify(initialFieldMappings) : undefined
     
-    // Check if we have new data to restore
-    const shouldRestoreCompleteState = initialCompleteState && 
-      currentCompleteStateKey !== prevCompleteStateRef.current && 
-      !hasRestoredRef.current
-    
-    const shouldRestoreFieldMappings = initialFieldMappings && 
-      initialFieldMappings.length > 0 && 
-      currentFieldMappingsKey !== prevFieldMappingsRef.current && 
-      !hasRestoredRef.current && 
-      !initialCompleteState
-    
+    // Only auto-suggest if we have no initial data and haven't already restored
     const shouldInitialize = !initialCompleteState && 
       (!initialFieldMappings || initialFieldMappings.length === 0) && 
       !hasRestoredRef.current
-    
-    if (shouldRestoreCompleteState) {
-      setPlatformMappings(initialCompleteState.platformMappings)
-      setFieldInputModes(initialCompleteState.fieldInputModes)
-      setSelectedPlatform(initialCompleteState.selectedPlatform)
-      setPlatformOverride(initialCompleteState.platformOverride)
-      setIsPlatformOverrideActive(initialCompleteState.isPlatformOverrideActive)
-      setHasBaseMappings(initialCompleteState.hasBaseMappings)
-      prevCompleteStateRef.current = currentCompleteStateKey
-      hasRestoredRef.current = true
-    } else if (shouldRestoreFieldMappings) {
-      // Fallback: restore from just field mappings (legacy)
-      const restoredMappings: Record<Platform, Record<string, string>> = {
-        'ALL': {},
-        'airbnb': {},
-        'booking': {},
-        'google': {},
-        'direct': {},
-        'wechalet': {},
-        'monsieurchalets': {},
-        'direct-etransfer': {},
-        'vrbo': {},
-        'hostaway': {}
-      }
+
+
+    if (shouldInitialize && csvData?.headers) {
       
-      initialFieldMappings.forEach(mapping => {
-        const platform = mapping.platform || 'ALL'
-        restoredMappings[platform][mapping.bookingField] = mapping.csvFormula
-      })
-      
-      setPlatformMappings(restoredMappings)
-      prevFieldMappingsRef.current = currentFieldMappingsKey
-      hasRestoredRef.current = true
-    } else if (shouldInitialize) {
       // First time initialization - auto-suggest mappings
       const suggestions = suggestMappings(csvData.headers)
+      
       setPlatformMappings(prev => ({
         ...prev,
         'ALL': suggestions
       }))
       hasRestoredRef.current = true
+    } else {
+      console.log('⏹️ INITIALIZATION: No action needed - form already has data or no CSV')
     }
   }, [csvData, initialFieldMappings, initialCompleteState])
 
@@ -168,7 +165,17 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   }, [platformMappings])
 
   // Convert platform mappings to FieldMapping array
-  useEffect(() => {
+  useEffect(() => {    
+    // Check if platformMappings are empty (this indicates a reset)
+    const allPlatformsEmpty = Object.values(platformMappings).every(platform => 
+      Object.keys(platform).length === 0
+    )
+    
+    // Only emit changes after we've finished initial setup
+    if (!hasRestoredRef.current) {
+      return
+    }
+
     const fieldMappings: FieldMapping[] = []
     
     // Add ALL platform mappings
@@ -273,26 +280,36 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     )
     
     if (customField) {
+      
       // Auto-fill the formula from the calculation rule
-      setPlatformMappings(prev => ({
-        ...prev,
-        [selectedPlatform]: {
-          ...prev[selectedPlatform],
-          [bookingField]: customField.csvFormula // Use the actual formula, not the field name
+      setPlatformMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [selectedPlatform]: {
+            ...prev[selectedPlatform],
+            [bookingField]: customField.csvFormula // Use the actual formula, not the field name
+          }
         }
-      }))
+        
+        return newMappings
+      })
       
       // Switch to formula mode since this is a calculated field
       setFieldInputMode(bookingField, 'formula')
     } else {
+      
       // Regular CSV column mapping
-      setPlatformMappings(prev => ({
-        ...prev,
-        [selectedPlatform]: {
-          ...prev[selectedPlatform],
-          [bookingField]: csvFormula
+      setPlatformMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [selectedPlatform]: {
+            ...prev[selectedPlatform],
+            [bookingField]: csvFormula
+          }
         }
-      }))
+        
+        return newMappings
+      })
     }
   }
 
