@@ -1,5 +1,6 @@
 // services/apiClient.ts
 import { createClient } from '@/utils/supabase/component'
+import { useUserStore } from '@/store/useUserStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -16,14 +17,21 @@ async function apiClient<T, B = unknown>(
 
     const isFormData = body instanceof FormData;
     
+    // Get access token from store
+    const accessToken = useUserStore.getState().accessToken;
+    
+    const authHeaders = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
+    
     const config: RequestInit = {
         method,
         headers: isFormData ? {
-            ...headers, // Don't set Content-Type for FormData - let browser handle it
-        } : {
-            'Content-Type': 'application/json',
+            ...authHeaders,
             ...headers,
-        },
+        } as HeadersInit : {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+            ...headers,
+        } as HeadersInit,
     };
 
     if (body) {

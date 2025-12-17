@@ -12,7 +12,9 @@
   interface UserStore {
     profile: UserProfile | null
     isAuthenticated: boolean
+    accessToken: string | null
     setProfile: (profile: UserProfile) => void
+    setAccessToken: (token: string) => void
     clearProfile: () => void
     getRedirectPath: () => string
   }
@@ -22,12 +24,16 @@
       (set, get) => ({
         profile: null,
         isAuthenticated: false,
+        accessToken: null,
 
         setProfile: (profile: UserProfile) =>
           set({ profile, isAuthenticated: true }),
 
+        setAccessToken: (token: string) =>
+          set({ accessToken: token }),
+
         clearProfile: () =>
-          set({ profile: null, isAuthenticated: false }),
+          set({ profile: null, isAuthenticated: false, accessToken: null }),
 
         getRedirectPath: () => {
           const { profile } = get()
@@ -49,7 +55,8 @@
         name: 'user-storage',
         partialize: (state) => ({
           profile: state.profile,
-          isAuthenticated: state.isAuthenticated
+          isAuthenticated: state.isAuthenticated,
+          accessToken: state.accessToken
         })
       }
     )
