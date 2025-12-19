@@ -4,6 +4,26 @@ import { useUserStore } from '@/store/useUserStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
+// Event emitter for session events
+type SessionEventType = 'session-expired' | 'session-invalid'
+const sessionEventListeners: Record<SessionEventType, (() => void)[]> = {
+  'session-expired': [],
+  'session-invalid': []
+}
+
+export const sessionEvents = {
+  on: (event: SessionEventType, callback: () => void) => {
+    sessionEventListeners[event].push(callback)
+  },
+  off: (event: SessionEventType, callback: () => void) => {
+    const index = sessionEventListeners[event].indexOf(callback)
+    if (index > -1) sessionEventListeners[event].splice(index, 1)
+  },
+  emit: (event: SessionEventType) => {
+    sessionEventListeners[event].forEach(callback => callback())
+  }
+}
+
 interface ApiClientOptions<T = unknown> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: T;
@@ -17,10 +37,17 @@ async function apiClient<T, B = unknown>(
 
     const isFormData = body instanceof FormData;
     
-    // Get access token from store
-    const accessToken = useUserStore.getState().accessToken;
+    // Get access token from Supabase session instead of Zustand store
+    const supabase = createClient()
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
-    const authHeaders = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      sessionEvents.emit('session-invalid')
+      throw new Error('Authentication error')
+    }
+    
+    const authHeaders = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
     
     const config: RequestInit = {
         method,
@@ -70,6 +97,13 @@ async function apiClient<T, B = unknown>(
         } catch {
             console.log('❌ Error (no JSON):', response.statusText)
         }
+        
+        // Emit session events for auth errors
+        if (response.status === 401 || response.status === 403) {
+            console.log('🔒 Authentication error detected, emitting session-expired event')
+            sessionEvents.emit('session-expired')
+        }
+        
         console.groupEnd();
         throw new Error(errorMessage);
     }
