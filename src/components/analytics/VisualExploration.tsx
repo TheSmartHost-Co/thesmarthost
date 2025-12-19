@@ -255,7 +255,7 @@ export function VisualExploration({
               width={120}
             />
             <Tooltip 
-              formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+              formatter={(value: number | undefined) => [formatCurrency(value || 0), 'Revenue']}
               labelStyle={{ color: '#374151' }}
             />
             <Bar 
