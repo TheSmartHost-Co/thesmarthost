@@ -75,7 +75,9 @@ function LoginForm() {
             email: data.user.email
           })
 
-          notify("You've successfully signed in!", "success")
+          notify("You've successfully signed in!", "success");
+
+          console.log(`auth token: ${data.session.access_token}`)
           
           // Get redirect path based on role
           const redirectPath = getRedirectPath()
