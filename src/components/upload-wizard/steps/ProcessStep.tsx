@@ -7,6 +7,8 @@ import { createMultipleBookings } from '@/services/bookingService'
 import { CreateBookingPayload } from '@/services/types/booking'
 import { useUserStore } from '@/store/useUserStore'
 import { ProcessingStatus } from '../types/wizard'
+import { createMultipleFieldChanges } from '@/services/fieldValuesChangedService'
+import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 
 interface ProcessStepProps {
   onNext?: () => void
@@ -17,7 +19,9 @@ interface ProcessStepProps {
   config?: any
   validationState?: any
   previewState?: any
-  selectedProperty?: any
+  propertyMappingState?: any
+  propertyIdentificationState?: any
+  fieldMappingState?: any
   uploadedFile?: any
   processingState?: any
   onProcessingUpdate?: (state: any) => void
@@ -30,7 +34,9 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   onCancel,
   validationState,
   previewState,
-  selectedProperty,
+  propertyMappingState,
+  propertyIdentificationState,
+  fieldMappingState,
   uploadedFile,
   processingState,
   onProcessingUpdate,
@@ -49,11 +55,14 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const { profile } = useUserStore()
 
   useEffect(() => {
-    if (!previewState || !selectedProperty || !uploadedFile?.file || !profile?.id || hasStartedProcessing.current) return
+    // Check for property mappings in the new state structure
+    const hasPropertyMappings = propertyIdentificationState?.propertyMappings?.length > 0
+    
+    if (!previewState || !hasPropertyMappings || !uploadedFile?.file || !profile?.id || hasStartedProcessing.current) return
     
     hasStartedProcessing.current = true
     startProcessing()
-  }, [previewState, selectedProperty, uploadedFile, profile])
+  }, [previewState, propertyIdentificationState, uploadedFile, profile])
 
   const updateProgress = (status: ProcessingStatus, progress: number, task: string, completed?: string) => {
     console.log('ProcessStep updateProgress called with:', { status, progress, task, completed })
@@ -79,22 +88,53 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   const startProcessing = async () => {
     setIsProcessing(true)
     try {
-      // Step 1: Upload CSV file and create record (10%)
-      updateProgress(ProcessingStatus.UPLOADING, 10, 'Uploading CSV file...')
+      console.log('ProcessStep startProcessing - received states:', {
+        previewState: previewState,
+        propertyIdentificationState: propertyIdentificationState,
+        fieldMappingState: fieldMappingState,
+        hasConfirmedPayloads: !!previewState?.confirmedPayloads,
+        confirmedPayloadsLength: previewState?.confirmedPayloads?.length
+      })
       
-      if (!selectedProperty?.id) {
-        throw new Error('No property selected. Please go back and select a property.')
+      // Step 1: Build property ID mapping from existing properties (10-30%)
+      updateProgress(ProcessingStatus.UPLOADING, 10, 'Preparing property mappings...')
+      
+      // Use property mappings from property identification step (all properties should already exist)
+      const propertyMappings = propertyIdentificationState?.propertyMappings || []
+      const propertyIdMap: Record<string, string> = {}
+      
+      console.log('ProcessStep property mappings analysis:', {
+        totalMappings: propertyMappings.length,
+        propertyMappings
+      })
+      
+      // Build the property ID mapping
+      propertyMappings.forEach((mapping: any) => {
+        if (mapping.propertyId && mapping.listingName) {
+          propertyIdMap[mapping.listingName] = mapping.propertyId
+        }
+      })
+      
+      if (Object.keys(propertyIdMap).length === 0) {
+        throw new Error('No property mappings found. Please ensure all listings are mapped to properties.')
       }
+      
+      updateProgress(ProcessingStatus.PARSING, 25, 'Property mappings prepared', `${Object.keys(propertyIdMap).length} properties mapped`)
 
+      // Step 2: Upload CSV file and create record (30-40%)
+      updateProgress(ProcessingStatus.UPLOADING, 30, 'Uploading CSV file...')
+      
       if (!uploadedFile?.file) {
         throw new Error('No file uploaded. Please go back and upload a CSV file.')
       }
 
-
+      // For multi-property, use the first mapped property ID for CSV upload record
+      const firstPropertyId = Object.values(propertyIdMap)[0]
+      
       const csvUploadResult = await uploadCsvFile({
         file: uploadedFile.file,
         user_id: profile!.id,
-        property_id: selectedProperty.id
+        property_id: firstPropertyId
       })
 
       if (csvUploadResult.status !== 'success') {
@@ -102,21 +142,37 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       }
 
       setCsvUploadId(csvUploadResult.data.id)
-      updateProgress(ProcessingStatus.PARSING, 25, 'Processing booking data...', 'CSV file uploaded successfully')
+      updateProgress(ProcessingStatus.PARSING, 40, 'Processing multi-property booking data...', 'CSV file uploaded successfully')
 
-      // Step 2: Convert preview data to booking payloads (40%)
-      updateProgress(ProcessingStatus.PARSING, 40, 'Converting booking data...')
+      // Step 3: Prepare booking payloads with correct property IDs (40-60%)
+      updateProgress(ProcessingStatus.VALIDATING, 50, 'Mapping bookings to properties...')
       
-      const bookingPayloads = convertPreviewToBookings(
-        previewState?.bookingPreviews || [],
-        csvUploadResult.data.id,
-        selectedProperty.id
-      )
+      const confirmedPayloads = previewState?.confirmedPayloads
+      if (!confirmedPayloads || confirmedPayloads.length === 0) {
+        throw new Error('No confirmed booking data received from preview step')
+      }
+      
+      // Update each booking payload with the correct property ID
+      const bookingPayloads = confirmedPayloads.map((payload: CreateBookingPayload) => {
+        const listingName = payload.listingName || 'Unknown Property'
+        const propertyId = propertyIdMap[listingName]
+        
+        if (!propertyId) {
+          throw new Error(`No property mapping found for listing: ${listingName}`)
+        }
+        
+        return {
+          ...payload,
+          propertyId,
+          csvUploadId: csvUploadResult.data.id
+        }
+      })
 
-      updateProgress(ProcessingStatus.VALIDATING, 60, 'Validating booking data...', 'Booking data converted')
+      console.log('Multi-property booking payloads:', bookingPayloads)
+      updateProgress(ProcessingStatus.VALIDATING, 60, 'Property mapping completed', 'All bookings mapped to properties')
 
-      // Step 3: Create multiple bookings (80%)
-      updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 80, 'Saving bookings to database...')
+      // Step 4: Create multiple bookings across all properties (60-80%)
+      updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 70, 'Saving bookings to database...')
 
       const bulkResult = await createMultipleBookings({
         bookings: bookingPayloads
@@ -126,13 +182,62 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
         throw new Error(bulkResult.message || 'Failed to save bookings')
       }
 
-      updateProgress(ProcessingStatus.CALCULATING_METRICS, 90, 'Calculating import statistics...', 'Bookings saved to database')
+      const createdBookings = Array.isArray(bulkResult.data) 
+        ? bulkResult.data 
+        : (bulkResult.data.bookings || [])
+      
+      console.log('Multi-property bookings created:', createdBookings)
+      updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 80, 'Multi-property bookings saved', `${createdBookings.length} bookings created`)
 
-      // Step 4: Generate completion stats (100%)
-      const stats = generateImportStats(bookingPayloads, bulkResult.data)
+      // Step 5: Save field value changes if any edits were made (80-90%)
+      if (previewState?.fieldEdits && previewState.fieldEdits.length > 0) {
+        updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 85, 'Saving field change history...')
+        
+        try {
+          const fieldChangesToSave = previewState.fieldEdits.map((edit: PreviewFieldEdit) => {
+            const originalBookingPayload = bookingPayloads[edit.bookingIndex]
+            if (!originalBookingPayload) return null
+            
+            const createdBooking = createdBookings.find((booking: any) => {
+              const bookingCode = String(booking.reservationCode || booking.reservation_code || '').trim()
+              const payloadCode = String(originalBookingPayload.reservationCode || '').trim()
+              return bookingCode === payloadCode
+            })
+            
+            if (!createdBooking) return null
+            
+            return {
+              bookingId: createdBooking.id,
+              userId: profile!.id,
+              fieldName: edit.fieldName,
+              originalValue: edit.originalValue,
+              editedValue: edit.newValue,
+              changeReason: edit.reason || null
+            }
+          }).filter(Boolean)
+          
+          if (fieldChangesToSave.length > 0) {
+            const fieldChangeResult = await createMultipleFieldChanges({
+              fieldChanges: fieldChangesToSave
+            })
+            
+            if (fieldChangeResult.status === 'success') {
+              updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 90, 'Field changes saved', `${fieldChangesToSave.length} field edits recorded`)
+            }
+          }
+        } catch (error) {
+          console.error('Error saving field changes:', error)
+        }
+      }
+
+      // Step 6: Generate completion stats (90-100%)
+      updateProgress(ProcessingStatus.CALCULATING_METRICS, 95, 'Calculating multi-property statistics...')
+      
+      const fieldEditCount = previewState?.fieldEdits?.length || 0
+      const stats = generateMultiPropertyImportStats(bookingPayloads, createdBookings, propertyIdMap, fieldEditCount)
       setImportStats(stats)
 
-      updateProgress(ProcessingStatus.COMPLETE, 100, 'Import completed successfully!', 'Statistics calculated')
+      updateProgress(ProcessingStatus.COMPLETE, 100, 'Multi-property import completed successfully!', 'Statistics calculated')
 
       // Notify completion
       onProcessingComplete?.({
@@ -145,13 +250,15 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
           uploadAnother: true,
           generateReports: true
         },
-        automatedActions: ['Bookings imported', 'Statistics updated']
+        automatedActions: [
+          `${createdBookings.length} bookings imported`,
+          `${Object.keys(propertyIdMap).length} properties processed`,
+          'Multi-property statistics updated'
+        ]
       })
 
-      // Don't auto-navigate, let user click "View Results" button
-
     } catch (err) {
-      console.error('Processing error:', err)
+      console.error('Multi-property processing error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       setCurrentStatus(ProcessingStatus.ERROR)
@@ -161,74 +268,24 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
     }
   }
 
-  const convertPreviewToBookings = (
-    bookingPreviews: any[],
-    csvUploadId: string,
-    propertyId: string
-  ): CreateBookingPayload[] => {
-    return bookingPreviews.map((preview, index) => {
-      // Convert preview booking to CreateBookingPayload format
-      const payload: CreateBookingPayload = {
-        userId: profile!.id,
-        propertyId: propertyId,
-        csvUploadId: csvUploadId,
-        reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,
-        guestName: preview.guest_name || preview.guestName || 'Unknown Guest',
-        checkInDate: formatDate(preview.check_in_date || preview.checkInDate),
-        checkOutDate: (preview.check_out_date || preview.checkOutDate) ? formatDate(preview.check_out_date || preview.checkOutDate) : undefined,
-        numNights: parseInt(preview.num_nights || preview.nights) || 1,
-        platform: mapPlatformName(preview.platform || 'direct'),
-        listingName: preview.listing_name || preview.propertyName,
-        // Financial fields
-        nightlyRate: parseFloat(preview.nightly_rate || preview.nightlyRate) || undefined,
-        extraGuestFees: parseFloat(preview.extra_guest_fees || preview.extraGuestFees) || undefined,
-        cleaningFee: parseFloat(preview.cleaning_fee || preview.cleaningFee) || undefined,
-        lodgingTax: parseFloat(preview.lodging_tax || preview.lodgingTax) || undefined,
-        bedLinenFee: parseFloat(preview.bed_linen_fee || preview.bedLinenFee) || undefined,
-        gst: parseFloat(preview.gst) || undefined,
-        qst: parseFloat(preview.qst) || undefined,
-        channelFee: parseFloat(preview.channel_fee || preview.channelFee) || undefined,
-        stripeFee: parseFloat(preview.stripe_fee || preview.stripeFee) || undefined,
-        salesTax: parseFloat(preview.sales_tax || preview.salesTax) || undefined,
-        totalPayout: parseFloat(preview.total_payout || preview.totalAmount || preview.totalPayout) || undefined,
-        mgmtFee: parseFloat(preview.mgmt_fee || preview.mgmtFee) || undefined,
-        netEarnings: parseFloat(preview.net_earnings || preview.netAmount || preview.netEarnings) || undefined,
-      }
+  // All booking conversion logic moved to PreviewStep!
+  // ProcessStep now only handles the upload process
 
-      return payload
-    })
-  }
-
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return new Date().toISOString().split('T')[0]
-    
-    try {
-      const date = new Date(dateString)
-      return date.toISOString().split('T')[0]
-    } catch {
-      return new Date().toISOString().split('T')[0]
-    }
-  }
-
-  const mapPlatformName = (platform: string): 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' => {
-    const platformLower = platform.toLowerCase()
-    
-    if (platformLower.includes('airbnb')) return 'airbnb'
-    if (platformLower.includes('booking')) return 'booking'
-    if (platformLower.includes('google')) return 'google'
-    if (platformLower.includes('wechalet') || platformLower.includes('we chalet')) return 'wechalet'
-    if (platformLower.includes('monsieur') || platformLower.includes('chalets')) return 'monsieurchalets'
-    
-    return 'direct'
-  }
-
-  const generateImportStats = (bookingPayloads: CreateBookingPayload[], bulkResult: any) => {
+  // Multi-property import statistics
+  const generateMultiPropertyImportStats = (bookingPayloads: CreateBookingPayload[], createdBookings: any[], propertyIdMap: Record<string, string>, fieldEditCount: number = 0) => {
     const totalBookings = bookingPayloads.length
     const totalRevenue = bookingPayloads.reduce((sum, booking) => 
       sum + (booking.totalPayout || 0), 0)
     
     const platformBreakdown = bookingPayloads.reduce((acc, booking) => {
       acc[booking.platform] = (acc[booking.platform] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // Property breakdown
+    const propertyBreakdown = bookingPayloads.reduce((acc, booking) => {
+      const propertyName = booking.listingName || 'Unknown Property'
+      acc[propertyName] = (acc[propertyName] || 0) + 1
       return acc
     }, {} as Record<string, number>)
 
@@ -239,16 +296,19 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
 
     return {
       bookingsImported: totalBookings,
-      propertiesUpdated: 1,
+      propertiesProcessed: Object.keys(propertyIdMap).length,
       totalRevenue,
       calculationStatus: '100%',
       dateRange: {
         start: dates[0] || new Date().toISOString().split('T')[0],
         end: dates[dates.length - 1] || new Date().toISOString().split('T')[0]
       },
-      platformBreakdown
+      platformBreakdown,
+      propertyBreakdown,
+      fieldEditsApplied: fieldEditCount
     }
   }
+
 
   const getStatusIcon = () => {
     if (error) return <ExclamationTriangleIcon className="h-12 w-12 text-red-600" />
@@ -350,6 +410,14 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
                 {Object.keys(importStats.platformBreakdown).length}
               </div>
             </div>
+            {importStats.fieldEditsApplied > 0 && (
+              <div>
+                <span className="text-green-700">Field Edits:</span>
+                <div className="font-semibold text-green-900">
+                  {importStats.fieldEditsApplied}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

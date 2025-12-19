@@ -1,18 +1,22 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useRef } from 'react'
+import { ChevronDownIcon, CheckIcon, PlusIcon, FolderIcon } from '@heroicons/react/24/outline'
 import { 
   CsvData, 
   Platform, 
   FieldMapping, 
+  CompleteFieldMappingState,
   REQUIRED_BOOKING_FIELDS, 
   OPTIONAL_BOOKING_FIELDS,
   PLATFORM_OPTIONS 
 } from '@/services/types/csvMapping'
 import { CalculationRule } from '@/services/types/calculationRule'
 import { suggestMappings, validateMappings } from '@/utils/csvParser'
+import { getTemplateRulesByName } from '@/services/calculationRuleService'
 import CalculationRuleModal from '@/components/calculation-rules/calculationRuleModal'
+import { useUserStore } from '@/store/useUserStore'
+import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface FieldMappingFormProps {
   csvData: CsvData
@@ -20,6 +24,10 @@ interface FieldMappingFormProps {
   onValidationChange: (isValid: boolean) => void
   calculationRules?: CalculationRule[]
   selectedProperty?: any
+  onRefreshRules?: () => Promise<void>
+  initialFieldMappings?: FieldMapping[]
+  initialCompleteState?: CompleteFieldMappingState
+  onCompleteStateChange?: (completeState: CompleteFieldMappingState) => void
 }
 
 const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
@@ -27,20 +35,58 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   onMappingsChange,
   onValidationChange,
   calculationRules = [],
-  selectedProperty
+  selectedProperty,
+  onRefreshRules,
+  initialFieldMappings,
+  initialCompleteState,
+  onCompleteStateChange
 }) => {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('ALL')
-  const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>({
-    'ALL': {},
-    'airbnb': {},
-    'booking': {},
-    'google': {},
-    'direct': {},
-    'wechalet': {},
-    'monsieurchalets': {},
-    'direct-etransfer': {},
-    'vrbo': {},
-    'hostaway': {}
+  
+  // Initialize platform mappings with initial data instead of empty state
+  const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>(() => {
+    // If we have initial field mappings, use them to initialize the state
+    if (initialFieldMappings && initialFieldMappings.length > 0) {
+      const initialMappings: Record<Platform, Record<string, string>> = {
+        'ALL': {},
+        'airbnb': {},
+        'booking': {},
+        'google': {},
+        'direct': {},
+        'wechalet': {},
+        'monsieurchalets': {},
+        'direct-etransfer': {},
+        'vrbo': {},
+        'hostaway': {}
+      }
+      
+      initialFieldMappings.forEach(mapping => {
+        const platform = mapping.platform || 'ALL'
+        initialMappings[platform][mapping.bookingField] = mapping.csvFormula
+      })
+      
+      return initialMappings
+    }
+    
+    // If we have complete state, use its platform mappings
+    if (initialCompleteState) {
+      return initialCompleteState.platformMappings
+    }
+    
+    // Default empty state
+    
+    return {
+      'ALL': {},
+      'airbnb': {},
+      'booking': {},
+      'google': {},
+      'direct': {},
+      'wechalet': {},
+      'monsieurchalets': {},
+      'direct-etransfer': {},
+      'vrbo': {},
+      'hostaway': {}
+    }
   })
   const [hasBaseMappings, setHasBaseMappings] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
@@ -50,6 +96,24 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   
   // Custom fields modal state
   const [isCustomFieldsModalOpen, setIsCustomFieldsModalOpen] = useState(false)
+  const [loadedCalculationRules, setLoadedCalculationRules] = useState<CalculationRule[]>([])
+
+  const { profile } = useUserStore()
+  const { showNotification } = useNotificationStore()
+  
+  // Platform override state
+  const [platformOverride, setPlatformOverride] = useState<string>('')
+  const [isPlatformOverrideActive, setIsPlatformOverrideActive] = useState(false)
+  
+  // Track previous props to detect changes
+  const prevCompleteStateRef = useRef<string | undefined>(undefined)
+  const prevFieldMappingsRef = useRef<string | undefined>(undefined)
+  // Set hasRestoredRef to true if we initialized with data
+  const hasRestoredRef = useRef(
+    (initialFieldMappings && initialFieldMappings.length > 0) || !!initialCompleteState
+  )
+  // Track the last emitted complete state to prevent duplicate emissions
+  const lastEmittedStateRef = useRef<string | undefined>(undefined)
   
   const getFieldInputMode = (fieldName: string): 'dropdown' | 'formula' => {
     const key = `${fieldName}_${selectedPlatform}`
@@ -64,14 +128,29 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     }))
   }
 
-  // Auto-suggest mappings for ALL platform when CSV data changes
+  // Simplified initialization effect - only handle auto-suggestions for truly empty forms
   useEffect(() => {
-    const suggestions = suggestMappings(csvData.headers)
-    setPlatformMappings(prev => ({
-      ...prev,
-      'ALL': suggestions
-    }))
-  }, [csvData])
+    
+    // Only auto-suggest if we have no initial data and haven't already restored
+    const shouldInitialize = !initialCompleteState && 
+      (!initialFieldMappings || initialFieldMappings.length === 0) && 
+      !hasRestoredRef.current
+
+
+    if (shouldInitialize && csvData?.headers) {
+      
+      // First time initialization - auto-suggest mappings
+      const suggestions = suggestMappings(csvData.headers)
+      
+      setPlatformMappings(prev => ({
+        ...prev,
+        'ALL': suggestions
+      }))
+      hasRestoredRef.current = true
+    } else {
+      console.log('⏹️ INITIALIZATION: No action needed - form already has data or no CSV')
+    }
+  }, [csvData, initialFieldMappings, initialCompleteState])
 
   // Validate ALL platform mappings
   useEffect(() => {
@@ -86,7 +165,17 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   }, [platformMappings])
 
   // Convert platform mappings to FieldMapping array
-  useEffect(() => {
+  useEffect(() => {    
+    // Check if platformMappings are empty (this indicates a reset)
+    const allPlatformsEmpty = Object.values(platformMappings).every(platform => 
+      Object.keys(platform).length === 0
+    )
+    
+    // Only emit changes after we've finished initial setup
+    if (!hasRestoredRef.current) {
+      return
+    }
+
     const fieldMappings: FieldMapping[] = []
     
     // Add ALL platform mappings
@@ -120,6 +209,62 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     onMappingsChange(fieldMappings)
   }, [platformMappings])
 
+  // Emit complete state changes for persistence (with deduplication and debouncing)
+  useEffect(() => {
+    if (onCompleteStateChange && hasRestoredRef.current) {
+      // Only start emitting after we've finished restoring
+      const timer = setTimeout(() => {
+        const fieldMappings: FieldMapping[] = []
+        
+        // Convert platform mappings to field mappings
+        Object.entries(platformMappings['ALL'])
+          .filter(([_, csvFormula]) => csvFormula.trim() !== '')
+          .forEach(([bookingField, csvFormula]) => {
+            fieldMappings.push({
+              bookingField,
+              csvFormula,
+              platform: 'ALL',
+              isOverride: false
+            })
+          })
+        
+        Object.entries(platformMappings).forEach(([platform, mappings]) => {
+          if (platform !== 'ALL') {
+            Object.entries(mappings)
+              .filter(([_, csvFormula]) => csvFormula.trim() !== '')
+              .forEach(([bookingField, csvFormula]) => {
+                fieldMappings.push({
+                  bookingField,
+                  csvFormula,
+                  platform: platform as Platform,
+                  isOverride: true
+                })
+              })
+          }
+        })
+
+        const completeState: CompleteFieldMappingState = {
+          fieldMappings,
+          platformMappings,
+          fieldInputModes,
+          selectedPlatform,
+          platformOverride,
+          isPlatformOverrideActive,
+          hasBaseMappings
+        }
+        
+        // Only emit if the state has actually changed
+        const currentStateKey = JSON.stringify(completeState)
+        if (currentStateKey !== lastEmittedStateRef.current) {
+          onCompleteStateChange(completeState)
+          lastEmittedStateRef.current = currentStateKey
+        }
+      }, 50) // 50ms debounce
+
+      return () => clearTimeout(timer)
+    }
+  }, [platformMappings, fieldInputModes, selectedPlatform, platformOverride, isPlatformOverrideActive, hasBaseMappings, onCompleteStateChange])
+
   // Load mappings when calculation rules change
   useEffect(() => {
     if (calculationRules && calculationRules.length > 0) {
@@ -128,11 +273,70 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   }, [calculationRules])
 
   const handleMappingChange = (bookingField: string, csvFormula: string) => {
+    // Check if the selected value is a custom field (calculation rule) from both sources
+    const allRules = [...calculationRules, ...loadedCalculationRules]
+    const customField = allRules.find(rule => 
+      rule.bookingField === csvFormula && rule.isActive
+    )
+    
+    if (customField) {
+      
+      // Auto-fill the formula from the calculation rule
+      setPlatformMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [selectedPlatform]: {
+            ...prev[selectedPlatform],
+            [bookingField]: customField.csvFormula // Use the actual formula, not the field name
+          }
+        }
+        
+        return newMappings
+      })
+      
+      // Switch to formula mode since this is a calculated field
+      setFieldInputMode(bookingField, 'formula')
+    } else {
+      
+      // Regular CSV column mapping
+      setPlatformMappings(prev => {
+        const newMappings = {
+          ...prev,
+          [selectedPlatform]: {
+            ...prev[selectedPlatform],
+            [bookingField]: csvFormula
+          }
+        }
+        
+        return newMappings
+      })
+    }
+  }
+
+  const handlePlatformOverride = (platform: string) => {
+    setPlatformOverride(platform)
+    setIsPlatformOverrideActive(true)
+    
+    // Set the platform mapping to the override value
     setPlatformMappings(prev => ({
       ...prev,
       [selectedPlatform]: {
         ...prev[selectedPlatform],
-        [bookingField]: csvFormula
+        'platform': `PLATFORM:${platform}`
+      }
+    }))
+  }
+
+  const clearPlatformOverride = () => {
+    setIsPlatformOverrideActive(false)
+    setPlatformOverride('')
+    
+    // Clear the platform mapping
+    setPlatformMappings(prev => ({
+      ...prev,
+      [selectedPlatform]: {
+        ...prev[selectedPlatform],
+        'platform': ''
       }
     }))
   }
@@ -143,42 +347,29 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return
     }
 
-    // Merge calculation rules with existing mappings (preserve algorithmic suggestions)
-    setPlatformMappings(prev => {
-      const updatedMappings = { ...prev }
-      
-      // Group rules by platform and merge with existing mappings
-      calculationRules.forEach(rule => {
-        const platform = rule.platform as Platform
-        if (platform in updatedMappings) {
-          // Only override if the field isn't already mapped or if it's empty
-          const existingValue = updatedMappings[platform][rule.bookingField]
-          if (!existingValue || existingValue.trim() === '') {
-            updatedMappings[platform] = {
-              ...updatedMappings[platform],
-              [rule.bookingField]: rule.csvFormula
-            }
-          }
-        }
+    const activeRules = calculationRules.filter(rule => rule.isActive === true)
+    
+    if (activeRules.length === 0) {
+      return
+    }
+
+    // Do NOT push rules into platformMappings.
+    // Let them appear only as "custom fields" that the user can select.
+
+    setFieldInputModes(prev => {
+      const next = { ...prev }
+      const headerNames = csvData.headers.map(h => h.name.toLowerCase())
+
+      activeRules.forEach(rule => {
+        const key = `${rule.bookingField}_${rule.platform}`
+        const isSimpleColumn = headerNames.includes(rule.csvFormula.toLowerCase())
+        next[key] = isSimpleColumn ? 'dropdown' : 'formula'
       })
 
-      return updatedMappings
+      return next
     })
-
-    // Set input modes for formula fields
-    const newFieldInputModes: Record<string, 'dropdown' | 'formula'> = {}
-    calculationRules.forEach(rule => {
-      const key = `${rule.bookingField}_${rule.platform}`
-      // If the formula is not a simple column name, it's a formula
-      const headerNames = csvData.headers.map(h => h.name)
-      if (!headerNames.includes(rule.csvFormula)) {
-        newFieldInputModes[key] = 'formula'
-      } else {
-        newFieldInputModes[key] = 'dropdown'
-      }
-    })
-    setFieldInputModes(newFieldInputModes)
   }
+
 
   const handleSaveBaseMappings = () => {
     if (hasBaseMappings) {
@@ -204,6 +395,27 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
            platformMappings['ALL'][fieldName] !== undefined
   }
 
+  // Load rules from a specific template (called from CalculationRuleModal)
+  const handleLoadTemplateRules = async (templateName: string) => {
+    if (!profile?.id) {
+      showNotification('User not found', 'error')
+      return
+    }
+
+    try {
+      const response = await getTemplateRulesByName(profile.id, templateName)
+      if (response.status === 'success') {
+        setLoadedCalculationRules(response.data)
+        showNotification(`Loaded ${response.data.length} rules from template "${templateName}"`, 'success')
+      } else {
+        showNotification(response.message || 'Failed to load template rules', 'error')
+      }
+    } catch (error) {
+      console.error('Error loading template rules:', error)
+      showNotification('Error loading template rules', 'error')
+    }
+  }
+
   const getHeaderOptions = (): Array<{ value: string; label: string; disabled?: boolean }> => {
     const csvOptions = csvData.headers.map(header => ({
       value: header.name,
@@ -211,14 +423,15 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       disabled: false
     }))
 
-    // Get active custom fields for the current platform
-    const customFieldsForPlatform = calculationRules.filter(rule => 
+    // Get active custom fields for the current platform (from both props and loaded rules)
+    const allRules = [...calculationRules, ...loadedCalculationRules]
+    const customFieldsForPlatform = allRules.filter(rule => 
       rule.isActive && (rule.platform === selectedPlatform || rule.platform === 'ALL')
     )
 
     const customFieldOptions = customFieldsForPlatform.map(rule => ({
       value: rule.bookingField,
-      label: `${rule.bookingField} (custom field)`,
+      label: `${rule.bookingField} (${rule.templateName || 'custom field'})`,
       disabled: false
     }))
 
@@ -261,19 +474,25 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return [...new Set(columns)] // Remove duplicates
     }
 
-    const getMappedOptionalFields = () => {
-      // Get optional booking fields that are already mapped on ALL platform
-      const allMappings = platformMappings['ALL']
-      const mappedOptionalFields = OPTIONAL_BOOKING_FIELDS.filter(field => {
-        const isMapped = allMappings[field.field] && allMappings[field.field].trim() !== ''
-        const isNumeric = ['number'].includes(field.type) || 
-                         ['total_price', 'accommodation_fee', 'cleaning_fee', 'airbnb_sales_tax', 
-                          'lodging_tax', 'non_airbnb_sales_tax', 'other_guest_fees', 'channel_fee', 
-                          'payment_fees', 'total_payout', 'net_earnings'].includes(field.field)
-        return isMapped && isNumeric
-      })
+    const getNumericCsvHeaders = () => {
+      // Get CSV headers that look numeric/financial for quick insert
+      const usedHeaders = new Set(Object.values(platformMappings['ALL']).filter(val => val.trim() !== ''))
       
-      return mappedOptionalFields.map(field => field.field)
+      return csvData.headers.filter(header => {
+        // Exclude text-based headers (guest info, reservations, etc.)
+        const textPatterns = ['guest', 'name', 'channel', 'platform', 'listing', 'property', 'reservation', 'confirmation', 'code', 'id']
+        const headerLower = header.name.toLowerCase().replace(/[^a-z]/g, '')
+        const isTextHeader = textPatterns.some(pattern => headerLower.includes(pattern))
+        
+        // Exclude date fields 
+        const isDateHeader = headerLower.includes('date') || headerLower.includes('checkin') || headerLower.includes('checkout')
+        
+        // Exclude already used headers
+        const isAlreadyUsed = usedHeaders.has(header.name)
+        
+        // Include if it looks numeric and not already used
+        return !isTextHeader && !isDateHeader && !isAlreadyUsed
+      }).slice(0, 8) // Limit to first 8 to avoid UI overflow
     }
     
     return (
@@ -295,6 +514,11 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                 </span>
                 {isRequired && selectedPlatform === 'ALL' && (
                   <span className="text-xs text-red-500">Required</span>
+                )}
+                {field.field === 'platform' && isPlatformOverrideActive && platformOverride && (
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                    🎯 Overridden: {PLATFORM_OPTIONS.find(opt => opt.value === platformOverride)?.label}
+                  </span>
                 )}
                 {isRequired && selectedPlatform !== 'ALL' && (
                   <span className="text-xs text-gray-500">🔒 Required (Inherited)</span>
@@ -374,20 +598,21 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                   />
                 </div>
                 
-                {/* Quick Insert Buttons - Mapped optional booking fields */}
+                {/* Quick Insert Buttons - Available CSV headers */}
                 <div className="flex flex-wrap gap-1">
                   <span className="text-xs text-gray-500 mr-2">Quick insert:</span>
-                  {getMappedOptionalFields().slice(0, 6).map(fieldName => (
+                  {getNumericCsvHeaders().map(header => (
                     <button
-                      key={fieldName}
+                      key={header.name}
                       type="button"
                       onClick={() => {
-                        const newValue = currentValue + `[${fieldName}]`
+                        const newValue = currentValue + `${header.name}`
                         handleMappingChange(field.field, newValue)
                       }}
-                      className="cursor-pointer text-black px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+                      className="cursor-pointer text-black px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded border"
+                      title={`Insert ${header.name}${header.sampleValue ? ` (e.g. ${header.sampleValue})` : ''}`}
                     >
-                      [{fieldName}]
+                      {header.name}
                     </button>
                   ))}
                   <button
@@ -466,6 +691,47 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                   ))}
                 </select>
                 <ChevronDownIcon className="h-4 w-4 text-gray-400 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                
+                {/* Platform Override Button - Show only for platform field */}
+                {field.field === 'platform' && (
+                  <div className="ml-2">
+                    {!isPlatformOverrideActive ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsPlatformOverrideActive(true)}
+                          className="px-3 py-2 text-xs bg-orange-100 text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-200 transition-colors flex items-center"
+                          title="Override platform - useful when CSV doesn't have a platform column"
+                        >
+                          🎯 Override
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={platformOverride}
+                          onChange={(e) => handlePlatformOverride(e.target.value)}
+                          className="text-black px-2 py-1 text-xs border border-orange-300 rounded bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          <option value="">Select Platform...</option>
+                          {PLATFORM_OPTIONS.filter(opt => opt.value !== 'ALL').map(opt => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={clearPlatformOverride}
+                          className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800"
+                          title="Clear platform override"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -519,7 +785,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
             </div>
             
             {/* Custom Fields Button */}
-            {selectedProperty && (
+            
               <button
                 type="button"
                 onClick={() => setIsCustomFieldsModalOpen(true)}
@@ -528,7 +794,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                 <PlusIcon className="h-4 w-4 mr-1" />
                 Custom Fields
               </button>
-            )}
+            
           </div>
         </div>
         
@@ -628,11 +894,14 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       <CalculationRuleModal
         isOpen={isCustomFieldsModalOpen}
         onClose={() => setIsCustomFieldsModalOpen(false)}
-        propertyId={selectedProperty?.id}
-        propertyName={selectedProperty?.listingName}
+        userId={profile?.id}
+        onTemplateSelect={handleLoadTemplateRules}
         onRulesUpdate={(updatedRules) => {
-          // Optionally refresh calculation rules when modal closes
+          // Refresh calculation rules when new rules are created
           console.log('Custom fields updated:', updatedRules)
+          if (onRefreshRules) {
+            onRefreshRules()
+          }
         }}
       />
     </div>

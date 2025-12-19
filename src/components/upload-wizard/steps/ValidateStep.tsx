@@ -21,6 +21,10 @@ interface ValidateStepProps {
   validationState?: any
   onValidationComplete?: (state: any) => void
   selectedProperty?: any
+  fieldMappings?: FieldMapping[] // Legacy persisted field mappings
+  onFieldMappingsUpdate?: (mappings: FieldMapping[]) => void // Legacy callback for updates
+  completeFieldMappingState?: any // Complete field mapping state including formulas
+  onCompleteFieldMappingStateUpdate?: (completeState: any) => void // Complete state callback
 }
 
 const ValidateStep: React.FC<ValidateStepProps> = ({
@@ -32,10 +36,14 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
   uploadedFile,
   validationState,
   onValidationComplete,
-  selectedProperty
+  selectedProperty,
+  fieldMappings: persistedFieldMappings,
+  onFieldMappingsUpdate,
+  completeFieldMappingState,
+  onCompleteFieldMappingStateUpdate
 }) => {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([])
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(persistedFieldMappings || [])
   const [isValidMappings, setIsValidMappings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -103,25 +111,106 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
     }
   }, [selectedProperty?.id])
 
+  // Update field mappings when persisted mappings change (e.g., when navigating back)
+  useEffect(() => {
+    // Restore from persisted mappings if we have them and current is empty
+    if (persistedFieldMappings && persistedFieldMappings.length > 0 && fieldMappings.length === 0) {
+      setFieldMappings(persistedFieldMappings)
+      showNotification('Field mappings restored from previous session', 'info')
+    }
+  }, [persistedFieldMappings]) // Run when persistedFieldMappings change
+
+  // Extract unique listing names from CSV data
+  const extractUniqueListings = (csvData: any, fieldMappings: any[]): string[] => {
+    const listingMapping = fieldMappings.find(m => m.bookingField === 'listing_name' || m.bookingField === 'listingName')
+    
+    if (!listingMapping || !listingMapping.csvFormula || !csvData) {
+      return []
+    }
+    
+    // Find the column index for the listing name
+    const listingColumnIndex = csvData.headers.findIndex((h: any) => 
+      h.name.toLowerCase() === listingMapping.csvFormula.toLowerCase()
+    )
+    
+    if (listingColumnIndex === -1) {
+      return []
+    }
+    
+    // Extract unique listing names from all rows
+    const listings = csvData.rows
+      .map((row: string[]) => row[listingColumnIndex])
+      .filter((listing: string) => listing && listing.trim())
+      .map((listing: string) => listing.trim())
+    
+    // Return unique listings sorted alphabetically
+    return [...new Set(listings as string[])].sort()
+  }
+
+  // Count bookings per listing name
+  const countBookingsPerListing = (csvData: any, fieldMappings: any[], uniqueListings: string[]): Record<string, number> => {
+    const listingMapping = fieldMappings.find(m => m.bookingField === 'listing_name' || m.bookingField === 'listingName')
+    
+    if (!listingMapping || !listingMapping.csvFormula || !csvData) {
+      return {}
+    }
+    
+    const listingColumnIndex = csvData.headers.findIndex((h: any) => 
+      h.name.toLowerCase() === listingMapping.csvFormula.toLowerCase()
+    )
+    
+    if (listingColumnIndex === -1) {
+      return {}
+    }
+    
+    const counts: Record<string, number> = {}
+    
+    csvData.rows.forEach((row: string[]) => {
+      const listing = row[listingColumnIndex]?.trim()
+      if (listing) {
+        counts[listing] = (counts[listing] || 0) + 1
+      }
+    })
+    
+    return counts
+  }
+
   // Update validation state when mappings change
   useEffect(() => {
-    if (onValidationComplete) {
+    if (onValidationComplete && csvData) {
+      const uniqueListings = extractUniqueListings(csvData, fieldMappings)
+      const bookingCounts = countBookingsPerListing(csvData, fieldMappings, uniqueListings)
+      
       onValidationComplete({
         fieldMappings,
         results: {
           isValid: isValidMappings
         },
-        csvData
+        csvData,
+        uniqueListings,
+        bookingCounts
       })
     }
   }, [fieldMappings, isValidMappings, csvData, onValidationComplete])
 
   const handleMappingsChange = (mappings: FieldMapping[]) => {
+    console.log('ValidateStep - Field mappings being sent to wizard:', mappings)
+    console.log('ValidateStep - Platform overrides being sent:', mappings.filter(m => m.isOverride === true))
+    
     setFieldMappings(mappings)
+    // Update the wizard state with the new mappings
+    if (onFieldMappingsUpdate) {
+      onFieldMappingsUpdate(mappings)
+    }
   }
 
   const handleValidationChange = (isValid: boolean) => {
     setIsValidMappings(isValid)
+  }
+
+  // Function to refresh calculation rules (to be passed to FieldMappingForm)
+  const refreshCalculationRules = async () => {
+    await loadCalculationRules()
   }
 
   if (loading) {
@@ -213,6 +302,14 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         onValidationChange={handleValidationChange}
         calculationRules={calculationRules}
         selectedProperty={selectedProperty}
+        onRefreshRules={refreshCalculationRules}
+        initialFieldMappings={fieldMappings}
+        initialCompleteState={completeFieldMappingState}
+        onCompleteStateChange={(completeState) => {
+          if (onCompleteFieldMappingStateUpdate) {
+            onCompleteFieldMappingStateUpdate(completeState)
+          }
+        }}
       />
 
       {/* Action Buttons */}

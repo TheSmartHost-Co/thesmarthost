@@ -7,39 +7,55 @@ export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wec
 
 /**
  * Main Calculation Rule interface
- * Matches backend response structure
+ * Matches backend response structure (now user-based with templates)
  */
 export interface CalculationRule {
   id: string;
-  propertyId: string;
-  userId?: string;
+  userId: string;
+  templateId?: string;
   platform: Platform;
   bookingField: string;
   csvFormula: string;
   priority?: number;
   isActive: boolean;
   notes?: string;
-  propertyName?: string;
+  templateName?: string;
+  templateDescription?: string;
+  isTemplateDefault?: boolean;
   userName?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 /**
- * User custom field for templates
+ * Template summary interface
+ */
+export interface CalculationRuleTemplate {
+  templateId: string;
+  templateName: string;
+  templateDescription?: string;
+  isTemplateDefault: boolean;
+  ruleCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * User custom field for suggestions
  */
 export interface UserCustomField {
   bookingField: string;
   csvFormula: string;
   usageCount: number;
+  usedInTemplates?: string;
 }
 
 /**
  * Payload for creating a new calculation rule
  */
 export interface CreateCalculationRulePayload {
-  propertyId: string;
-  userId?: string;
+  userId: string;
+  templateId?: string;
   platform: Platform;
   bookingField: string;
   csvFormula: string;
@@ -57,22 +73,37 @@ export interface UpdateCalculationRulePayload {
   priority?: number;
   isActive?: boolean;
   notes?: string;
+  templateId?: string;
 }
 
 /**
- * Bulk rule creation payload
+ * Template creation payload
  */
-export interface BulkCalculationRulePayload {
-  propertyId: string;
-  userId?: string;
-  rules: {
+export interface CreateTemplatePayload {
+  userId: string;
+  templateName: string;
+  templateDescription?: string;
+  isTemplateDefault?: boolean;
+  rules?: {
     platform: Platform;
     bookingField: string;
     csvFormula: string;
     priority?: number;
     notes?: string;
   }[];
+  copyFromTemplateId?: string;
 }
+
+/**
+ * Template update payload
+ */
+export interface UpdateTemplatePayload {
+  userId: string;
+  templateName?: string;
+  templateDescription?: string;
+  isTemplateDefault?: boolean;
+}
+
 
 /**
  * API response for single calculation rule
@@ -93,6 +124,15 @@ export interface CalculationRulesResponse {
 }
 
 /**
+ * API response for templates
+ */
+export interface CalculationRuleTemplatesResponse {
+  status: 'success' | 'failed';
+  data: CalculationRuleTemplate[];
+  message?: string;
+}
+
+/**
  * API response for user custom fields
  */
 export interface UserCustomFieldsResponse {
@@ -101,14 +141,6 @@ export interface UserCustomFieldsResponse {
   message?: string;
 }
 
-/**
- * API response for bulk creation
- */
-export interface BulkCalculationRuleResponse {
-  status: 'success' | 'failed';
-  data: CalculationRule[];
-  message: string;
-}
 
 /**
  * API response for delete operation
@@ -116,4 +148,35 @@ export interface BulkCalculationRuleResponse {
 export interface DeleteCalculationRuleResponse {
   status: 'success' | 'failed';
   message: string;
+}
+
+/**
+ * Template data interface
+ */
+export interface TemplateData {
+  templateId: string;
+  templateName: string;
+  templateDescription?: string;
+  isTemplateDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  rulesCount?: number;
+}
+
+/**
+ * API response for template creation
+ */
+export interface CreateTemplateResponse {
+  status: 'success' | 'failed';
+  data?: TemplateData;
+  message: string;
+}
+
+/**
+ * API response for template update
+ */
+export interface UpdateTemplateResponse {
+  status: 'success' | 'failed';
+  data?: TemplateData;
+  message?: string;
 }

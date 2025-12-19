@@ -1,14 +1,17 @@
 // Upload Wizard Types for HostMetrics Booking Import
 
+import { FieldMapping } from '@/services/types/csvMapping'
+
 /**
  * Wizard Step Enumeration
  */
 export enum WizardStep {
   UPLOAD = 1,
-  VALIDATE = 2,
-  PREVIEW = 3,
-  PROCESS = 4,
-  COMPLETE = 5,
+  PROPERTY_IDENTIFICATION = 2,
+  FIELD_MAPPING = 3,
+  PREVIEW = 4,
+  PROCESS = 5,
+  COMPLETE = 6,
 }
 
 /**
@@ -49,6 +52,7 @@ export enum RequiredField {
   RESERVATION_ID = 'reservationId',
   GUEST_NAME = 'guestName',
   PROPERTY_NAME = 'propertyName',
+  LISTING_NAME = 'listingName',
   CHECK_IN_DATE = 'checkInDate',
   CHECK_OUT_DATE = 'checkOutDate',
   TOTAL_AMOUNT = 'totalAmount',
@@ -177,6 +181,10 @@ export interface ValidationState {
     end: string
   }
   detectedPlatforms: string[]
+  uniqueListings?: string[]           // Extracted listing names for property mapping
+  bookingCounts?: Record<string, number>  // Count of bookings per listing
+  fieldMappings?: any[]              // Field mappings from validation step
+  csvData?: any                      // CSV data for preview step
 }
 
 /**
@@ -236,6 +244,68 @@ export interface CompletionState {
 }
 
 /**
+ * Property mapping for multi-property uploads
+ */
+export interface PropertyMapping {
+  listingName: string               // "Casa Madera"
+  propertyId: string | null         // Selected existing property ID
+  isNewProperty?: boolean           // Creating new property flag
+  newPropertyData?: {               // New property details
+    name: string
+    listingId: string
+    externalName?: string
+    internalName?: string
+    address: string
+    postalCode: string
+    province: string
+    propertyType: 'STR' | 'LTR'
+    commissionRate: number
+    clientId: string
+    newClientData?: {               // For inline client creation
+      name: string
+      email: string
+    }
+  }
+  bookingCount?: number            // How many bookings for this listing
+}
+
+/**
+ * Field mapping mode for CSV processing
+ */
+export type FieldMappingMode = 'global' | 'per-property'
+
+
+/**
+ * Field mapping state (replaces validation state for field mappings)
+ */
+export interface FieldMappingState {
+  mappingMode: FieldMappingMode
+  globalMappings?: FieldMapping[]
+  propertyMappings?: {
+    [propertyId: string]: {
+      fieldMappings: FieldMapping[]
+      platformOverrides?: {
+        [platform: string]: FieldMapping[]
+      }
+    }
+  }
+  isValid: boolean
+  csvData?: any // CSV data carried forward from upload
+  uniqueListings?: string[] // Carried forward from property identification
+}
+
+/**
+ * Property identification state (simplified from PropertyMappingState)
+ */
+export interface PropertyIdentificationState {
+  uniqueListings: string[]         // Extracted from CSV listing_name column
+  propertyMappings: PropertyMapping[]
+  isValid: boolean                 // All mappings complete and valid
+  totalBookings: number           // Total bookings across all properties
+  bookingCounts?: Record<string, number> // Count of bookings per listing
+}
+
+/**
  * Complete wizard state
  */
 export interface WizardState {
@@ -245,12 +315,22 @@ export interface WizardState {
   canGoNext: boolean
   
   // Step-specific states
-  selectedProperty?: any // Property object from property service
+  selectedProperty?: any // Property object from property service (legacy - for backwards compatibility)
   uploadedFile?: UploadedFile
+  validationState?: ValidationState // Legacy - to be deprecated
+  propertyIdentificationState?: PropertyIdentificationState // New - replaces propertyMappingState
+  fieldMappingState?: FieldMappingState // New - replaces validation for field mappings
+  propertyMappingState?: PropertyMappingState // Legacy - to be replaced by propertyIdentificationState
   previewState?: PreviewState
-  validationState?: ValidationState
   processingState?: ProcessingState
   completionState?: CompletionState
+  
+  // Field mappings to persist between steps
+  fieldMappings?: any[] // Persisted field mappings from validation step (legacy)
+  completeFieldMappingState?: any // Complete field mapping state including formulas (legacy)
+  
+  // Property mappings to persist between steps
+  propertyMappings?: PropertyMapping[] // Persisted property mappings from property mapping step
 }
 
 /**
@@ -262,10 +342,16 @@ export enum WizardActionType {
   PREV_STEP = 'PREV_STEP',
   SET_SELECTED_PROPERTY = 'SET_SELECTED_PROPERTY',
   SET_UPLOADED_FILE = 'SET_UPLOADED_FILE',
-  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_VALIDATION_STATE = 'SET_VALIDATION_STATE',
+  SET_PROPERTY_MAPPING_STATE = 'SET_PROPERTY_MAPPING_STATE',
+  SET_PROPERTY_IDENTIFICATION_STATE = 'SET_PROPERTY_IDENTIFICATION_STATE',
+  SET_FIELD_MAPPING_STATE = 'SET_FIELD_MAPPING_STATE',
+  SET_PREVIEW_STATE = 'SET_PREVIEW_STATE',
   SET_PROCESSING_STATE = 'SET_PROCESSING_STATE',
   SET_COMPLETION_STATE = 'SET_COMPLETION_STATE',
+  SET_FIELD_MAPPINGS = 'SET_FIELD_MAPPINGS',
+  SET_COMPLETE_FIELD_MAPPING_STATE = 'SET_COMPLETE_FIELD_MAPPING_STATE',
+  SET_PROPERTY_MAPPINGS = 'SET_PROPERTY_MAPPINGS',
   RESET_WIZARD = 'RESET_WIZARD',
 }
 
@@ -278,11 +364,27 @@ export type WizardAction =
   | { type: WizardActionType.PREV_STEP }
   | { type: WizardActionType.SET_SELECTED_PROPERTY; payload: any }
   | { type: WizardActionType.SET_UPLOADED_FILE; payload: UploadedFile }
-  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_VALIDATION_STATE; payload: ValidationState }
+  | { type: WizardActionType.SET_PROPERTY_MAPPING_STATE; payload: PropertyMappingState }
+  | { type: WizardActionType.SET_PROPERTY_IDENTIFICATION_STATE; payload: PropertyIdentificationState }
+  | { type: WizardActionType.SET_FIELD_MAPPING_STATE; payload: FieldMappingState }
+  | { type: WizardActionType.SET_PREVIEW_STATE; payload: PreviewState }
   | { type: WizardActionType.SET_PROCESSING_STATE; payload: ProcessingState }
   | { type: WizardActionType.SET_COMPLETION_STATE; payload: CompletionState }
+  | { type: WizardActionType.SET_FIELD_MAPPINGS; payload: any[] }
+  | { type: WizardActionType.SET_COMPLETE_FIELD_MAPPING_STATE; payload: any }
+  | { type: WizardActionType.SET_PROPERTY_MAPPINGS; payload: PropertyMapping[] }
   | { type: WizardActionType.RESET_WIZARD }
+
+/**
+ * Property mapping step state
+ */
+export interface PropertyMappingState {
+  uniqueListings: string[]         // Extracted from CSV listing_name column
+  propertyMappings: PropertyMapping[]
+  isValid: boolean                 // All mappings complete and valid
+  totalBookings: number           // Total bookings across all properties
+}
 
 /**
  * Wizard configuration

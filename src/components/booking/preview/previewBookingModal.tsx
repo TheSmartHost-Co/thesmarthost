@@ -1,10 +1,13 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { Booking } from '@/services/types/booking'
 import { formatCurrency, formatPlatformName } from '@/services/bookingService'
-import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
+import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon } from '@heroicons/react/24/outline'
+import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
+import { FieldValueChanged } from '@/services/types/fieldValueChanged'
+import { useUserStore } from '@/store/useUserStore'
 
 interface PreviewBookingModalProps {
   isOpen: boolean
@@ -19,6 +22,36 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
   booking,
   onEditBooking,
 }) => {
+  const [fieldChanges, setFieldChanges] = useState<FieldValueChanged[]>([])
+  const [loadingFieldChanges, setLoadingFieldChanges] = useState(false)
+  const { profile } = useUserStore()
+
+  // Load field changes when modal opens
+  useEffect(() => {
+    const fetchFieldChanges = async () => {
+      if (!isOpen || !booking.id || !profile?.id) return
+
+      try {
+        setLoadingFieldChanges(true)
+        const response = await getFieldChangesByBooking({
+          bookingId: booking.id,
+          userId: profile.id
+        })
+        if (response.status === 'success') {
+          setFieldChanges(response.data)
+        } else {
+          setFieldChanges([])
+        }
+      } catch (error) {
+        console.error('Error fetching field changes:', error)
+        setFieldChanges([])
+      } finally {
+        setLoadingFieldChanges(false)
+      }
+    }
+
+    fetchFieldChanges()
+  }, [isOpen, booking.id, profile?.id])
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-CA', {
       weekday: 'long',
@@ -196,6 +229,74 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           )}
         </div>
       )}
+
+      {/* Field Change History */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <ClockIcon className="h-5 w-5" />
+          Field Change History
+        </h3>
+        
+        {loadingFieldChanges ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-sm text-gray-600">Loading change history...</span>
+          </div>
+        ) : fieldChanges.length > 0 ? (
+          <div className="space-y-4">
+            {fieldChanges.map((change) => (
+              <div key={change.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-medium text-gray-900">{formatFieldName(change.fieldName)}</span>
+                      <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                        Modified
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Original Value:</span>
+                        <div className="font-medium text-gray-900 mt-1">
+                          {change.originalValue ? formatCurrency(parseFloat(change.originalValue)) : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">New Value:</span>
+                        <div className="font-medium text-green-700 mt-1">
+                          {formatCurrency(parseFloat(change.editedValue))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {change.changeReason && (
+                      <div className="mt-3">
+                        <span className="text-gray-600 text-sm">Reason:</span>
+                        <p className="text-gray-900 text-sm mt-1 italic">"{change.changeReason}"</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="text-right text-xs text-gray-500 ml-4">
+                    <div>{new Date(change.changedAt).toLocaleDateString()}</div>
+                    <div>{new Date(change.changedAt).toLocaleTimeString()}</div>
+                    {change.changedBy && (
+                      <div className="mt-1 font-medium">by {change.changedBy}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <ClockIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">No field changes recorded for this booking.</p>
+            <p className="text-xs text-gray-400 mt-1">Changes made during CSV import will appear here.</p>
+          </div>
+        )}
+      </div>
 
       {/* Metadata */}
       <div className="mb-6">

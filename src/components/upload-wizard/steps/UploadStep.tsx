@@ -1,11 +1,8 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
-import { CloudArrowUpIcon, DocumentIcon, CheckCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
-import { getProperties } from '@/services/propertyService'
+import React, { useState, useRef } from 'react'
+import { CloudArrowUpIcon, DocumentIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Property } from '@/services/types/property'
-import { useUserStore } from '@/store/useUserStore'
-import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface UploadStepProps {
   onNext?: () => void
@@ -34,43 +31,10 @@ const UploadStep: React.FC<UploadStepProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const [properties, setProperties] = useState<Property[]>([])
-  const [loadingProperties, setLoadingProperties] = useState(true)
+  // Removed properties state - no longer needed for upload step
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  const { profile } = useUserStore()
-  const { showNotification } = useNotificationStore()
 
-  // Load properties on component mount
-  useEffect(() => {
-    const loadProperties = async () => {
-      if (!profile?.id) return
-
-      try {
-        setLoadingProperties(true)
-        const response = await getProperties(profile.id)
-        if (response.status === 'success') {
-          setProperties(response.data)
-        } else {
-          showNotification(response.message || 'Failed to load properties', 'error')
-        }
-      } catch (error) {
-        console.error('Error loading properties:', error)
-        showNotification('Error loading properties', 'error')
-      } finally {
-        setLoadingProperties(false)
-      }
-    }
-
-    loadProperties()
-  }, [profile?.id, showNotification])
-
-  const handlePropertySelect = (propertyId: string) => {
-    const property = properties.find(p => p.id === propertyId)
-    if (property && onPropertySelected) {
-      onPropertySelected(property)
-    }
-  }
+  // Removed property loading logic - handled in PropertyMappingStep now
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -154,42 +118,7 @@ const UploadStep: React.FC<UploadStepProps> = ({
         </p>
       </div>
 
-      {/* Property Selection */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Select Property
-        </label>
-        {loadingProperties ? (
-          <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-            <div className="animate-pulse flex space-x-2 items-center">
-              <div className="h-4 bg-gray-300 rounded w-16"></div>
-              <div className="h-4 bg-gray-300 rounded w-24"></div>
-            </div>
-          </div>
-        ) : (
-          <div className="relative">
-            <select
-              value={selectedProperty?.id || ''}
-              onChange={(e) => handlePropertySelect(e.target.value)}
-              className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-              required
-            >
-              <option value="">Select a property...</option>
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.listingName} ({property.address})
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-        )}
-        {properties.length === 0 && !loadingProperties && (
-          <p className="text-sm text-gray-500">
-            No properties found. Please add a property first.
-          </p>
-        )}
-      </div>
+      {/* Property Selection Removed - Now handled in PropertyMappingStep */}
 
       {!uploadedFile ? (
         <>
@@ -298,10 +227,10 @@ const UploadStep: React.FC<UploadStepProps> = ({
         
         <button
           onClick={onNext}
-          disabled={!canGoNext || !uploadedFile || !selectedProperty}
+          disabled={!canGoNext || !uploadedFile}
           className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Continue to Field Mapping
+          Continue to Property Identification Step
         </button>
       </div>
     </div>

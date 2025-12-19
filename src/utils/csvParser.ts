@@ -111,20 +111,16 @@ function parseCsvRow(row: string): string[] {
 export function suggestMappings(headers: CsvHeader[]): Record<string, string> {
   const suggestions: Record<string, string> = {}
   
+  // Only auto-suggest required fields - optional fields stay empty until user explicitly maps them
   const mappingRules = [
     { field: 'reservation_code', patterns: ['reservation id', 'confirmation', 'booking id', 'reference'] },
     { field: 'guest_name', patterns: ['guest', 'name', 'customer'] },
     { field: 'check_in_date', patterns: ['check-in', 'checkin', 'arrival', 'start date'] },
     { field: 'num_nights', patterns: ['nights', 'duration', 'stay'] },
     { field: 'platform', patterns: ['channel', 'platform', 'source'] },
-    { field: 'listing_name', patterns: ['listing', 'property', 'accommodation'] },
-    { field: 'total_price', patterns: ['total price', 'totalprice', 'amount', 'revenue'] },
-    { field: 'accommodation_fee', patterns: ['accommodation', 'base rate', 'room'] },
-    { field: 'cleaning_fee', patterns: ['cleaning', 'totalcleaning'] },
-    { field: 'lodging_tax', patterns: ['lodging', 'lodgingtx', 'tax'] },
-    { field: 'airbnb_sales_tax', patterns: ['airbnbsalestax', 'sales tax'] },
-    { field: 'payment_fees', patterns: ['payment', 'paymentfees', 'processing'] },
-    { field: 'channel_fee', patterns: ['channel fee', 'commission', 'hostsidechannelfee'] }
+    { field: 'listing_name', patterns: ['listing', 'property', 'accommodation'] }
+    // Removed optional field auto-suggestions:
+    // total_price, accommodation_fee, cleaning_fee, lodging_tax, airbnb_sales_tax, payment_fees, channel_fee
   ]
   
   headers.forEach(header => {

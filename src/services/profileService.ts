@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { ProfileResponse, ProfilesResponse } from './types/profile';
+import { ProfileResponse, ProfilesResponse, UpdateProfilePayload } from './types/profile';
 
 export function getUserProfile(userId: string): Promise<ProfileResponse> {
   return apiClient(`/profile/${userId}`, {
@@ -13,10 +13,10 @@ export function getProfilesByRole(role: string): Promise<ProfilesResponse> {
   });
 }
 
-export function updateUserProfile(userId: string, profileData: { fullName: string; role: string }): Promise<ProfileResponse> {
+export function updateUserProfile(userId: string, profileData: UpdateProfilePayload): Promise<ProfileResponse> {
   return apiClient(`/profile/${userId}`, {
     method: 'PUT',
-    body: JSON.stringify(profileData),
+    body: profileData,
   });
 }
 

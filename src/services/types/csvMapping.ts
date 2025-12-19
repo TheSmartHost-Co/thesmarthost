@@ -28,6 +28,19 @@ export interface FieldMapping {
   isOverride?: boolean // True if this overrides the ALL platform setting
 }
 
+// Complete state object that preserves all form state including formulas
+export interface CompleteFieldMappingState {
+  // The final field mappings array (what we currently save)
+  fieldMappings: FieldMapping[]
+  // All the internal state that needs to be preserved
+  platformMappings: Record<Platform, Record<string, string>>
+  fieldInputModes: Record<string, 'dropdown' | 'formula'>
+  selectedPlatform: Platform
+  platformOverride: string
+  isPlatformOverrideActive: boolean
+  hasBaseMappings: boolean
+}
+
 // Required booking fields that must be mapped
 export const REQUIRED_BOOKING_FIELDS: BookingField[] = [
   { field: 'reservation_code', label: 'Reservation Code', required: true, type: 'string' },
@@ -40,17 +53,19 @@ export const REQUIRED_BOOKING_FIELDS: BookingField[] = [
 
 // Optional booking fields that can be mapped
 export const OPTIONAL_BOOKING_FIELDS: BookingField[] = [
-  { field: 'total_price', label: 'Total Price', required: false, type: 'number' },
-  { field: 'accommodation_fee', label: 'Accommodation Fee', required: false, type: 'number' },
+  { field: 'nightly_rate', label: 'Nightly Rate', required: false, type: 'number' },
   { field: 'cleaning_fee', label: 'Cleaning Fee', required: false, type: 'number' },
-  { field: 'airbnb_sales_tax', label: 'Airbnb Sales Tax', required: false, type: 'number' },
-  { field: 'lodging_tax', label: 'Lodging Tax', required: false, type: 'number' },
-  { field: 'non_airbnb_sales_tax', label: 'Non-Airbnb Sales Tax', required: false, type: 'number' },
-  { field: 'other_guest_fees', label: 'Other Guest Fees', required: false, type: 'number' },
-  { field: 'channel_fee', label: 'Channel Fee', required: false, type: 'number' },
-  { field: 'payment_fees', label: 'Payment Fees', required: false, type: 'number' },
   { field: 'total_payout', label: 'Total Payout', required: false, type: 'number' },
-  { field: 'net_earnings', label: 'Net Earnings', required: false, type: 'number' }
+  { field: 'net_earnings', label: 'Net Earnings', required: false, type: 'number' },
+  { field: 'sales_tax', label: 'Sales Tax (Combined)', required: false, type: 'number' },
+  { field: 'mgmt_fee', label: 'Management Fee', required: false, type: 'number' },
+  { field: 'extra_guest_fees', label: 'Extra Guest Fees', required: false, type: 'number' },
+  { field: 'lodging_tax', label: 'Lodging Tax', required: false, type: 'number' },
+  { field: 'qst', label: 'QST', required: false, type: 'number' },
+  { field: 'gst', label: 'GST', required: false, type: 'number' },
+  { field: 'channel_fee', label: 'Channel Fee', required: false, type: 'number' },
+  { field: 'stripe_fee', label: 'Stripe/Payment Fee', required: false, type: 'number' },
+  { field: 'bed_linen_fee', label: 'Bed Linen Fee', required: false, type: 'number' },
 ]
 
 export const ALL_BOOKING_FIELDS = [...REQUIRED_BOOKING_FIELDS, ...OPTIONAL_BOOKING_FIELDS]

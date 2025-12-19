@@ -18,10 +18,11 @@ interface StepInfo {
 
 const steps: StepInfo[] = [
   { step: WizardStep.UPLOAD, label: 'Upload', number: 1 },
-  { step: WizardStep.VALIDATE, label: 'Validate', number: 2 },
-  { step: WizardStep.PREVIEW, label: 'Preview', number: 3 },
-  { step: WizardStep.PROCESS, label: 'Process', number: 4 },
-  { step: WizardStep.COMPLETE, label: 'Complete', number: 5 },
+  { step: WizardStep.PROPERTY_IDENTIFICATION, label: 'Identify Properties', number: 2 },
+  { step: WizardStep.FIELD_MAPPING, label: 'Map Fields', number: 3 },
+  { step: WizardStep.PREVIEW, label: 'Preview', number: 4 },
+  { step: WizardStep.PROCESS, label: 'Process', number: 5 },
+  { step: WizardStep.COMPLETE, label: 'Complete', number: 6 },
 ]
 
 const StepIndicator: React.FC<StepIndicatorProps> = ({

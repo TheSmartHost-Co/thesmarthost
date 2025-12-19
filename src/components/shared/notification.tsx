@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNotificationStore } from '@/store/useNotificationStore';
 
@@ -58,7 +58,7 @@ const Notification: React.FC = () => {
               ) : type === 'error' ? (
                 <XCircleIcon className={`w-5 h-5 ${styles.icon}`} />
               ) : (
-                <ExclamationTriangleIcon className={`w-5 h-5 ${styles.icon}`} />
+                <QuestionMarkCircleIcon className={`w-5 h-5 ${styles.icon}`} />
               )}
             </span>
 
