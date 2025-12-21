@@ -6,8 +6,11 @@ import { useUserStore } from '@/store/useUserStore'
 import { updateUserProfile } from '@/services/profileService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getConnectionByUserId, disconnectHostaway } from '@/services/hostawayConnectionService'
+import { getConnectionByUserId as getGuestyConnection, disconnectGuesty } from '@/services/guestyConnectionService'
 import HostawayConnectionModal from '@/components/connection/hostaway/HostawayConnectionModal'
+import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnectionModal'
 import type { HostawayConnection } from '@/services/types/hostawayConnection'
+import type { GuestyConnection } from '@/services/types/guestyConnection'
 
 export default function PropertyManagerSettingsPage() {
   const [loading, setLoading] = useState(false)
@@ -26,8 +29,13 @@ export default function PropertyManagerSettingsPage() {
   // Hostaway modal state
   const [showHostawayModal, setShowHostawayModal] = useState(false)
   const [hostawayConnection, setHostawayConnection] = useState<HostawayConnection | null>(null)
-  const [loadingConnection, setLoadingConnection] = useState(false)
-  
+  const [loadingHostawayConnection, setLoadingHostawayConnection] = useState(false)
+
+  // Guesty modal state
+  const [showGuestyModal, setShowGuestyModal] = useState(false)
+  const [guestyConnection, setGuestyConnection] = useState<GuestyConnection | null>(null)
+  const [loadingGuestyConnection, setLoadingGuestyConnection] = useState(false)
+
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -87,8 +95,8 @@ export default function PropertyManagerSettingsPage() {
   
   const fetchHostawayConnection = async () => {
     if (!profile?.id) return
-    
-    setLoadingConnection(true)
+
+    setLoadingHostawayConnection(true)
     try {
       const response = await getConnectionByUserId(profile.id)
       if (response.status === 'success' && response.data) {
@@ -100,12 +108,32 @@ export default function PropertyManagerSettingsPage() {
       console.error('Error fetching Hostaway connection:', error)
       setHostawayConnection(null)
     } finally {
-      setLoadingConnection(false)
+      setLoadingHostawayConnection(false)
     }
   }
-  
+
+  const fetchGuestyConnection = async () => {
+    if (!profile?.id) return
+
+    setLoadingGuestyConnection(true)
+    try {
+      const response = await getGuestyConnection(profile.id)
+      if (response.status === 'success' && response.data) {
+        setGuestyConnection(response.data)
+      } else {
+        setGuestyConnection(null)
+      }
+    } catch (error) {
+      console.error('Error fetching Guesty connection:', error)
+      setGuestyConnection(null)
+    } finally {
+      setLoadingGuestyConnection(false)
+    }
+  }
+
   useEffect(() => {
     fetchHostawayConnection()
+    fetchGuestyConnection()
   }, [profile?.id])
 
   const handleHostawayConnect = async (accountId: string, apiKey: string) => {
@@ -119,9 +147,9 @@ export default function PropertyManagerSettingsPage() {
     if (!hostawayConnection?.id) return
 
     try {
-      setLoadingConnection(true)
+      setLoadingHostawayConnection(true)
       const response = await disconnectHostaway(hostawayConnection.id)
-      
+
       if (response.status === 'success') {
         setHostawayConnection(null)
         if (response.warnings && response.warnings.length > 0) {
@@ -136,7 +164,43 @@ export default function PropertyManagerSettingsPage() {
       console.error('Error disconnecting Hostaway:', error)
       showNotification('Failed to disconnect from Hostaway', 'error')
     } finally {
-      setLoadingConnection(false)
+      setLoadingHostawayConnection(false)
+    }
+  }
+
+  const handleConnectGuesty = () => {
+    setShowGuestyModal(true)
+  }
+
+  const handleGuestyConnect = async (clientId: string, clientSecret: string) => {
+    setShowGuestyModal(false)
+    showNotification('Guesty connection successful!', 'success')
+    // Refresh connection data
+    fetchGuestyConnection()
+  }
+
+  const handleGuestyDisconnect = async () => {
+    if (!guestyConnection?.id) return
+
+    try {
+      setLoadingGuestyConnection(true)
+      const response = await disconnectGuesty(guestyConnection.id)
+
+      if (response.status === 'success') {
+        setGuestyConnection(null)
+        if (response.warnings && response.warnings.length > 0) {
+          showNotification(`Disconnected with warnings: ${response.warnings.join(', ')}`, 'error')
+        } else {
+          showNotification('Guesty connection disconnected successfully', 'success')
+        }
+      } else {
+        showNotification(response.message || 'Failed to disconnect', 'error')
+      }
+    } catch (error) {
+      console.error('Error disconnecting Guesty:', error)
+      showNotification('Failed to disconnect from Guesty', 'error')
+    } finally {
+      setLoadingGuestyConnection(false)
     }
   }
 
@@ -341,7 +405,7 @@ export default function PropertyManagerSettingsPage() {
                       Connect your Hostaway account to automatically sync bookings and reservations
                     </p>
                     <div className="mt-2">
-                      {loadingConnection ? (
+                      {loadingHostawayConnection ? (
                         <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2"></div>
                           Loading...
@@ -361,10 +425,10 @@ export default function PropertyManagerSettingsPage() {
                 {hostawayConnection ? (
                   <button
                     onClick={handleHostawayDisconnect}
-                    disabled={loadingConnection}
+                    disabled={loadingHostawayConnection}
                     className="cursor-pointer inline-flex items-center px-4 py-2 border border-red-300 rounded-lg shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loadingConnection ? 'Disconnecting...' : 'Disconnect'}
+                    {loadingHostawayConnection ? 'Disconnecting...' : 'Disconnect'}
                   </button>
                 ) : (
                   <button
@@ -423,13 +487,110 @@ export default function PropertyManagerSettingsPage() {
               )}
             </div>
 
+            {/* Guesty Connection */}
+            <div className="mt-4 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <svg className="h-6 w-6 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900">Guesty</h4>
+                    <p className="text-sm text-gray-600">
+                      Connect your Guesty account to automatically sync bookings and reservations
+                    </p>
+                    <div className="mt-2">
+                      {loadingGuestyConnection ? (
+                        <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2"></div>
+                          Loading...
+                        </div>
+                      ) : guestyConnection ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          Not Connected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {guestyConnection ? (
+                  <button
+                    onClick={handleGuestyDisconnect}
+                    disabled={loadingGuestyConnection}
+                    className="cursor-pointer inline-flex items-center px-4 py-2 border border-red-300 rounded-lg shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingGuestyConnection ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleConnectGuesty}
+                    className="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Connect
+                  </button>
+                )}
+              </div>
+
+              {/* Connection details (show when connected) */}
+              {guestyConnection && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 space-y-2">
+                    <div className="flex justify-between">
+                      <span><strong>Client ID:</strong></span>
+                      <span className="font-mono">{guestyConnection.guestyClientId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span><strong>Status:</strong></span>
+                      <span className={`font-medium ${
+                        guestyConnection.status === 'active' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {guestyConnection.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span><strong>Webhook:</strong></span>
+                      <span className={`text-xs ${
+                        guestyConnection.webhookId ? 'text-green-600' : 'text-yellow-600'
+                      }`}>
+                        {guestyConnection.webhookId ? `ID: ${guestyConnection.webhookId}` : 'Not configured'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span><strong>Last Sync:</strong></span>
+                      <span className="text-xs">
+                        {guestyConnection.lastSyncAt
+                          ? new Date(guestyConnection.lastSyncAt).toLocaleString()
+                          : 'Never'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span><strong>Auto Import:</strong></span>
+                      <span className={`text-xs ${
+                        guestyConnection.autoImport ? 'text-green-600' : 'text-gray-600'
+                      }`}>
+                        {guestyConnection.autoImport ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Future PMS integrations placeholder */}
             <div className="mt-4 p-4 border-2 border-dashed border-gray-200 rounded-lg">
               <div className="text-center">
                 <CogIcon className="mx-auto h-8 w-8 text-gray-400" />
                 <h4 className="mt-2 text-sm font-medium text-gray-900">More Integrations Coming Soon</h4>
                 <p className="mt-1 text-sm text-gray-600">
-                  We're working on integrations with Airbnb, Booking.com, and other major platforms
+                  We&apos;re working on integrations with Airbnb, Booking.com, and other major platforms
                 </p>
               </div>
             </div>
@@ -485,6 +646,14 @@ export default function PropertyManagerSettingsPage() {
         isOpen={showHostawayModal}
         onClose={() => setShowHostawayModal(false)}
         onConnect={handleHostawayConnect}
+        userId={profile?.id!}
+      />
+
+      {/* Guesty Connection Modal */}
+      <GuestyConnectionModal
+        isOpen={showGuestyModal}
+        onClose={() => setShowGuestyModal(false)}
+        onConnect={handleGuestyConnect}
         userId={profile?.id!}
       />
     </div>
