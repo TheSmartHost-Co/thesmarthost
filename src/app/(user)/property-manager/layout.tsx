@@ -9,12 +9,10 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <UserNavbar />
-      <div className="flex">
-        <ManagerSidebar />
-        <main className="flex-1 p-6">
-          {children}
-        </main>
-      </div>
+      <ManagerSidebar />
+      <main className="ml-64 pt-20 p-6">
+        {children}
+      </main>
     </div>
   )
 }

@@ -20,6 +20,7 @@ function LoginForm() {
   const supabase = createClient()
   const notify = useNotificationStore(s => s.showNotification)
   const setProfile = useUserStore(s => s.setProfile)
+  const setAccessToken = useUserStore(s => s.setAccessToken)
   const getRedirectPath = useUserStore(s => s.getRedirectPath)
 
   const [email, setEmail] = useState('')
@@ -60,7 +61,11 @@ function LoginForm() {
       return
     }
 
-    if (data.user) {
+    // Store access token and fetch user profile
+    if (data.user && data.session) {
+      // Store access token in Zustand
+      setAccessToken(data.session.access_token)
+      
       try {
         const profileResponse = await getUserProfile(data.user.id)
 
@@ -72,8 +77,11 @@ function LoginForm() {
             email: data.user.email
           })
 
-          notify("You've successfully signed in!", "success")
+          notify("You've successfully signed in!", "success");
 
+          console.log(`auth token: ${data.session.access_token}`)
+          
+          // Get redirect path based on role
           const redirectPath = getRedirectPath()
           router.push(redirectPath)
         } else {
