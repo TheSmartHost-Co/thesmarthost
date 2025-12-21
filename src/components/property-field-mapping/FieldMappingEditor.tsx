@@ -177,9 +177,9 @@ const FieldMappingEditor: React.FC<FieldMappingEditorProps> = ({
   }
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col ${className}`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-medium text-gray-900">Field Mapping Configuration</h3>
           
@@ -255,27 +255,26 @@ const FieldMappingEditor: React.FC<FieldMappingEditorProps> = ({
       {/* Content */}
       <div className="flex-1 min-h-0 flex flex-col">
         {editorMode === 'json' ? (
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* JSON Editor */}
-            <div className="flex-1 relative min-h-0">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <textarea
                 value={jsonValue}
                 onChange={(e) => handleJsonChange(e.target.value)}
-                className={`text-black w-full h-full p-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 ${
+                className={`text-black w-full h-full p-4 font-mono text-sm resize-none border-0 focus:outline-none focus:ring-0 overflow-y-auto ${
                   jsonError ? 'bg-red-50' : ''
                 }`}
-                style={{ minHeight: '400px' }}
                 placeholder="Enter field mapping configuration as JSON..."
               />
-              {jsonError && (
-                <div className="absolute bottom-0 left-0 right-0 bg-red-100 border-t border-red-200 p-3">
-                  <div className="flex items-center text-red-700 text-sm">
-                    <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{jsonError}</span>
-                  </div>
-                </div>
-              )}
             </div>
+            {jsonError && (
+              <div className="flex-shrink-0 bg-red-100 border-t border-red-200 p-3">
+                <div className="flex items-center text-red-700 text-sm">
+                  <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>{jsonError}</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
@@ -351,7 +350,7 @@ const FieldMappingEditor: React.FC<FieldMappingEditorProps> = ({
 
       {/* Footer Info */}
       {editorMode === 'json' && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-sm text-gray-600">
             <strong>Format:</strong> Organize by platform, then field mappings. Use "ALL" for base mappings, 
             platform-specific keys for overrides. Formulas support calculations like "[Total] * 0.15".

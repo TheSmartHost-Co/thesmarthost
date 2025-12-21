@@ -293,10 +293,10 @@ const PropertyFieldMappingModal: React.FC<PropertyFieldMappingModalProps> = ({
 
   if (showEditor) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-6xl h-[90vh]">
-        <div className="p-10 h-full flex flex-col">
+      <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden">
+        <div className="p-6 h-full flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 border-b pb-4">
+          <div className="flex-shrink-0 flex items-center justify-between mb-4 border-b pb-4">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
                 {isCreating ? 'Create' : 'Edit'} Field Mapping Template
