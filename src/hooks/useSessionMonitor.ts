@@ -30,7 +30,7 @@ export function useSessionMonitor() {
   const [showWarningModal, setShowWarningModal] = useState(false)
   const [showExpiredModal, setShowExpiredModal] = useState(false)
   
-  const timerRef = useRef<NodeJS.Timeout>()
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
   const warningShownRef = useRef(false)
 
   const checkSessionStatus = useCallback(async () => {
