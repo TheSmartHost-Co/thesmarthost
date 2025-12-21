@@ -1,7 +1,22 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon, KeyIcon, DocumentTextIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
+import { motion } from 'framer-motion'
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  KeyIcon,
+  DocumentTextIcon,
+  ChatBubbleLeftRightIcon,
+  UserGroupIcon,
+  CheckCircleIcon,
+  BuildingOfficeIcon,
+  XCircleIcon,
+  FunnelIcon,
+  Cog6ToothIcon
+} from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { getNoteCountsByUserId } from '@/services/clientNoteService'
@@ -34,28 +49,28 @@ export default function PropertyManagerClientsPage() {
   const [noteCounts, setNoteCounts] = useState<NoteCountsByClient>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   const { profile } = useUserStore()
 
   useEffect(() => {
     const fetchData = async () => {
       if (!profile?.id) return
-      
+
       try {
         setLoading(true)
-        
+
         // Fetch clients, status codes, and note counts in parallel
         const [clientsResponse, statusCodesResponse, noteCountsResponse] = await Promise.all([
           getClientsByParentId(profile.id),
           getStatusCodesByUserId(profile.id),
           getNoteCountsByUserId(profile.id)
         ])
-        
+
         setClients(clientsResponse.data)
-        
+
         if (statusCodesResponse.status === 'success') {
           setStatusCodes(statusCodesResponse.data)
-          
+
           // Set default status filter to the default status code if available
           const defaultStatus = statusCodesResponse.data.find(status => status.isDefault)
           if (defaultStatus) {
@@ -190,10 +205,10 @@ export default function PropertyManagerClientsPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     })
   }
 
@@ -203,7 +218,7 @@ export default function PropertyManagerClientsPage() {
       const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (client.companyName && client.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchesStatus = statusFilter === 'All Status' || 
+      const matchesStatus = statusFilter === 'All Status' ||
         (statusFilter === 'Active' && client.isActive) ||
         (statusFilter === 'Inactive' && !client.isActive) ||
         (client.statusId === statusFilter) // Match custom status codes by ID
@@ -213,7 +228,7 @@ export default function PropertyManagerClientsPage() {
       // Active clients first, inactive at bottom
       if (a.isActive && !b.isActive) return -1
       if (!a.isActive && b.isActive) return 1
-      
+
       // Within each status group, sort by last updated (most recent first)
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
@@ -222,32 +237,85 @@ export default function PropertyManagerClientsPage() {
     // If client has custom status info, use that
     if (client.statusInfo) {
       return (
-        <span 
-          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-          style={{ 
+        <span
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+          style={{
             backgroundColor: client.statusInfo.colorHex + '20',
             color: client.statusInfo.colorHex
           }}
         >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: client.statusInfo.colorHex }}
+          ></span>
           {client.statusInfo.label}
         </span>
       )
     }
-    
+
     // Fallback to simple active/inactive display
     if (client.isActive) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
           Active
         </span>
       )
     }
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
+        <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
         Inactive
       </span>
     )
   }
+
+  // Calculate stats
+  const stats = {
+    total: clients.length,
+    active: clients.filter(c => c.isActive).length,
+    companies: clients.filter(c => c.companyName).length,
+    inactive: clients.filter(c => !c.isActive).length
+  }
+
+  const statCards = [
+    {
+      label: 'Total Clients',
+      value: stats.total,
+      icon: UserGroupIcon,
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      borderColor: 'border-blue-100'
+    },
+    {
+      label: 'Active Clients',
+      value: stats.active,
+      icon: CheckCircleIcon,
+      bgColor: 'bg-green-50',
+      iconBg: 'bg-green-100',
+      iconColor: 'text-green-600',
+      borderColor: 'border-green-100'
+    },
+    {
+      label: 'Companies',
+      value: stats.companies,
+      icon: BuildingOfficeIcon,
+      bgColor: 'bg-purple-50',
+      iconBg: 'bg-purple-100',
+      iconColor: 'text-purple-600',
+      borderColor: 'border-purple-100'
+    },
+    {
+      label: 'Inactive Clients',
+      value: stats.inactive,
+      icon: XCircleIcon,
+      bgColor: 'bg-amber-50',
+      iconBg: 'bg-amber-100',
+      iconColor: 'text-amber-600',
+      borderColor: 'border-amber-100'
+    }
+  ]
 
   if (loading) {
     return (
@@ -255,11 +323,14 @@ export default function PropertyManagerClientsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-            <p className="text-gray-600">Manage your Clients</p>
+            <p className="text-gray-500 mt-1">Manage your client relationships</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading clients...</p>
+          </div>
         </div>
       </div>
     )
@@ -271,11 +342,19 @@ export default function PropertyManagerClientsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-            <p className="text-gray-600">Manage your Clients</p>
+            <p className="text-gray-500 mt-1">Manage your client relationships</p>
           </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Error loading clients: {error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <XCircleIcon className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-red-800">Error loading clients</h3>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -284,93 +363,79 @@ export default function PropertyManagerClientsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-          <p className="text-gray-600">Manage your Clients</p>
+          <p className="text-gray-500 mt-1">Manage your client relationships</p>
         </div>
+        <motion.button
+          onClick={() => setShowCreateModal(true)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+        >
+          <PlusIcon className="h-5 w-5 mr-2" />
+          Add Client
+        </motion.button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Clients</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.length}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className={`${stat.bgColor} border ${stat.borderColor} rounded-2xl p-5 hover:shadow-md transition-shadow`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+              </div>
+              <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center`}>
+                <stat.icon className={`h-6 w-6 ${stat.iconColor}`} />
+              </div>
             </div>
-            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Clients</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.filter(c => c.isActive).length}</p>
-            </div>
-            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Companies</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.filter(c => c.companyName).length}</p>
-            </div>
-            <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Inactive Clients</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.filter(c => !c.isActive).length}</p>
-            </div>
-            <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
-              </svg>
-            </div>
-          </div>
-        </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="relative max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="text-black block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Search clients..."
-                />
+      {/* Search, Filters & Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        {/* Search and Filters */}
+        <div className="p-5 border-b border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1 max-w-md">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
               </div>
-              <select 
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                placeholder="Search clients..."
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-gray-500">
+                <FunnelIcon className="h-4 w-4" />
+                <span className="text-sm font-medium hidden sm:inline">Filters:</span>
+              </div>
+              <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-black border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
               >
                 <option value="All Status">All Status</option>
                 <option value="Active">Active</option>
@@ -383,71 +448,80 @@ export default function PropertyManagerClientsPage() {
                   </option>
                 ))}
               </select>
-              <button
+              <motion.button
                 onClick={() => setShowStatusModal(true)}
-                className="text-sm cursor-pointer items-center px-3 py-1 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
               >
+                <Cog6ToothIcon className="h-4 w-4 mr-2" />
                 Manage Status
-              </button>
+              </motion.button>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex cursor-pointer items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Create Client
-            </button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto overflow-y-auto max-h-150">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+        <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[180px]">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
                   Phone
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">
                   Company
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
                   PMS Credentials
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Notes
                 </th>
-                <th className="relative px-6 py-3 bg-gray-50">
+                <th className="sticky right-0 bg-gray-50/95 backdrop-blur-sm px-6 py-4 min-w-[60px] shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50">
+            <tbody className="divide-y divide-gray-100">
+              {filteredClients.map((client, index) => (
+                <motion.tr
+                  key={client.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="hover:bg-blue-50/50 transition-colors group"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{client.name}</div>
-                      <div className="text-sm text-gray-500">Added {formatDate(client.createdAt)}</div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
+                        <span className="text-white font-semibold text-sm">
+                          {client.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-900">{client.name}</div>
+                        <div className="text-sm text-gray-500">Added {formatDate(client.createdAt)}</div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{client.email || 'N/A'}</div>
+                    <span className="text-sm text-gray-700">{client.email || '—'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{client.phone || 'N/A'}</div>
+                    <span className="text-sm text-gray-700">{client.phone || '—'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{client.companyName || 'N/A'}</div>
+                    <span className="text-sm text-gray-700">{client.companyName || '—'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(client)}
@@ -456,17 +530,17 @@ export default function PropertyManagerClientsPage() {
                     {client.pmsCredentials ? (
                       <button
                         onClick={() => handlePMSCredentials(client.id)}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-colors cursor-pointer"
                       >
-                        <KeyIcon className="w-3 h-3 mr-1" />
+                        <KeyIcon className="w-3.5 h-3.5" />
                         Configured
                       </button>
                     ) : (
                       <button
                         onClick={() => handlePMSCredentials(client.id)}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
                       >
-                        <KeyIcon className="w-3 h-3 mr-1" />
+                        <KeyIcon className="w-3.5 h-3.5" />
                         Not Set
                       </button>
                     )}
@@ -474,40 +548,63 @@ export default function PropertyManagerClientsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => handleNotes(client.id)}
-                      className="inline-flex items-center justify-center relative px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer"
                     >
-                      <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1" />
+                      <ChatBubbleLeftRightIcon className="w-3.5 h-3.5" />
                       {noteCounts[client.id] > 0 && (
-                        <span>
-                          {noteCounts[client.id]}&nbsp;
-                        </span>
-                      )} Notes
+                        <span>{noteCounts[client.id]}</span>
+                      )}
+                      {noteCounts[client.id] > 0 ? '' : 'Notes'}
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
                     <TableActionsDropdown
                       actions={getClientActions(client)}
                       itemId={client.id}
                     />
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>
 
+          {/* Empty State */}
           {filteredClients.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No clients found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm ? 'Try adjusting your search terms.' : 'Get started by creating your first client.'}
+            <div className="text-center py-16 px-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <UserGroupIcon className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No clients found</h3>
+              <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                {searchTerm || statusFilter !== 'All Status'
+                  ? 'Try adjusting your search or filter criteria.'
+                  : 'Get started by adding your first client.'}
               </p>
+              {!searchTerm && statusFilter === 'All Status' && (
+                <motion.button
+                  onClick={() => setShowCreateModal(true)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add Your First Client
+                </motion.button>
+              )}
             </div>
           )}
         </div>
-      </div>
+
+        {/* Results count */}
+        {filteredClients.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-medium text-gray-700">{filteredClients.length}</span> of{' '}
+              <span className="font-medium text-gray-700">{clients.length}</span> clients
+            </p>
+          </div>
+        )}
+      </motion.div>
 
       {/* Create Client Modal */}
       <CreateClientModal

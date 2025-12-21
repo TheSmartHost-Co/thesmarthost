@@ -1,36 +1,40 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus } from '@/services/incomingBookingService'
 import type { IncomingBooking } from '@/services/types/incomingBooking'
 import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
-import { 
-  InboxArrowDownIcon, 
-  CheckIcon, 
+import {
+  InboxArrowDownIcon,
+  CheckIcon,
   XMarkIcon,
   ClockIcon,
   EyeIcon,
   CalendarDaysIcon,
   UserIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  FunnelIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
 
 const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  rejected: 'bg-red-100 text-red-800',
-  imported: 'bg-green-100 text-green-800',
-  error: 'bg-red-100 text-red-800'
+  pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
+  approved: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  rejected: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  imported: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  error: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' }
 }
 
 const statusIcons = {
   pending: ClockIcon,
   approved: CheckIcon,
   rejected: XMarkIcon,
-  imported: CheckIcon,
-  error: XMarkIcon
+  imported: CheckCircleIcon,
+  error: ExclamationCircleIcon
 }
 
 export default function IncomingBookingsPage() {
@@ -40,7 +44,7 @@ export default function IncomingBookingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<IncomingBooking | null>(null)
-  
+
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -52,15 +56,15 @@ export default function IncomingBookingsPage() {
 
   const fetchIncomingBookings = async () => {
     if (!profile?.id) return
-    
+
     try {
       setLoading(true)
       setError(null)
-      
-      const response = statusFilter === 'all' 
+
+      const response = statusFilter === 'all'
         ? await getAllIncomingBookings(profile.id)
         : await getIncomingBookingsByStatus(profile.id, statusFilter)
-        
+
       if (response.status === 'success') {
         setBookings(response.data)
       } else {
@@ -77,7 +81,7 @@ export default function IncomingBookingsPage() {
   const handleStatusUpdate = async (bookingId: string, newStatus: 'approved' | 'rejected') => {
     try {
       const response = await updateIncomingBookingStatus(bookingId, { status: newStatus })
-      
+
       if (response.status === 'success') {
         showNotification(`Booking ${newStatus} successfully`, 'success')
         fetchIncomingBookings() // Refresh the list
@@ -104,8 +108,8 @@ export default function IncomingBookingsPage() {
 
   const handleBookingUpdate = (updatedBooking: IncomingBooking) => {
     // Update the specific booking in the list
-    setBookings(prevBookings => 
-      prevBookings.map(booking => 
+    setBookings(prevBookings =>
+      prevBookings.map(booking =>
         booking.id === updatedBooking.id ? updatedBooking : booking
       )
     )
@@ -115,7 +119,11 @@ export default function IncomingBookingsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString()
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
   }
 
   const formatCurrency = (amount: string | null) => {
@@ -123,17 +131,67 @@ export default function IncomingBookingsPage() {
     return `$${parseFloat(amount).toLocaleString()}`
   }
 
+  // Calculate stats
+  const stats = {
+    pending: bookings.filter(b => b.status === 'pending').length,
+    approved: bookings.filter(b => b.status === 'approved').length,
+    imported: bookings.filter(b => b.status === 'imported').length,
+    total: bookings.length
+  }
+
+  const statCards = [
+    {
+      label: 'Pending',
+      value: stats.pending,
+      icon: ClockIcon,
+      bgColor: 'bg-yellow-50',
+      iconBg: 'bg-yellow-100',
+      iconColor: 'text-yellow-600',
+      borderColor: 'border-yellow-100'
+    },
+    {
+      label: 'Approved',
+      value: stats.approved,
+      icon: CheckIcon,
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      borderColor: 'border-blue-100'
+    },
+    {
+      label: 'Imported',
+      value: stats.imported,
+      icon: CheckCircleIcon,
+      bgColor: 'bg-green-50',
+      iconBg: 'bg-green-100',
+      iconColor: 'text-green-600',
+      borderColor: 'border-green-100'
+    },
+    {
+      label: 'Total',
+      value: stats.total,
+      icon: InboxArrowDownIcon,
+      bgColor: 'bg-gray-50',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-600',
+      borderColor: 'border-gray-100'
+    }
+  ]
+
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Incoming Bookings</h1>
-            <p className="text-gray-600">Review and manage bookings from connected platforms</p>
+            <p className="text-gray-500 mt-1">Review and manage bookings from connected platforms</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading bookings...</p>
+          </div>
         </div>
       </div>
     )
@@ -145,11 +203,19 @@ export default function IncomingBookingsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Incoming Bookings</h1>
-            <p className="text-gray-600">Review and manage bookings from connected platforms</p>
+            <p className="text-gray-500 mt-1">Review and manage bookings from connected platforms</p>
           </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Error: {error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <XMarkIcon className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-red-800">Error loading bookings</h3>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -161,75 +227,49 @@ export default function IncomingBookingsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Incoming Bookings</h1>
-          <p className="text-gray-600">Review and manage bookings from connected platforms</p>
+          <p className="text-gray-500 mt-1">Review and manage bookings from connected platforms</p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <ClockIcon className="h-5 w-5 text-yellow-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className={`${stat.bgColor} border ${stat.borderColor} rounded-2xl p-5 hover:shadow-md transition-shadow`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+              </div>
+              <div className={`w-12 h-12 ${stat.iconBg} rounded-xl flex items-center justify-center`}>
+                <stat.icon className={`h-6 w-6 ${stat.iconColor}`} />
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {bookings.filter(b => b.status === 'pending').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <CheckIcon className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Approved</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {bookings.filter(b => b.status === 'approved').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckIcon className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Imported</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {bookings.filter(b => b.status === 'imported').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-gray-100 rounded-lg flex items-center justify-center">
-              <InboxArrowDownIcon className="h-5 w-5 text-gray-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{bookings.length}</p>
-            </div>
-          </div>
-        </div>
+          </motion.div>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+      >
         <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Filter by status:</label>
+          <div className="flex items-center gap-2 text-gray-500">
+            <FunnelIcon className="h-4 w-4" />
+            <span className="text-sm font-medium">Filter by status:</span>
+          </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 text-black rounded-lg border-gray-300 border text-sm focus:border-blue-500 focus:ring-blue-500"
+            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
           >
             <option value="all">All Bookings</option>
             <option value="pending">Pending</option>
@@ -239,127 +279,156 @@ export default function IncomingBookingsPage() {
             <option value="error">Error</option>
           </select>
         </div>
-      </div>
+      </motion.div>
 
       {/* Bookings List */}
-      <div className="bg-white rounded-lg shadow">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
         {bookings.length === 0 ? (
-          <div className="p-8 text-center">
-            <InboxArrowDownIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No incoming bookings</h3>
-            <p className="text-gray-600">
-              {statusFilter === 'all' 
+          <div className="text-center py-16 px-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <InboxArrowDownIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">No incoming bookings</h3>
+            <p className="text-gray-500 max-w-sm mx-auto">
+              {statusFilter === 'all'
                 ? 'No bookings have been received from connected platforms yet.'
                 : `No ${statusFilter} bookings found.`
               }
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden">
-            <ul className="divide-y divide-gray-200">
-              {bookings.map((booking) => {
-                const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
-                
-                return (
-                  <li 
-                    key={booking.id} 
-                    className="p-6 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleReviewBooking(booking)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <CalendarDaysIcon className="h-5 w-5 text-blue-600" />
-                          </div>
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {booking.guestName || 'Unknown Guest'}
-                            </p>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.status ? statusColors[booking.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800' : 'bg-gray-100 text-gray-800'}`}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : 'Unknown'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              via {booking.platform || 'Unknown Platform'}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-6 text-sm text-gray-600">
-                            <div className="flex items-center">
-                              <CalendarDaysIcon className="h-4 w-4 mr-1" />
-                              {formatDate(booking.checkInDate)} - {formatDate(booking.checkOutDate)}
-                            </div>
-                            <div className="flex items-center">
-                              <CurrencyDollarIcon className="h-4 w-4 mr-1" />
-                              {formatCurrency(booking.totalAmount)}
-                            </div>
-                            <div className="flex items-center">
-                              <UserIcon className="h-4 w-4 mr-1" />
-                              {booking.guestEmail || 'No email'}
-                            </div>
-                          </div>
-                          
-                          <div className="mt-2 text-xs text-gray-500">
-                            Received: {formatDate(booking.webhookReceivedAt)} | 
-                            ID: {booking.externalReservationId}
-                            {(booking.listingName || booking.propertyName) && (
-                              <> | Property: {booking.listingName || booking.propertyName}</>
-                            )}
-                            {booking.numNights && (
-                              <> | {booking.numNights} nights</>
-                            )}
-                          </div>
-                        </div>
+          <div className="divide-y divide-gray-100">
+            {bookings.map((booking, index) => {
+              const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
+              const statusStyle = statusColors[booking.status as keyof typeof statusColors] || statusColors.pending
+
+              return (
+                <motion.div
+                  key={booking.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-5 hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                  onClick={() => handleReviewBooking(booking)}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
+                        <CalendarDaysIcon className="h-6 w-6 text-white" />
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                        {booking.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleStatusUpdate(booking.id, 'approved')}
-                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                            >
-                              <CheckIcon className="h-4 w-4 mr-1" />
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleStatusUpdate(booking.id, 'rejected')}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                              <XMarkIcon className="h-4 w-4 mr-1" />
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        
-                        {booking.status === 'imported' && booking.importedBookingId && (
-                          <span className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-800 bg-green-100 rounded-md">
-                            <CheckIcon className="h-4 w-4 mr-1" />
-                            Imported
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {booking.guestName || 'Unknown Guest'}
+                          </p>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
+                            {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : 'Unknown'}
                           </span>
-                        )}
-                        
-                        <button
-                          onClick={() => handleReviewBooking(booking)}
-                          className="cursor-pointer inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          {booking.status === 'imported' ? 'View' : 'Review'}
-                        </button>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg">
+                            via {booking.platform || 'Unknown Platform'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
+                            <span>{formatDate(booking.checkInDate)} - {formatDate(booking.checkOutDate)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CurrencyDollarIcon className="h-4 w-4 text-gray-400" />
+                            <span className="font-medium">{formatCurrency(booking.totalAmount)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <UserIcon className="h-4 w-4 text-gray-400" />
+                            <span>{booking.guestEmail || 'No email'}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                          <span>Received: {formatDate(booking.webhookReceivedAt)}</span>
+                          <span>•</span>
+                          <span className="font-mono">ID: {booking.externalReservationId}</span>
+                          {(booking.listingName || booking.propertyName) && (
+                            <>
+                              <span>•</span>
+                              <span>Property: {booking.listingName || booking.propertyName}</span>
+                            </>
+                          )}
+                          {booking.numNights && (
+                            <>
+                              <span>•</span>
+                              <span>{booking.numNights} nights</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </li>
-                )
-              })}
-            </ul>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {booking.status === 'pending' && (
+                        <>
+                          <motion.button
+                            onClick={() => handleStatusUpdate(booking.id, 'approved')}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-500/20 transition-colors"
+                          >
+                            <CheckIcon className="h-4 w-4 mr-1.5" />
+                            Approve
+                          </motion.button>
+                          <motion.button
+                            onClick={() => handleStatusUpdate(booking.id, 'rejected')}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            <XMarkIcon className="h-4 w-4 mr-1.5" />
+                            Reject
+                          </motion.button>
+                        </>
+                      )}
+
+                      {booking.status === 'imported' && booking.importedBookingId && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-green-100 text-green-700">
+                          <CheckCircleIcon className="h-4 w-4" />
+                          Imported
+                        </span>
+                      )}
+
+                      <motion.button
+                        onClick={() => handleReviewBooking(booking)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <EyeIcon className="h-4 w-4 mr-1.5" />
+                        {booking.status === 'imported' ? 'View' : 'Review'}
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         )}
-      </div>
+
+        {/* Results count */}
+        {bookings.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-medium text-gray-700">{bookings.length}</span> bookings
+            </p>
+          </div>
+        )}
+      </motion.div>
 
       {/* Review Modal */}
       <ReviewIncomingBookingsModal
