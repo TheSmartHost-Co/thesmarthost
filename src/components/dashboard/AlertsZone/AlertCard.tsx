@@ -33,7 +33,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
 
   return (
     <div
-      className="group bg-white border-l-4 border-amber-500 px-3 py-2 rounded hover:shadow-sm transition-all duration-200 cursor-pointer"
+      className="group bg-white border border-gray-200 px-4 py-3 rounded-xl hover:shadow-md hover:border-amber-300 transition-all duration-200 cursor-pointer"
       onMouseEnter={() => {
         setIsHovered(true)
         if (!showQuickActions) setShowActions(true)
@@ -45,13 +45,15 @@ export const AlertCard: React.FC<AlertCardProps> = ({
       onClick={onPropertyClick}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <HomeModernIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-amber-200 transition-colors">
+            <HomeModernIcon className="w-4 h-4 text-amber-600" />
+          </div>
           <div className="min-w-0">
             <h4 className="font-medium text-sm text-gray-900 truncate">{propertyName}</h4>
             <p className="text-xs text-gray-600">
-              {formattedDate}
-              {daysSinceLastUpload !== null && ` (${daysSinceLastUpload}d ago)`}
+              Last upload: {formattedDate}
+              {daysSinceLastUpload !== null && ` (${daysSinceLastUpload} days ago)`}
             </p>
           </div>
         </div>
@@ -65,14 +67,14 @@ export const AlertCard: React.FC<AlertCardProps> = ({
         >
           <button
             onClick={onUploadClick}
-            className="px-2.5 py-1 text-xs text-amber-700 bg-amber-100 rounded hover:bg-amber-200 transition-colors whitespace-nowrap"
+            className="px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors whitespace-nowrap"
           >
             Upload CSV
           </button>
           {onDismiss && (
             <button
               onClick={onDismiss}
-              className="px-2.5 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+              className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Dismiss
             </button>

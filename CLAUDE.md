@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** December 14, 2025
+**Last Updated:** December 22, 2025
 
 ---
 
@@ -620,6 +620,55 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 - ✅ Process step for multi-property imports
 - ✅ Fixed duplicate column display issue
 - ✅ Property creation inline during identification
+
+**Dashboard (NEW - Dec 22, 2025):**
+- **Refined Editorial Design** - Professional operational dashboard with minimal whitespace
+- **Zone 1: Action Center (Sticky)**
+  - Quick-create workflows: Upload CSV, Generate Report, New Client, New Property
+  - Sticky bar with gradient background, transforms on scroll with shadow
+  - Primary actions (Upload/Generate) use amber gradient styling
+  - Secondary actions (New Client/Property) use outlined style
+- **Zone 2: Needs Attention (Conditional)**
+  - Properties missing bookings for current month
+  - Properties without reports for current month
+  - "All Clear" state when no alerts (green checkmark)
+  - Compact alert cards with hover-reveal quick actions
+  - Top 5 items shown per alert type, "View All" for more
+- **Zone 3: Operational Pulse**
+  - **Health Metrics (6 cards in 3-column grid):**
+    - Properties (active/total/inactive)
+    - Clients (total with status breakdown)
+    - CSV Uploads (this month vs last month with change)
+    - Reports Generated (this month vs last month with change)
+    - Bookings (this month vs last month with change)
+    - Revenue (this month vs last month with change, formatted as currency)
+  - **Performance Insights:**
+    - Shows properties with >15% change in revenue/nights/ADR
+    - Sparkline mini-charts for trend visualization
+    - Quick actions: View Analytics, View Bookings
+    - Expandable to show more insights
+  - **Recent Activity Feed (Timeline Design):**
+    - Last 20 actions with visual timeline connector
+    - Activity types: report_generated, csv_uploaded, property_created/updated, client_created/updated
+    - Color-coded icons (blue=reports, green=CSV, purple=property, orange=client)
+    - Hover-reveal quick actions (View buttons)
+    - "View Report" opens ViewReportModal (not navigation)
+    - Time ago display with auto-refresh
+- **Backend Integration:**
+  - `GET /api/dashboard/alerts` - Missing bookings and reports
+  - `GET /api/dashboard/metrics` - 6 health metrics with month-over-month comparison
+  - `GET /api/dashboard/insights?limit=5` - Performance outliers
+  - `GET /api/dashboard/activity?limit=20` - Recent activity feed
+- **Component Architecture:**
+  - `components/dashboard/ActionBar/` - Sticky action buttons
+  - `components/dashboard/AlertsZone/` - Alert cards, All Clear state
+  - `components/dashboard/MetricsZone/` - Metrics grid, insights, activity feed
+  - `components/dashboard/shared/` - TimeAgo, TrendIndicator, Sparkline utilities
+- **Design Principles:**
+  - Minimal motion (operational tool, not animated)
+  - Compact spacing to maximize information density
+  - Hover states for progressive disclosure
+  - Reuses existing modals (GenerateReportModal, ViewReportModal, CreateClientModal, CreatePropertyModal)
 
 ### 🚧 PRIORITY: Property Field Mapping System
 

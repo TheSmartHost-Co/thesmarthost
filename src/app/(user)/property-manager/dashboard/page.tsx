@@ -181,58 +181,67 @@ export default function DashboardPage() {
 
   const isLoading = loadingProperties || loadingAlerts || loadingMetrics || loadingInsights || loadingActivities
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-500 mt-1">Welcome back, {profile?.fullName}</p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back, {profile?.fullName}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Welcome back, {profile?.fullName}</p>
+        </div>
       </div>
 
-      {/* Zone 1: Action Center */}
+      {/* Quick Actions */}
       <ActionBar
         onGenerateReport={() => setShowGenerateModal(true)}
         onNewClient={() => setShowCreateClientModal(true)}
         onNewProperty={() => setShowCreatePropertyModal(true)}
       />
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
-        </div>
+      {/* Zone 2: Needs Attention */}
+      {alerts && (
+        <AlertsZone
+          missingBookings={alerts.missingBookings}
+          missingReports={alerts.missingReports}
+          showQuickActions={showQuickActions}
+        />
       )}
 
-      {/* Dashboard Content */}
-      {!isLoading && (
-        <>
-          {/* Zone 2: Needs Attention */}
-          {alerts && (
-            <AlertsZone
-              missingBookings={alerts.missingBookings}
-              missingReports={alerts.missingReports}
-              showQuickActions={showQuickActions}
-            />
-          )}
+      {/* Zone 3: Operational Pulse */}
+      <div className="space-y-6">
+        {/* Health Metrics */}
+        {metrics && <MetricsGrid metrics={metrics} />}
 
-          {/* Zone 3: Operational Pulse */}
-          <div className="space-y-6 mt-8">
-            {/* Health Metrics */}
-            {metrics && <MetricsGrid metrics={metrics} />}
+        {/* Performance Insights */}
+        {insights.length > 0 && (
+          <InsightsSection insights={insights} />
+        )}
 
-            {/* Performance Insights */}
-            {insights.length > 0 && (
-              <InsightsSection insights={insights} />
-            )}
-
-            {/* Recent Activity Feed */}
-            <ActivityFeed
-              activities={activities}
-              onViewReport={handleViewReport}
-            />
-          </div>
-        </>
-      )}
+        {/* Recent Activity Feed */}
+        <ActivityFeed
+          activities={activities}
+          onViewReport={handleViewReport}
+        />
+      </div>
 
       {/* Modals */}
       <GenerateReportModal

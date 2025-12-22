@@ -19,19 +19,24 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ insights }) =>
   const visibleInsights = showAll ? insights : insights.slice(0, 3)
 
   return (
-    <div className="bg-gradient-to-r from-slate-50 to-gray-50 border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ChartBarIcon className="w-6 h-6 text-gray-700" />
-          <h3 className="text-lg font-semibold text-gray-900">Performance Insights</h3>
-          <span className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-sm font-medium">
+    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+            <ChartBarIcon className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Performance Insights</h3>
+            <p className="text-xs text-gray-600">Properties with significant changes</p>
+          </div>
+          <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
             {insights.length}
           </span>
         </div>
         {insights.length > 3 && (
           <button
             onClick={() => setShowAll(!showAll)}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
           >
             {showAll ? 'Show Less' : `See More (${insights.length - 3})`}
           </button>

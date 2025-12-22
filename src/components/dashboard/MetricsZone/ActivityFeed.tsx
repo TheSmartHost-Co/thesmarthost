@@ -12,9 +12,11 @@ interface ActivityFeedProps {
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities, onViewReport }) => {
   if (activities.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-        <ClockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">No recent activity</p>
+      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-12 text-center">
+        <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <ClockIcon className="w-8 h-8 text-gray-400" />
+        </div>
+        <p className="font-semibold text-gray-900">No recent activity</p>
         <p className="text-sm text-gray-500 mt-2">
           Upload a CSV or generate a report to get started
         </p>
@@ -23,10 +25,15 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities, onViewRe
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-gray-900">Recent Activity</h3>
-        <p className="text-xs text-gray-600 mt-0.5">Last {activities.length} actions</p>
+    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+          <ClockIcon className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-gray-900">Recent Activity</h3>
+          <p className="text-xs text-gray-600">Last {activities.length} actions</p>
+        </div>
       </div>
 
       <div className="space-y-0">

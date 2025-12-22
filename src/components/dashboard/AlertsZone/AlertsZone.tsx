@@ -46,24 +46,29 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
   const visibleMissingReports = missingReports.slice(0, 5)
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-6 space-y-4">
       {/* Missing Bookings */}
       {missingBookings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
-              <h3 className="text-base font-semibold text-gray-900">
-                Properties Without Bookings for Current Month
-              </h3>
-              <span className="px-2 py-0.5 bg-amber-200 text-amber-800 rounded-full text-xs font-medium">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Properties Without Bookings
+                </h3>
+                <p className="text-xs text-gray-600">Current month missing data</p>
+              </div>
+              <span className="ml-2 px-2.5 py-1 bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold">
                 {missingBookings.length}
               </span>
             </div>
             {missingBookings.length > 5 && (
               <button
                 onClick={() => router.push('/property-manager/properties')}
-                className="text-sm text-amber-700 hover:text-amber-800 font-medium"
+                className="text-sm text-amber-700 hover:text-amber-800 font-semibold transition-colors"
               >
                 View All
               </button>
@@ -89,21 +94,26 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
 
       {/* Missing Reports */}
       {missingReports.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
-              <h3 className="text-base font-semibold text-gray-900">
-                Properties Without Reports for Current Month
-              </h3>
-              <span className="px-2 py-0.5 bg-amber-200 text-amber-800 rounded-full text-xs font-medium">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Properties Without Reports
+                </h3>
+                <p className="text-xs text-gray-600">Current month missing reports</p>
+              </div>
+              <span className="ml-2 px-2.5 py-1 bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold">
                 {missingReports.length}
               </span>
             </div>
             {missingReports.length > 5 && (
               <button
                 onClick={() => router.push('/property-manager/reports')}
-                className="text-sm text-amber-700 hover:text-amber-800 font-medium"
+                className="text-sm text-amber-700 hover:text-amber-800 font-semibold transition-colors"
               >
                 View All
               </button>
