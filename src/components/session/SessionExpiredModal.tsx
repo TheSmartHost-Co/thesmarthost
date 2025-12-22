@@ -29,7 +29,7 @@ export function SessionExpiredModal({
         <div className="mb-6">
           <p className="text-sm text-gray-700 mb-4">
             Your session has expired for security reasons. Please sign in again to continue 
-            working with HostMetrics.
+            working with TheSmartHost.
           </p>
           
           <div className="bg-gray-50 rounded-lg p-3">

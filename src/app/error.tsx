@@ -191,7 +191,7 @@ export default function Error({ error, reset }: ErrorProps) {
           className="mt-12 flex items-center justify-center gap-2 text-slate-600"
         >
           <div className="w-8 h-px bg-gradient-to-r from-transparent to-slate-700" />
-          <span className="text-xs font-medium">HostMetrics</span>
+          <span className="text-xs font-medium">TheSmartHost</span>
           <div className="w-8 h-px bg-gradient-to-l from-transparent to-slate-700" />
         </motion.div>
       </div>
