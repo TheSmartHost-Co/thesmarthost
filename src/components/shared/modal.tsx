@@ -10,10 +10,11 @@ interface ModalProps {
     onClose: () => void;
     children: ReactNode;
     zIndex?: number; // Allow custom z-index for nested modals
+    closable?: boolean; // Allow disabling close button and backdrop click
   }
 
 
-const Modal = ({ isOpen, onClose, children, style, zIndex = 60 }: ModalProps) => {
+const Modal = ({ isOpen, onClose, children, style, zIndex = 60, closable = true }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'; // Prevent background scrolling when modal is open
@@ -35,18 +36,20 @@ const Modal = ({ isOpen, onClose, children, style, zIndex = 60 }: ModalProps) =>
         className="absolute inset-0 bg-black opacity-10"
         onClick={(e) => {
           e.stopPropagation()
-          onClose()
+          if (closable) onClose()
         }}
       ></div>
 
       {/* Modal box */}
       <div className={`relative bg-white rounded-lg shadow-lg z-10 overflow-y-auto max-h-[70vh] ${style}`}>  
-        <button
-          className="absolute top-2 right-2 text-lg"
-          onClick={onClose}
-        >
-          <XMarkIcon className="w-8 text-black cursor-pointer" />
-        </button>
+        {closable && (
+          <button
+            className="absolute top-2 right-2 text-lg"
+            onClick={onClose}
+          >
+            <XMarkIcon className="w-8 text-black cursor-pointer" />
+          </button>
+        )}
         {children}
       </div>
     </div>

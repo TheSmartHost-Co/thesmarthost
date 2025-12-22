@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** November 4, 2025
+**Last Updated:** December 14, 2025
 
 ---
 
@@ -331,6 +331,139 @@ if (!['STR', 'LTR'].includes(propertyType)) {
 </div>
 ```
 
+### Reports Architecture Pattern
+
+**Multi-Format Report Generation:**
+```typescript
+// 1. Unified preview/generation payload
+interface ReportGenerationPayload {
+  propertyIds: string[]        // Support single or multiple properties
+  startDate: string
+  endDate: string
+  format: 'pdf' | 'csv' | 'excel'
+  logoId?: string
+}
+
+// 2. Response handling pattern
+const handlePreview = async () => {
+  const res = await previewReport(payload)
+  if (res.status === 'success') {
+    // Handle different response formats
+    if (res.data.pdfPreview) {
+      // PDF: Base64 content for browser display
+      setPreviewData({ pdf: res.data.pdfPreview, ... })
+    } else if (res.data.reportData) {
+      // CSV/Excel: Structured data for table display
+      setPreviewData({ 
+        bookings: res.data.reportData.bookings,
+        summary: res.data.reportData.summary,
+        ...
+      })
+    }
+  }
+}
+```
+
+**State Management Pattern (No Optimistic Updates):**
+```typescript
+// ❌ DON'T: Optimistic updates cause duplicate key errors
+const handleReportGenerated = (newReport: Report) => {
+  setReports([newReport, ...reports])  // Can cause duplicates
+}
+
+// ✅ DO: Always refresh from server
+const handleReportGenerated = async () => {
+  await loadReports()  // Single source of truth
+  setShowGenerateModal(false)
+}
+```
+
+**Enhanced Summary Display Pattern:**
+```typescript
+// Comprehensive financial breakdown with receipt-style layout
+<div className="grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl">
+  <div>
+    {/* Left column: Overview, Revenue, Taxes */}
+    <div>Room Revenue: <span className="font-semibold">${total.toLocaleString()}</span></div>
+    <div className="border-t border-gray-200 pt-1 font-bold">
+      Total Revenue: <span className="text-green-600">${total.toLocaleString()}</span>
+    </div>
+  </div>
+  <div>
+    {/* Right column: Platform fees, Final amounts */}
+    <div className="font-bold">NET EARNINGS: 
+      <span className="text-green-600">${earnings.toLocaleString()}</span>
+    </div>
+  </div>
+</div>
+```
+
+**Table Totals Pattern:**
+```typescript
+// Add totals footer to data tables using summary data
+<tfoot className="bg-gray-100 border-t-2 border-gray-300">
+  <tr className="font-medium">
+    <td colSpan={2}>TOTALS</td>
+    <td className="font-semibold">{summary.totalNights}</td>
+    <td className="font-semibold">${summary.totalChannelFees.toLocaleString()}</td>
+    <td className="font-semibold text-green-600">${summary.totalNetEarnings.toLocaleString()}</td>
+  </tr>
+</tfoot>
+```
+
+**Single Report View & File Management Pattern:**
+```typescript
+// 1. Detailed report modal with file management
+interface ViewReportModalProps {
+  isOpen: boolean
+  onClose: () => void
+  reportId: string
+  onReportUpdated?: () => void
+}
+
+// 2. File download with proper behavior
+const handleDownload = async (file: ReportFile) => {
+  try {
+    const response = await fetch(file.downloadUrl)
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    // Create download link and trigger
+  } catch (error) {
+    // Fallback to direct link with new tab
+  }
+}
+
+// 3. File deletion with confirmation
+const handleDeleteFile = async (fileId: string) => {
+  const res = await deleteReportFile(fileId)
+  if (res.status === 'success') {
+    await loadReport() // Refresh report data
+    onReportUpdated?.() // Refresh parent list
+  }
+}
+
+// 4. Expandable file sections by format
+{Object.entries(report.filesByFormat).map(([format, files]) => (
+  <div key={format}>
+    <button onClick={() => toggleSection(format)}>
+      {format.toUpperCase()} Files ({files.length} versions)
+    </button>
+    {expandedSections[format] && (
+      <div>
+        {files.map(file => (
+          <FileVersionRow 
+            key={file.id} 
+            file={file} 
+            onDownload={handleDownload}
+            onDelete={handleDeleteFile}
+          />
+        ))}
+      </div>
+    )}
+  </div>
+))}
+```
+
 ---
 
 ## Backend Integration
@@ -355,7 +488,8 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 | PMS Credentials | GET, POST, PUT, DELETE | ✅ Complete |
 | Client Agreements | GET, POST, PUT, DELETE | ✅ Complete |
 | Bookings | - | ⏳ Not implemented |
-| Reports | - | ⏳ Not implemented |
+| Reports | GET, GET/:id, POST, DELETE, /preview, /generate, /logos, /upload-logo | ✅ Complete |
+| Report Files | DELETE /files/:fileId | ✅ Complete |
 
 **See `.claude/skills/thesmarthost-context/SKILL.md` for detailed API documentation**
 
@@ -423,6 +557,13 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 - Create/Update/Delete/Preview modals
 - Owner management (add/remove co-owners)
 - Commission rate override per owner
+- **Channels Management (NEW):**
+  - Add/Edit/Delete channels for each property
+  - Support for multiple distribution channels (Airbnb, VRBO, Booking.com, Google, Direct, Expedia)
+  - Channel icons and display names
+  - Active/Inactive status toggle
+  - Immediate save (no batch operations)
+  - Real-time table updates
 
 **Layout & Navigation:**
 - Route groups architecture
@@ -437,6 +578,40 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 **State Management:**
 - useUserStore with localStorage persistence
 - useNotificationStore for toasts
+
+**Reports Management:**
+- **Report Generation System:**
+  - Multi-format support (PDF, CSV, Excel)
+  - Single and multi-property reports
+  - Date range filtering
+  - Custom logo upload and selection
+  - Report preview before generation
+- **Report Dashboard:**
+  - Reports list with filtering by property and date range
+  - Pagination support (10/25/50 items per page)
+  - Download links for generated reports
+  - Delete functionality with confirmation
+  - Real-time status updates
+- **Advanced Preview Features:**
+  - PDF preview with base64 display in new tab
+  - CSV/Excel data table preview with scrollable interface
+  - Comprehensive financial summary with receipt-style layout
+  - Column totals in data tables
+  - Multi-property breakdowns
+- **Financial Data Display:**
+  - Revenue breakdown (room revenue, extra fees, cleaning fees)
+  - Tax calculations (GST, QST, lodging tax, sales tax)
+  - Platform fees (channel fees, Stripe fees, management fees)
+  - Final amounts (total payout, net earnings, rent collected)
+  - Average nightly rate calculations
+  - Property-by-property summaries
+- **Single Report View & File Management (NEW - Dec 14, 2025):**
+  - Detailed report view modal with comprehensive metadata display
+  - File version history with expandable sections by format
+  - Individual file download with proper download behavior
+  - File deletion with confirmation and auto-refresh
+  - Current vs. previous version indicators
+  - Clickable report names in reports table for easy access
 
 **CSV Upload Wizard (Multi-Property):**
 - ✅ Property identification step (map CSV listings to properties)
@@ -556,9 +731,9 @@ export interface PropertyFieldMappingTemplate {
 
 **Later Sprints:**
 - Bookings management
-- Reports dashboard
 - Analytics charts
 - Settings pages
+- Report scheduling and automation
 
 ---
 
@@ -610,11 +785,16 @@ These skills provide detailed patterns and examples following this project's con
 
 ## Key Files to Reference
 
-- **API Client:** [src/services/apiClient.ts](src/services/apiClient.ts) - Fetch wrapper
+- **API Client:** [src/services/apiClient.ts](src/services/apiClient.ts) - Fetch wrapper with comprehensive logging
 - **User Store:** [src/store/useUserStore.ts](src/store/useUserStore.ts) - Auth state pattern
 - **Property Service:** [src/services/propertyService.ts](src/services/propertyService.ts) - Complete CRUD example
 - **Create Modal Example:** [src/components/property/create/createPropertyModal.tsx](src/components/property/create/createPropertyModal.tsx)
 - **List Page Example:** [src/app/(user)/property-manager/properties/page.tsx](src/app/(user)/property-manager/properties/page.tsx)
+- **Report Service:** [src/services/reportService.ts](src/services/reportService.ts) - Multi-format report generation with file management
+- **Report Types:** [src/services/types/report.ts](src/services/types/report.ts) - Comprehensive financial data and file management interfaces
+- **Reports Page:** [src/app/(user)/property-manager/reports/page.tsx](src/app/(user)/property-manager/reports/page.tsx) - Full reports dashboard with filtering
+- **Generate Modal:** [src/components/report/generate/generateReportModal.tsx](src/components/report/generate/generateReportModal.tsx) - Multi-format generation with preview
+- **View Report Modal:** [src/components/report/view/viewReportModal.tsx](src/components/report/view/viewReportModal.tsx) - Single report details with file management
 
 ---
 
@@ -625,4 +805,4 @@ These skills provide detailed patterns and examples following this project's con
 
 ---
 
-**Last Updated:** November 4, 2025
+**Last Updated:** December 14, 2025
