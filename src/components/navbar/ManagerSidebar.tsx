@@ -12,6 +12,7 @@ import {
   CloudArrowUpIcon,
   CalendarDaysIcon,
   InboxArrowDownIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarItems = [
@@ -49,6 +50,11 @@ const sidebarItems = [
     name: 'Reports',
     href: '/property-manager/reports',
     icon: DocumentTextIcon,
+  },
+  {
+    name: 'Expenses',
+    href: '/property-manager/expenses',
+    icon: BanknotesIcon,
   },
   {
     name: 'Analytics',

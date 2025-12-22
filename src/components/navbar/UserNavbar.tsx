@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   CogIcon,
 } from '@heroicons/react/24/outline'
@@ -13,8 +14,15 @@ export default function UserNavbar() {
       <div className="flex justify-between items-center h-16">
         {/* Logo */}
         <div className="flex-shrink-0">
-          <Link href="/property-manager/dashboard" className="text-xl font-bold text-blue-600">
-            TheSmartHost
+          <Link href="/property-manager/dashboard">
+            <Image
+              src="/images/smarthostlogo.png"
+              alt="TheSmartHost"
+              width={180}
+              height={40}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
         </div>
 
