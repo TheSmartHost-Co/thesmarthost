@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useReducer, useCallback, useRef } from 'react'
-import { 
-  WizardStep, 
-  WizardState, 
-  WizardAction, 
-  WizardActionType, 
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  WizardStep,
+  WizardState,
+  WizardAction,
+  WizardActionType,
   WizardConfig,
   RequiredField,
   OptionalField
@@ -83,12 +84,12 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         console.log('NEXT_STEP blocked: canGoNext is false')
         return state
       }
-      
+
       const nextStep = Math.min(state.currentStep + 1, WizardStep.COMPLETE) as WizardStep
       const newCompletedSteps = state.completedSteps.includes(state.currentStep)
         ? state.completedSteps
         : [...state.completedSteps, state.currentStep]
-      
+
       console.log('NEXT_STEP: transitioning from', state.currentStep, 'to', nextStep)
       return {
         ...state,
@@ -419,19 +420,38 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
 
   return (
     <div className="space-y-6">
-      {/* Step Indicator */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      {/* Step Indicator Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8"
+      >
         <StepIndicator
           currentStep={state.currentStep}
           completedSteps={state.completedSteps}
           onStepClick={handleStepClick}
         />
-      </div>
+      </motion.div>
 
-      {/* Main Content */}
-      <div className="bg-white rounded-lg shadow">
-        {renderCurrentStep()}
-      </div>
+      {/* Main Content Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={state.currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            {renderCurrentStep()}
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
     </div>
   )
 }
