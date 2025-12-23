@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ChartBarIcon, CalendarIcon } from '@heroicons/react/24/outline'
+import { ChartBarIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { PropertySelector } from './PropertySelector'
 import { PropertyAnalyticsChart } from './PropertyAnalyticsChart'
 import { AnalyticsSummaryStats } from './AnalyticsSummaryStats'
@@ -30,6 +30,7 @@ export function PropertyAnalyticsSection({
   const [analyticsData, setAnalyticsData] = useState<AnalyticsTimeseriesData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isSelectorExpanded, setIsSelectorExpanded] = useState(false)
 
   const getDateRange = (range: TimeRangeOption) => {
     const endDate = new Date()
@@ -103,20 +104,20 @@ export function PropertyAnalyticsSection({
       className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
     >
       {/* Header */}
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-            <ChartBarIcon className="h-6 w-6 text-white" />
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/25">
+            <ChartBarIcon className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Property Analytics</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Compare performance across your portfolio</p>
+            <h2 className="text-lg font-bold text-gray-900">Property Analytics</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Compare performance across your portfolio</p>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="p-4 space-y-4">
         {/* Filters Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Time Range */}
@@ -156,13 +157,6 @@ export function PropertyAnalyticsSection({
           <div></div>
         </div>
 
-        {/* Property Selector */}
-        <PropertySelector
-          properties={availableProperties}
-          selectedPropertyIds={selectedPropertyIds}
-          onSelectionChange={handlePropertySelectionChange}
-        />
-
         {/* Error Display */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -186,6 +180,43 @@ export function PropertyAnalyticsSection({
             selectedPropertyCount={activePropertyCount}
           />
         )}
+
+        {/* Property Selector - Collapsible */}
+        <div className="border border-gray-200 rounded-lg">
+          <button
+            onClick={() => setIsSelectorExpanded(!isSelectorExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-lg"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                Filter Properties
+              </span>
+              <span className="text-xs text-gray-500">
+                {selectedPropertyIds.length === 0
+                  ? `All ${availableProperties.length} properties`
+                  : `${selectedPropertyIds.length} of ${availableProperties.length} selected`
+                }
+              </span>
+            </div>
+            {isSelectorExpanded ? (
+              <ChevronUpIcon className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+
+          {isSelectorExpanded && (
+            <div className="px-4 pb-4 border-t border-gray-200">
+              <div className="pt-4">
+                <PropertySelector
+                  properties={availableProperties}
+                  selectedPropertyIds={selectedPropertyIds}
+                  onSelectionChange={handlePropertySelectionChange}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </motion.section>
   )

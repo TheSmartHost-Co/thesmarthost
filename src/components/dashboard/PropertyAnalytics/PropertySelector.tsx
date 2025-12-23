@@ -43,10 +43,10 @@ export function PropertySelector({
   const isAllSelected = selectedCount === totalCount && totalCount > 0
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Header with selection count */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+        <div className="text-xs text-gray-600">
           {selectedCount === 0 ? (
             <span>All properties selected <span className="text-gray-400">({totalCount})</span></span>
           ) : (
@@ -82,14 +82,14 @@ export function PropertySelector({
           placeholder="Search properties..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Scrollable property list */}
-      <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+      <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
         {filteredProperties.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-500">
+          <div className="p-3 text-center text-xs text-gray-500">
             No properties found
           </div>
         ) : (
@@ -99,7 +99,7 @@ export function PropertySelector({
               return (
                 <label
                   key={property.id}
-                  className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
@@ -116,7 +116,7 @@ export function PropertySelector({
                     </div>
                   </div>
                   {!property.isActive && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
                       Inactive
                     </span>
                   )}

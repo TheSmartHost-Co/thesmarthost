@@ -39,16 +39,16 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      className={`${bgColor} border ${borderColor} rounded-2xl p-5 hover:shadow-md transition-shadow`}
+      className={`${bgColor} border ${borderColor} rounded-lg p-3 hover:shadow-md transition-shadow`}
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatValue()}</p>
-          <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-600">{title}</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5">{formatValue()}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
         </div>
-        <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`h-6 w-6 ${iconColor}`} />
+        <div className={`w-9 h-9 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+          <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>
     </motion.div>

@@ -210,7 +210,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -241,7 +241,7 @@ export default function DashboardPage() {
       )}
 
       {/* Zone 4: Insights & Activity */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Performance Insights */}
         {insights.length > 0 && (
           <InsightsSection insights={insights} />
