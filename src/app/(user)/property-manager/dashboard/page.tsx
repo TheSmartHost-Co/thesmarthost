@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getProperties } from '@/services/propertyService'
@@ -19,11 +20,12 @@ import type {
 } from '@/services/types/dashboard'
 
 // Dashboard components
-import { ActionBar } from '@/components/dashboard/ActionBar/ActionBar'
 import { AlertsZone } from '@/components/dashboard/AlertsZone/AlertsZone'
 import { MetricsGrid } from '@/components/dashboard/MetricsZone/MetricsGrid'
 import { InsightsSection } from '@/components/dashboard/MetricsZone/InsightsSection'
 import { ActivityFeed } from '@/components/dashboard/MetricsZone/ActivityFeed'
+import { PropertyAnalyticsSection } from '@/components/dashboard/PropertyAnalytics/PropertyAnalyticsSection'
+import { FloatingActionButton } from '@/components/shared/FloatingActionButton'
 
 // Modals
 import GenerateReportModal from '@/components/report/generate/generateReportModal'
@@ -32,6 +34,7 @@ import CreateClientModal from '@/components/client/create/createClientModal'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -56,6 +59,7 @@ export default function DashboardPage() {
   const [showCreateClientModal, setShowCreateClientModal] = useState(false)
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false)
   const [showQuickActions, setShowQuickActions] = useState(false)
+  const [preSelectedPropertyId, setPreSelectedPropertyId] = useState<string | null>(null)
 
   // Load all dashboard data
   useEffect(() => {
@@ -179,6 +183,11 @@ export default function DashboardPage() {
     await loadAlerts()
   }
 
+  const handleGenerateReportForProperty = (propertyId: string) => {
+    setPreSelectedPropertyId(propertyId)
+    setShowGenerateModal(true)
+  }
+
   const isLoading = loadingProperties || loadingAlerts || loadingMetrics || loadingInsights || loadingActivities
 
   if (isLoading) {
@@ -201,7 +210,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -210,27 +219,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <ActionBar
-        onGenerateReport={() => setShowGenerateModal(true)}
-        onNewClient={() => setShowCreateClientModal(true)}
-        onNewProperty={() => setShowCreatePropertyModal(true)}
-      />
+      {/* Zone 1: Health Metrics */}
+      {metrics && <MetricsGrid metrics={metrics} />}
 
-      {/* Zone 2: Needs Attention */}
+      {/* Zone 2: Property Analytics */}
+      {profile?.id && properties.length > 0 && (
+        <PropertyAnalyticsSection
+          availableProperties={properties}
+          userId={profile.id}
+        />
+      )}
+
+      {/* Zone 3: Needs Attention */}
       {alerts && (
         <AlertsZone
           missingBookings={alerts.missingBookings}
           missingReports={alerts.missingReports}
           showQuickActions={showQuickActions}
+          onGenerateReport={handleGenerateReportForProperty}
         />
       )}
 
-      {/* Zone 3: Operational Pulse */}
+      {/* Zone 4: Insights & Activity */}
       <div className="space-y-6">
-        {/* Health Metrics */}
-        {metrics && <MetricsGrid metrics={metrics} />}
-
         {/* Performance Insights */}
         {insights.length > 0 && (
           <InsightsSection insights={insights} />
@@ -243,12 +254,24 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        onUploadCSV={() => router.push('/property-manager/upload-bookings')}
+        onGenerateReport={() => setShowGenerateModal(true)}
+        onNewClient={() => setShowCreateClientModal(true)}
+        onNewProperty={() => setShowCreatePropertyModal(true)}
+      />
+
       {/* Modals */}
       <GenerateReportModal
         isOpen={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
+        onClose={() => {
+          setShowGenerateModal(false)
+          setPreSelectedPropertyId(null)
+        }}
         onReportGenerated={handleReportGenerated}
         properties={properties}
+        initialPropertyIds={preSelectedPropertyId ? [preSelectedPropertyId] : []}
       />
 
       {selectedReportId && (

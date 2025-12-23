@@ -1,15 +1,15 @@
 import apiClient from './apiClient'
-import type { 
-  AnalyticsFilters, 
-  AnalyticsSummaryData, 
-  AnalyticsTimeseriesData, 
-  AnalyticsBookingsData 
+import type {
+  AnalyticsFilters,
+  AnalyticsSummaryData,
+  AnalyticsTimeseriesData,
+  AnalyticsBookingsData
 } from '../store/useAnalyticsStore'
 
 interface AnalyticsSummaryPayload extends AnalyticsFilters {}
 
 interface AnalyticsTimeseriesPayload extends AnalyticsFilters {
-  granularity: 'daily' | 'weekly'
+  granularity: 'daily' | 'weekly' | 'monthly'
 }
 
 interface AnalyticsBookingsPayload extends AnalyticsFilters {
@@ -17,15 +17,17 @@ interface AnalyticsBookingsPayload extends AnalyticsFilters {
   limit: number
 }
 
-interface AnalyticsResponse<T> {
-  success: boolean
+// Standard backend response format (status/data pattern)
+interface BackendResponse<T> {
+  status: 'success' | 'failed'
+  message?: string
   data: T
 }
 
 export async function getAnalyticsSummary(
   payload: AnalyticsSummaryPayload
-): Promise<AnalyticsResponse<AnalyticsSummaryData>> {
-  return apiClient<AnalyticsResponse<AnalyticsSummaryData>, AnalyticsSummaryPayload>(
+): Promise<BackendResponse<AnalyticsSummaryData>> {
+  return apiClient<BackendResponse<AnalyticsSummaryData>, AnalyticsSummaryPayload>(
     '/analytics/summary',
     {
       method: 'POST',
@@ -36,8 +38,8 @@ export async function getAnalyticsSummary(
 
 export async function getAnalyticsTimeseries(
   payload: AnalyticsTimeseriesPayload
-): Promise<AnalyticsResponse<AnalyticsTimeseriesData>> {
-  return apiClient<AnalyticsResponse<AnalyticsTimeseriesData>, AnalyticsTimeseriesPayload>(
+): Promise<BackendResponse<AnalyticsTimeseriesData>> {
+  return apiClient<BackendResponse<AnalyticsTimeseriesData>, AnalyticsTimeseriesPayload>(
     '/analytics/timeseries',
     {
       method: 'POST',
@@ -48,8 +50,8 @@ export async function getAnalyticsTimeseries(
 
 export async function getAnalyticsBookings(
   payload: AnalyticsBookingsPayload
-): Promise<AnalyticsResponse<AnalyticsBookingsData>> {
-  return apiClient<AnalyticsResponse<AnalyticsBookingsData>, AnalyticsBookingsPayload>(
+): Promise<BackendResponse<AnalyticsBookingsData>> {
+  return apiClient<BackendResponse<AnalyticsBookingsData>, AnalyticsBookingsPayload>(
     '/analytics/bookings',
     {
       method: 'POST',

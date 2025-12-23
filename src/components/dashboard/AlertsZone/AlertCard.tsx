@@ -12,6 +12,7 @@ interface AlertCardProps {
   onPropertyClick: () => void
   onDismiss?: () => void
   showQuickActions: boolean
+  actionButtonText?: string
 }
 
 export const AlertCard: React.FC<AlertCardProps> = ({
@@ -23,6 +24,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   onPropertyClick,
   onDismiss,
   showQuickActions,
+  actionButtonText = 'Upload CSV',
 }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [showActions, setShowActions] = useState(showQuickActions)
@@ -69,7 +71,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
             onClick={onUploadClick}
             className="px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors whitespace-nowrap"
           >
-            Upload CSV
+            {actionButtonText}
           </button>
           {onDismiss && (
             <button

@@ -125,32 +125,32 @@ export default function AnalyticsPage() {
         getAnalyticsBookings({ ...effectiveFilters, page: 1, limit: 20 })
       ])
 
-      if (summaryResult.status === 'fulfilled' && summaryResult.value.success) {
+      if (summaryResult.status === 'fulfilled' && summaryResult.value.status === 'success') {
         setSummaryData(summaryResult.value.data)
       } else {
         const error = summaryResult.status === 'rejected'
           ? summaryResult.reason?.message || 'Network error'
-          : 'Failed to load summary data'
+          : summaryResult.value.message || 'Failed to load summary data'
         setError('summary', error)
         setSummaryData(null)
       }
 
-      if (timeseriesResult.status === 'fulfilled' && timeseriesResult.value.success) {
+      if (timeseriesResult.status === 'fulfilled' && timeseriesResult.value.status === 'success') {
         setTimeseriesData(timeseriesResult.value.data)
       } else {
         const error = timeseriesResult.status === 'rejected'
           ? timeseriesResult.reason?.message || 'Network error'
-          : 'Failed to load timeseries data'
+          : timeseriesResult.value.message || 'Failed to load timeseries data'
         setError('timeseries', error)
         setTimeseriesData(null)
       }
 
-      if (bookingsResult.status === 'fulfilled' && bookingsResult.value.success) {
+      if (bookingsResult.status === 'fulfilled' && bookingsResult.value.status === 'success') {
         setBookingsData(bookingsResult.value.data)
       } else {
         const error = bookingsResult.status === 'rejected'
           ? bookingsResult.reason?.message || 'Network error'
-          : 'Failed to load bookings data'
+          : bookingsResult.value.message || 'Failed to load bookings data'
         setError('bookings', error)
         setBookingsData(null)
       }
