@@ -29,13 +29,15 @@ interface GenerateReportModalProps {
   onClose: () => void
   onReportGenerated: () => Promise<void>
   properties: Property[]
+  initialPropertyIds?: string[]
 }
 
 const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   isOpen,
   onClose,
   onReportGenerated,
-  properties
+  properties,
+  initialPropertyIds = []
 }) => {
   const { showNotification } = useNotificationStore()
 
@@ -69,8 +71,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadLogos()
+      // Set initial property IDs if provided
+      if (initialPropertyIds.length > 0) {
+        setSelectedPropertyIds(initialPropertyIds)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, initialPropertyIds])
 
   // Reset form when modal closes
   useEffect(() => {

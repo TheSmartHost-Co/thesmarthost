@@ -10,12 +10,14 @@ interface AlertsZoneProps {
   missingBookings: MissingBookingAlert[]
   missingReports: MissingReportAlert[]
   showQuickActions: boolean
+  onGenerateReport?: (propertyId: string) => void
 }
 
 export const AlertsZone: React.FC<AlertsZoneProps> = ({
   missingBookings,
   missingReports,
   showQuickActions,
+  onGenerateReport,
 }) => {
   const router = useRouter()
 
@@ -35,10 +37,6 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
 
   const handlePropertyClick = (propertyId: string) => {
     router.push(`/property-manager/properties`)
-  }
-
-  const handleGenerateReport = () => {
-    // This will be handled by the parent component
   }
 
   // Show top 5 of each alert type
@@ -128,9 +126,10 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
                 lastUploadDate={alert.lastUploadDate}
                 daysSinceLastUpload={null}
                 monthMissing={alert.monthMissing}
-                onUploadClick={handleGenerateReport}
+                onUploadClick={() => onGenerateReport?.(alert.propertyId)}
                 onPropertyClick={() => handlePropertyClick(alert.propertyId)}
                 showQuickActions={showQuickActions}
+                actionButtonText="Generate Report"
               />
             ))}
           </div>

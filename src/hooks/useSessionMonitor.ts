@@ -32,28 +32,31 @@ export function useSessionMonitor() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const warningShownRef = useRef(false)
+  const interactionListenerRef = useRef<(() => void) | null>(null)
 
   const checkSessionStatus = useCallback(async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error || !session) {
+        console.log('🔒 No valid session found, triggering expiration')
         setSessionStatus({
           isExpired: true,
           isNearExpiry: false,
           expiresAt: null,
           timeRemaining: 0
         })
+        handleSessionExpired()
         return
       }
 
       const now = new Date().getTime() / 1000
       const expiresAt = new Date(session.expires_at! * 1000)
       const timeRemaining = Math.max(0, (session.expires_at! - now) / 60) // minutes
-      
+
       const isExpired = timeRemaining <= 0
       const isNearExpiry = timeRemaining <= 5 && timeRemaining > 0
-      
+
       setSessionStatus({
         isExpired,
         isNearExpiry,
@@ -63,34 +66,51 @@ export function useSessionMonitor() {
 
       // Show warning modal once when near expiry
       if (isNearExpiry && !warningShownRef.current && !showWarningModal) {
+        console.log(`⚠️ Session expiring in ${Math.round(timeRemaining)} minutes, showing warning`)
         warningShownRef.current = true
         setShowWarningModal(true)
       }
-      
-      // Auto-logout if expired and no modal interaction
+
+      // AGGRESSIVE: Immediately sign out if expired
       if (isExpired) {
+        console.log('🔒 Session expired, forcing immediate sign out')
         handleSessionExpired()
       }
-      
+
     } catch (error) {
       console.error('Session check failed:', error)
+      // Treat check failures as expired sessions for security
+      handleSessionExpired()
     }
   }, [supabase.auth, showWarningModal])
 
-  const handleSessionExpired = useCallback(() => {
-    // Clear user data
+  const handleSessionExpired = useCallback(async () => {
+    console.log('🚪 Handling session expiration - full cleanup initiated')
+
+    // STEP 1: Sign out from Supabase first (clear auth state)
+    try {
+      await supabase.auth.signOut()
+      console.log('✅ Supabase session cleared')
+    } catch (error) {
+      console.error('⚠️ Supabase signout failed:', error)
+      // Continue cleanup even if signout fails
+    }
+
+    // STEP 2: Clear Zustand store (user profile, tokens, timestamps)
     clearProfile()
-    
-    // Clear any existing timers
+    console.log('✅ User store cleared')
+
+    // STEP 3: Clear any existing timers
     if (timerRef.current) {
       clearInterval(timerRef.current)
+      timerRef.current = null
     }
-    
-    // Show expired modal if not already showing
+
+    // STEP 4: Show expired modal (non-dismissible)
     if (!showExpiredModal) {
       setShowExpiredModal(true)
     }
-  }, [clearProfile, showExpiredModal])
+  }, [supabase.auth, clearProfile, showExpiredModal])
 
   const handleRefreshSession = useCallback(async () => {
     try {
@@ -134,36 +154,71 @@ export function useSessionMonitor() {
 
   const handleLoginRedirect = useCallback(() => {
     setShowExpiredModal(false)
-    router.push('/login')
+    console.log('🔄 Redirecting to login with session expired flag')
+    router.push('/login?session=expired')
   }, [router])
 
-  // Start session monitoring
+  // Start AGGRESSIVE session monitoring
   useEffect(() => {
+    console.log('🔐 Initializing aggressive session monitoring')
+
     // Initial check
     checkSessionStatus()
-    
-    // Set up periodic checks every minute
-    timerRef.current = setInterval(checkSessionStatus, 60000) // 1 minute
-    
+
+    // AGGRESSIVE: Set up periodic checks every 30 seconds (down from 60s)
+    timerRef.current = setInterval(checkSessionStatus, 30000) // 30 seconds
+    console.log('✅ 30-second polling enabled')
+
+    // AGGRESSIVE: Check when user returns to tab (Page Visibility API)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Tab became visible, checking session immediately')
+        checkSessionStatus()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // AGGRESSIVE: Check on any user interaction (throttled to prevent spam)
+    let interactionTimeout: NodeJS.Timeout | null = null
+    const handleInteraction = () => {
+      if (!interactionTimeout) {
+        console.log('🖱️ User interaction detected, checking session')
+        checkSessionStatus()
+        // Throttle: only check once per 10 seconds from interactions
+        interactionTimeout = setTimeout(() => {
+          interactionTimeout = null
+        }, 10000)
+      }
+    }
+    window.addEventListener('click', handleInteraction, { passive: true })
+    window.addEventListener('keypress', handleInteraction, { passive: true })
+
     // Listen for API-triggered session events
     const handleApiSessionExpired = () => {
       console.log('📡 Session expired event from API call')
       handleSessionExpired()
     }
-    
+
     const handleApiSessionInvalid = () => {
       console.log('📡 Session invalid event from API call')
       handleSessionExpired()
     }
-    
+
     sessionEvents.on('session-expired', handleApiSessionExpired)
     sessionEvents.on('session-invalid', handleApiSessionInvalid)
-    
+
     // Cleanup
     return () => {
+      console.log('🧹 Cleaning up session monitoring')
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      if (interactionTimeout) {
+        clearTimeout(interactionTimeout)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('click', handleInteraction)
+      window.removeEventListener('keypress', handleInteraction)
       sessionEvents.off('session-expired', handleApiSessionExpired)
       sessionEvents.off('session-invalid', handleApiSessionInvalid)
     }

@@ -90,7 +90,7 @@ export function VisualExploration({
       )
     }
 
-    if (!timeseriesData?.revenue_over_time || timeseriesData.revenue_over_time.length === 0) {
+    if (!timeseriesData?.properties || timeseriesData.properties.length === 0) {
       return (
         <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
           <div className="text-center text-gray-500">
@@ -100,17 +100,49 @@ export function VisualExploration({
       )
     }
 
+    // Aggregate revenue across all properties by date
+    const revenueByDate = new Map<string, { date: string; displayLabel: string; revenue: number }>()
+
+    timeseriesData.properties.forEach(property => {
+      property.timeseries.forEach(point => {
+        const existing = revenueByDate.get(point.date)
+        if (existing) {
+          existing.revenue += point.revenue
+        } else {
+          revenueByDate.set(point.date, {
+            date: point.date,
+            displayLabel: point.displayLabel,
+            revenue: point.revenue
+          })
+        }
+      })
+    })
+
+    const chartData = Array.from(revenueByDate.values()).sort((a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    )
+
+    if (chartData.length === 0) {
+      return (
+        <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <p className="text-lg font-medium">No revenue data available</p>
+            <p className="text-sm mt-2">Try selecting a different date range or uploading booking data</p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={timeseriesData.revenue_over_time}>
+          <AreaChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-            <XAxis 
-              dataKey="date" 
-              tickFormatter={formatDate}
+            <XAxis
+              dataKey="displayLabel"
               className="text-sm"
             />
-            <YAxis 
+            <YAxis
               tickFormatter={(value) => formatCurrency(value)}
               className="text-sm"
             />
@@ -147,72 +179,24 @@ export function VisualExploration({
       )
     }
 
-    if (!timeseriesData?.channel_revenue_over_time || timeseriesData.channel_revenue_over_time.length === 0) {
-      return (
-        <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            <p>No channel data available</p>
-          </div>
-        </div>
-      )
-    }
-
-    // Transform data for stacked area chart
-    const transformedData = timeseriesData.revenue_over_time.map(timePoint => {
-      const channelData = timeseriesData.channel_revenue_over_time.filter(
-        channel => channel.date === timePoint.date
-      )
-      
-      const result: any = { date: timePoint.date }
-      channelData.forEach(channel => {
-        result[channel.platform] = channel.revenue
-      })
-      
-      return result
-    })
-
-    const platforms = [...new Set(timeseriesData.channel_revenue_over_time.map(item => item.platform))]
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
+    // Channel time-series data not available in new API structure
+    // Use channel_mix from summary data instead
     return (
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={transformedData}>
-            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-            <XAxis 
-              dataKey="date" 
-              tickFormatter={formatDate}
-              className="text-sm"
-            />
-            <YAxis 
-              tickFormatter={(value) => formatCurrency(value)}
-              className="text-sm"
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            {platforms.map((platform, index) => (
-              <Area
-                key={platform}
-                type="monotone"
-                dataKey={platform}
-                stackId="1"
-                stroke={colors[index % colors.length]}
-                fill={colors[index % colors.length]}
-                fillOpacity={0.7}
-                name={platform.toUpperCase()}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p className="text-lg font-medium">Channel revenue over time</p>
+          <p className="text-sm mt-2">Time-series channel data not available</p>
+          <p className="text-xs mt-1 text-gray-400">Use the Performance Breakdown section for channel mix analysis</p>
+        </div>
       </div>
     )
   }
 
   const renderPropertyChart = () => {
-    if (summaryError) {
+    if (timeseriesError) {
       return (
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <p className="text-red-700">Unable to load property chart: {summaryError}</p>
+          <p className="text-red-700">Unable to load property chart: {timeseriesError}</p>
         </div>
       )
     }
@@ -225,7 +209,7 @@ export function VisualExploration({
       )
     }
 
-    if (!summaryData?.property_contribution || summaryData.property_contribution.length === 0) {
+    if (!timeseriesData?.properties || timeseriesData.properties.length === 0) {
       return (
         <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
           <div className="text-center text-gray-500">
@@ -235,31 +219,47 @@ export function VisualExploration({
       )
     }
 
-    const sortedProperties = [...summaryData.property_contribution]
-      .sort((a, b) => b.revenue - a.revenue)
+    // Use property summaries from timeseries data
+    const propertyData = timeseriesData.properties.map(property => ({
+      property_name: property.propertyName,
+      revenue: property.summary.totalRevenue
+    })).sort((a, b) => b.revenue - a.revenue)
+
+    const hasRevenue = propertyData.some(p => p.revenue > 0)
+
+    if (!hasRevenue) {
+      return (
+        <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <p className="text-lg font-medium">No property revenue data available</p>
+            <p className="text-sm mt-2">Try selecting a different date range or uploading booking data</p>
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={sortedProperties} layout="horizontal">
+          <BarChart data={propertyData} layout="horizontal">
             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-            <XAxis 
+            <XAxis
               type="number"
               tickFormatter={(value) => formatCurrency(value)}
               className="text-sm"
             />
-            <YAxis 
+            <YAxis
               type="category"
               dataKey="property_name"
               className="text-sm"
               width={120}
             />
-            <Tooltip 
+            <Tooltip
               formatter={(value: number | undefined) => [formatCurrency(value || 0), 'Revenue']}
               labelStyle={{ color: '#374151' }}
             />
-            <Bar 
-              dataKey="revenue" 
+            <Bar
+              dataKey="revenue"
               fill="#3b82f6"
               radius={[0, 4, 4, 0]}
             />

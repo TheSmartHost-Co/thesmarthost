@@ -37,12 +37,16 @@ function LoginForm() {
     if (!isClient) return
 
     const message = searchParams.get('message')
+    const session = searchParams.get('session')
+
     if (message === 'email-verified') {
       notify("Email verified successfully! You can now sign in.", "success")
     } else if (message === 'verification-error') {
       notify("Email verification failed. Please try again.", "error")
     } else if (message === 'password-updated') {
       notify("Password updated successfully! Please sign in with your new password.", "success")
+    } else if (session === 'expired') {
+      notify("Your session has expired for security. Please sign in again.", "error")
     }
   }, [searchParams, notify, isClient])
 

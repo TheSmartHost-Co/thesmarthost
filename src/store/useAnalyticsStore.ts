@@ -50,21 +50,59 @@ export interface AnalyticsSummaryData {
   }>
 }
 
+// Property timeseries data structure
+export interface PropertyTimeseriesPoint {
+  date: string
+  displayLabel: string
+  revenue: number
+  payout: number
+  bookings: number
+  nights: number
+  adr: number
+  channelFees: number
+  mgmtFees: number
+}
+
+export interface PropertyTimeseries {
+  propertyId: string
+  propertyName: string
+  timeseries: PropertyTimeseriesPoint[]
+  summary: {
+    totalRevenue: number
+    totalPayout: number
+    totalBookings: number
+    totalNights: number
+    avgAdr: number
+    avgMonthlyRevenue: number
+  }
+  comparison: {
+    revenue: { current: number; previous: number; change: number; changePct: number }
+    payout: { current: number; previous: number; change: number; changePct: number }
+    bookings: { current: number; previous: number; change: number; changePct: number }
+    adr: { current: number; previous: number; change: number; changePct: number }
+  }
+}
+
 export interface AnalyticsTimeseriesData {
-  filters: AnalyticsFilters & { granularity: string }
-  revenue_over_time: Array<{
-    date: string
-    revenue: number
-    reservations: number
-    nights: number
-    adr: number
-  }>
-  channel_revenue_over_time: Array<{
-    date: string
-    platform: string
-    revenue: number
-    reservations: number
-  }>
+  properties: PropertyTimeseries[]
+  aggregate: {
+    totalRevenue: number
+    totalPayout: number
+    totalBookings: number
+    avgRevenuePerProperty: number
+    avgPayoutPerProperty: number
+    topPerformer: {
+      propertyId: string
+      propertyName: string
+      revenue: number
+    } | null
+  }
+  trend: {
+    revenue: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
+    payout: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
+    bookings: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
+    adr: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
+  }
 }
 
 export interface AnalyticsBookingsData {
