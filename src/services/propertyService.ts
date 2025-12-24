@@ -121,7 +121,7 @@ export function calculatePropertyStats(properties: Property[]): PropertyStats {
   const inactive = total - active
 
   const totalCommission = properties.reduce(
-    (sum, p) => sum + p.commissionRate,
+    (sum, p) => sum + (p.commissionRate ?? 0),
     0
   )
   const averageCommissionRate = total > 0 ? totalCommission / total : 0
@@ -189,16 +189,16 @@ export function hasCommissionOverride(owner: {
 
 /**
  * Get effective commission rate for an owner
- * Returns override if exists, otherwise property default
+ * Returns override if exists, otherwise property default, or 0 if neither set
  * @param owner - Property owner object
- * @param propertyCommissionRate - Property's default commission rate
+ * @param propertyCommissionRate - Property's default commission rate (optional)
  * @returns Effective commission rate
  */
 export function getEffectiveCommissionRate(
   owner: { commissionRateOverride: number | null },
-  propertyCommissionRate: number
+  propertyCommissionRate?: number
 ): number {
-  return owner.commissionRateOverride ?? propertyCommissionRate
+  return owner.commissionRateOverride ?? propertyCommissionRate ?? 0
 }
 
 /**
