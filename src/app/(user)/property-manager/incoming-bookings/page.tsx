@@ -19,7 +19,9 @@ import {
   FunnelIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ArrowUpIcon,
+  ArrowDownIcon
 } from '@heroicons/react/24/outline'
 
 const statusColors = {
@@ -48,6 +50,9 @@ export default function IncomingBookingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const filterPopoverRef = useRef<HTMLDivElement>(null)
 
   const { profile } = useUserStore()
@@ -150,21 +155,41 @@ export default function IncomingBookingsPage() {
     return `$${parseFloat(amount).toLocaleString()}`
   }
 
-  // Filter bookings based on search and property filter
-  const filteredBookings = bookings.filter(booking => {
-    const searchLower = searchTerm.toLowerCase()
-    const matchesSearch =
-      (booking.guestName?.toLowerCase().includes(searchLower) || false) ||
-      (booking.externalReservationId?.toLowerCase().includes(searchLower) || false) ||
-      (booking.propertyName?.toLowerCase().includes(searchLower) || false) ||
-      (booking.listingName?.toLowerCase().includes(searchLower) || false)
+  // Filter bookings based on search, property filter, and date range
+  const filteredBookings = bookings
+    .filter(booking => {
+      const searchLower = searchTerm.toLowerCase()
+      const matchesSearch =
+        (booking.guestName?.toLowerCase().includes(searchLower) || false) ||
+        (booking.externalReservationId?.toLowerCase().includes(searchLower) || false) ||
+        (booking.propertyName?.toLowerCase().includes(searchLower) || false) ||
+        (booking.listingName?.toLowerCase().includes(searchLower) || false)
 
-    const matchesProperty = propertyFilter === 'All Properties' ||
-      booking.propertyName === propertyFilter ||
-      booking.listingName === propertyFilter
+      const matchesProperty = propertyFilter === 'All Properties' ||
+        booking.propertyName === propertyFilter ||
+        booking.listingName === propertyFilter
 
-    return matchesSearch && matchesProperty
-  })
+      // Date filtering based on check-in date
+      let matchesDateRange = true
+      if (dateFrom && booking.checkInDate) {
+        const checkIn = new Date(booking.checkInDate)
+        const from = new Date(dateFrom)
+        matchesDateRange = matchesDateRange && checkIn >= from
+      }
+      if (dateTo && booking.checkInDate) {
+        const checkIn = new Date(booking.checkInDate)
+        const to = new Date(dateTo)
+        matchesDateRange = matchesDateRange && checkIn <= to
+      }
+
+      return matchesSearch && matchesProperty && matchesDateRange
+    })
+    .sort((a, b) => {
+      // Sort by check-in date
+      const dateA = a.checkInDate ? new Date(a.checkInDate).getTime() : 0
+      const dateB = b.checkInDate ? new Date(b.checkInDate).getTime() : 0
+      return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+    })
 
   // Property options for filter - derived from existing bookings
   const uniqueProperties = Array.from(new Set(
@@ -177,12 +202,16 @@ export default function IncomingBookingsPage() {
 
   // Count active filters (excluding status which has its own dropdown)
   const activeFiltersCount = [
-    propertyFilter !== 'All Properties'
+    propertyFilter !== 'All Properties',
+    dateFrom !== '',
+    dateTo !== ''
   ].filter(Boolean).length
 
-  // Clear property filter
-  const clearPropertyFilter = () => {
+  // Clear all filters
+  const clearAllFilters = () => {
     setPropertyFilter('All Properties')
+    setDateFrom('')
+    setDateTo('')
   }
 
   // Calculate stats from filtered bookings
@@ -347,7 +376,23 @@ export default function IncomingBookingsPage() {
             </select>
           </div>
 
-          {/* Property Filter Popover */}
+          {/* Sort Toggle */}
+          <motion.button
+            onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            title={sortDirection === 'asc' ? 'Sorted oldest first' : 'Sorted newest first'}
+          >
+            {sortDirection === 'asc' ? (
+              <ArrowUpIcon className="h-4 w-4 mr-2" />
+            ) : (
+              <ArrowDownIcon className="h-4 w-4 mr-2" />
+            )}
+            {sortDirection === 'asc' ? 'Oldest First' : 'Newest First'}
+          </motion.button>
+
+          {/* Filters Popover */}
           <div className="relative" ref={filterPopoverRef}>
             <motion.button
               onClick={() => setShowFilterPopover(!showFilterPopover)}
@@ -356,7 +401,7 @@ export default function IncomingBookingsPage() {
               className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             >
               <FunnelIcon className="h-4 w-4 mr-2" />
-              Property Filter
+              Filters
               {activeFiltersCount > 0 && (
                 <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">
                   {activeFiltersCount}
@@ -372,7 +417,7 @@ export default function IncomingBookingsPage() {
               >
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-semibold text-gray-900">Property Filter</h3>
+                    <h3 className="text-base font-semibold text-gray-900">Filters</h3>
                     <button
                       onClick={() => setShowFilterPopover(false)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -399,16 +444,40 @@ export default function IncomingBookingsPage() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Check-in Date Range
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          placeholder="From"
+                        />
+                        <span className="text-gray-400">to</span>
+                        <input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          placeholder="To"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Filter Actions */}
                   {activeFiltersCount > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <button
-                        onClick={clearPropertyFilter}
+                        onClick={clearAllFilters}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        Clear filter
+                        Clear all filters
                       </button>
                     </div>
                   )}
@@ -433,7 +502,7 @@ export default function IncomingBookingsPage() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">No incoming bookings</h3>
             <p className="text-gray-500 max-w-sm mx-auto">
-              {searchTerm || propertyFilter !== 'All Properties'
+              {searchTerm || propertyFilter !== 'All Properties' || dateFrom || dateTo
                 ? 'Try adjusting your search or filter criteria.'
                 : statusFilter === 'all'
                   ? 'No bookings have been received from connected platforms yet.'
