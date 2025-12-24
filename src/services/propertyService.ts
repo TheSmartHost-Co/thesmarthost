@@ -11,6 +11,8 @@ import type {
   PropertiesResponse,
   DeletePropertyResponse,
   PropertyStats,
+  BulkImportPropertiesPayload,
+  BulkImportPropertiesResponse,
 } from './types/property'
 
 /**
@@ -197,4 +199,19 @@ export function getEffectiveCommissionRate(
   propertyCommissionRate: number
 ): number {
   return owner.commissionRateOverride ?? propertyCommissionRate
+}
+
+/**
+ * Bulk import properties with client assignments
+ * Creates multiple properties in a single transaction
+ * @param data - Bulk import payload with properties array
+ * @returns Promise with import results (imported, skipped, summary)
+ */
+export function bulkImportProperties(
+  data: BulkImportPropertiesPayload
+): Promise<BulkImportPropertiesResponse> {
+  return apiClient<BulkImportPropertiesResponse, BulkImportPropertiesPayload>(
+    '/properties/bulk',
+    { method: 'POST', body: data }
+  )
 }
