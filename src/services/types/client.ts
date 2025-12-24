@@ -69,3 +69,32 @@ export interface ClientStatsResponse {
   status: string;
   data: ClientStats;
 }
+
+// Bulk import types
+export interface BulkImportClientsPayload {
+  parentId: string;
+  clients: CreateClientPayload[];
+  skipDuplicates?: boolean;
+}
+
+export interface BulkImportSkippedClient {
+  name: string;
+  email: string | null;
+  reason: string;
+}
+
+export interface BulkImportSummary {
+  total: number;
+  imported: number;
+  skipped: number;
+}
+
+export interface BulkImportClientsResponse {
+  status: 'success' | 'failed';
+  message?: string;
+  data?: {
+    imported: Client[];
+    skipped: BulkImportSkippedClient[];
+    summary: BulkImportSummary;
+  };
+}

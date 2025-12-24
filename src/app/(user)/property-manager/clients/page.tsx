@@ -15,7 +15,8 @@ import {
   BuildingOfficeIcon,
   XCircleIcon,
   FunnelIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
@@ -31,6 +32,8 @@ import StatusCodeManagementModal from '@/components/status/statusCodeManagementM
 import PMSCredentialModal from '@/components/pms-credential/pmsCredentialModal'
 import ClientAgreementModal from '@/components/client-agreement/clientAgreementModal'
 import ClientNoteModal from '@/components/client-note/clientNoteModal'
+import BulkImportClientModal from '@/components/client/import/bulkImportClientModal'
+import PreviewClientModal from '@/components/client/preview/previewClientModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 export default function PropertyManagerClientsPage() {
@@ -43,6 +46,8 @@ export default function PropertyManagerClientsPage() {
   const [showPMSCredentialModal, setShowPMSCredentialModal] = useState(false)
   const [showAgreementsModal, setShowAgreementsModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [statusCodes, setStatusCodes] = useState<ClientStatusCode[]>([])
@@ -101,6 +106,14 @@ export default function PropertyManagerClientsPage() {
 
   const handleAddClient = (newClient: Client) => {
     setClients(prev => [...prev, newClient])
+  }
+
+  const handleViewClient = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId)
+    if (client) {
+      setSelectedClient(client)
+      setShowPreviewModal(true)
+    }
   }
 
   const handleEditClient = (clientId: string) => {
@@ -174,6 +187,11 @@ export default function PropertyManagerClientsPage() {
         console.error('Error refreshing clients:', err)
       })
     }
+  }
+
+  const handleBulkImportComplete = (importedClients: Client[]) => {
+    // Add imported clients to the list
+    setClients(prev => [...importedClients, ...prev])
   }
 
   const getClientActions = (client: Client): ActionItem[] => [
@@ -368,15 +386,26 @@ export default function PropertyManagerClientsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
           <p className="text-gray-500 mt-1">Manage your client relationships</p>
         </div>
-        <motion.button
-          onClick={() => setShowCreateModal(true)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Client
-        </motion.button>
+        <div className="flex items-center gap-3">
+          <motion.button
+            onClick={() => setShowImportModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
+          >
+            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+            Import CSV
+          </motion.button>
+          <motion.button
+            onClick={() => setShowCreateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Client
+          </motion.button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -499,7 +528,8 @@ export default function PropertyManagerClientsPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
-                  className="hover:bg-blue-50/50 transition-colors group"
+                  className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                  onClick={() => handleViewClient(client.id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-4">
@@ -526,7 +556,7 @@ export default function PropertyManagerClientsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(client)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     {client.pmsCredentials ? (
                       <button
                         onClick={() => handlePMSCredentials(client.id)}
@@ -545,7 +575,7 @@ export default function PropertyManagerClientsPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleNotes(client.id)}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer"
@@ -557,7 +587,7 @@ export default function PropertyManagerClientsPage() {
                       {noteCounts[client.id] > 0 ? '' : 'Notes'}
                     </button>
                   </td>
-                  <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
+                  <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]" onClick={(e) => e.stopPropagation()}>
                     <TableActionsDropdown
                       actions={getClientActions(client)}
                       itemId={client.id}
@@ -700,6 +730,44 @@ export default function PropertyManagerClientsPage() {
           clientId={selectedClient.id}
           clientName={selectedClient.name}
           onNoteUpdate={handleNotesUpdated}
+        />
+      )}
+
+      {/* Bulk Import Client Modal */}
+      <BulkImportClientModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={handleBulkImportComplete}
+        existingClients={clients}
+        statusCodes={statusCodes}
+      />
+
+      {/* Preview Client Modal */}
+      {selectedClient && (
+        <PreviewClientModal
+          isOpen={showPreviewModal}
+          onClose={() => {
+            setShowPreviewModal(false)
+            setSelectedClient(null)
+          }}
+          client={selectedClient}
+          onEditClient={() => {
+            setShowPreviewModal(false)
+            setShowUpdateModal(true)
+          }}
+          onManagePMS={() => {
+            setShowPreviewModal(false)
+            setShowPMSCredentialModal(true)
+          }}
+          onManageAgreements={() => {
+            setShowPreviewModal(false)
+            setShowAgreementsModal(true)
+          }}
+          onManageNotes={() => {
+            setShowPreviewModal(false)
+            setShowNotesModal(true)
+          }}
+          noteCount={noteCounts[selectedClient.id] || 0}
         />
       )}
     </div>
