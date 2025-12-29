@@ -11,16 +11,20 @@ import {
   BuildingOfficeIcon,
   CheckCircleIcon,
   ChartBarIcon,
-  FunnelIcon
+  FunnelIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/react/24/outline'
 import { getProperties, calculatePropertyStats, formatOwnerDisplay } from '@/services/propertyService'
+import { getClientsByParentId } from '@/services/clientService'
 import { Property } from '@/services/types/property'
+import { Client } from '@/services/types/client'
 import { useUserStore } from '@/store/useUserStore'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
 import UpdatePropertyModal from '@/components/property/update/updatePropertyModal'
 import DeletePropertyModal from '@/components/property/delete/deletePropertyModal'
 import PreviewPropertyModal from '@/components/property/preview/previewPropertyModal'
+import BulkImportPropertyModal from '@/components/property/import/bulkImportPropertyModal'
 import ChannelIconRow from '@/components/property/channels/channelIconRow'
 
 export default function PropertyManagerPropertiesPage() {
@@ -31,34 +35,44 @@ export default function PropertyManagerPropertiesPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [properties, setProperties] = useState<Property[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const { profile } = useUserStore()
 
   useEffect(() => {
-    const fetchProperties = async () => {
+    const fetchData = async () => {
       if (!profile?.id) return
 
       try {
         setLoading(true)
-        const response = await getProperties(profile.id)
-        setProperties(response.data)
+        const [propertiesRes, clientsRes] = await Promise.all([
+          getProperties(profile.id),
+          getClientsByParentId(profile.id)
+        ])
+        setProperties(propertiesRes.data)
+        setClients(clientsRes.data)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch properties')
-        console.error('Error fetching properties:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+        console.error('Error fetching data:', err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchProperties()
+    fetchData()
   }, [profile?.id])
 
   const handleAddProperty = (newProperty: Property) => {
     setProperties(prev => [...prev, newProperty])
+  }
+
+  const handleBulkImportComplete = (importedProperties: Property[]) => {
+    setProperties(prev => [...prev, ...importedProperties])
   }
 
   const handleEditProperty = (propertyId: string) => {
@@ -229,15 +243,26 @@ export default function PropertyManagerPropertiesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
           <p className="text-gray-500 mt-1">Manage your property portfolio</p>
         </div>
-        <motion.button
-          onClick={() => setShowCreateModal(true)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Property
-        </motion.button>
+        <div className="flex items-center gap-3">
+          <motion.button
+            onClick={() => setShowBulkImportModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+          >
+            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+            Import CSV
+          </motion.button>
+          <motion.button
+            onClick={() => setShowCreateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Property
+          </motion.button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -503,6 +528,15 @@ export default function PropertyManagerPropertiesPage() {
           }}
         />
       )}
+
+      {/* Bulk Import Property Modal */}
+      <BulkImportPropertyModal
+        isOpen={showBulkImportModal}
+        onClose={() => setShowBulkImportModal(false)}
+        onImportComplete={handleBulkImportComplete}
+        existingProperties={properties}
+        clients={clients}
+      />
     </div>
   )
 }

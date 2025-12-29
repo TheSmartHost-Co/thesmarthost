@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -18,7 +18,10 @@ import {
   CurrencyDollarIcon,
   FunnelIcon,
   CheckCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  MagnifyingGlassIcon,
+  ArrowUpIcon,
+  ArrowDownIcon
 } from '@heroicons/react/24/outline'
 
 const statusColors = {
@@ -44,6 +47,13 @@ export default function IncomingBookingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<IncomingBooking | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [propertyFilter, setPropertyFilter] = useState('All Properties')
+  const [showFilterPopover, setShowFilterPopover] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const filterPopoverRef = useRef<HTMLDivElement>(null)
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -53,6 +63,20 @@ export default function IncomingBookingsPage() {
       fetchIncomingBookings()
     }
   }, [profile?.id, statusFilter])
+
+  // Close filter popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
+        setShowFilterPopover(false)
+      }
+    }
+
+    if (showFilterPopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showFilterPopover])
 
   const fetchIncomingBookings = async () => {
     if (!profile?.id) return
@@ -131,12 +155,71 @@ export default function IncomingBookingsPage() {
     return `$${parseFloat(amount).toLocaleString()}`
   }
 
-  // Calculate stats
+  // Filter bookings based on search, property filter, and date range
+  const filteredBookings = bookings
+    .filter(booking => {
+      const searchLower = searchTerm.toLowerCase()
+      const matchesSearch =
+        (booking.guestName?.toLowerCase().includes(searchLower) || false) ||
+        (booking.externalReservationId?.toLowerCase().includes(searchLower) || false) ||
+        (booking.propertyName?.toLowerCase().includes(searchLower) || false) ||
+        (booking.listingName?.toLowerCase().includes(searchLower) || false)
+
+      const matchesProperty = propertyFilter === 'All Properties' ||
+        booking.propertyName === propertyFilter ||
+        booking.listingName === propertyFilter
+
+      // Date filtering based on check-in date
+      let matchesDateRange = true
+      if (dateFrom && booking.checkInDate) {
+        const checkIn = new Date(booking.checkInDate)
+        const from = new Date(dateFrom)
+        matchesDateRange = matchesDateRange && checkIn >= from
+      }
+      if (dateTo && booking.checkInDate) {
+        const checkIn = new Date(booking.checkInDate)
+        const to = new Date(dateTo)
+        matchesDateRange = matchesDateRange && checkIn <= to
+      }
+
+      return matchesSearch && matchesProperty && matchesDateRange
+    })
+    .sort((a, b) => {
+      // Sort by check-in date
+      const dateA = a.checkInDate ? new Date(a.checkInDate).getTime() : 0
+      const dateB = b.checkInDate ? new Date(b.checkInDate).getTime() : 0
+      return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+    })
+
+  // Property options for filter - derived from existing bookings
+  const uniqueProperties = Array.from(new Set(
+    bookings
+      .map(b => b.propertyName || b.listingName)
+      .filter((name): name is string => !!name && name.trim() !== '')
+  )).sort()
+
+  const propertyOptions = ['All Properties', ...uniqueProperties]
+
+  // Count active filters (excluding status which has its own dropdown)
+  const activeFiltersCount = [
+    propertyFilter !== 'All Properties',
+    dateFrom !== '',
+    dateTo !== ''
+  ].filter(Boolean).length
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setPropertyFilter('All Properties')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  // Calculate stats from filtered bookings
   const stats = {
-    pending: bookings.filter(b => b.status === 'pending').length,
-    approved: bookings.filter(b => b.status === 'approved').length,
-    imported: bookings.filter(b => b.status === 'imported').length,
-    total: bookings.length
+    pending: filteredBookings.filter(b => b.status === 'pending').length,
+    approved: filteredBookings.filter(b => b.status === 'approved').length,
+    imported: filteredBookings.filter(b => b.status === 'imported').length,
+    total: filteredBookings.length
   }
 
   const statCards = [
@@ -254,30 +337,154 @@ export default function IncomingBookingsPage() {
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
       >
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-gray-500">
-            <FunnelIcon className="h-4 w-4" />
-            <span className="text-sm font-medium">Filter by status:</span>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+              placeholder="Search by guest, reservation, property..."
+            />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-500">Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+            >
+              <option value="all">All Bookings</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="imported">Imported</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+
+          {/* Sort Toggle */}
+          <motion.button
+            onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            title={sortDirection === 'asc' ? 'Sorted oldest first' : 'Sorted newest first'}
           >
-            <option value="all">All Bookings</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="imported">Imported</option>
-            <option value="error">Error</option>
-          </select>
+            {sortDirection === 'asc' ? (
+              <ArrowUpIcon className="h-4 w-4 mr-2" />
+            ) : (
+              <ArrowDownIcon className="h-4 w-4 mr-2" />
+            )}
+            {sortDirection === 'asc' ? 'Oldest First' : 'Newest First'}
+          </motion.button>
+
+          {/* Filters Popover */}
+          <div className="relative" ref={filterPopoverRef}>
+            <motion.button
+              onClick={() => setShowFilterPopover(!showFilterPopover)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            >
+              <FunnelIcon className="h-4 w-4 mr-2" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </motion.button>
+
+            {showFilterPopover && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+              >
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900">Filters</h3>
+                    <button
+                      onClick={() => setShowFilterPopover(false)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Property Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Property
+                      </label>
+                      <select
+                        value={propertyFilter}
+                        onChange={(e) => setPropertyFilter(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                      >
+                        {propertyOptions.map((property) => (
+                          <option key={property} value={property}>
+                            {property}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Check-in Date Range
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          placeholder="From"
+                        />
+                        <span className="text-gray-400">to</span>
+                        <input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          placeholder="To"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter Actions */}
+                  {activeFiltersCount > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Clear all filters
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -288,22 +495,24 @@ export default function IncomingBookingsPage() {
         transition={{ delay: 0.4 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
       >
-        {bookings.length === 0 ? (
+        {filteredBookings.length === 0 ? (
           <div className="text-center py-16 px-4">
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <InboxArrowDownIcon className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">No incoming bookings</h3>
             <p className="text-gray-500 max-w-sm mx-auto">
-              {statusFilter === 'all'
-                ? 'No bookings have been received from connected platforms yet.'
-                : `No ${statusFilter} bookings found.`
+              {searchTerm || propertyFilter !== 'All Properties' || dateFrom || dateTo
+                ? 'Try adjusting your search or filter criteria.'
+                : statusFilter === 'all'
+                  ? 'No bookings have been received from connected platforms yet.'
+                  : `No ${statusFilter} bookings found.`
               }
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {bookings.map((booking, index) => {
+          <div className="divide-y divide-gray-100 overflow-y-auto max-h-[600px]">
+            {filteredBookings.map((booking, index) => {
               const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
               const statusStyle = statusColors[booking.status as keyof typeof statusColors] || statusColors.pending
 
@@ -421,10 +630,11 @@ export default function IncomingBookingsPage() {
         )}
 
         {/* Results count */}
-        {bookings.length > 0 && (
+        {filteredBookings.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
             <p className="text-sm text-gray-500">
-              Showing <span className="font-medium text-gray-700">{bookings.length}</span> bookings
+              Showing <span className="font-medium text-gray-700">{filteredBookings.length}</span> of{' '}
+              <span className="font-medium text-gray-700">{bookings.length}</span> bookings
             </p>
           </div>
         )}

@@ -40,7 +40,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [postalCode, setPostalCode] = useState(property.postalCode)
   const [province, setProvince] = useState(property.province)
   const [propertyType, setPropertyType] = useState<'STR' | 'LTR'>(property.propertyType)
-  const [commissionRate, setCommissionRate] = useState(property.commissionRate.toString())
+  const [commissionRate, setCommissionRate] = useState(property.commissionRate?.toString() ?? '')
 
   // Owners management
   const [owners, setOwners] = useState<UpdatePropertyOwner[]>([])
@@ -64,7 +64,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setPostalCode(property.postalCode)
       setProvince(property.province)
       setPropertyType(property.propertyType)
-      setCommissionRate(property.commissionRate.toString())
+      setCommissionRate(property.commissionRate?.toString() ?? '')
 
       // Initialize owners
       setOwners(
@@ -264,7 +264,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     const trimmedAddress = address.trim()
     const trimmedPostalCode = postalCode.trim()
     const trimmedProvince = province.trim()
-    const parsedCommissionRate = parseFloat(commissionRate)
+    const parsedCommissionRate = commissionRate ? parseFloat(commissionRate) : undefined
 
     // Validation
     if (!trimmedListingName || !trimmedListingId || !trimmedAddress || !trimmedPostalCode || !trimmedProvince) {
@@ -272,7 +272,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       return
     }
 
-    if (!commissionRate || isNaN(parsedCommissionRate)) {
+    if (!commissionRate || parsedCommissionRate === undefined || isNaN(parsedCommissionRate)) {
       showNotification('Commission rate is required', 'error')
       return
     }

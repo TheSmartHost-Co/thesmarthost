@@ -26,7 +26,7 @@ export interface Property {
   postalCode: string // NEW: Required postal code
   province: string
   propertyType: 'STR' | 'LTR'
-  commissionRate: number
+  commissionRate?: number // Optional - can be null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -73,13 +73,13 @@ export interface CreatePropertyPayload {
   clientId: string // First owner (will be marked as primary)
   listingName: string // Renamed from 'name'
   listingId: string // Renamed from 'hostawayListingId'
-  externalName?: string // NEW: Optional public-facing name
-  internalName?: string // NEW: Optional internal reference name
+  externalName?: string // Optional public-facing name
+  internalName?: string // Optional internal reference name
   address: string
-  postalCode: string // NEW: Required postal code
-  province: string
+  postalCode?: string // Optional postal code
+  province?: string // Optional province
   propertyType: 'STR' | 'LTR'
-  commissionRate: number
+  commissionRate?: number // Optional commission rate
   commissionRateOverride?: number // Optional override for first owner
 }
 
@@ -154,4 +154,64 @@ export interface PropertyStats {
   averageCommissionRate: number
   strCount: number
   ltrCount: number
+}
+
+// ===================================
+// BULK IMPORT TYPES
+// ===================================
+
+/**
+ * Payload for a single property in bulk import
+ */
+export interface BulkImportPropertyPayload {
+  listingName: string
+  listingId: string
+  address: string
+  clientId: string // Required - the primary owner
+  province?: string // Optional
+  propertyType?: 'STR' | 'LTR' // Defaults to STR
+  externalName?: string
+  internalName?: string
+  postalCode?: string
+  commissionRate?: number
+  description?: string
+}
+
+/**
+ * Payload for bulk import API call
+ */
+export interface BulkImportPropertiesPayload {
+  properties: BulkImportPropertyPayload[]
+  skipDuplicates?: boolean
+}
+
+/**
+ * Skipped property during import
+ */
+export interface BulkImportSkippedProperty {
+  listingId: string
+  listingName: string
+  reason: string
+}
+
+/**
+ * Summary of bulk import operation
+ */
+export interface BulkImportPropertySummary {
+  total: number
+  imported: number
+  skipped: number
+}
+
+/**
+ * API response for bulk import
+ */
+export interface BulkImportPropertiesResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data?: {
+    imported: Property[]
+    skipped: BulkImportSkippedProperty[]
+    summary: BulkImportPropertySummary
+  }
 }

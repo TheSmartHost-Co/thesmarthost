@@ -1,5 +1,13 @@
 import apiClient from './apiClient';
-import { ClientResponse, ClientsResponse, ClientStatsResponse, CreateClientPayload, UpdateClientPayload } from './types/client';
+import {
+  ClientResponse,
+  ClientsResponse,
+  ClientStatsResponse,
+  CreateClientPayload,
+  UpdateClientPayload,
+  BulkImportClientsPayload,
+  BulkImportClientsResponse
+} from './types/client';
 
 export function getClientsByParentId(parentId: string): Promise<ClientsResponse> {
   return apiClient<ClientsResponse>(`/client/${parentId}`);
@@ -37,4 +45,16 @@ export function deleteClient(id: string): Promise<{ status: string; message: str
   return apiClient<{ status: string; message: string }>(`/client/${id}`, {
     method: 'DELETE',
   });
+}
+
+export function bulkImportClients(
+  data: BulkImportClientsPayload
+): Promise<BulkImportClientsResponse> {
+  return apiClient<BulkImportClientsResponse, BulkImportClientsPayload>(
+    '/client/bulk',
+    {
+      method: 'POST',
+      body: data,
+    }
+  );
 }
