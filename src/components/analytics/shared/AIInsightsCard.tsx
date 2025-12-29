@@ -11,7 +11,7 @@ import {
   ExclamationTriangleIcon,
   CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
-import { getAIInsights } from '@/services/analyticsService'
+import { getAIInsights, getWeekRange } from '@/services/analyticsService'
 import { useAnalyticsStore } from '@/store/useAnalyticsStore'
 
 interface AIInsightsCardProps {
@@ -39,11 +39,15 @@ export function AIInsightsCard({ className = '', maxWeeksBack = MAX_WEEKS_TO_TRY
     try {
       // Try fetching from current week, then go back if unavailable
       while (weekOffset < maxWeeksBack) {
-        const res = await getAIInsights(weekOffset)
+        const { startDate, endDate } = getWeekRange(weekOffset)
+        console.log(`[AI Insights] Trying week ${weekOffset}: ${startDate} to ${endDate}`)
+
+        const res = await getAIInsights(startDate, endDate)
 
         if (res.status === 'success') {
-          if (res.data.available) {
+          if (res.data.available === true) {
             // Found data - save it and stop
+            console.log(`[AI Insights] Found data at week ${weekOffset}`)
             setAIInsights(res.data)
             setCurrentWeekOffset(weekOffset)
             setLoadingAI(false)
@@ -51,6 +55,7 @@ export function AIInsightsCard({ className = '', maxWeeksBack = MAX_WEEKS_TO_TRY
             return
           } else {
             // No data for this week, try previous
+            console.log(`[AI Insights] No data for week ${weekOffset}, trying previous week`)
             weekOffset++
           }
         } else {
@@ -63,6 +68,7 @@ export function AIInsightsCard({ className = '', maxWeeksBack = MAX_WEEKS_TO_TRY
       }
 
       // Exhausted all weeks without finding data
+      console.log(`[AI Insights] No data found after checking ${maxWeeksBack} weeks`)
       setNoDataAvailable(true)
       setLoadingAI(false)
       setHasFetched(true)

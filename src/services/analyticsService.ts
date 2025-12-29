@@ -40,12 +40,37 @@ export async function getAnalyticsBookings(
 }
 
 /**
+ * Get the date range for a specific week offset
+ * @param weekOffset - 0 = last complete week, 1 = week before that, etc.
+ * @returns { startDate, endDate } for that week (Monday to Sunday)
+ */
+export function getWeekRange(weekOffset: number = 0): { startDate: string; endDate: string } {
+  const now = new Date()
+
+  // Get the most recent Sunday (end of last complete week)
+  const dayOfWeek = now.getDay() // 0 = Sunday, 1 = Monday, etc.
+  const lastSunday = new Date(now)
+  lastSunday.setDate(now.getDate() - dayOfWeek - (7 * weekOffset))
+  lastSunday.setHours(0, 0, 0, 0)
+
+  // Get the Monday of that week
+  const monday = new Date(lastSunday)
+  monday.setDate(lastSunday.getDate() - 6)
+
+  return {
+    startDate: formatDate(monday),
+    endDate: formatDate(lastSunday),
+  }
+}
+
+/**
  * Fetch AI-generated weekly insights
  * GET /api/analytics/ai-insights
- * @param weekOffset - Number of weeks to go back (0 = current/last complete week, 1 = week before that, etc.)
+ * @param startDate - Start date (YYYY-MM-DD)
+ * @param endDate - End date (YYYY-MM-DD)
  */
-export async function getAIInsights(weekOffset: number = 0): Promise<AIInsightsResponse> {
-  const params = weekOffset > 0 ? `?weekOffset=${weekOffset}` : ''
+export async function getAIInsights(startDate: string, endDate: string): Promise<AIInsightsResponse> {
+  const params = `?startDate=${startDate}&endDate=${endDate}`
   return apiClient<AIInsightsResponse>(`/analytics/ai-insights${params}`)
 }
 
