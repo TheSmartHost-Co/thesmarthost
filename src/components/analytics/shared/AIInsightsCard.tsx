@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import {
@@ -9,55 +9,78 @@ import {
   ChevronUpIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 import { getAIInsights } from '@/services/analyticsService'
 import { useAnalyticsStore } from '@/store/useAnalyticsStore'
-import type { AIInsightsData } from '@/services/types/analytics'
 
 interface AIInsightsCardProps {
   className?: string
+  maxWeeksBack?: number  // How many weeks to try before giving up
 }
 
-export function AIInsightsCard({ className = '' }: AIInsightsCardProps) {
+const MAX_WEEKS_TO_TRY = 8  // Try up to 8 weeks back
+
+export function AIInsightsCard({ className = '', maxWeeksBack = MAX_WEEKS_TO_TRY }: AIInsightsCardProps) {
   const { aiInsights, isLoadingAI, aiError, setAIInsights, setLoadingAI, setAIError } = useAnalyticsStore()
   const [isExpanded, setIsExpanded] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
+  const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
+  const [noDataAvailable, setNoDataAvailable] = useState(false)
+  const fetchAttemptedRef = useRef(false)
 
-  const fetchInsights = async () => {
+  const fetchInsights = async (startFromWeek: number = 0) => {
     setLoadingAI(true)
     setAIError(null)
+    setNoDataAvailable(false)
+
+    let weekOffset = startFromWeek
 
     try {
-      const res = await getAIInsights()
-      if (res.status === 'success') {
-        setAIInsights(res.data)
-      } else {
-        setAIError(res.message || 'Failed to load insights')
+      // Try fetching from current week, then go back if unavailable
+      while (weekOffset < maxWeeksBack) {
+        const res = await getAIInsights(weekOffset)
+
+        if (res.status === 'success') {
+          if (res.data.available) {
+            // Found data - save it and stop
+            setAIInsights(res.data)
+            setCurrentWeekOffset(weekOffset)
+            setLoadingAI(false)
+            setHasFetched(true)
+            return
+          } else {
+            // No data for this week, try previous
+            weekOffset++
+          }
+        } else {
+          // API error - stop trying
+          setAIError(res.message || 'Failed to load insights')
+          setLoadingAI(false)
+          setHasFetched(true)
+          return
+        }
       }
+
+      // Exhausted all weeks without finding data
+      setNoDataAvailable(true)
+      setLoadingAI(false)
+      setHasFetched(true)
     } catch (err) {
       console.error('Error fetching AI insights:', err)
       setAIError('Network error occurred')
-    } finally {
       setLoadingAI(false)
       setHasFetched(true)
     }
   }
 
   useEffect(() => {
-    if (!hasFetched && !aiInsights) {
+    // Only fetch once on mount
+    if (!fetchAttemptedRef.current && !aiInsights) {
+      fetchAttemptedRef.current = true
       fetchInsights()
     }
-  }, [hasFetched, aiInsights])
-
-  // Don't render if no insights are available
-  if (!isLoadingAI && aiInsights && !aiInsights.available) {
-    return null
-  }
-
-  // Don't render if there was an error and we've already tried
-  if (hasFetched && aiError && !aiInsights) {
-    return null
-  }
+  }, [])
 
   return (
     <motion.div
@@ -132,7 +155,7 @@ export function AIInsightsCard({ className = '' }: AIInsightsCardProps) {
                 <div className="flex items-center justify-center py-8">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm text-gray-500">Generating insights...</p>
+                    <p className="text-sm text-gray-500">Searching for insights...</p>
                   </div>
                 </div>
               ) : aiError ? (
@@ -141,15 +164,33 @@ export function AIInsightsCard({ className = '' }: AIInsightsCardProps) {
                     <ExclamationTriangleIcon className="w-8 h-8 text-amber-500 mx-auto mb-2" />
                     <p className="text-sm text-gray-600">Unable to load insights</p>
                     <button
-                      onClick={fetchInsights}
+                      onClick={() => fetchInsights(0)}
                       className="mt-2 text-sm text-violet-600 hover:text-violet-700 font-medium"
                     >
                       Try again
                     </button>
                   </div>
                 </div>
+              ) : noDataAvailable ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="text-center">
+                    <CalendarDaysIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">No booking data found</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      AI insights require at least one complete week of bookings
+                    </p>
+                  </div>
+                </div>
               ) : aiInsights && aiInsights.available ? (
                 <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-p:text-gray-600 prose-strong:text-gray-900 prose-ul:text-gray-600 prose-li:marker:text-violet-400">
+                  {currentWeekOffset > 0 && (
+                    <div className="mb-3 px-2 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+                      <p className="text-xs text-amber-700 flex items-center gap-1.5">
+                        <CalendarDaysIcon className="w-3.5 h-3.5" />
+                        Showing insights from {currentWeekOffset} {currentWeekOffset === 1 ? 'week' : 'weeks'} ago (most recent available)
+                      </p>
+                    </div>
+                  )}
                   <ReactMarkdown
                     components={{
                       h1: ({ children }) => (

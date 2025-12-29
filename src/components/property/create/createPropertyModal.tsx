@@ -2,15 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
-import { createProperty, getPropertyById } from '@/services/propertyService'
+import { createProperty } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
-import { createPropertyChannel } from '@/services/propertyChannelService'
 import { CreatePropertyPayload } from '@/services/types/property'
-import { LocalPropertyChannel } from '@/services/types/propertyChannel'
 import { Client } from '@/services/types/client'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
-import ChannelList from '../channels/channelList'
 
 interface CreatePropertyModalProps {
   isOpen: boolean
@@ -35,9 +32,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [clientId, setClientId] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
-
-  // Channels management (local only, saved after property creation)
-  const [channels, setChannels] = useState<LocalPropertyChannel[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -75,35 +70,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       setPropertyType('STR')
       setCommissionRate('')
       setClientId('')
-      setChannels([]) // Reset channels array
     }
   }, [isOpen])
-
-  // Channel handlers (local mode - no API calls yet)
-  const handleAddChannel = (channelData: {
-    channelName: string
-    publicUrl: string
-    isActive: boolean
-  }) => {
-    const newChannel: LocalPropertyChannel = {
-      tempId: `temp-${Date.now()}`,
-      ...channelData,
-    }
-    setChannels((prev) => [...prev, newChannel])
-  }
-
-  const handleEditChannel = (
-    tempId: string,
-    channelData: { channelName: string; publicUrl: string; isActive: boolean }
-  ) => {
-    setChannels((prev) =>
-      prev.map((c) => (c.tempId === tempId ? { ...c, ...channelData } : c))
-    )
-  }
-
-  const handleDeleteChannel = (tempId: string) => {
-    setChannels((prev) => prev.filter((c) => c.tempId !== tempId))
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,6 +101,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       return
     }
 
+    setIsSubmitting(true)
+
     try {
       const payload: CreatePropertyPayload = {
         clientId,
@@ -150,58 +120,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       const res = await createProperty(payload)
 
       if (res.status === 'success') {
-        const newPropertyId = res.data.id
-
-        // Create channels if any were added
-        if (channels.length > 0) {
-          const channelResults = []
-          for (const channel of channels) {
-            const channelRes = await createPropertyChannel({
-              propertyId: newPropertyId,
-              channelName: channel.channelName,
-              publicUrl: channel.publicUrl,
-              isActive: channel.isActive,
-            })
-            channelResults.push({
-              channel,
-              success: channelRes.status === 'success',
-              error: channelRes.message,
-            })
-          }
-
-          // Check if any channels failed
-          const failedChannels = channelResults.filter((r) => !r.success)
-
-          if (failedChannels.length === 0) {
-            showNotification('Property and all channels created successfully', 'success')
-          } else if (failedChannels.length === channels.length) {
-            showNotification('Property created, but all channels failed to create', 'error')
-          } else {
-            showNotification(
-              `Property created, but ${failedChannels.length} of ${channels.length} channel(s) failed`,
-              'error'
-            )
-          }
-
-          // Refetch the property with channels to get complete data
-          try {
-            const updatedPropertyRes = await getPropertyById(newPropertyId)
-            if (updatedPropertyRes.status === 'success') {
-              onAdd(updatedPropertyRes.data)
-            } else {
-              // Fallback to original data if refetch fails
-              onAdd(res.data)
-            }
-          } catch (err) {
-            console.error('Error refetching property:', err)
-            // Fallback to original data if refetch fails
-            onAdd(res.data)
-          }
-        } else {
-          showNotification('Property created successfully', 'success')
-          onAdd(res.data)
-        }
-
+        showNotification('Property created successfully', 'success')
+        onAdd(res.data)
         onClose()
       } else {
         showNotification(res.message || 'Failed to create property', 'error')
@@ -210,13 +130,28 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       console.error('Error creating property:', err)
       const message = err instanceof Error ? err.message : 'Error creating property'
       showNotification(message, 'error')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-2xl w-11/12">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[90vh]">
       <h2 className="text-xl mb-4 text-black">Create New Property</h2>
       <form onSubmit={handleSubmit} className="space-y-4 text-black">
+        {/* Property Type */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Property Type *</label>
+          <select
+            value={propertyType}
+            onChange={(e) => setPropertyType(e.target.value as 'STR' | 'LTR')}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="STR">Short-Term Rental (STR)</option>
+            <option value="LTR">Long-Term Rental (LTR)</option>
+          </select>
+        </div>
+
         {/* Listing Name */}
         <div>
           <label className="block text-sm font-medium mb-1">Listing Name *</label>
@@ -225,8 +160,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             type="text"
             value={listingName}
             onChange={(e) => setListingName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., Lake Estate"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. Lake Estate"
           />
         </div>
 
@@ -238,31 +173,31 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             type="text"
             value={listingId}
             onChange={(e) => setListingId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., HOST-123"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. HOST-123"
           />
         </div>
 
-        {/* External Name (Optional) */}
+        {/* External Name */}
         <div>
           <label className="block text-sm font-medium mb-1">External Name</label>
           <input
             type="text"
             value={externalName}
             onChange={(e) => setExternalName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Public-facing name (optional)"
           />
         </div>
 
-        {/* Internal Name (Optional) */}
+        {/* Internal Name */}
         <div>
           <label className="block text-sm font-medium mb-1">Internal Name</label>
           <input
             type="text"
             value={internalName}
             onChange={(e) => setInternalName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Internal reference (optional)"
           />
         </div>
@@ -275,12 +210,12 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., 123 Main St, Calgary, AB"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. 123 Main St, Calgary, AB"
           />
         </div>
 
-        {/* Postal Code and Province - Side by side */}
+        {/* Postal Code & Province */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Postal Code *</label>
@@ -289,11 +224,10 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
               type="text"
               value={postalCode}
               onChange={(e) => setPostalCode(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., T2P 1A1"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="T2P 1A1"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium mb-1">Province *</label>
             <input
@@ -301,61 +235,36 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
               type="text"
               value={province}
               onChange={(e) => setProvince(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., Alberta"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Alberta"
             />
           </div>
         </div>
 
-        {/* Property Type and Commission Rate - Side by side */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Property Type *</label>
-            <select
-              required
-              value={propertyType}
-              onChange={(e) => setPropertyType(e.target.value as 'STR' | 'LTR')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="STR">STR (Short-Term Rental)</option>
-              <option value="LTR">LTR (Long-Term Rental)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
-            <input
-              required
-              type="number"
-              step="0.01"
-              value={commissionRate}
-              onChange={(e) => setCommissionRate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., 15"
-            />
-          </div>
-        </div>
-
-        {/* Channels Section */}
-        <div className="space-y-4 pt-4 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Channels (Optional)</h3>
-          <ChannelList
-            channels={channels}
-            onAddChannel={handleAddChannel}
-            onEditChannel={handleEditChannel}
-            onDeleteChannel={handleDeleteChannel}
+        {/* Commission Rate */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
+          <input
+            required
+            type="number"
+            step="0.01"
+            value={commissionRate}
+            onChange={(e) => setCommissionRate(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="e.g. 15"
           />
         </div>
 
-        {/* Client Owner Dropdown */}
-        <div className="pt-4 border-t border-gray-200">
-          <label className="block text-sm font-medium mb-1">Property Owner (Client) *</label>
+        {/* Property Owner */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Property Owner *</label>
           {loadingClients ? (
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               Loading clients...
             </div>
           ) : clients.length === 0 ? (
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+            <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
               No active clients available. Please create a client first.
             </div>
           ) : (
@@ -363,36 +272,36 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
               required
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Select a client</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
-                  {client.name} ({client.email || 'No email'})
+                  {client.name} {client.email ? `(${client.email})` : ''}
                 </option>
               ))}
             </select>
           )}
           <p className="text-xs text-gray-500 mt-1">
-            This client will be set as the primary owner. You can add co-owners after creating the property.
+            This client will be the primary owner. Add co-owners after creation.
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-3 mt-6">
+        {/* Buttons */}
+        <div className="flex justify-end space-x-4 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-4 cursor-pointer py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loadingClients || clients.length === 0}
-            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={loadingClients || clients.length === 0 || isSubmitting}
+            className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            Create Property
+            {isSubmitting ? 'Creating...' : 'Create Property'}
           </button>
         </div>
       </form>

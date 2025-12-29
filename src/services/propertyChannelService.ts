@@ -20,7 +20,7 @@ export async function getChannelsByPropertyId(
   propertyId: string
 ): Promise<PropertyChannelsResponse> {
   return apiClient<PropertyChannelsResponse>(
-    `/property-channels?propertyId=${propertyId}`
+    `/property-channels/${propertyId}`
   )
 }
 

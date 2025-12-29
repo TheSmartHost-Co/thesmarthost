@@ -42,9 +42,11 @@ export async function getAnalyticsBookings(
 /**
  * Fetch AI-generated weekly insights
  * GET /api/analytics/ai-insights
+ * @param weekOffset - Number of weeks to go back (0 = current/last complete week, 1 = week before that, etc.)
  */
-export async function getAIInsights(): Promise<AIInsightsResponse> {
-  return apiClient<AIInsightsResponse>('/analytics/ai-insights')
+export async function getAIInsights(weekOffset: number = 0): Promise<AIInsightsResponse> {
+  const params = weekOffset > 0 ? `?weekOffset=${weekOffset}` : ''
+  return apiClient<AIInsightsResponse>(`/analytics/ai-insights${params}`)
 }
 
 // --- Helper Functions ---

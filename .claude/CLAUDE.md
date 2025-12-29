@@ -371,6 +371,406 @@ if (!['STR', 'LTR'].includes(propertyType)) {
 }
 ```
 
+## Schema
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.bookings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid,
+  csv_upload_id uuid,
+  reservation_code text,
+  guest_name text NOT NULL,
+  check_in_date date NOT NULL,
+  num_nights bigint NOT NULL,
+  platform text NOT NULL,
+  nightly_rate double precision,
+  extra_guest_fees double precision,
+  cleaning_fee double precision,
+  lodging_tax double precision,
+  bed_linen_fee double precision,
+  gst double precision,
+  qst double precision,
+  channel_fee double precision,
+  stripe_fee double precision,
+  total_payout double precision,
+  mgmt_fee double precision,
+  net_earnings double precision,
+  sales_tax double precision,
+  created_at timestamp with time zone DEFAULT now(),
+  listing_name text,
+  check_out_date date,
+  user_id uuid,
+  CONSTRAINT bookings_pkey PRIMARY KEY (id),
+  CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT bookings_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
+  CONSTRAINT bookings_csv_upload_id_fkey FOREIGN KEY (csv_upload_id) REFERENCES public.csv_uploads(id)
+);
+CREATE TABLE public.calculation_rule_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  name text,
+  description text,
+  is_default boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT calculation_rule_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT calculation_rule_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.calculation_rules (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  platform USER-DEFINED NOT NULL,
+  booking_field text NOT NULL,
+  csv_formula text NOT NULL,
+  priority bigint,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  user_id uuid,
+  is_active boolean DEFAULT true,
+  template_id uuid,
+  CONSTRAINT calculation_rules_pkey PRIMARY KEY (id),
+  CONSTRAINT calculation_rules_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT calculation_rules_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.calculation_rule_templates(id)
+);
+CREATE TABLE public.client_agreements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  file_path text,
+  version text,
+  uploaded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  agreement_title text,
+  default boolean,
+  CONSTRAINT client_agreements_pkey PRIMARY KEY (id),
+  CONSTRAINT client_agreements_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT client_agreements_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.client_notes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  author_id uuid,
+  note_title text,
+  note text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT client_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT client_notes_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT client_notes_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.client_pms_credentials (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  pms text,
+  username text,
+  password text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT client_pms_credentials_pkey PRIMARY KEY (id),
+  CONSTRAINT client_pms_credentials_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
+);
+CREATE TABLE public.client_properties (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  property_id uuid,
+  is_primary boolean,
+  commission_rate_override double precision,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT client_properties_pkey PRIMARY KEY (id),
+  CONSTRAINT client_properties_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT client_properties_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id)
+);
+CREATE TABLE public.client_status_codes (
+  user_id uuid NOT NULL,
+  code text NOT NULL,
+  label text,
+  color_hex text,
+  is_default boolean,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  CONSTRAINT client_status_codes_pkey PRIMARY KEY (id),
+  CONSTRAINT client_status_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.clients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  parent_id uuid NOT NULL,
+  name text,
+  email text,
+  phone text,
+  status text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  company_name text,
+  billing_address text,
+  pms text,
+  agreement_file_path text,
+  status_id uuid,
+  pms_credentials boolean,
+  CONSTRAINT clients_pkey PRIMARY KEY (id),
+  CONSTRAINT clients_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.profiles(id),
+  CONSTRAINT clients_status_id_fkey FOREIGN KEY (status_id) REFERENCES public.client_status_codes(id)
+);
+CREATE TABLE public.csv_uploads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid,
+  file_name character varying,
+  file_path text,
+  upload_date timestamp without time zone DEFAULT now(),
+  user_id uuid,
+  CONSTRAINT csv_uploads_pkey PRIMARY KEY (id),
+  CONSTRAINT csv_uploads_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT csv_uploads_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id)
+);
+CREATE TABLE public.expense_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  code text NOT NULL,
+  label text NOT NULL,
+  color_hex text,
+  is_default boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT expense_categories_pkey PRIMARY KEY (id),
+  CONSTRAINT expense_categories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.expenses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  property_id uuid,
+  booking_id uuid,
+  expense_date date,
+  amount double precision,
+  currency text DEFAULT 'CAD'::text,
+  category text,
+  vendor_name text,
+  description text,
+  receipt_path text,
+  receipt_original_name text,
+  receipt_mime_type text,
+  is_reimbursable boolean DEFAULT false,
+  is_tax_deductible boolean DEFAULT true,
+  payment_method text,
+  payment_status text,
+  is_recurring boolean DEFAULT false,
+  recurring_frequency text,
+  recurring_end_date date,
+  parent_expense_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT expenses_pkey PRIMARY KEY (id),
+  CONSTRAINT expenses_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
+  CONSTRAINT expenses_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
+  CONSTRAINT expenses_parent_expense_id_fkey FOREIGN KEY (parent_expense_id) REFERENCES public.expenses(id),
+  CONSTRAINT expenses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.field_values_changed (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  booking_id uuid,
+  user_id uuid,
+  field_name text,
+  original_value text,
+  edited_value text,
+  change_reason text,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT field_values_changed_pkey PRIMARY KEY (id),
+  CONSTRAINT field_values_changed_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
+  CONSTRAINT field_values_changed_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.guesty_connections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  guesty_client_id text,
+  guesty_client_secret text,
+  access_token text,
+  access_token_expires_at timestamp with time zone,
+  webhook_id text,
+  webhook_url text,
+  auto_import boolean DEFAULT false,
+  status text,
+  last_sync_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT guesty_connections_pkey PRIMARY KEY (id),
+  CONSTRAINT guesty_connections_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.hostaway_connections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  hostaway_account_id text,
+  api_key text,
+  access_token text,
+  access_token_expires_at timestamp with time zone,
+  webhook_id text,
+  webhook_url text,
+  auto_import boolean DEFAULT false,
+  status text,
+  last_sync_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT hostaway_connections_pkey PRIMARY KEY (id),
+  CONSTRAINT hostaway_connections_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.incoming_bookings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  platform USER-DEFINED,
+  pms_connection_id uuid,
+  external_reservation_id text,
+  external_listing_id text,
+  raw_webhook_data jsonb,
+  booking_data jsonb,
+  status text,
+  property_id uuid,
+  client_id uuid,
+  field_mappings jsonb,
+  guest_name text,
+  guest_email text,
+  check_in_date date,
+  check_out_date date,
+  total_amount text,
+  booking_status text,
+  webhook_received_at timestamp with time zone,
+  reviewed_at timestamp with time zone,
+  imported_at timestamp with time zone,
+  imported_booking_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  listing_name text,
+  num_nights bigint,
+  nightly_rate double precision,
+  extra_guest_fees double precision,
+  cleaning_fee double precision,
+  lodging_tax double precision,
+  bed_linen_fee double precision,
+  gst double precision,
+  qst double precision,
+  channel_fee double precision,
+  stripe_fee double precision,
+  total_payout double precision,
+  mgmt_fee double precision,
+  net_earnings double precision,
+  sales_tax double precision,
+  CONSTRAINT incoming_bookings_pkey PRIMARY KEY (id),
+  CONSTRAINT incoming_bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT incoming_bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT incoming_bookings_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
+  CONSTRAINT incoming_bookings_pms_connection_id_fkey FOREIGN KEY (pms_connection_id) REFERENCES public.hostaway_connections(id)
+);
+CREATE TABLE public.logos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  file_path text NOT NULL,
+  original_name text NOT NULL,
+  file_size bigint,
+  mime_type text,
+  uploaded_at timestamp without time zone DEFAULT now(),
+  user_id uuid,
+  CONSTRAINT logos_pkey PRIMARY KEY (id),
+  CONSTRAINT logos_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  full_name text,
+  role USER-DEFINED,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  phone_number text,
+  company_name text,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.properties (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  listing_name text NOT NULL,
+  address text NOT NULL,
+  province text,
+  property_type USER-DEFINED NOT NULL,
+  listing_id text NOT NULL,
+  is_active boolean NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone,
+  commission_rate double precision,
+  postal_code text,
+  description text,
+  external_name text DEFAULT '1'::text,
+  internal_name text DEFAULT '1'::text,
+  user_id uuid,
+  CONSTRAINT properties_pkey PRIMARY KEY (id),
+  CONSTRAINT properties_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.property_channels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid NOT NULL,
+  channel_name text NOT NULL,
+  public_url text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  updated_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT property_channels_pkey PRIMARY KEY (id),
+  CONSTRAINT property_channels_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id)
+);
+CREATE TABLE public.property_field_mappings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid,
+  user_id uuid,
+  mapping_name text,
+  field_mappings jsonb,
+  is_default boolean,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT property_field_mappings_pkey PRIMARY KEY (id),
+  CONSTRAINT property_field_mappings_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
+  CONSTRAINT property_field_mappings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.property_licenses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  file_path text,
+  license_title text,
+  notes text,
+  uploaded_by uuid
+);
+CREATE TABLE public.property_webhook_mappings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid,
+  platform USER-DEFINED,
+  field_mappings jsonb,
+  is_active boolean,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT property_webhook_mappings_pkey PRIMARY KEY (id),
+  CONSTRAINT property_webhook_mappings_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id)
+);
+CREATE TABLE public.report_files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  report_id uuid NOT NULL,
+  format text NOT NULL,
+  file_path text NOT NULL,
+  version_number bigint NOT NULL,
+  is_current boolean NOT NULL,
+  generated_at timestamp with time zone NOT NULL DEFAULT now(),
+  notes text,
+  CONSTRAINT report_files_pkey PRIMARY KEY (id),
+  CONSTRAINT report_files_report_id_fkey FOREIGN KEY (report_id) REFERENCES public.reports(id)
+);
+CREATE TABLE public.report_properties (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  report_id uuid,
+  property_id uuid,
+  CONSTRAINT report_properties_pkey PRIMARY KEY (id),
+  CONSTRAINT report_properties_report_id_fkey FOREIGN KEY (report_id) REFERENCES public.reports(id),
+  CONSTRAINT report_properties_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id)
+);
+CREATE TABLE public.reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  updated_at timestamp with time zone,
+  CONSTRAINT reports_pkey PRIMARY KEY (id)
+);
+
 ---
 
 ## Key Files to Reference

@@ -3,20 +3,12 @@
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { updateProperty } from '@/services/propertyService'
-import { getClientsByParentId } from '@/services/clientService'
-import {
-  createPropertyChannel,
-  updatePropertyChannel,
-  deletePropertyChannel,
-  toggleChannelStatus,
-} from '@/services/propertyChannelService'
-import { Property, UpdatePropertyPayload, UpdatePropertyOwner } from '@/services/types/property'
-import { PropertyChannel } from '@/services/types/propertyChannel'
-import { Client } from '@/services/types/client'
+import { Property, UpdatePropertyPayload } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
-import { TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline'
-import ChannelList from '../channels/channelList'
+import {
+  HomeIcon,
+  BuildingOfficeIcon,
+} from '@heroicons/react/24/outline'
 
 interface UpdatePropertyModalProps {
   isOpen: boolean
@@ -41,16 +33,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [province, setProvince] = useState(property.province)
   const [propertyType, setPropertyType] = useState<'STR' | 'LTR'>(property.propertyType)
   const [commissionRate, setCommissionRate] = useState(property.commissionRate?.toString() ?? '')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Owners management
-  const [owners, setOwners] = useState<UpdatePropertyOwner[]>([])
-  const [clients, setClients] = useState<Client[]>([])
-  const [loadingClients, setLoadingClients] = useState(false)
-
-  // Channels management (immediate save)
-  const [channels, setChannels] = useState<PropertyChannel[]>([])
-
-  const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Initialize form with property data
@@ -65,194 +49,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setProvince(property.province)
       setPropertyType(property.propertyType)
       setCommissionRate(property.commissionRate?.toString() ?? '')
-
-      // Initialize owners
-      setOwners(
-        property.owners.map((owner) => ({
-          clientId: owner.clientId,
-          isPrimary: owner.isPrimary,
-          commissionRateOverride: owner.commissionRateOverride,
-        }))
-      )
-
-      // Initialize channels
-      setChannels(property.channels || [])
     }
   }, [isOpen, property])
-
-  // Fetch clients for owner selection
-  useEffect(() => {
-    const fetchClients = async () => {
-      if (isOpen && profile?.id) {
-        try {
-          setLoadingClients(true)
-          const response = await getClientsByParentId(profile.id)
-          setClients(response.data.filter((c) => c.isActive))
-        } catch (err) {
-          console.error('Error fetching clients:', err)
-          showNotification('Failed to load clients', 'error')
-        } finally {
-          setLoadingClients(false)
-        }
-      }
-    }
-
-    fetchClients()
-  }, [isOpen, profile?.id])
-
-  const handleAddOwner = () => {
-    setOwners((prev) => [
-      ...prev,
-      {
-        clientId: '',
-        isPrimary: prev.length === 0, // First owner is primary by default
-        commissionRateOverride: null,
-      },
-    ])
-  }
-
-  const handleRemoveOwner = (index: number) => {
-    setOwners((prev) => {
-      const newOwners = prev.filter((_, i) => i !== index)
-
-      // If we removed the primary owner, make the first one primary
-      if (prev[index].isPrimary && newOwners.length > 0) {
-        newOwners[0].isPrimary = true
-      }
-
-      return newOwners
-    })
-  }
-
-  const handleOwnerChange = (
-    index: number,
-    field: keyof UpdatePropertyOwner,
-    value: string | boolean | number | null
-  ) => {
-    setOwners((prev) => {
-      const newOwners = [...prev]
-
-      // If setting isPrimary to true, unset all others
-      if (field === 'isPrimary' && value === true) {
-        newOwners.forEach((owner, i) => {
-          owner.isPrimary = i === index
-        })
-      } else {
-        // @ts-ignore - we know the types match
-        newOwners[index][field] = value
-      }
-
-      return newOwners
-    })
-  }
-
-  // Channel management handlers (IMMEDIATE SAVE - no batch)
-  const handleAddChannel = async (channelData: {
-    channelName: string
-    publicUrl: string
-    isActive: boolean
-  }) => {
-    try {
-      const res = await createPropertyChannel({
-        propertyId: property.id,
-        ...channelData,
-      })
-
-      if (res.status === 'success') {
-        // Add to local state and update parent
-        setChannels((prev) => {
-          const updatedChannels = [...prev, res.data]
-          // Update parent component with fresh state
-          onUpdate({ ...property, channels: updatedChannels })
-          return updatedChannels
-        })
-        showNotification('Channel added successfully', 'success')
-      } else {
-        showNotification(res.message || 'Failed to add channel', 'error')
-      }
-    } catch (err) {
-      console.error('Error adding channel:', err)
-      showNotification('Error adding channel', 'error')
-    }
-  }
-
-  const handleEditChannel = async (
-    channelId: string,
-    channelData: { channelName: string; publicUrl: string; isActive: boolean }
-  ) => {
-    try {
-      // Find the current channel to check if isActive changed
-      const currentChannel = channels.find((c) => c.id === channelId)
-
-      // Update channel name and URL (PUT request)
-      const res = await updatePropertyChannel(channelId, {
-        channelName: channelData.channelName,
-        publicUrl: channelData.publicUrl,
-      })
-
-      if (res.status !== 'success') {
-        showNotification(res.message || 'Failed to update channel', 'error')
-        return
-      }
-
-      // If isActive status changed, update it separately (PATCH request)
-      let finalChannel = res.data
-      if (currentChannel && currentChannel.isActive !== channelData.isActive) {
-        const statusRes = await toggleChannelStatus(channelId, channelData.isActive)
-        if (statusRes.status === 'success') {
-          // Merge status response with existing channel data
-          // (PATCH only returns {id, isActive, updatedAt}, not full channel)
-          finalChannel = {
-            ...finalChannel,
-            isActive: statusRes.data.isActive,
-            updatedAt: statusRes.data.updatedAt,
-          }
-        } else {
-          showNotification('Failed to update channel status', 'error')
-        }
-      }
-
-      // Update local state and parent component
-      setChannels((prev) => {
-        const updatedChannels = prev.map((c) => (c.id === channelId ? finalChannel : c))
-        // Update parent component with fresh state
-        onUpdate({
-          ...property,
-          channels: updatedChannels,
-        })
-        return updatedChannels
-      })
-      showNotification('Channel updated successfully', 'success')
-    } catch (err) {
-      console.error('Error updating channel:', err)
-      showNotification('Error updating channel', 'error')
-    }
-  }
-
-  const handleDeleteChannel = async (channelId: string) => {
-    try {
-      const res = await deletePropertyChannel(channelId)
-
-      if (res.status === 'success') {
-        // Remove from local state and get updated channels
-        setChannels((prev) => {
-          const updatedChannels = prev.filter((c) => c.id !== channelId)
-          // Update parent component with fresh state
-          onUpdate({
-            ...property,
-            channels: updatedChannels,
-          })
-          return updatedChannels
-        })
-        showNotification('Channel deleted successfully', 'success')
-      } else {
-        showNotification(res.message || 'Failed to delete channel', 'error')
-      }
-    } catch (err) {
-      console.error('Error deleting channel:', err)
-      showNotification('Error deleting channel', 'error')
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -268,7 +66,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
 
     // Validation
     if (!trimmedListingName || !trimmedListingId || !trimmedAddress || !trimmedPostalCode || !trimmedProvince) {
-      showNotification('All required property fields must be filled', 'error')
+      showNotification('All required fields must be filled', 'error')
       return
     }
 
@@ -282,26 +80,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       return
     }
 
-    // Validate owners
-    if (owners.length === 0) {
-      showNotification('Property must have at least one owner', 'error')
-      return
-    }
-
-    const hasEmptyOwner = owners.some((owner) => !owner.clientId)
-    if (hasEmptyOwner) {
-      showNotification('Please select a client for all owners', 'error')
-      return
-    }
-
-    const primaryOwners = owners.filter((owner) => owner.isPrimary)
-    if (primaryOwners.length !== 1) {
-      showNotification('Exactly one owner must be marked as primary', 'error')
-      return
-    }
+    setIsSubmitting(true)
 
     try {
-      // 1. Update property fields
       const payload: UpdatePropertyPayload = {
         listingName: trimmedListingName,
         listingId: trimmedListingId,
@@ -310,319 +91,247 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         province: trimmedProvince,
         propertyType,
         commissionRate: parsedCommissionRate,
-        owners: owners.map((owner) => ({
-          clientId: owner.clientId,
-          isPrimary: owner.isPrimary,
-          commissionRateOverride: owner.commissionRateOverride,
-        })),
-        ...(trimmedExternalName && { externalName: trimmedExternalName }),
-        ...(trimmedInternalName && { internalName: trimmedInternalName }),
+        ...(trimmedExternalName ? { externalName: trimmedExternalName } : { externalName: '' }),
+        ...(trimmedInternalName ? { internalName: trimmedInternalName } : { internalName: '' }),
       }
 
       const res = await updateProperty(property.id, payload)
 
-      if (res.status !== 'success') {
+      if (res.status === 'success') {
+        // Preserve channels and owners from original property
+        onUpdate({
+          ...res.data,
+          channels: property.channels,
+          owners: property.owners,
+        })
+        showNotification('Property updated successfully', 'success')
+        onClose()
+      } else {
         showNotification(res.message || 'Failed to update property', 'error')
-        return
       }
-
-      // Update parent component with updated property + current channels
-      onUpdate({ ...res.data, channels: channels })
-      showNotification('Property updated successfully', 'success')
-      onClose()
     } catch (err) {
       console.error('Error updating property:', err)
       const message = err instanceof Error ? err.message : 'Error updating property'
       showNotification(message, 'error')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  // Get client name by ID
-  const getClientName = (clientId: string) => {
-    const client = clients.find((c) => c.id === clientId)
-    return client ? `${client.name} (${client.email || 'No email'})` : 'Unknown Client'
-  }
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12 max-h-[90vh] overflow-y-auto">
-      <h2 className="text-xl mb-4 text-black">Edit Property</h2>
-      <form onSubmit={handleSubmit} className="space-y-6 text-black">
-        {/* Property Details Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Property Details</h3>
-
-          {/* Listing Name */}
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-2xl w-11/12 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-5 bg-gradient-to-r from-gray-800 to-gray-900">
+        <div className="flex items-center gap-4">
+          <div className="shrink-0 h-11 w-11 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+            {property.propertyType === 'STR' ? (
+              <HomeIcon className="h-5 w-5 text-white" />
+            ) : (
+              <BuildingOfficeIcon className="h-5 w-5 text-white" />
+            )}
+          </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Listing Name *</label>
-            <input
-              required
-              type="text"
-              value={listingName}
-              onChange={(e) => setListingName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <h2 className="text-lg font-semibold text-white">Edit Property</h2>
+            <p className="text-white/60 text-sm">Update basic property information</p>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-6">
+        <div className="space-y-5">
+          {/* Property Type Selection - Visual Cards */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Property Type *</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPropertyType('STR')}
+                className={`relative p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                  propertyType === 'STR'
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${
+                  propertyType === 'STR' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <HomeIcon className="w-5 h-5" />
+                </div>
+                <p className={`font-medium text-sm ${propertyType === 'STR' ? 'text-blue-900' : 'text-gray-900'}`}>
+                  Short-Term Rental
+                </p>
+                {propertyType === 'STR' && (
+                  <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPropertyType('LTR')}
+                className={`relative p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                  propertyType === 'LTR'
+                    ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${
+                  propertyType === 'LTR' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <BuildingOfficeIcon className="w-5 h-5" />
+                </div>
+                <p className={`font-medium text-sm ${propertyType === 'LTR' ? 'text-purple-900' : 'text-gray-900'}`}>
+                  Long-Term Rental
+                </p>
+                {propertyType === 'LTR' && (
+                  <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Listing ID */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Listing ID *</label>
-            <input
-              required
-              type="text"
-              value={listingId}
-              onChange={(e) => setListingId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Listing Name & ID */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Listing Name *</label>
+              <input
+                required
+                type="text"
+                value={listingName}
+                onChange={(e) => setListingName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="e.g., Lake Estate"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Listing ID *</label>
+              <input
+                required
+                type="text"
+                value={listingId}
+                onChange={(e) => setListingId(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="e.g., HOST-123"
+              />
+            </div>
           </div>
 
-          {/* External Name (Optional) */}
-          <div>
-            <label className="block text-sm font-medium mb-1">External Name</label>
-            <input
-              type="text"
-              value={externalName}
-              onChange={(e) => setExternalName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Public-facing name (optional)"
-            />
-          </div>
-
-          {/* Internal Name (Optional) */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Internal Name</label>
-            <input
-              type="text"
-              value={internalName}
-              onChange={(e) => setInternalName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Internal reference (optional)"
-            />
+          {/* External & Internal Names */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">External Name</label>
+              <input
+                type="text"
+                value={externalName}
+                onChange={(e) => setExternalName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="Public-facing name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Internal Name</label>
+              <input
+                type="text"
+                value={internalName}
+                onChange={(e) => setInternalName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="Internal reference"
+              />
+            </div>
           </div>
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-medium mb-1">Address *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
             <input
               required
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+              placeholder="e.g., 123 Main St, Calgary, AB"
             />
           </div>
 
-          {/* Postal Code and Province */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Postal Code, Province, Commission */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Postal Code *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
               <input
                 required
                 type="text"
                 value={postalCode}
                 onChange={(e) => setPostalCode(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., T2P 1A1"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="T2P 1A1"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium mb-1">Province *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
               <input
                 required
                 type="text"
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="Alberta"
               />
             </div>
-          </div>
-
-          {/* Property Type and Commission Rate */}
-          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Property Type *</label>
-              <select
-                required
-                value={propertyType}
-                onChange={(e) => setPropertyType(e.target.value as 'STR' | 'LTR')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="STR">STR (Short-Term Rental)</option>
-                <option value="LTR">LTR (Long-Term Rental)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
-              <input
-                required
-                type="number"
-                step="0.01"
-                value={commissionRate}
-                onChange={(e) => setCommissionRate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Commission *</label>
+              <div className="relative">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  value={commissionRate}
+                  onChange={(e) => setCommissionRate(e.target.value)}
+                  className="w-full px-3 py-2.5 pr-8 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="15"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Channels Management Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Channels</h3>
-          <ChannelList
-            propertyId={property.id}
-            channels={channels}
-            onAddChannel={handleAddChannel}
-            onEditChannel={handleEditChannel}
-            onDeleteChannel={handleDeleteChannel}
-          />
-        </div>
-
-        {/* Owners Management Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b pb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Manage Owners</h3>
-            <button
-              type="button"
-              onClick={handleAddOwner}
-              disabled={loadingClients}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <UserPlusIcon className="h-4 w-4" />
-              Add Owner
-            </button>
+          {/* Info note */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+            <p className="text-sm text-gray-600">
+              To manage <span className="font-medium">channels</span>, <span className="font-medium">licenses</span>, or <span className="font-medium">owners</span>,
+              use the dedicated sections in the property details view.
+            </p>
           </div>
-
-          {owners.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No owners. Click "Add Owner" to add one.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {owners.map((owner, index) => (
-                <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                  <div className="flex items-start gap-3">
-                    {/* Owner Number */}
-                    <div className="shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-blue-600">{index + 1}</span>
-                    </div>
-
-                    <div className="flex-1 space-y-3">
-                      {/* Client Selection */}
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Client *</label>
-                        {loadingClients ? (
-                          <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-500">
-                            Loading clients...
-                          </div>
-                        ) : (
-                          <select
-                            required
-                            value={owner.clientId}
-                            onChange={(e) => handleOwnerChange(index, 'clientId', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                          >
-                            <option value="">Select a client</option>
-                            {clients.map((client) => (
-                              <option key={client.id} value={client.id}>
-                                {client.name} ({client.email || 'No email'})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      {/* Primary Owner Radio Button */}
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id={`primary-${index}`}
-                          name="primaryOwner"
-                          checked={owner.isPrimary}
-                          onChange={(e) => handleOwnerChange(index, 'isPrimary', e.target.checked)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <label htmlFor={`primary-${index}`} className="text-sm font-medium text-gray-900">
-                          Primary Owner
-                        </label>
-                      </div>
-
-                      {/* Commission Override Checkbox */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id={`override-${index}`}
-                            checked={owner.commissionRateOverride !== null}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                handleOwnerChange(index, 'commissionRateOverride', parseFloat(commissionRate) || 0)
-                              } else {
-                                handleOwnerChange(index, 'commissionRateOverride', null)
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor={`override-${index}`} className="text-sm text-gray-700">
-                            Override commission rate for this owner
-                          </label>
-                        </div>
-
-                        {owner.commissionRateOverride !== null && (
-                          <div>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={owner.commissionRateOverride}
-                              onChange={(e) => handleOwnerChange(index, 'commissionRateOverride', parseFloat(e.target.value))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder={`Default: ${commissionRate}%`}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Property default: {commissionRate}%
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Remove Button */}
-                    {owners.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOwner(index)}
-                        className="shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove owner"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="text-xs text-gray-500">
-            * At least one owner is required. Exactly one owner must be marked as primary.
-          </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+        <div className="flex justify-between gap-3 pt-6 mt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-5 py-2.5 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loadingClients}
-            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 text-white bg-gray-900 rounded-xl hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            Update Property
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving...
+              </span>
+            ) : (
+              'Save Changes'
+            )}
           </button>
         </div>
       </form>

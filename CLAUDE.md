@@ -481,7 +481,10 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 
 | Resource | Endpoints | Status |
 |----------|-----------|--------|
-| Properties | GET, GET/:id, POST, PUT, DELETE, PATCH/:id/status | ✅ Complete |
+| Properties | GET, GET/:id, GET/search, GET/stats, POST, PUT, DELETE, PATCH/:id/status | ✅ Complete |
+| Property Owners | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
+| Property Channels | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
+| Property Licenses | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
 | Clients | GET, POST, PUT, DELETE | ✅ Complete |
 | Profiles | GET, POST, PUT, DELETE | ✅ Complete |
 | Client Status Codes | GET, POST, PUT, DELETE | ✅ Complete |
@@ -567,9 +570,12 @@ The analytics system uses a unified API with three endpoints:
   owners: Array<{
     clientId: string,
     clientName: string,
+    clientEmail: string,
     isPrimary: boolean,
     commissionRateOverride: number | null
   }>,
+  channels: Array<{ id, channelName, publicUrl, isActive, createdAt }>,
+  licenses: Array<{ id, filePath, licenseTitle, notes, createdAt }>,
   // ... other fields
 }
 ```

@@ -1,6 +1,7 @@
 // Property Types for HostMetrics Frontend
 
 import { PropertyChannel } from './propertyChannel'
+import { PropertyLicense } from './propertyLicense'
 
 /**
  * Property owner information from client_properties junction table
@@ -8,6 +9,7 @@ import { PropertyChannel } from './propertyChannel'
 export interface PropertyOwner {
   clientId: string
   clientName: string
+  clientEmail?: string
   isPrimary: boolean
   commissionRateOverride: number | null
 }
@@ -31,7 +33,8 @@ export interface Property {
   createdAt: string
   updatedAt: string
   owners: PropertyOwner[]
-  channels: PropertyChannel[] // NEW: Property channels array
+  channels: PropertyChannel[]
+  licenses: PropertyLicense[]
 }
 
 /**
