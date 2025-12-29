@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/component'
 import { sessionEvents } from '@/services/apiClient'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { isLoggingOut, markIntentionalLogout } from '@/utils/logoutState'
 
 export interface SessionStatus {
   isExpired: boolean
@@ -16,7 +17,8 @@ export interface SessionStatus {
 
 export function useSessionMonitor() {
   const router = useRouter()
-  const supabase = createClient()
+  // Memoize supabase client to prevent recreation on every render
+  const supabase = useMemo(() => createClient(), [])
   const { clearProfile, updateSessionCheck } = useUserStore()
   const showNotification = useNotificationStore(state => state.showNotification)
   
@@ -35,10 +37,19 @@ export function useSessionMonitor() {
   const interactionListenerRef = useRef<(() => void) | null>(null)
 
   const checkSessionStatus = useCallback(async () => {
+    // Skip checks if user intentionally logged out
+    if (isLoggingOut()) {
+      return
+    }
+
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
 
       if (error || !session) {
+        // Skip if intentional logout (double-check)
+        if (isLoggingOut()) {
+          return
+        }
         console.log('🔒 No valid session found, triggering expiration')
         setSessionStatus({
           isExpired: true,
@@ -82,9 +93,17 @@ export function useSessionMonitor() {
       // Treat check failures as expired sessions for security
       handleSessionExpired()
     }
-  }, [supabase.auth, showWarningModal])
+  // supabase is memoized so supabase.auth is stable
+  // Using warningShownRef instead of showWarningModal to avoid re-creating this callback
+  }, [supabase])
 
   const handleSessionExpired = useCallback(async () => {
+    // Skip if user intentionally logged out
+    if (isLoggingOut()) {
+      console.log('⏭️ Skipping session expiration handling - intentional logout')
+      return
+    }
+
     console.log('🚪 Handling session expiration - full cleanup initiated')
 
     // STEP 1: Sign out from Supabase first (clear auth state)
@@ -110,7 +129,7 @@ export function useSessionMonitor() {
     if (!showExpiredModal) {
       setShowExpiredModal(true)
     }
-  }, [supabase.auth, clearProfile, showExpiredModal])
+  }, [supabase, clearProfile])
 
   const handleRefreshSession = useCallback(async () => {
     try {
@@ -135,10 +154,12 @@ export function useSessionMonitor() {
       showNotification('Failed to refresh session. Please sign in again.', 'error')
       handleSessionExpired()
     }
-  }, [supabase.auth, checkSessionStatus, showNotification, handleSessionExpired])
+  }, [supabase, checkSessionStatus, showNotification, handleSessionExpired, updateSessionCheck])
 
   const handleSignOut = useCallback(async () => {
     try {
+      // Mark as intentional before signing out
+      markIntentionalLogout()
       await supabase.auth.signOut()
       clearProfile()
       setShowWarningModal(false)
@@ -150,7 +171,7 @@ export function useSessionMonitor() {
       clearProfile()
       router.push('/login')
     }
-  }, [supabase.auth, clearProfile, router])
+  }, [supabase, clearProfile, router])
 
   const handleLoginRedirect = useCallback(() => {
     setShowExpiredModal(false)
@@ -228,9 +249,16 @@ export function useSessionMonitor() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 Supabase auth state change:', event, session ? 'session exists' : 'no session')
-      
-      if (event === 'SIGNED_OUT' || !session) {
-        handleSessionExpired()
+
+      if (event === 'SIGNED_OUT') {
+        // Intentional logout - just clean up timers, don't show expired modal
+        console.log('👋 User signed out')
+        markIntentionalLogout() // Ensure flag is set
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        // Don't call handleSessionExpired - user already logged out
       } else if (event === 'TOKEN_REFRESHED') {
         console.log('✅ Token refreshed automatically by Supabase')
         checkSessionStatus()
@@ -238,7 +266,7 @@ export function useSessionMonitor() {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth, handleSessionExpired, checkSessionStatus])
+  }, [supabase, checkSessionStatus])
 
   return {
     sessionStatus,

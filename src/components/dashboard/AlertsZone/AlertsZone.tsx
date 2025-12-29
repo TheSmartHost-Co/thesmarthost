@@ -130,6 +130,7 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
                 onPropertyClick={() => handlePropertyClick(alert.propertyId)}
                 showQuickActions={showQuickActions}
                 actionButtonText="Generate Report"
+                alertType="report"
               />
             ))}
           </div>

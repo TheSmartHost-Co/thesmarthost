@@ -1,17 +1,19 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { createClient } from '@/utils/supabase/component'
+import { markIntentionalLogout } from '@/utils/logoutState'
 import Modal from './modal'
 
 const LogoutModal = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  // Memoize supabase client to prevent recreation on every render
+  const supabase = useMemo(() => createClient(), [])
   const showNotification = useNotificationStore((state) => state.showNotification)
   const clearProfile = useUserStore((state) => state.clearProfile)
 
@@ -24,8 +26,11 @@ const LogoutModal = () => {
   // Handle logout logic
   const handleLogout = async () => {
     try {
+      // Mark as intentional logout BEFORE signOut to prevent session monitor interference
+      markIntentionalLogout()
+
       const { error } = await supabase.auth.signOut()
-      
+
       if (error) {
         showNotification('Logout failed. Please try again.', 'error')
       } else {

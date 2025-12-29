@@ -8,23 +8,20 @@ import { getProperties } from '@/services/propertyService'
 import {
   getDashboardAlerts,
   getDashboardMetrics,
-  getDashboardInsights,
   getDashboardActivity,
 } from '@/services/dashboardService'
 import type { Property } from '@/services/types/property'
 import type {
   DashboardAlerts,
   DashboardMetrics,
-  PerformanceInsight,
   DashboardActivity,
 } from '@/services/types/dashboard'
 
 // Dashboard components
 import { AlertsZone } from '@/components/dashboard/AlertsZone/AlertsZone'
 import { MetricsGrid } from '@/components/dashboard/MetricsZone/MetricsGrid'
-import { InsightsSection } from '@/components/dashboard/MetricsZone/InsightsSection'
 import { ActivityFeed } from '@/components/dashboard/MetricsZone/ActivityFeed'
-import { PropertyAnalyticsSection } from '@/components/dashboard/PropertyAnalytics/PropertyAnalyticsSection'
+import { AnalyticsWidgetCompact } from '@/components/analytics/AnalyticsWidget'
 import { FloatingActionButton } from '@/components/shared/FloatingActionButton'
 
 // Modals
@@ -42,14 +39,12 @@ export default function DashboardPage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
-  const [insights, setInsights] = useState<PerformanceInsight[]>([])
   const [activities, setActivities] = useState<DashboardActivity[]>([])
 
   // Loading states
   const [loadingProperties, setLoadingProperties] = useState(false)
   const [loadingAlerts, setLoadingAlerts] = useState(false)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
-  const [loadingInsights, setLoadingInsights] = useState(false)
   const [loadingActivities, setLoadingActivities] = useState(false)
 
   // UI state
@@ -73,7 +68,6 @@ export default function DashboardPage() {
       loadProperties(),
       loadAlerts(),
       loadMetrics(),
-      loadInsights(),
       loadActivities(),
     ])
   }
@@ -126,22 +120,6 @@ export default function DashboardPage() {
     }
   }
 
-  const loadInsights = async () => {
-    try {
-      setLoadingInsights(true)
-      const res = await getDashboardInsights(5)
-      if (res.status === 'success') {
-        setInsights(res.data.insights || [])
-      } else {
-        showNotification(res.message || 'Failed to load insights', 'error')
-      }
-    } catch (err) {
-      console.error('Error loading insights:', err)
-    } finally {
-      setLoadingInsights(false)
-    }
-  }
-
   const loadActivities = async () => {
     try {
       setLoadingActivities(true)
@@ -188,7 +166,7 @@ export default function DashboardPage() {
     setShowGenerateModal(true)
   }
 
-  const isLoading = loadingProperties || loadingAlerts || loadingMetrics || loadingInsights || loadingActivities
+  const isLoading = loadingProperties || loadingAlerts || loadingMetrics || loadingActivities
 
   if (isLoading) {
     return (
@@ -223,11 +201,8 @@ export default function DashboardPage() {
       {metrics && <MetricsGrid metrics={metrics} />}
 
       {/* Zone 2: Property Analytics */}
-      {profile?.id && properties.length > 0 && (
-        <PropertyAnalyticsSection
-          availableProperties={properties}
-          userId={profile.id}
-        />
+      {properties.length > 0 && (
+        <AnalyticsWidgetCompact properties={properties} />
       )}
 
       {/* Zone 3: Needs Attention */}
@@ -240,13 +215,8 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Zone 4: Insights & Activity */}
+      {/* Zone 4: Activity */}
       <div className="space-y-4">
-        {/* Performance Insights */}
-        {insights.length > 0 && (
-          <InsightsSection insights={insights} />
-        )}
-
         {/* Recent Activity Feed */}
         <ActivityFeed
           activities={activities}

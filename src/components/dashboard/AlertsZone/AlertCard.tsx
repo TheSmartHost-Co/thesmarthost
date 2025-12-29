@@ -13,6 +13,7 @@ interface AlertCardProps {
   onDismiss?: () => void
   showQuickActions: boolean
   actionButtonText?: string
+  alertType?: 'booking' | 'report'
 }
 
 export const AlertCard: React.FC<AlertCardProps> = ({
@@ -25,6 +26,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   onDismiss,
   showQuickActions,
   actionButtonText = 'Upload CSV',
+  alertType = 'booking',
 }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [showActions, setShowActions] = useState(showQuickActions)
@@ -32,6 +34,8 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   const formattedDate = lastUploadDate
     ? new Date(lastUploadDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : 'Never'
+
+  const dateLabel = alertType === 'report' ? 'Last generated report' : 'Last upload'
 
   return (
     <div
@@ -54,7 +58,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           <div className="min-w-0">
             <h4 className="font-medium text-sm text-gray-900 truncate">{propertyName}</h4>
             <p className="text-xs text-gray-600">
-              Last upload: {formattedDate}
+              {dateLabel}: {formattedDate}
               {daysSinceLastUpload !== null && ` (${daysSinceLastUpload} days ago)`}
             </p>
           </div>

@@ -1,277 +1,191 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import type {
+  AnalyticsData,
+  BookingsData,
+  AIInsightsData,
+  Granularity,
+  AnalyticsDateRange,
+} from '@/services/types/analytics'
 
-export interface AnalyticsFilters {
-  startDate: string
-  endDate: string
-  propertyIds: string[]
-  platforms: string[]
-}
-
-export interface AnalyticsSummaryData {
-  filters: AnalyticsFilters & { comparisonPeriod: string }
-  snapshot: {
-    total_revenue: number
-    net_earnings: number
-    nights_booked: number
-    occupancy_rate: number
-    adr: number
-    avg_revenue_per_stay: number
-    total_reservations: number
-  }
-  changes: {
-    revenue_change: number
-    revenue_change_pct: number
-    nights_change: number
-    nights_change_pct: number
-    adr_change: number
-    adr_change_pct: number
-    revenue_attribution: {
-      nights_driven: number
-      adr_driven: number
-    }
-  }
-  channel_mix: Array<{
-    platform: string
-    revenue: number
-    adr: number
-    avg_nights_per_stay: number
-    revenue_share_pct: number
-    reservation_count: number
-  }>
-  property_contribution: Array<{
-    property_id: string
-    property_name: string
-    revenue: number
-    adr: number
-    contribution_pct: number
-    adr_vs_portfolio: number
-    reservation_count: number
-  }>
-}
-
-// Property timeseries data structure
-export interface PropertyTimeseriesPoint {
-  date: string
-  displayLabel: string
-  revenue: number
-  payout: number
-  bookings: number
-  nights: number
-  adr: number
-  channelFees: number
-  mgmtFees: number
-}
-
-export interface PropertyTimeseries {
-  propertyId: string
-  propertyName: string
-  timeseries: PropertyTimeseriesPoint[]
-  summary: {
-    totalRevenue: number
-    totalPayout: number
-    totalBookings: number
-    totalNights: number
-    avgAdr: number
-    avgMonthlyRevenue: number
-  }
-  comparison: {
-    revenue: { current: number; previous: number; change: number; changePct: number }
-    payout: { current: number; previous: number; change: number; changePct: number }
-    bookings: { current: number; previous: number; change: number; changePct: number }
-    adr: { current: number; previous: number; change: number; changePct: number }
-  }
-}
-
-export interface AnalyticsTimeseriesData {
-  properties: PropertyTimeseries[]
-  aggregate: {
-    totalRevenue: number
-    totalPayout: number
-    totalBookings: number
-    avgRevenuePerProperty: number
-    avgPayoutPerProperty: number
-    topPerformer: {
-      propertyId: string
-      propertyName: string
-      revenue: number
-    } | null
-  }
-  trend: {
-    revenue: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
-    payout: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
-    bookings: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
-    adr: { change: number; changePct: number; direction: 'up' | 'down' | 'flat' }
-  }
-}
-
-export interface AnalyticsBookingsData {
-  filters: AnalyticsFilters
-  bookings: Array<{
-    id: string
-    property_id: string
-    csv_upload_id: string | null
-    reservation_code: string
-    guest_name: string
-    check_in_date: string
-    num_nights: string
-    platform: string
-    nightly_rate: number
-    extra_guest_fees: number
-    cleaning_fee: number
-    lodging_tax: number
-    bed_linen_fee: number
-    gst: number
-    qst: number
-    channel_fee: number
-    stripe_fee: number
-    total_payout: number
-    mgmt_fee: number
-    net_earnings: number
-    sales_tax: number
-    created_at: string
-    listing_name: string
-    check_out_date: string
-    user_id: string
-    property_name: string
-    property_address: string
-    csv_file_name: string | null
-  }>
-  operational_stats: {
-    total_reservations: number
-    avg_nights_per_stay: number
-    stay_length_distribution: {
-      one_night: number
-      short_stays: number
-      medium_stays: number
-      long_stays: number
-    }
-    turnover_metrics: {
-      weeks_with_bookings: number
-      avg_turnovers_per_week: number
-    }
-  }
-  data_integrity: {
-    total_bookings: number
-    csv_imported: number
-    manually_added: number
-    csv_import_pct: number
-    unique_csv_uploads: number
-    data_completeness: {
-      missing_guest_names: number
-      missing_reservation_codes: number
-    }
-  }
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    total_pages: number
-    has_next: boolean
-    has_prev: boolean
-  }
-}
-
-interface AnalyticsState {
-  filters: AnalyticsFilters
-  summaryData: AnalyticsSummaryData | null
-  timeseriesData: AnalyticsTimeseriesData | null
-  bookingsData: AnalyticsBookingsData | null
-  granularity: 'daily' | 'weekly'
-  isLoading: boolean
-  errors: {
-    summary: string | null
-    timeseries: string | null
-    bookings: string | null
-  }
-  
-  setFilters: (filters: Partial<AnalyticsFilters>) => void
-  setGranularity: (granularity: 'daily' | 'weekly') => void
-  setSummaryData: (data: AnalyticsSummaryData | null) => void
-  setTimeseriesData: (data: AnalyticsTimeseriesData | null) => void
-  setBookingsData: (data: AnalyticsBookingsData | null) => void
-  setLoading: (loading: boolean) => void
-  setError: (endpoint: 'summary' | 'timeseries' | 'bookings', error: string | null) => void
-  resetData: () => void
-  resetErrors: () => void
-}
-
-const getCurrentMonth = () => {
+// --- Helper to get current month range ---
+const getCurrentMonthRange = (): AnalyticsDateRange => {
   const now = new Date()
   const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const month = now.getMonth()
+
+  const startDate = new Date(year, month, 1)
+  const endDate = new Date(year, month + 1, 0)
+
   return {
-    startDate: `${year}-${month}-01`,
-    endDate: new Date(year, now.getMonth() + 1, 0).toISOString().split('T')[0]
+    startDate: startDate.toISOString().split('T')[0],
+    endDate: endDate.toISOString().split('T')[0],
   }
 }
 
-export const useAnalyticsStore = create<AnalyticsState>()(
-  persist(
-    (set, get) => ({
-      filters: {
-        ...getCurrentMonth(),
-        propertyIds: [],
-        platforms: [],
-      },
-      summaryData: null,
-      timeseriesData: null,
+// --- Filter State ---
+
+export interface AnalyticsFilters {
+  dateRange: AnalyticsDateRange
+  propertyIds: string[]
+  channels: string[]
+  comparison: boolean
+}
+
+// --- Drill-Down State ---
+
+export interface DrillDownContext {
+  type: 'property' | 'channel' | 'date' | null
+  propertyId?: string
+  propertyName?: string
+  channel?: string
+  date?: string
+}
+
+// --- Store State ---
+
+interface AnalyticsState {
+  // Filters
+  filters: AnalyticsFilters
+  granularity: Granularity
+
+  // Data
+  analyticsData: AnalyticsData | null
+  bookingsData: BookingsData | null
+  aiInsights: AIInsightsData | null
+
+  // Drill-down context
+  drillDown: DrillDownContext
+
+  // Loading & Errors
+  isLoading: boolean
+  isLoadingBookings: boolean
+  isLoadingAI: boolean
+  error: string | null
+  bookingsError: string | null
+  aiError: string | null
+
+  // Actions
+  setFilters: (filters: Partial<AnalyticsFilters>) => void
+  setDateRange: (dateRange: AnalyticsDateRange) => void
+  setGranularity: (granularity: Granularity) => void
+  setAnalyticsData: (data: AnalyticsData | null) => void
+  setBookingsData: (data: BookingsData | null) => void
+  setAIInsights: (data: AIInsightsData | null) => void
+  setDrillDown: (context: DrillDownContext) => void
+  clearDrillDown: () => void
+  setLoading: (loading: boolean) => void
+  setLoadingBookings: (loading: boolean) => void
+  setLoadingAI: (loading: boolean) => void
+  setError: (error: string | null) => void
+  setBookingsError: (error: string | null) => void
+  setAIError: (error: string | null) => void
+  resetData: () => void
+  resetAll: () => void
+}
+
+// --- Initial State ---
+
+const getInitialFilters = (): AnalyticsFilters => ({
+  dateRange: getCurrentMonthRange(),
+  propertyIds: [],
+  channels: [],
+  comparison: true,
+})
+
+const initialDrillDown: DrillDownContext = {
+  type: null,
+}
+
+// --- Store (no persistence to avoid stale data issues) ---
+
+export const useAnalyticsStore = create<AnalyticsState>()((set) => ({
+  // Initial state
+  filters: getInitialFilters(),
+  granularity: 'daily',
+  analyticsData: null,
+  bookingsData: null,
+  aiInsights: null,
+  drillDown: initialDrillDown,
+  isLoading: false,
+  isLoadingBookings: false,
+  isLoadingAI: false,
+  error: null,
+  bookingsError: null,
+  aiError: null,
+
+  // Filter actions
+  setFilters: (newFilters) =>
+    set((state) => ({
+      filters: { ...state.filters, ...newFilters },
+    })),
+
+  setDateRange: (dateRange) =>
+    set((state) => ({
+      filters: { ...state.filters, dateRange },
+    })),
+
+  setGranularity: (granularity) =>
+    set({ granularity }),
+
+  // Data actions
+  setAnalyticsData: (data) =>
+    set({ analyticsData: data }),
+
+  setBookingsData: (data) =>
+    set({ bookingsData: data }),
+
+  setAIInsights: (data) =>
+    set({ aiInsights: data }),
+
+  // Drill-down actions
+  setDrillDown: (context) =>
+    set({ drillDown: context }),
+
+  clearDrillDown: () =>
+    set({ drillDown: initialDrillDown, bookingsData: null }),
+
+  // Loading actions
+  setLoading: (loading) =>
+    set({ isLoading: loading }),
+
+  setLoadingBookings: (loading) =>
+    set({ isLoadingBookings: loading }),
+
+  setLoadingAI: (loading) =>
+    set({ isLoadingAI: loading }),
+
+  // Error actions
+  setError: (error) =>
+    set({ error }),
+
+  setBookingsError: (error) =>
+    set({ bookingsError: error }),
+
+  setAIError: (error) =>
+    set({ aiError: error }),
+
+  // Reset actions
+  resetData: () =>
+    set({
+      analyticsData: null,
       bookingsData: null,
-      granularity: 'weekly',
-      isLoading: false,
-      errors: {
-        summary: null,
-        timeseries: null,
-        bookings: null,
-      },
-
-      setFilters: (newFilters) =>
-        set((state) => ({
-          filters: { ...state.filters, ...newFilters },
-        })),
-
-      setGranularity: (granularity) =>
-        set({ granularity }),
-
-      setSummaryData: (data) =>
-        set({ summaryData: data }),
-
-      setTimeseriesData: (data) =>
-        set({ timeseriesData: data }),
-
-      setBookingsData: (data) =>
-        set({ bookingsData: data }),
-
-      setLoading: (loading) =>
-        set({ isLoading: loading }),
-
-      setError: (endpoint, error) =>
-        set((state) => ({
-          errors: { ...state.errors, [endpoint]: error },
-        })),
-
-      resetData: () =>
-        set({
-          summaryData: null,
-          timeseriesData: null,
-          bookingsData: null,
-        }),
-
-      resetErrors: () =>
-        set({
-          errors: {
-            summary: null,
-            timeseries: null,
-            bookings: null,
-          },
-        }),
+      error: null,
+      bookingsError: null,
     }),
-    {
-      name: 'analytics-store',
-      partialize: (state) => ({
-        filters: state.filters,
-        granularity: state.granularity,
-      }),
-    }
-  )
-)
+
+  resetAll: () =>
+    set({
+      filters: getInitialFilters(),
+      granularity: 'daily',
+      analyticsData: null,
+      bookingsData: null,
+      aiInsights: null,
+      drillDown: initialDrillDown,
+      isLoading: false,
+      isLoadingBookings: false,
+      isLoadingAI: false,
+      error: null,
+      bookingsError: null,
+      aiError: null,
+    }),
+}))

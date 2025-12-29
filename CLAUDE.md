@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** December 22, 2025
+**Last Updated:** December 28, 2025
 
 ---
 
@@ -490,8 +490,51 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
 | Bookings | - | ⏳ Not implemented |
 | Reports | GET, GET/:id, POST, DELETE, /preview, /generate, /logos, /upload-logo | ✅ Complete |
 | Report Files | DELETE /files/:fileId | ✅ Complete |
+| Analytics | POST /, POST /bookings, GET /ai-insights | ✅ Complete |
 
 **See `.claude/skills/thesmarthost-context/SKILL.md` for detailed API documentation**
+
+### Analytics API (NEW - Dec 28, 2025)
+
+The analytics system uses a unified API with three endpoints:
+
+**POST /api/analytics** - Main Dashboard Data
+```typescript
+// Request
+{
+  dateRange: { startDate: "2025-01-01", endDate: "2025-01-31" },  // Required
+  propertyIds: [],      // Optional, [] = all properties
+  channels: [],         // Optional, [] = all channels
+  comparison: true,     // Optional, include previous period
+  granularity: "daily"  // Optional: "daily" | "weekly" | "monthly"
+}
+
+// Response includes:
+// - portfolio: { current, previous, delta } - KPI aggregates
+// - byProperty: [] - Property breakdown with deltas
+// - byChannel: [] - Channel breakdown with deltas
+// - timeline: [] - Time series data for charts
+```
+
+**POST /api/analytics/bookings** - Drill-Down Bookings
+```typescript
+// Request (for when user clicks a property/channel/date)
+{
+  dateRange: { startDate: "2025-01-01", endDate: "2025-01-31" },
+  propertyIds: ["uuid-1"],  // Filter to specific property
+  channels: ["Airbnb"],     // Filter to specific channel
+  page: 1,
+  limit: 50
+}
+
+// Response: paginated list of individual bookings
+```
+
+**GET /api/analytics/ai-insights** - AI Weekly Summary
+```typescript
+// No request body - automatically uses last complete calendar week
+// Response: { available: boolean, markdown: string, period: {...} }
+```
 
 ---
 
@@ -670,6 +713,53 @@ NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
   - Hover states for progressive disclosure
   - Reuses existing modals (GenerateReportModal, ViewReportModal, CreateClientModal, CreatePropertyModal)
 
+**Analytics System (NEW - Dec 28, 2025):**
+- **Unified API Architecture** - Single POST endpoint returns all analytics data
+- **Component Structure:**
+  ```
+  components/analytics/
+  ├── AnalyticsWidget.tsx          # Main composite component (full & compact modes)
+  ├── DrillDownModal.tsx           # Modal for viewing filtered bookings
+  └── shared/
+      ├── KPICard.tsx              # Individual metric card with delta
+      ├── KPIGrid.tsx              # Grid of 7 KPI cards
+      ├── TimelineChart.tsx        # Recharts line/area/bar chart
+      ├── BreakdownTabs.tsx        # Property/Channel tabs with table/chart views
+      ├── AIInsightsCard.tsx       # AI-generated weekly insights (markdown)
+      ├── AnalyticsFilters.tsx     # Date range presets + property/channel filters
+      └── index.ts                 # Barrel exports
+  ```
+- **Key Components:**
+  - `AnalyticsWidget` - Main reusable component with props for compact/full mode
+  - `AnalyticsWidgetCompact` - Pre-configured compact version for dashboard
+  - `KPIGrid` - Shows 7 metrics: Total Payout, Net Earnings, Mgmt Fee, Occupancy, Bookings, Nights, Avg Rate
+  - `TimelineChart` - Switchable between line/area/bar, multiple metrics selectable
+  - `BreakdownTabs` - Property/Channel breakdown with table/bar/pie chart views
+  - `DrillDownModal` - Opens when clicking property/channel row, shows paginated bookings
+- **State Management:**
+  - `useAnalyticsStore` - Zustand store (NOT persisted to avoid stale data)
+  - Stores: filters, granularity, analyticsData, bookingsData, aiInsights, drillDown context
+- **Service Layer:**
+  - `analyticsService.ts` - Three functions: `getAnalytics()`, `getAnalyticsBookings()`, `getAIInsights()`
+  - Date helpers: `getCurrentMonthRange()`, `getLastMonthRange()`, `getLastNDaysRange()`, `DATE_PRESETS`
+- **Types:**
+  - `src/services/types/analytics.ts` - Full type definitions matching backend API
+  - Key types: `AnalyticsData`, `PortfolioData`, `PropertyBreakdown`, `ChannelBreakdown`, `TimelinePoint`
+- **Usage:**
+  ```tsx
+  // Full analytics page
+  <AnalyticsWidget
+    properties={properties}
+    showFilters={true}
+    showBreakdowns={true}
+    showAIInsights={true}
+    stickyFilters={true}
+  />
+
+  // Compact version for dashboard
+  <AnalyticsWidgetCompact properties={properties} />
+  ```
+
 ### 🚧 PRIORITY: Property Field Mapping System
 
 **CRITICAL NEXT TASKS** - These must be implemented to complete the CSV upload workflow:
@@ -780,7 +870,6 @@ export interface PropertyFieldMappingTemplate {
 
 **Later Sprints:**
 - Bookings management
-- Analytics charts
 - Settings pages
 - Report scheduling and automation
 
@@ -844,6 +933,11 @@ These skills provide detailed patterns and examples following this project's con
 - **Reports Page:** [src/app/(user)/property-manager/reports/page.tsx](src/app/(user)/property-manager/reports/page.tsx) - Full reports dashboard with filtering
 - **Generate Modal:** [src/components/report/generate/generateReportModal.tsx](src/components/report/generate/generateReportModal.tsx) - Multi-format generation with preview
 - **View Report Modal:** [src/components/report/view/viewReportModal.tsx](src/components/report/view/viewReportModal.tsx) - Single report details with file management
+- **Analytics Widget:** [src/components/analytics/AnalyticsWidget.tsx](src/components/analytics/AnalyticsWidget.tsx) - Main reusable analytics component
+- **Analytics Service:** [src/services/analyticsService.ts](src/services/analyticsService.ts) - API calls and date helpers
+- **Analytics Types:** [src/services/types/analytics.ts](src/services/types/analytics.ts) - Full type definitions for analytics API
+- **Analytics Store:** [src/store/useAnalyticsStore.ts](src/store/useAnalyticsStore.ts) - Zustand store for analytics state
+- **Analytics Page:** [src/app/(user)/property-manager/analytics/page.tsx](src/app/(user)/property-manager/analytics/page.tsx) - Full analytics dashboard
 
 ---
 
@@ -854,4 +948,4 @@ These skills provide detailed patterns and examples following this project's con
 
 ---
 
-**Last Updated:** December 14, 2025
+**Last Updated:** December 28, 2025
