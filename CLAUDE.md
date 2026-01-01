@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** December 28, 2025
+**Last Updated:** December 30, 2025
 
 ---
 
@@ -37,7 +37,7 @@ Property management reporting platform for short-term rental managers.
 - **Client:** TheSmartHost Co. Inc (Luis Torres)
 - **Team:** Mark Cena (Calgary) + Hussein Saab (Toronto)
 - **Timeline:** Oct 7 - Dec 20, 2025 (10 weeks)
-- **Current Sprint:** Sprint 2, Week 4 (Infrastructure Setup - ~90% complete)
+- **Status:** Feature Complete - All core features implemented
 
 **Goal:** Automate monthly financial reports for property owners (reduce from 2-4 hours → 10 minutes per client)
 
@@ -45,14 +45,21 @@ Property management reporting platform for short-term rental managers.
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router) with Turbopack
-- **Language:** TypeScript 5 (strict mode)
-- **Styling:** Tailwind CSS 4
-- **State Management:** Zustand (with persist middleware)
-- **Authentication:** Supabase Auth
-- **Backend API:** Express.js (separate repository: `thesmarthost-backend`)
-- **Icons:** Heroicons
-- **Animations:** Framer Motion
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Next.js | 16.1.0 | App Router with Turbopack |
+| React | 19.2.3 | UI Framework |
+| TypeScript | 5.x | Type Safety (strict mode) |
+| Tailwind CSS | 4.x | Styling |
+| Zustand | 5.0.8 | State Management |
+| Recharts | 3.6.0 | Analytics Charts |
+| Framer Motion | 12.x | Animations |
+| Supabase SSR | 0.7.0 | Authentication |
+| Heroicons | 2.2.0 | Icons |
+| React Icons | 5.5.0 | Additional Icons |
+| React Markdown | 10.1.0 | Markdown Rendering (AI Insights) |
+
+**Backend:** Express.js + PostgreSQL (separate repository: `thesmarthost-backend`)
 
 ---
 
@@ -63,14 +70,23 @@ Property management reporting platform for short-term rental managers.
 ```
 app/
 ├── (prelogin)/     # Public pages (login, signup, about, contact)
-└── (user)/         # Protected pages
-    └── property-manager/
-        ├── dashboard/
-        ├── properties/
-        └── clients/
+├── (user)/         # Protected pages
+│   └── property-manager/
+│       ├── analytics/
+│       ├── bookings/
+│       ├── clients/
+│       ├── dashboard/
+│       ├── expenses/
+│       ├── incoming-bookings/
+│       ├── properties/
+│       ├── reports/
+│       ├── settings/
+│       └── upload-bookings/
+├── api/auth/       # Auth callback routes
+├── forbidden/      # Access denied page
+├── error.tsx       # Error boundary
+└── not-found.tsx   # 404 page
 ```
-
-**Pattern:** Next.js route groups `(folder)` organize pages by authentication state without affecting URL structure.
 
 **Layout inheritance:**
 - `(prelogin)` → uses PreNavbar
@@ -88,15 +104,18 @@ components/
 │   │   └── update[Resource]Modal.tsx
 │   ├── delete/
 │   │   └── delete[Resource]Modal.tsx
-│   └── preview/
-│       └── preview[Resource]Modal.tsx
+│   ├── preview/
+│   │   └── preview[Resource]Modal.tsx
+│   └── import/
+│       ├── bulk[Resource]Modal.tsx
+│       └── steps/
 └── shared/
     ├── modal.tsx
     ├── notification.tsx
-    └── TableActionsDropdown.tsx
+    ├── TableActionsDropdown.tsx
+    ├── FloatingActionButton.tsx
+    └── LogoutModal.tsx
 ```
-
-**Example:** `components/property/create/createPropertyModal.tsx`
 
 **Rules:**
 - Folders use lowercase-hyphenated names (`client-agreement/`)
@@ -107,86 +126,633 @@ components/
 
 ```
 services/
-├── apiClient.ts              # Fetch wrapper (handles base URL, JSON)
+├── apiClient.ts              # Fetch wrapper with credentials
 ├── [resource]Service.ts      # API functions (GET, POST, PUT, DELETE)
 └── types/
     └── [resource].ts         # TypeScript interfaces
-```
-
-**Pattern:** Each resource has:
-1. Service file with CRUD functions
-2. Type file with interfaces for entities, payloads, and responses
-3. All use the shared `apiClient` for HTTP calls
-
-**Example:**
-```typescript
-// services/propertyService.ts
-export async function getProperties(parentId: string): Promise<PropertiesResponse> {
-  return apiClient<PropertiesResponse>(`/properties?parentId=${parentId}`)
-}
-
-// services/types/property.ts
-export interface PropertyResponse {
-  status: 'success' | 'failed'
-  message?: string
-  data: Property
-}
 ```
 
 ### 4. API Response Contract
 
 All backend endpoints follow this format:
 
-**Success:**
-```json
-{
-  "status": "success",
-  "data": { ... }
-}
-```
-
-**Error:**
-```json
-{
-  "status": "failed",
-  "message": "Human-readable error"
-}
-```
-
-**Frontend handling:**
 ```typescript
+// Success
+{ status: 'success', data: { ... } }
+
+// Error
+{ status: 'failed', message: 'Human-readable error' }
+
+// Frontend handling
 const res = await createResource(payload)
 if (res.status === 'success') {
-  // Success path
+  showNotification('Success', 'success')
 } else {
-  // Show res.message to user
+  showNotification(res.message || 'Failed', 'error')
 }
 ```
 
 ### 5. State Management Strategy
 
-**Zustand Stores:** Global state only
-- `useUserStore`: User profile and authentication state (persisted to localStorage)
-- `useNotificationStore`: Toast notifications (not persisted)
+**Zustand Stores (3 total):**
+- `useUserStore` - User profile and auth state (persisted to localStorage)
+- `useNotificationStore` - Toast notifications (not persisted)
+- `useAnalyticsStore` - Analytics filters and data (not persisted)
 
-**Local State (`useState`):** Everything else
-- Form inputs
-- Modal open/close
-- Component UI state
-- Fetched data (properties, clients, etc.)
+**Local State (`useState`):** Form inputs, modals, fetched data
 
-**Why:** Keeps global state minimal, prevents unnecessary re-renders.
+---
 
-### 6. Authentication Flow
+## Complete Component Inventory (85+ components)
+
+### Analytics Components (8 files)
+```
+components/analytics/
+├── AnalyticsWidget.tsx           # Main composite component (full & compact modes)
+├── DrillDownModal.tsx            # Modal for viewing filtered bookings
+└── shared/
+    ├── AIInsightsCard.tsx        # AI-generated weekly insights (markdown)
+    ├── AnalyticsFilters.tsx      # Date range presets + property/channel filters
+    ├── BreakdownTabs.tsx         # Property/Channel tabs with table/chart views
+    ├── KPICard.tsx               # Individual metric card with delta
+    ├── KPIGrid.tsx               # Grid of 7 KPI cards
+    ├── TimelineChart.tsx         # Recharts line/area/bar chart
+    └── index.ts                  # Barrel exports
+```
+
+### Booking Components (4 files)
+```
+components/booking/
+├── create/createBookingModal.tsx
+├── delete/deleteBookingModal.tsx
+├── preview/previewBookingModal.tsx
+└── update/updateBookingModal.tsx
+```
+
+### Client Components (9 files)
+```
+components/client/
+├── create/createClientModal.tsx
+├── delete/deleteClientModal.tsx
+├── preview/previewClientModal.tsx
+├── update/updateClientModal.tsx
+└── import/
+    ├── bulkImportClientModal.tsx
+    └── steps/
+        ├── MapFieldsStep.tsx
+        ├── PreviewStep.tsx
+        └── UploadStep.tsx
+```
+
+### Client-Related Components (3 files)
+```
+components/client-agreement/clientAgreementModal.tsx
+components/client-note/clientNoteModal.tsx
+components/status/statusCodeManagementModal.tsx
+```
+
+### Connection Components (2 files)
+```
+components/connection/
+├── guesty/GuestyConnectionModal.tsx
+└── hostaway/HostawayConnectionModal.tsx
+```
+
+### Dashboard Components (13 files)
+```
+components/dashboard/
+├── ActionBar/
+│   └── ActionBar.tsx             # Sticky quick-action buttons
+├── AlertsZone/
+│   ├── AlertCard.tsx             # Individual alert card
+│   ├── AlertsZone.tsx            # Alert container
+│   └── AllClearState.tsx         # Green checkmark when no alerts
+├── MetricsZone/
+│   ├── ActivityFeed.tsx          # Recent activity timeline
+│   ├── ActivityItem.tsx          # Individual activity item
+│   ├── InsightCard.tsx           # Performance insight card
+│   ├── InsightsSection.tsx       # Insights container
+│   ├── MetricCard.tsx            # Health metric card
+│   └── MetricsGrid.tsx           # 6-card metrics grid
+└── shared/
+    ├── Sparkline.tsx             # Mini trend charts
+    ├── TimeAgo.tsx               # Relative time display
+    └── TrendIndicator.tsx        # Up/down trend arrows
+```
+
+### Expense Components (3 files)
+```
+components/expenses/
+├── ExpenseViewerModal.tsx
+├── categories/ExpenseCategoriesModal.tsx
+└── create/CreateExpenseModal.tsx
+```
+
+### Property Components (14 files)
+```
+components/property/
+├── create/createPropertyModal.tsx
+├── delete/deletePropertyModal.tsx
+├── preview/previewPropertyModal.tsx
+├── update/updatePropertyModal.tsx
+├── channels/
+│   ├── channelForm.tsx
+│   ├── channelIconRow.tsx
+│   └── channelList.tsx
+└── import/
+    ├── bulkImportPropertyModal.tsx
+    └── steps/
+        ├── AssignClientsStep.tsx
+        ├── MapFieldsStep.tsx
+        ├── PreviewStep.tsx
+        └── UploadStep.tsx
+```
+
+### Property-Related Components (5 files)
+```
+components/property-channel/propertyChannelModal.tsx
+components/property-field-mapping/
+├── FieldMappingEditor.tsx
+└── propertyFieldMappingModal.tsx
+components/property-license/propertyLicenseModal.tsx
+components/property-owners/propertyOwnersModal.tsx
+```
+
+### Report Components (2 files)
+```
+components/report/
+├── generate/generateReportModal.tsx
+└── view/viewReportModal.tsx
+```
+
+### Session Components (2 files)
+```
+components/session/
+├── SessionExpiredModal.tsx
+└── SessionWarningModal.tsx
+```
+
+### Upload Wizard Components (14 files)
+```
+components/upload-wizard/
+├── UploadWizard.tsx              # Main wizard container
+├── shared/
+│   ├── StepIndicator.tsx
+│   ├── ColumnMapper.tsx
+│   ├── DataPreviewTable.tsx
+│   └── ValidationWarning.tsx
+├── steps/
+│   ├── CompleteStep.tsx
+│   ├── FieldMappingStep.tsx
+│   ├── PreviewStep.tsx
+│   ├── ProcessStep.tsx
+│   ├── PropertyIdentificationStep.tsx
+│   ├── PropertyMappingStep.tsx
+│   ├── UploadStep.tsx
+│   └── ValidateStep.tsx
+└── types/wizard.ts
+```
+
+### Other Components (11 files)
+```
+components/calculation-rules/calculationRuleModal.tsx
+components/csv-mapping/FieldMappingForm.tsx
+components/field-value-changed/EditFieldModal.tsx
+components/footer/Footer.tsx
+components/incoming-bookings/ReviewIncomingBookingsModal.tsx
+components/navbar/
+├── ManagerSidebar.tsx
+├── PreNavbar.tsx
+└── UserNavbar.tsx
+components/pms-credential/pmsCredentialModal.tsx
+components/webhook-mapping/
+├── SearchableSelect.tsx
+└── WebhookFieldMappingForm.tsx
+```
+
+### Shared Components (5 files)
+```
+components/shared/
+├── FloatingActionButton.tsx
+├── LogoutModal.tsx
+├── TableActionsDropdown.tsx
+├── modal.tsx
+└── notification.tsx
+```
+
+---
+
+## Complete Service Inventory (26 services)
+
+### Core Services
+| Service | File | Purpose |
+|---------|------|---------|
+| API Client | `apiClient.ts` | HTTP fetch wrapper with credentials |
+| Auth | `authService.ts` | Login, signup, password reset |
+| Profile | `profileService.ts` | User profile CRUD |
+
+### Resource Services
+| Service | File | Purpose |
+|---------|------|---------|
+| Client | `clientService.ts` | Client CRUD + bulk import |
+| Client Agreement | `clientAgreementService.ts` | Agreement file management |
+| Client Code | `clientCodeService.ts` | Status code management |
+| Client Note | `clientNoteService.ts` | Client notes CRUD |
+| Property | `propertyService.ts` | Property CRUD + search + stats |
+| Property Channel | `propertyChannelService.ts` | Distribution channels |
+| Property License | `propertyLicenseService.ts` | License file management |
+| Property Field Mapping | `propertyFieldMappingService.ts` | CSV field mapping templates |
+| Property Webhook Mapping | `propertyWebhookMappingService.ts` | Webhook field mappings |
+| Booking | `bookingService.ts` | Booking CRUD + search |
+| Report | `reportService.ts` | Report generation + file management |
+| Expense | `expenseService.ts` | Expense CRUD |
+| Expense Categories | `expenseCategoriesService.ts` | Expense category management |
+
+### Specialized Services
+| Service | File | Purpose |
+|---------|------|---------|
+| CSV Upload | `csvUploadService.ts` | Multi-property CSV import |
+| Analytics | `analyticsService.ts` | Analytics API + date helpers |
+| Dashboard | `dashboardService.ts` | Dashboard metrics + activity |
+| PMS Credential | `pmsCredentialService.ts` | PMS login storage |
+| Guesty Connection | `guestyConnectionService.ts` | Guesty PMS integration |
+| Hostaway Connection | `hostawayConnectionService.ts` | Hostaway PMS integration |
+| Incoming Booking | `incomingBookingService.ts` | Webhook booking processing |
+| Calculation Rule | `calculationRuleService.ts` | Formula rules for calculations |
+| Field Values Changed | `fieldValuesChangedService.ts` | Booking field edit history |
+| Channel Utils | `channelUtils.tsx` | Channel icons and display names |
+
+---
+
+## Complete Type Definitions (24 files)
 
 ```
-Login → Supabase Auth → Session Cookie → Backend validates via service role key
+services/types/
+├── analytics.ts           # AnalyticsData, PortfolioData, TimelinePoint
+├── auth.ts                # LoginPayload, SignupPayload, AuthResponse
+├── booking.ts             # Booking, BookingPayload, BookingsResponse
+├── calculationRule.ts     # CalculationRule, RuleTemplate
+├── client.ts              # Client, ClientPayload, ClientsResponse
+├── clientAgreement.ts     # ClientAgreement, AgreementPayload
+├── clientCode.ts          # StatusCode, StatusCodePayload
+├── clientNote.ts          # ClientNote, NotePayload
+├── csvMapping.ts          # FieldMapping, MappingConfig
+├── dashboard.ts           # DashboardMetrics, DashboardActivity
+├── expense.ts             # Expense, ExpensePayload
+├── expenseCategories.ts   # ExpenseCategory, CategoryPayload
+├── fieldValueChanged.ts   # FieldChange, ChangeHistory
+├── guestyConnection.ts    # GuestyConnection, ConnectionPayload
+├── hostawayConnection.ts  # HostawayConnection, ConnectionPayload
+├── incomingBooking.ts     # IncomingBooking, WebhookData
+├── pmsCredential.ts       # PMSCredential, CredentialPayload
+├── profile.ts             # UserProfile, ProfilePayload
+├── property.ts            # Property, PropertyPayload, Owner
+├── propertyChannel.ts     # PropertyChannel, ChannelPayload
+├── propertyFieldMapping.ts # FieldMappingTemplate, MappingPayload
+├── propertyLicense.ts     # PropertyLicense, LicensePayload
+├── propertyWebhookMapping.ts # WebhookMapping, MappingConfig
+└── report.ts              # Report, ReportFile, ReportPayload
 ```
 
-- Frontend uses Supabase client for auth operations
-- Backend receives requests with session cookies
-- Backend validates using Supabase service role key
-- `apiClient` does NOT manually add Authorization headers (handled via cookies)
+---
+
+## State Management (3 Stores)
+
+### useUserStore (`src/store/useUserStore.ts`)
+```typescript
+interface UserState {
+  user: UserProfile | null
+  setUser: (user: UserProfile | null) => void
+  clearUser: () => void
+}
+// Persisted to localStorage
+```
+
+### useNotificationStore (`src/store/useNotificationStore.ts`)
+```typescript
+interface NotificationState {
+  notifications: Notification[]
+  showNotification: (message: string, type: 'success' | 'error' | 'info') => void
+  removeNotification: (id: string) => void
+}
+// Not persisted
+```
+
+### useAnalyticsStore (`src/store/useAnalyticsStore.ts`)
+```typescript
+interface AnalyticsState {
+  filters: AnalyticsFilters
+  granularity: 'daily' | 'weekly' | 'monthly'
+  analyticsData: AnalyticsData | null
+  bookingsData: BookingsData | null
+  aiInsights: AIInsights | null
+  drillDown: DrillDownContext | null
+  // Actions...
+}
+// Not persisted (fresh data each session)
+```
+
+---
+
+## Custom Hooks (1 file)
+
+### useSessionMonitor (`src/hooks/useSessionMonitor.ts`)
+```typescript
+// Monitors Supabase session for expiration
+// Shows warning modal 5 minutes before expiry
+// Shows expired modal and redirects to login on expiry
+```
+
+---
+
+## Utilities (7 files)
+
+### Supabase Utilities
+```
+utils/supabase/
+├── api.ts              # Server-side Supabase client
+├── component.ts        # Client component Supabase client
+├── server-props.ts     # getServerSideProps helper
+└── static-props.ts     # getStaticProps helper
+```
+
+### General Utilities
+```
+utils/
+├── csvParser.ts            # CSV parsing and validation
+├── webhookFieldProcessor.ts # Webhook data transformation
+└── logoutState.ts          # Cross-tab logout coordination
+```
+
+---
+
+## Backend API Routes
+
+### Core Resources
+| Resource | Endpoints | Status |
+|----------|-----------|--------|
+| Properties | GET, GET/:id, GET/search, GET/stats, POST, PUT, DELETE, PATCH/:id/status | ✅ |
+| Property Owners | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ |
+| Property Channels | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ |
+| Property Licenses | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ |
+| Property Field Mappings | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ |
+| Property Webhook Mappings | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ |
+| Clients | GET, POST, PUT, DELETE | ✅ |
+| Client Status Codes | GET, POST, PUT, DELETE | ✅ |
+| Client Agreements | GET, POST, PUT, DELETE | ✅ |
+| Client Notes | GET, POST, PUT, DELETE | ✅ |
+| PMS Credentials | GET, POST, PUT, DELETE | ✅ |
+| Profiles | GET, POST, PUT | ✅ |
+
+### Bookings & Reports
+| Resource | Endpoints | Status |
+|----------|-----------|--------|
+| Bookings | GET, GET/:id, POST, PUT, DELETE | ✅ |
+| Reports | GET, GET/:id, POST, DELETE | ✅ |
+| Report Preview | POST /preview | ✅ |
+| Report Generate | POST /generate | ✅ |
+| Report Files | DELETE /files/:fileId | ✅ |
+| Logos | GET, POST /upload-logo | ✅ |
+
+### Analytics & Dashboard
+| Resource | Endpoints | Status |
+|----------|-----------|--------|
+| Analytics | POST / (main data) | ✅ |
+| Analytics Bookings | POST /bookings (drill-down) | ✅ |
+| AI Insights | GET /ai-insights | ✅ |
+| Dashboard Alerts | GET /alerts | ✅ |
+| Dashboard Metrics | GET /metrics | ✅ |
+| Dashboard Insights | GET /insights | ✅ |
+| Dashboard Activity | GET /activity | ✅ |
+
+### CSV & Integrations
+| Resource | Endpoints | Status |
+|----------|-----------|--------|
+| CSV Upload | POST /upload, POST /process | ✅ |
+| Calculation Rules | GET, POST, PUT, DELETE | ✅ |
+| Incoming Bookings | GET, POST /review, POST /import | ✅ |
+| Hostaway Connection | GET, POST, PUT, DELETE | ✅ |
+| Guesty Connection | GET, POST, PUT, DELETE | ✅ |
+| Expenses | GET, POST, PUT, DELETE | ✅ |
+| Expense Categories | GET, POST, PUT, DELETE | ✅ |
+
+---
+
+## Analytics API Details
+
+### POST /api/analytics - Main Dashboard Data
+```typescript
+// Request
+{
+  dateRange: { startDate: string, endDate: string },
+  propertyIds: string[],      // [] = all properties
+  channels: string[],         // [] = all channels
+  comparison: boolean,        // Include previous period
+  granularity: 'daily' | 'weekly' | 'monthly'
+}
+
+// Response
+{
+  portfolio: { current: KPIs, previous: KPIs, delta: Deltas },
+  byProperty: PropertyBreakdown[],
+  byChannel: ChannelBreakdown[],
+  timeline: TimelinePoint[]
+}
+```
+
+### POST /api/analytics/bookings - Drill-Down
+```typescript
+// Request (filter by property/channel/date)
+{
+  dateRange: { startDate: string, endDate: string },
+  propertyIds: string[],
+  channels: string[],
+  page: number,
+  limit: number
+}
+
+// Response: Paginated booking list
+```
+
+### GET /api/analytics/ai-insights - AI Summary
+```typescript
+// Uses last complete calendar week automatically
+// Response: { available: boolean, markdown: string, period: {...} }
+```
+
+---
+
+## Implemented Features (Complete)
+
+### Authentication System
+- Complete auth flow (signup/login/logout)
+- Email verification with Supabase
+- Password reset functionality
+- Session monitoring with warning/expiry modals
+- Role-based redirects
+
+### Client Management
+- Full CRUD (Create/Read/Update/Delete)
+- Bulk import from CSV
+- Status code system (custom statuses)
+- Client agreements file management
+- Client notes
+- PMS credentials storage
+- Client preview with all details
+
+### Property Management
+- Full CRUD with multi-owner support
+- Property search and filtering
+- Stats dashboard (active/inactive counts)
+- **Owners Management:**
+  - Add/remove co-owners
+  - Primary owner designation
+  - Commission rate override per owner
+- **Channels Management:**
+  - Multiple distribution channels (Airbnb, VRBO, Booking.com, Google, Direct, Expedia)
+  - Channel icons and display names
+  - Active/Inactive status toggle
+- **Licenses Management:**
+  - File upload and storage
+  - License title and notes
+- **Field Mapping Templates:**
+  - Reusable CSV field mappings per property
+  - Default template auto-loading
+
+### Reports Management
+- **Multi-Format Generation:**
+  - PDF with custom logo
+  - CSV export
+  - Excel export
+- **Report Preview:**
+  - PDF preview in new tab (base64)
+  - CSV/Excel data table preview
+- **Financial Summary:**
+  - Revenue breakdown (room, extra fees, cleaning)
+  - Tax calculations (GST, QST, lodging, sales)
+  - Platform fees (channel, Stripe, management)
+  - Net earnings and totals
+- **File Management:**
+  - Version history per format
+  - Individual file download
+  - File deletion with confirmation
+
+### CSV Upload Wizard (7 Steps)
+1. **Upload** - File selection and parsing
+2. **Property Identification** - Map CSV listings to properties
+3. **Field Mapping** - Global or per-property column mapping
+4. **Property Mapping** - Assign bookings to properties
+5. **Validate** - Check data quality
+6. **Preview** - Review before import
+7. **Process** - Import with progress tracking
+8. **Complete** - Summary and next steps
+
+### Dashboard (Operational Hub)
+- **Action Bar (Sticky):**
+  - Upload CSV, Generate Report, New Client, New Property
+  - Amber gradient primary actions
+- **Alerts Zone:**
+  - Properties missing bookings
+  - Properties without reports
+  - "All Clear" state
+- **Metrics Zone (6 cards):**
+  - Properties (active/total/inactive)
+  - Clients (total with breakdown)
+  - CSV Uploads (month comparison)
+  - Reports Generated (month comparison)
+  - Bookings (month comparison)
+  - Revenue (month comparison)
+- **Performance Insights:**
+  - Properties with >15% change
+  - Sparkline charts
+  - Quick actions
+- **Activity Feed:**
+  - Timeline design
+  - Color-coded activity types
+  - Hover-reveal actions
+
+### Analytics System
+- **KPI Grid (7 metrics):**
+  - Total Payout
+  - Net Earnings
+  - Management Fee
+  - Occupancy Rate
+  - Total Bookings
+  - Total Nights
+  - Average Nightly Rate
+- **Timeline Chart:**
+  - Line/Area/Bar modes
+  - Multiple metric selection
+  - Granularity: daily/weekly/monthly
+- **Breakdowns:**
+  - By Property (table/bar/pie)
+  - By Channel (table/bar/pie)
+- **Drill-Down Modal:**
+  - Paginated booking list
+  - Filtered by property/channel
+- **AI Insights:**
+  - Weekly AI-generated summary
+  - Markdown rendering
+
+### Bookings Management
+- Full CRUD operations
+- Field edit history tracking
+- Incoming bookings from webhooks
+- Review and import workflow
+
+### Expense Management
+- Full CRUD operations
+- Category management
+- Receipt file upload
+- Reimbursable/Tax deductible flags
+
+### PMS Integrations
+- **Hostaway:**
+  - API connection
+  - Webhook setup
+  - Auto-import toggle
+- **Guesty:**
+  - API connection
+  - Webhook setup
+  - Auto-import toggle
+
+### Settings
+- Profile management
+- Status code customization
+- Calculation rules configuration
+
+---
+
+## Database Schema (Key Tables)
+
+| Table | Purpose |
+|-------|---------|
+| profiles | User accounts |
+| clients | Property owners (clients of the property manager) |
+| client_status_codes | Custom client status labels |
+| client_agreements | Agreement file metadata |
+| client_notes | Notes about clients |
+| client_pms_credentials | PMS login storage |
+| properties | Rental properties |
+| client_properties | Many-to-many: owners ↔ properties |
+| property_channels | Distribution channels per property |
+| property_licenses | License files per property |
+| property_field_mappings | CSV field mapping templates |
+| property_webhook_mappings | Webhook field mappings |
+| bookings | Individual reservations |
+| csv_uploads | CSV upload metadata |
+| reports | Report metadata |
+| report_files | Generated report files |
+| report_properties | Many-to-many: reports ↔ properties |
+| expenses | Property expenses |
+| expense_categories | User-defined expense categories |
+| calculation_rules | Formula rules for calculations |
+| calculation_rule_templates | Reusable rule sets |
+| field_values_changed | Booking field edit history |
+| incoming_bookings | Webhook bookings pending review |
+| hostaway_connections | Hostaway API credentials |
+| guesty_connections | Guesty API credentials |
+| logos | Uploaded logos for reports |
 
 ---
 
@@ -195,9 +761,10 @@ Login → Supabase Auth → Session Cookie → Backend validates via service rol
 | Element | Convention | Example |
 |---------|------------|---------|
 | Components | PascalCase | `CreateClientModal` |
-| Component files | PascalCase | `modal.tsx`, `Navbar.tsx` |
+| Component files | PascalCase | `createPropertyModal.tsx` |
+| Folders | lowercase-hyphenated | `client-agreement/` |
 | Service files | camelCase | `clientService.ts` |
-| Functions | camelCase | `getClients()`, `handleSubmit()` |
+| Functions | camelCase | `getClients()` |
 | Hooks | camelCase with use | `useUserStore()` |
 | Types/Interfaces | PascalCase | `Client`, `UserProfile` |
 | Constants | UPPER_SNAKE_CASE | `API_BASE_URL` |
@@ -206,8 +773,7 @@ Login → Supabase Auth → Session Cookie → Backend validates via service rol
 
 ## Code Patterns
 
-### Component Pattern (Modal)
-
+### Modal Component Pattern
 ```typescript
 'use client'
 
@@ -226,33 +792,14 @@ const Create[Resource]Modal: React.FC<Create[Resource]ModalProps> = ({ ... }) =>
 }
 ```
 
-**See `.claude/skills/add-frontend-feature/component-patterns.md` for complete examples**
-
-### Service Layer Pattern
-
+### Service Function Pattern
 ```typescript
-// services/apiClient.ts - Base client
-async function apiClient<T, B = unknown>(
-  endpoint: string,
-  options?: {
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-    body?: B
-    headers?: Record<string, string>
-  }
-): Promise<T> {
-  const url = `${process.env.NEXT_PUBLIC_BASE_URL}${endpoint}`
-  // ... fetch logic
+export async function getResources(userId: string): Promise<ResourcesResponse> {
+  return apiClient<ResourcesResponse>(`/resources?userId=${userId}`)
 }
 
-// services/clientService.ts - Domain service
-export async function getClients(parentId: string): Promise<ClientsResponse> {
-  return apiClient<ClientsResponse>(`/client?parentId=${parentId}`)
-}
-
-export async function createClient(
-  data: CreateClientPayload
-): Promise<ClientResponse> {
-  return apiClient<ClientResponse, CreateClientPayload>('/client', {
+export async function createResource(data: CreatePayload): Promise<ResourceResponse> {
+  return apiClient<ResourceResponse, CreatePayload>('/resources', {
     method: 'POST',
     body: data,
   })
@@ -260,698 +807,73 @@ export async function createClient(
 ```
 
 ### Error Handling Pattern
-
 ```typescript
 try {
   const res = await apiCall(data)
   if (res.status === 'success') {
-    showNotification('Success message', 'success')
+    showNotification('Success', 'success')
     onClose()
   } else {
     showNotification(res.message || 'Failed', 'error')
   }
 } catch (err) {
   console.error('Error:', err)
-  const message = err instanceof Error ? err.message : 'Network error'
-  showNotification(message, 'error')
+  showNotification(err instanceof Error ? err.message : 'Network error', 'error')
 }
 ```
-
-### Form Validation Pattern
-
-**Client-side first (before API call):**
-```typescript
-// Required fields
-if (!name.trim()) {
-  showNotification('Name is required', 'error')
-  return
-}
-
-// Number validation
-const parsed = parseFloat(value)
-if (isNaN(parsed) || parsed <= 0) {
-  showNotification('Must be a positive number', 'error')
-  return
-}
-
-// Enum validation
-if (!['STR', 'LTR'].includes(propertyType)) {
-  showNotification('Invalid property type', 'error')
-  return
-}
-```
-
-### Tailwind CSS Patterns
-
-**Buttons:**
-```tsx
-{/* Primary button */}
-<button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-  Click Me
-</button>
-
-{/* Secondary button */}
-<button className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-  Cancel
-</button>
-```
-
-**Forms:**
-```tsx
-<input
-  type="text"
-  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-/>
-```
-
-**Cards:**
-```tsx
-<div className="bg-white rounded-lg shadow p-6">
-  Content
-</div>
-```
-
-### Reports Architecture Pattern
-
-**Multi-Format Report Generation:**
-```typescript
-// 1. Unified preview/generation payload
-interface ReportGenerationPayload {
-  propertyIds: string[]        // Support single or multiple properties
-  startDate: string
-  endDate: string
-  format: 'pdf' | 'csv' | 'excel'
-  logoId?: string
-}
-
-// 2. Response handling pattern
-const handlePreview = async () => {
-  const res = await previewReport(payload)
-  if (res.status === 'success') {
-    // Handle different response formats
-    if (res.data.pdfPreview) {
-      // PDF: Base64 content for browser display
-      setPreviewData({ pdf: res.data.pdfPreview, ... })
-    } else if (res.data.reportData) {
-      // CSV/Excel: Structured data for table display
-      setPreviewData({ 
-        bookings: res.data.reportData.bookings,
-        summary: res.data.reportData.summary,
-        ...
-      })
-    }
-  }
-}
-```
-
-**State Management Pattern (No Optimistic Updates):**
-```typescript
-// ❌ DON'T: Optimistic updates cause duplicate key errors
-const handleReportGenerated = (newReport: Report) => {
-  setReports([newReport, ...reports])  // Can cause duplicates
-}
-
-// ✅ DO: Always refresh from server
-const handleReportGenerated = async () => {
-  await loadReports()  // Single source of truth
-  setShowGenerateModal(false)
-}
-```
-
-**Enhanced Summary Display Pattern:**
-```typescript
-// Comprehensive financial breakdown with receipt-style layout
-<div className="grid grid-cols-2 gap-x-8 gap-y-3 max-w-2xl">
-  <div>
-    {/* Left column: Overview, Revenue, Taxes */}
-    <div>Room Revenue: <span className="font-semibold">${total.toLocaleString()}</span></div>
-    <div className="border-t border-gray-200 pt-1 font-bold">
-      Total Revenue: <span className="text-green-600">${total.toLocaleString()}</span>
-    </div>
-  </div>
-  <div>
-    {/* Right column: Platform fees, Final amounts */}
-    <div className="font-bold">NET EARNINGS: 
-      <span className="text-green-600">${earnings.toLocaleString()}</span>
-    </div>
-  </div>
-</div>
-```
-
-**Table Totals Pattern:**
-```typescript
-// Add totals footer to data tables using summary data
-<tfoot className="bg-gray-100 border-t-2 border-gray-300">
-  <tr className="font-medium">
-    <td colSpan={2}>TOTALS</td>
-    <td className="font-semibold">{summary.totalNights}</td>
-    <td className="font-semibold">${summary.totalChannelFees.toLocaleString()}</td>
-    <td className="font-semibold text-green-600">${summary.totalNetEarnings.toLocaleString()}</td>
-  </tr>
-</tfoot>
-```
-
-**Single Report View & File Management Pattern:**
-```typescript
-// 1. Detailed report modal with file management
-interface ViewReportModalProps {
-  isOpen: boolean
-  onClose: () => void
-  reportId: string
-  onReportUpdated?: () => void
-}
-
-// 2. File download with proper behavior
-const handleDownload = async (file: ReportFile) => {
-  try {
-    const response = await fetch(file.downloadUrl)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    // Create download link and trigger
-  } catch (error) {
-    // Fallback to direct link with new tab
-  }
-}
-
-// 3. File deletion with confirmation
-const handleDeleteFile = async (fileId: string) => {
-  const res = await deleteReportFile(fileId)
-  if (res.status === 'success') {
-    await loadReport() // Refresh report data
-    onReportUpdated?.() // Refresh parent list
-  }
-}
-
-// 4. Expandable file sections by format
-{Object.entries(report.filesByFormat).map(([format, files]) => (
-  <div key={format}>
-    <button onClick={() => toggleSection(format)}>
-      {format.toUpperCase()} Files ({files.length} versions)
-    </button>
-    {expandedSections[format] && (
-      <div>
-        {files.map(file => (
-          <FileVersionRow 
-            key={file.id} 
-            file={file} 
-            onDownload={handleDownload}
-            onDelete={handleDeleteFile}
-          />
-        ))}
-      </div>
-    )}
-  </div>
-))}
-```
-
----
-
-## Backend Integration
-
-### Backend Repository
-Separate repository: `thesmarthost-backend` (Express.js + PostgreSQL)
-
-### Base URL Configuration
-```bash
-# .env.local
-NEXT_PUBLIC_BASE_URL=http://localhost:4000  # Development
-```
-
-### Available API Routes
-
-| Resource | Endpoints | Status |
-|----------|-----------|--------|
-| Properties | GET, GET/:id, GET/search, GET/stats, POST, PUT, DELETE, PATCH/:id/status | ✅ Complete |
-| Property Owners | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
-| Property Channels | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
-| Property Licenses | GET/:propertyId, POST, PUT/:id, DELETE/:id | ✅ Complete |
-| Clients | GET, POST, PUT, DELETE | ✅ Complete |
-| Profiles | GET, POST, PUT, DELETE | ✅ Complete |
-| Client Status Codes | GET, POST, PUT, DELETE | ✅ Complete |
-| PMS Credentials | GET, POST, PUT, DELETE | ✅ Complete |
-| Client Agreements | GET, POST, PUT, DELETE | ✅ Complete |
-| Bookings | - | ⏳ Not implemented |
-| Reports | GET, GET/:id, POST, DELETE, /preview, /generate, /logos, /upload-logo | ✅ Complete |
-| Report Files | DELETE /files/:fileId | ✅ Complete |
-| Analytics | POST /, POST /bookings, GET /ai-insights | ✅ Complete |
-
-**See `.claude/skills/thesmarthost-context/SKILL.md` for detailed API documentation**
-
-### Analytics API (NEW - Dec 28, 2025)
-
-The analytics system uses a unified API with three endpoints:
-
-**POST /api/analytics** - Main Dashboard Data
-```typescript
-// Request
-{
-  dateRange: { startDate: "2025-01-01", endDate: "2025-01-31" },  // Required
-  propertyIds: [],      // Optional, [] = all properties
-  channels: [],         // Optional, [] = all channels
-  comparison: true,     // Optional, include previous period
-  granularity: "daily"  // Optional: "daily" | "weekly" | "monthly"
-}
-
-// Response includes:
-// - portfolio: { current, previous, delta } - KPI aggregates
-// - byProperty: [] - Property breakdown with deltas
-// - byChannel: [] - Channel breakdown with deltas
-// - timeline: [] - Time series data for charts
-```
-
-**POST /api/analytics/bookings** - Drill-Down Bookings
-```typescript
-// Request (for when user clicks a property/channel/date)
-{
-  dateRange: { startDate: "2025-01-01", endDate: "2025-01-31" },
-  propertyIds: ["uuid-1"],  // Filter to specific property
-  channels: ["Airbnb"],     // Filter to specific channel
-  page: 1,
-  limit: 50
-}
-
-// Response: paginated list of individual bookings
-```
-
-**GET /api/analytics/ai-insights** - AI Weekly Summary
-```typescript
-// No request body - automatically uses last complete calendar week
-// Response: { available: boolean, markdown: string, period: {...} }
-```
-
----
-
-## Data Model (Key Entities)
-
-### Properties ↔ Clients (Many-to-Many)
-
-**Critical:** Properties can have multiple owners (co-ownership).
-
-**Database:** `client_properties` junction table with:
-- `is_primary`: Exactly one owner must be primary
-- `commission_rate_override`: Per-owner commission override
-
-**API Payload (Create):**
-```typescript
-{
-  clientId: string,        // Initial owner (becomes primary)
-  name: string,
-  address: string,
-  propertyType: 'STR' | 'LTR',
-  commissionRate: number,  // Property default
-  // ... other fields
-}
-```
-
-**API Response:**
-```typescript
-{
-  id: string,
-  owners: Array<{
-    clientId: string,
-    clientName: string,
-    clientEmail: string,
-    isPrimary: boolean,
-    commissionRateOverride: number | null
-  }>,
-  channels: Array<{ id, channelName, publicUrl, isActive, createdAt }>,
-  licenses: Array<{ id, filePath, licenseTitle, notes, createdAt }>,
-  // ... other fields
-}
-```
-
-**See `.claude/skills/thesmarthost-context/database-schema.md` for full schema**
-
----
-
-## Current Progress
-
-### ✅ Completed Features
-
-**Authentication System:**
-- Complete auth flow (signup/login/logout)
-- Email verification with Supabase
-- Password reset functionality
-- Role-based redirects
-
-**Client Management:**
-- Client CRUD (Create/Read/Update/Delete)
-- Client list table with search and filter
-- Stats dashboard
-- Active clients sorted to top
-
-**Properties Management:**
-- Property CRUD with multi-owner support
-- Properties list with stats dashboard
-- Create/Update/Delete/Preview modals
-- Owner management (add/remove co-owners)
-- Commission rate override per owner
-- **Channels Management (NEW):**
-  - Add/Edit/Delete channels for each property
-  - Support for multiple distribution channels (Airbnb, VRBO, Booking.com, Google, Direct, Expedia)
-  - Channel icons and display names
-  - Active/Inactive status toggle
-  - Immediate save (no batch operations)
-  - Real-time table updates
-
-**Layout & Navigation:**
-- Route groups architecture
-- PreNavbar, UserNavbar, ManagerSidebar
-- Responsive design
-
-**Service Layer:**
-- apiClient, clientService, propertyService
-- authService, profileService
-- Full TypeScript typing
-
-**State Management:**
-- useUserStore with localStorage persistence
-- useNotificationStore for toasts
-
-**Reports Management:**
-- **Report Generation System:**
-  - Multi-format support (PDF, CSV, Excel)
-  - Single and multi-property reports
-  - Date range filtering
-  - Custom logo upload and selection
-  - Report preview before generation
-- **Report Dashboard:**
-  - Reports list with filtering by property and date range
-  - Pagination support (10/25/50 items per page)
-  - Download links for generated reports
-  - Delete functionality with confirmation
-  - Real-time status updates
-- **Advanced Preview Features:**
-  - PDF preview with base64 display in new tab
-  - CSV/Excel data table preview with scrollable interface
-  - Comprehensive financial summary with receipt-style layout
-  - Column totals in data tables
-  - Multi-property breakdowns
-- **Financial Data Display:**
-  - Revenue breakdown (room revenue, extra fees, cleaning fees)
-  - Tax calculations (GST, QST, lodging tax, sales tax)
-  - Platform fees (channel fees, Stripe fees, management fees)
-  - Final amounts (total payout, net earnings, rent collected)
-  - Average nightly rate calculations
-  - Property-by-property summaries
-- **Single Report View & File Management (NEW - Dec 14, 2025):**
-  - Detailed report view modal with comprehensive metadata display
-  - File version history with expandable sections by format
-  - Individual file download with proper download behavior
-  - File deletion with confirmation and auto-refresh
-  - Current vs. previous version indicators
-  - Clickable report names in reports table for easy access
-
-**CSV Upload Wizard (Multi-Property):**
-- ✅ Property identification step (map CSV listings to properties)
-- ✅ Field mapping step (global and per-property modes)
-- ✅ Preview step with property-specific field mappings
-- ✅ Process step for multi-property imports
-- ✅ Fixed duplicate column display issue
-- ✅ Property creation inline during identification
-
-**Dashboard (NEW - Dec 22, 2025):**
-- **Refined Editorial Design** - Professional operational dashboard with minimal whitespace
-- **Zone 1: Action Center (Sticky)**
-  - Quick-create workflows: Upload CSV, Generate Report, New Client, New Property
-  - Sticky bar with gradient background, transforms on scroll with shadow
-  - Primary actions (Upload/Generate) use amber gradient styling
-  - Secondary actions (New Client/Property) use outlined style
-- **Zone 2: Needs Attention (Conditional)**
-  - Properties missing bookings for current month
-  - Properties without reports for current month
-  - "All Clear" state when no alerts (green checkmark)
-  - Compact alert cards with hover-reveal quick actions
-  - Top 5 items shown per alert type, "View All" for more
-- **Zone 3: Operational Pulse**
-  - **Health Metrics (6 cards in 3-column grid):**
-    - Properties (active/total/inactive)
-    - Clients (total with status breakdown)
-    - CSV Uploads (this month vs last month with change)
-    - Reports Generated (this month vs last month with change)
-    - Bookings (this month vs last month with change)
-    - Revenue (this month vs last month with change, formatted as currency)
-  - **Performance Insights:**
-    - Shows properties with >15% change in revenue/nights/ADR
-    - Sparkline mini-charts for trend visualization
-    - Quick actions: View Analytics, View Bookings
-    - Expandable to show more insights
-  - **Recent Activity Feed (Timeline Design):**
-    - Last 20 actions with visual timeline connector
-    - Activity types: report_generated, csv_uploaded, property_created/updated, client_created/updated
-    - Color-coded icons (blue=reports, green=CSV, purple=property, orange=client)
-    - Hover-reveal quick actions (View buttons)
-    - "View Report" opens ViewReportModal (not navigation)
-    - Time ago display with auto-refresh
-- **Backend Integration:**
-  - `GET /api/dashboard/alerts` - Missing bookings and reports
-  - `GET /api/dashboard/metrics` - 6 health metrics with month-over-month comparison
-  - `GET /api/dashboard/insights?limit=5` - Performance outliers
-  - `GET /api/dashboard/activity?limit=20` - Recent activity feed
-- **Component Architecture:**
-  - `components/dashboard/ActionBar/` - Sticky action buttons
-  - `components/dashboard/AlertsZone/` - Alert cards, All Clear state
-  - `components/dashboard/MetricsZone/` - Metrics grid, insights, activity feed
-  - `components/dashboard/shared/` - TimeAgo, TrendIndicator, Sparkline utilities
-- **Design Principles:**
-  - Minimal motion (operational tool, not animated)
-  - Compact spacing to maximize information density
-  - Hover states for progressive disclosure
-  - Reuses existing modals (GenerateReportModal, ViewReportModal, CreateClientModal, CreatePropertyModal)
-
-**Analytics System (NEW - Dec 28, 2025):**
-- **Unified API Architecture** - Single POST endpoint returns all analytics data
-- **Component Structure:**
-  ```
-  components/analytics/
-  ├── AnalyticsWidget.tsx          # Main composite component (full & compact modes)
-  ├── DrillDownModal.tsx           # Modal for viewing filtered bookings
-  └── shared/
-      ├── KPICard.tsx              # Individual metric card with delta
-      ├── KPIGrid.tsx              # Grid of 7 KPI cards
-      ├── TimelineChart.tsx        # Recharts line/area/bar chart
-      ├── BreakdownTabs.tsx        # Property/Channel tabs with table/chart views
-      ├── AIInsightsCard.tsx       # AI-generated weekly insights (markdown)
-      ├── AnalyticsFilters.tsx     # Date range presets + property/channel filters
-      └── index.ts                 # Barrel exports
-  ```
-- **Key Components:**
-  - `AnalyticsWidget` - Main reusable component with props for compact/full mode
-  - `AnalyticsWidgetCompact` - Pre-configured compact version for dashboard
-  - `KPIGrid` - Shows 7 metrics: Total Payout, Net Earnings, Mgmt Fee, Occupancy, Bookings, Nights, Avg Rate
-  - `TimelineChart` - Switchable between line/area/bar, multiple metrics selectable
-  - `BreakdownTabs` - Property/Channel breakdown with table/bar/pie chart views
-  - `DrillDownModal` - Opens when clicking property/channel row, shows paginated bookings
-- **State Management:**
-  - `useAnalyticsStore` - Zustand store (NOT persisted to avoid stale data)
-  - Stores: filters, granularity, analyticsData, bookingsData, aiInsights, drillDown context
-- **Service Layer:**
-  - `analyticsService.ts` - Three functions: `getAnalytics()`, `getAnalyticsBookings()`, `getAIInsights()`
-  - Date helpers: `getCurrentMonthRange()`, `getLastMonthRange()`, `getLastNDaysRange()`, `DATE_PRESETS`
-- **Types:**
-  - `src/services/types/analytics.ts` - Full type definitions matching backend API
-  - Key types: `AnalyticsData`, `PortfolioData`, `PropertyBreakdown`, `ChannelBreakdown`, `TimelinePoint`
-- **Usage:**
-  ```tsx
-  // Full analytics page
-  <AnalyticsWidget
-    properties={properties}
-    showFilters={true}
-    showBreakdowns={true}
-    showAIInsights={true}
-    stickyFilters={true}
-  />
-
-  // Compact version for dashboard
-  <AnalyticsWidgetCompact properties={properties} />
-  ```
-
-### 🚧 PRIORITY: Property Field Mapping System
-
-**CRITICAL NEXT TASKS** - These must be implemented to complete the CSV upload workflow:
-
-#### 1. Database Schema Updates
-**File:** Backend database migration
-**Table:** `property_field_mappings`
-```sql
-CREATE TABLE property_field_mappings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  mapping_name VARCHAR(255) NOT NULL, -- e.g., "Hostaway Template", "Airbnb Template"
-  field_mappings JSONB NOT NULL, -- Array of FieldMapping objects
-  platform VARCHAR(50), -- 'ALL', 'airbnb', 'booking', etc.
-  is_default BOOLEAN DEFAULT false, -- Whether this is the default template for this property
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(property_id, mapping_name, platform)
-);
-```
-
-#### 2. Backend API Routes
-**Files:** Backend routes and controllers
-```typescript
-// GET /api/property-field-mappings/:propertyId - Get all templates for a property
-// POST /api/property-field-mappings - Save a new template
-// PUT /api/property-field-mappings/:id - Update a template
-// DELETE /api/property-field-mappings/:id - Delete a template
-// POST /api/property-field-mappings/:id/set-default - Set as default template
-```
-
-#### 3. Frontend Service Integration
-**File:** `src/services/propertyFieldMappingService.ts`
-```typescript
-export interface PropertyFieldMappingTemplate {
-  id: string
-  propertyId: string
-  userId: string
-  mappingName: string
-  fieldMappings: FieldMapping[]
-  platform: Platform
-  isDefault: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-// API functions:
-// getPropertyFieldMappings(propertyId: string)
-// savePropertyFieldMapping(template: CreatePropertyFieldMappingPayload)
-// updatePropertyFieldMapping(id: string, updates: UpdatePropertyFieldMappingPayload)
-// deletePropertyFieldMapping(id: string)
-// setDefaultTemplate(id: string)
-```
-
-#### 4. Auto-Loading System in Field Mapping Step
-**File:** `src/components/upload-wizard/steps/FieldMappingStep.tsx`
-
-**Requirements:**
-- When user switches to per-property mode and selects a property tab, auto-load saved templates for that property
-- Show a dropdown/selector for available templates: "Hostaway Template", "Airbnb Template", "Custom", etc.
-- If property has a default template, auto-load it immediately
-- Add "Save as Template" button to save current mappings as a reusable template
-- Template selector should show: Template name, platform, created date
-- Templates should be property-specific (each property has its own set of templates)
-
-#### 5. Template Management Modal
-**File:** `src/components/property-field-mapping/PropertyFieldMappingModal.tsx`
-
-**Features:**
-- Accessible from Property Management page and Field Mapping Step
-- List all saved templates for a property
-- Create/Edit/Delete templates
-- Set default template
-- Preview template mappings
-- Import template from another property (copy functionality)
-- Template validation (ensure all required fields are mapped)
-
-#### 6. Integration Points
-
-**Property Management Integration:**
-- Add "Field Mapping Templates" button/tab in property details
-- Show template count in property list: "3 templates configured"
-- Quick access to manage templates per property
-
-**Field Mapping Step Integration:**
-- Template dropdown in per-property mode
-- Auto-load default template when switching properties
-- "Save Current Mappings" button
-- Template indicator: "Using: Hostaway Template (default)"
-- Ability to modify loaded template and save as new or update existing
-
-#### 7. User Experience Flow
-```
-1. User uploads CSV and identifies properties
-2. User switches to per-property mode in Field Mapping Step
-3. For each property tab:
-   a. If property has default template → Auto-load it
-   b. If no default → Show template selector dropdown
-   c. User can select existing template or create new mappings
-   d. User can save current mappings as new template
-   e. User can modify loaded template and update it
-4. Templates persist for future CSV uploads
-5. Property managers can pre-configure templates for common platforms
-```
-
-### ⏳ Other Upcoming Features
-
-**Later Sprints:**
-- Bookings management
-- Settings pages
-- Report scheduling and automation
-
----
-
-## Development Workflow
-
-### Adding a New Resource (e.g., Bookings)
-
-1. **Backend first:** Ensure backend route exists
-2. **Create types:** `src/services/types/booking.ts`
-3. **Create service:** `src/services/bookingService.ts`
-4. **Create components:**
-   - `components/booking/create/createBookingModal.tsx`
-   - `components/booking/update/updateBookingModal.tsx`
-   - `components/booking/delete/deleteBookingModal.tsx`
-5. **Create page:** `app/(user)/property-manager/bookings/page.tsx`
-6. **Test:** Verify create, read, update, delete operations
-7. **Build:** Run `npm run build` to catch any TypeScript errors
 
 ---
 
 ## Environment Variables
 
-Required in `.env.local`:
-
 ```bash
-# Backend API
+# .env.local
 NEXT_PUBLIC_BASE_URL=http://localhost:4000
-
-# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ---
 
-## Claude Code Skills
+## Key Files to Reference
 
-This repository has custom skills configured for Claude Code:
+### Services
+- `src/services/apiClient.ts` - HTTP client with credentials
+- `src/services/propertyService.ts` - Complete CRUD example
+- `src/services/analyticsService.ts` - Analytics API + date helpers
+- `src/services/reportService.ts` - Multi-format report generation
 
-1. **`thesmarthost-context`** - Auto-loads business context and backend API reference
-2. **`add-frontend-feature`** - Instructions for building new UI features
-3. **`connect-to-backend-api`** - Instructions for creating service files and API integration
+### Components
+- `src/components/property/create/createPropertyModal.tsx` - Modal pattern
+- `src/components/analytics/AnalyticsWidget.tsx` - Composite widget
+- `src/components/dashboard/MetricsZone/MetricsGrid.tsx` - Dashboard metrics
+- `src/components/upload-wizard/UploadWizard.tsx` - Multi-step wizard
 
-**Location:** `.claude/skills/`
+### Pages
+- `src/app/(user)/property-manager/properties/page.tsx` - List page pattern
+- `src/app/(user)/property-manager/analytics/page.tsx` - Analytics page
+- `src/app/(user)/property-manager/dashboard/page.tsx` - Dashboard
 
-These skills provide detailed patterns and examples following this project's conventions.
+### State
+- `src/store/useUserStore.ts` - Persisted auth state
+- `src/store/useAnalyticsStore.ts` - Analytics state management
 
 ---
 
-## Key Files to Reference
+## Claude Code Skills
 
-- **API Client:** [src/services/apiClient.ts](src/services/apiClient.ts) - Fetch wrapper with comprehensive logging
-- **User Store:** [src/store/useUserStore.ts](src/store/useUserStore.ts) - Auth state pattern
-- **Property Service:** [src/services/propertyService.ts](src/services/propertyService.ts) - Complete CRUD example
-- **Create Modal Example:** [src/components/property/create/createPropertyModal.tsx](src/components/property/create/createPropertyModal.tsx)
-- **List Page Example:** [src/app/(user)/property-manager/properties/page.tsx](src/app/(user)/property-manager/properties/page.tsx)
-- **Report Service:** [src/services/reportService.ts](src/services/reportService.ts) - Multi-format report generation with file management
-- **Report Types:** [src/services/types/report.ts](src/services/types/report.ts) - Comprehensive financial data and file management interfaces
-- **Reports Page:** [src/app/(user)/property-manager/reports/page.tsx](src/app/(user)/property-manager/reports/page.tsx) - Full reports dashboard with filtering
-- **Generate Modal:** [src/components/report/generate/generateReportModal.tsx](src/components/report/generate/generateReportModal.tsx) - Multi-format generation with preview
-- **View Report Modal:** [src/components/report/view/viewReportModal.tsx](src/components/report/view/viewReportModal.tsx) - Single report details with file management
-- **Analytics Widget:** [src/components/analytics/AnalyticsWidget.tsx](src/components/analytics/AnalyticsWidget.tsx) - Main reusable analytics component
-- **Analytics Service:** [src/services/analyticsService.ts](src/services/analyticsService.ts) - API calls and date helpers
-- **Analytics Types:** [src/services/types/analytics.ts](src/services/types/analytics.ts) - Full type definitions for analytics API
-- **Analytics Store:** [src/store/useAnalyticsStore.ts](src/store/useAnalyticsStore.ts) - Zustand store for analytics state
-- **Analytics Page:** [src/app/(user)/property-manager/analytics/page.tsx](src/app/(user)/property-manager/analytics/page.tsx) - Full analytics dashboard
+Custom skills in `.claude/skills/`:
+
+1. **`thesmarthost-context`** - Business context and backend API reference
+2. **`add-frontend-feature`** - UI component patterns and styling
+3. **`connect-to-backend-api`** - Service layer patterns
 
 ---
 
 **Project:** HostMetrics for TheSmartHost Co. Inc
 **Team:** Mark Cena (Calgary) + Hussein Saab (Toronto)
-**Timeline:** Oct 7 - Dec 20, 2025
 **Contact:** husseinsaab14@gmail.com, markjpcena@gmail.com
 
 ---
 
-**Last Updated:** December 28, 2025
+**Last Updated:** December 30, 2025

@@ -6,7 +6,6 @@ import {
   CloudArrowUpIcon,
   UserGroupIcon,
   CalendarDaysIcon,
-  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import type { DashboardMetrics } from '@/services/types/dashboard'
 import { MetricCard } from './MetricCard'
@@ -72,35 +71,29 @@ export const MetricsGrid: React.FC<MetricsGridProps> = ({ metrics }) => {
       iconColor: 'text-indigo-600',
       borderColor: 'border-indigo-100',
     },
-    {
-      title: 'Revenue',
-      value: metrics.revenue.thisMonth,
-      subtitle: `${formatChange(metrics.revenue.change)} vs last month`,
-      icon: CurrencyDollarIcon,
-      bgColor: 'bg-emerald-50',
-      iconBg: 'bg-emerald-100',
-      iconColor: 'text-emerald-600',
-      borderColor: 'border-emerald-100',
-      isCurrency: true,
-    },
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="flex flex-wrap gap-3">
       {metricCards.map((card, index) => (
-        <MetricCard
+        <div
           key={card.title}
-          title={card.title}
-          value={card.value}
-          subtitle={card.subtitle}
-          icon={card.icon}
-          bgColor={card.bgColor}
-          iconBg={card.iconBg}
-          iconColor={card.iconColor}
-          borderColor={card.borderColor}
-          isCurrency={card.isCurrency}
-          index={index}
-        />
+          className={`w-full sm:w-[calc(50%-0.375rem)] ${
+            index < 3 ? 'lg:w-[calc(33.333%-0.5rem)]' : 'lg:w-[calc(50%-0.375rem)]'
+          }`}
+        >
+          <MetricCard
+            title={card.title}
+            value={card.value}
+            subtitle={card.subtitle}
+            icon={card.icon}
+            bgColor={card.bgColor}
+            iconBg={card.iconBg}
+            iconColor={card.iconColor}
+            borderColor={card.borderColor}
+            index={index}
+          />
+        </div>
       ))}
     </div>
   )
