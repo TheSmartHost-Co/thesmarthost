@@ -17,7 +17,9 @@ import type {
   CreateMultipleBookingsPayload,
   BookingFilters,
   Platform,
-  BookingStats
+  BookingStats,
+  BulkImportBookingPayload,
+  BulkImportResponse
 } from './types/booking'
 
 /**
@@ -359,6 +361,23 @@ export function formatPlatformName(platform: Platform): string {
     vrbo: 'VRBO',
     hostaway: 'Hostaway'
   }
-  
+
   return platformNames[platform] || platform
+}
+
+/**
+ * Bulk import bookings from external source (e.g., Hostaway)
+ * Skips duplicates based on reservation_code
+ * @param userId - User ID
+ * @param bookings - Array of bookings to import
+ * @returns Promise with import results
+ */
+export async function bulkImportBookings(
+  userId: string,
+  bookings: BulkImportBookingPayload[]
+): Promise<BulkImportResponse> {
+  return apiClient<BulkImportResponse>('/bookings/bulk-import', {
+    method: 'POST',
+    body: { userId, bookings },
+  })
 }

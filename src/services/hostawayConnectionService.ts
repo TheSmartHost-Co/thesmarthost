@@ -1,13 +1,14 @@
 import apiClient from './apiClient';
-import { 
-  HostawayConnectionResponse, 
-  HostawayConnectionsResponse, 
-  CreateHostawayConnectionPayload, 
+import {
+  HostawayConnectionResponse,
+  HostawayConnectionsResponse,
+  CreateHostawayConnectionPayload,
   UpdateHostawayConnectionPayload,
   TestCredentialsPayload,
   TestCredentialsResponse,
   GetAccessTokenPayload,
-  GetAccessTokenResponse
+  GetAccessTokenResponse,
+  FetchReservationsResponse
 } from './types/hostawayConnection';
 
 export function getConnectionByUserId(userId: string): Promise<HostawayConnectionResponse> {
@@ -56,4 +57,21 @@ export function disconnectHostaway(connectionId: string): Promise<{ status: stri
   return apiClient<{ status: string; message: string; warnings?: string[] }>(`/hostaway-connections/${connectionId}/disconnect`, {
     method: 'POST',
   });
+}
+
+/**
+ * Fetch reservations from Hostaway API for a given date range
+ */
+export function fetchReservations(
+  connectionId: string,
+  arrivalStartDate: string,
+  arrivalEndDate: string
+): Promise<FetchReservationsResponse> {
+  const params = new URLSearchParams({
+    arrivalStartDate,
+    arrivalEndDate
+  });
+  return apiClient<FetchReservationsResponse>(
+    `/hostaway-connections/${connectionId}/reservations?${params.toString()}`
+  );
 }

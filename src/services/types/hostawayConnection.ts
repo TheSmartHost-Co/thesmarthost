@@ -79,3 +79,83 @@ export interface GetAccessTokenResponse {
     expiresAt: string;
   };
 }
+
+// Hostaway financeField item (from webhook/API response)
+export interface HostawayFinanceField {
+  name: string;
+  total: number;
+  amount?: number;
+  isIncludedInTotalPrice?: boolean;
+}
+
+// Hostaway Reservation types (from Hostaway API)
+export interface HostawayReservation {
+  id: number;
+  channelId: number;
+  channelName: string;
+  listingMapId: number;
+  reservationId: string;
+  hostawayReservationId: string;
+  confirmationCode: string | null;
+  guestName: string;
+  guestFirstName: string;
+  guestLastName: string | null;
+  guestEmail: string | null;
+  phone: string | null;
+  numberOfGuests: number;
+  adults: number;
+  children: number;
+  infants: number;
+  pets: number | null;
+  arrivalDate: string;
+  departureDate: string;
+  checkInTime: number;
+  checkOutTime: number;
+  nights: number;
+  status: string;
+  paymentStatus: string;
+  currency: string;
+  // Financial fields (direct from API)
+  totalPrice: number;
+  cleaningFee: number | null;
+  taxAmount: number | null;
+  channelCommissionAmount: number | null;
+  // Airbnb-specific financial fields
+  airbnbExpectedPayoutAmount: number | null;
+  airbnbListingBasePrice: number | null;
+  airbnbListingCleaningFee: number | null;
+  airbnbListingHostFee: number | null;
+  airbnbTransientOccupancyTaxPaidAmount: number | null;
+  airbnbTotalPaidAmount: number | null;
+  // Listing info
+  listingName: string;
+  externalListingName?: string;
+  externalPropertyId?: string;
+  assignedListingId?: number;
+  assignedListingName?: string;
+  listingId?: number;
+  // Metadata
+  source: string | null;
+  insertedOn: string;
+  updatedOn: string;
+  // Financial data array (may be empty, used by webhooks)
+  financeField?: HostawayFinanceField[];
+}
+
+export interface FetchReservationsPayload {
+  arrivalStartDate: string;
+  arrivalEndDate: string;
+}
+
+export interface FetchReservationsResponse {
+  status: 'success' | 'failed';
+  message?: string;
+  data?: {
+    reservations: HostawayReservation[];
+    count: number;
+    dateRange: {
+      startDate: string;
+      endDate: string;
+    };
+  };
+}

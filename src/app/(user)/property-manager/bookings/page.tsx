@@ -13,16 +13,22 @@ import {
   XMarkIcon,
   MoonIcon,
   CurrencyDollarIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  CloudArrowDownIcon,
 } from '@heroicons/react/24/outline'
 import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName } from '@/services/bookingService'
+import { getConnectionByUserId } from '@/services/hostawayConnectionService'
+import { getProperties } from '@/services/propertyService'
 import { Booking } from '@/services/types/booking'
+import { HostawayConnection } from '@/services/types/hostawayConnection'
+import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import CreateBookingModal from '@/components/booking/create/createBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 import DeleteBookingModal from '@/components/booking/delete/deleteBookingModal'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
+import ImportHostawayBookingsModal from '@/components/booking/import/ImportHostawayBookingsModal'
 
 export default function BookingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -38,6 +44,11 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Import Hostaway bookings state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [hostawayConnection, setHostawayConnection] = useState<HostawayConnection | null>(null)
+  const [properties, setProperties] = useState<Property[]>([])
 
   const { profile } = useUserStore()
 
@@ -78,6 +89,31 @@ export default function BookingsPage() {
     }
   }, [showFilterPopover])
 
+  // Fetch Hostaway connection and properties for import modal
+  useEffect(() => {
+    const fetchConnectionAndProperties = async () => {
+      if (!profile?.id) return
+
+      try {
+        // Fetch Hostaway connection
+        const connectionRes = await getConnectionByUserId(profile.id)
+        if (connectionRes.status === 'success' && connectionRes.data) {
+          setHostawayConnection(connectionRes.data)
+        }
+
+        // Fetch properties for mapping
+        const propertiesRes = await getProperties(profile.id)
+        if (propertiesRes.status === 'success') {
+          setProperties(propertiesRes.data)
+        }
+      } catch (err) {
+        console.error('Error fetching connection/properties:', err)
+      }
+    }
+
+    fetchConnectionAndProperties()
+  }, [profile?.id])
+
   const handleAddBooking = (newBooking: Booking) => {
     setBookings(prev => [newBooking, ...prev])
   }
@@ -112,6 +148,17 @@ export default function BookingsPage() {
 
   const handleBookingUpdated = (updatedBooking: Booking) => {
     setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b))
+  }
+
+  const handleBookingsImported = () => {
+    // Refresh bookings list after import
+    if (profile?.id) {
+      getBookings({ userId: profile.id }).then((response) => {
+        if (response.status === 'success') {
+          setBookings(response.data)
+        }
+      })
+    }
   }
 
   const getBookingActions = (booking: Booking): ActionItem[] => [
@@ -310,15 +357,28 @@ export default function BookingsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
           <p className="text-gray-500 mt-1">Manage and view all property bookings</p>
         </div>
-        <motion.button
-          onClick={() => setShowCreateModal(true)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Create Booking
-        </motion.button>
+        <div className="flex items-center gap-3">
+          {hostawayConnection && (
+            <motion.button
+              onClick={() => setShowImportModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm transition-colors"
+            >
+              <CloudArrowDownIcon className="h-5 w-5 mr-2" />
+              Import from Hostaway
+            </motion.button>
+          )}
+          <motion.button
+            onClick={() => setShowCreateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Create Booking
+          </motion.button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -640,6 +700,17 @@ export default function BookingsPage() {
             setShowPreviewModal(false)
             setShowUpdateModal(true)
           }}
+        />
+      )}
+
+      {/* Import Hostaway Bookings Modal */}
+      {hostawayConnection && (
+        <ImportHostawayBookingsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          connection={hostawayConnection}
+          properties={properties}
+          onImportComplete={handleBookingsImported}
         />
       )}
     </div>

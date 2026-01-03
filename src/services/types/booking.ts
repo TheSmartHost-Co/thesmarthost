@@ -259,3 +259,60 @@ export interface BookingFilters {
   csvUploadId?: string
   platform?: Platform
 }
+
+/**
+ * Payload for bulk importing bookings (from Hostaway/Guesty)
+ * Similar to CreateBookingPayload but without csvUploadId requirement
+ */
+export interface BulkImportBookingPayload {
+  propertyId: string
+  reservationCode: string
+  guestName: string
+  checkInDate: string
+  checkOutDate?: string
+  numNights: number
+  platform: Platform
+  listingName?: string
+  nightlyRate?: number
+  extraGuestFees?: number
+  cleaningFee?: number
+  lodgingTax?: number
+  bedLinenFee?: number
+  gst?: number
+  qst?: number
+  channelFee?: number
+  stripeFee?: number
+  totalPayout?: number
+  mgmtFee?: number
+  netEarnings?: number
+  salesTax?: number
+}
+
+/**
+ * Duplicate booking info returned from bulk import
+ */
+export interface DuplicateBookingInfo {
+  reservationCode: string
+  guestName: string
+  checkInDate: string
+}
+
+/**
+ * API response for bulk import
+ */
+export interface BulkImportResponse {
+  status: 'success' | 'failed'
+  message: string
+  data?: {
+    imported: number
+    skipped: number
+    duplicates: DuplicateBookingInfo[]
+    bookings?: Array<{
+      id: string
+      reservationCode: string
+      guestName: string
+      checkInDate: string
+      platform: Platform
+    }>
+  }
+}
