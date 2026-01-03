@@ -9,6 +9,7 @@ import type {
   ExpenseDownloadResponse,
   DeleteExpenseResponse,
   ReceiptOperationResponse,
+  ScanReceiptResponse,
   CreateExpensePayload,
   UpdateExpensePayload,
   ExpenseFilters,
@@ -113,6 +114,27 @@ export async function createExpense(data: CreateExpensePayload): Promise<Expense
   }
   if (data.parentExpenseId) {
     formData.append('parentExpenseId', data.parentExpenseId)
+  }
+  if (data.subtotal !== undefined) {
+    formData.append('subtotal', data.subtotal.toString())
+  }
+  if (data.taxGst !== undefined) {
+    formData.append('taxGst', data.taxGst.toString())
+  }
+  if (data.taxPst !== undefined) {
+    formData.append('taxPst', data.taxPst.toString())
+  }
+  if (data.taxHst !== undefined) {
+    formData.append('taxHst', data.taxHst.toString())
+  }
+  if (data.taxTotal !== undefined) {
+    formData.append('taxTotal', data.taxTotal.toString())
+  }
+  if (data.ocrProcessed !== undefined) {
+    formData.append('ocrProcessed', data.ocrProcessed.toString())
+  }
+  if (data.ocrConfidence) {
+    formData.append('ocrConfidence', JSON.stringify(data.ocrConfidence))
   }
 
   // Use fetch directly for FormData (apiClient might not handle it correctly)
@@ -441,4 +463,39 @@ export function formatExpenseDate(
 ): string {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString('en-CA', options)
+}
+
+// ============================================================================
+// OCR Functions
+// ============================================================================
+
+/**
+ * Scan a receipt image using OCR and extract expense data
+ * @param receipt - Receipt image file (JPG, PNG, GIF, WEBP, or PDF)
+ * @returns Promise with extracted receipt data including confidence scores
+ */
+export async function scanReceipt(receipt: File): Promise<ScanReceiptResponse> {
+  const formData = new FormData()
+  formData.append('receipt', receipt)
+
+  return fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/expenses/scan-receipt`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include'
+  }).then(async response => {
+    const data = await response.json()
+    if (!response.ok) {
+      return {
+        status: 'failed' as const,
+        message: data.message || `HTTP error! status: ${response.status}`
+      }
+    }
+    return data
+  }).catch(error => {
+    console.error('Scan receipt error:', error)
+    return {
+      status: 'failed' as const,
+      message: error.message || 'Failed to scan receipt'
+    }
+  })
 }

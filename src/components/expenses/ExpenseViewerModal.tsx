@@ -39,7 +39,9 @@ import {
   BuildingOfficeIcon,
   CalendarIcon,
   CurrencyDollarIcon,
-  TagIcon
+  TagIcon,
+  ChevronDownIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline'
 
 interface ExpenseViewerModalProps {
@@ -96,6 +98,13 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid')
   const [submitting, setSubmitting] = useState(false)
+
+  // Tax breakdown state
+  const [subtotal, setSubtotal] = useState('')
+  const [taxGst, setTaxGst] = useState('')
+  const [taxPst, setTaxPst] = useState('')
+  const [taxHst, setTaxHst] = useState('')
+  const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
 
   // Receipt upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -194,6 +203,14 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setPaymentMethod(exp.paymentMethod || 'credit_card')
     setPaymentStatus(exp.paymentStatus)
 
+    // Tax breakdown fields
+    setSubtotal(exp.subtotal?.toString() || '')
+    setTaxGst(exp.taxGst?.toString() || '')
+    setTaxPst(exp.taxPst?.toString() || '')
+    setTaxHst(exp.taxHst?.toString() || '')
+    // Show tax breakdown if any tax field has a value
+    setShowTaxBreakdown(!!(exp.subtotal || exp.taxGst || exp.taxPst || exp.taxHst || exp.taxTotal))
+
     // Load bookings for property if exists
     if (exp.propertyId && profile?.id) {
       loadBookingsForProperty(exp.propertyId)
@@ -235,6 +252,13 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
     setSubmitting(true)
     try {
+      // Calculate tax total from components
+      const parsedSubtotal = subtotal ? parseFloat(subtotal) : undefined
+      const parsedTaxGst = taxGst ? parseFloat(taxGst) : undefined
+      const parsedTaxPst = taxPst ? parseFloat(taxPst) : undefined
+      const parsedTaxHst = taxHst ? parseFloat(taxHst) : undefined
+      const calculatedTaxTotal = (parsedTaxGst || 0) + (parsedTaxPst || 0) + (parsedTaxHst || 0)
+
       const payload: UpdateExpensePayload = {
         userId: profile.id,
         propertyId: propertyId || null,
@@ -249,6 +273,11 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         isTaxDeductible,
         paymentMethod,
         paymentStatus,
+        subtotal: parsedSubtotal,
+        taxGst: parsedTaxGst,
+        taxPst: parsedTaxPst,
+        taxHst: parsedTaxHst,
+        taxTotal: calculatedTaxTotal > 0 ? calculatedTaxTotal : undefined,
       }
 
       const response = await updateExpense(expense.id, payload)
@@ -508,6 +537,51 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           )}
         </div>
 
+        {/* Tax Breakdown Display */}
+        {(expense.subtotal || expense.taxGst || expense.taxPst || expense.taxHst || expense.taxTotal) && (
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="text-sm font-medium text-gray-900 mb-3">Tax Breakdown</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              {expense.subtotal !== undefined && expense.subtotal !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">Subtotal</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.subtotal, expense.currency)}</div>
+                </div>
+              )}
+              {expense.taxGst !== undefined && expense.taxGst !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">GST (5%)</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.taxGst, expense.currency)}</div>
+                </div>
+              )}
+              {expense.taxPst !== undefined && expense.taxPst !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">PST</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.taxPst, expense.currency)}</div>
+                </div>
+              )}
+              {expense.taxHst !== undefined && expense.taxHst !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">HST</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.taxHst, expense.currency)}</div>
+                </div>
+              )}
+              {expense.taxTotal !== undefined && expense.taxTotal !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">Total Tax</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.taxTotal, expense.currency)}</div>
+                </div>
+              )}
+            </div>
+            {expense.ocrProcessed && (
+              <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
+                Extracted via OCR
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Receipt section */}
         {expense.receiptPath ? (
           <div className="border border-gray-200 rounded-lg p-4">
@@ -729,6 +803,75 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
             />
             <span className="text-sm text-gray-700">Tax Deductible</span>
           </label>
+        </div>
+
+        {/* Tax Breakdown (Collapsible) */}
+        <div className="border border-gray-200 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+            className="cursor-pointer w-full flex items-center justify-between p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <span>Tax Breakdown (Optional)</span>
+            {showTaxBreakdown ? (
+              <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+          {showTaxBreakdown && (
+            <div className="p-4 pt-0 border-t border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Subtotal</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={subtotal}
+                    onChange={(e) => setSubtotal(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">GST (5%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={taxGst}
+                    onChange={(e) => setTaxGst(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">PST</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={taxPst}
+                    onChange={(e) => setTaxPst(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">HST</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={taxHst}
+                    onChange={(e) => setTaxHst(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Total Tax will be calculated automatically from GST + PST + HST
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}

@@ -30,11 +30,13 @@ import {
   Cog6ToothIcon,
   BuildingOfficeIcon,
   EyeIcon,
-  ReceiptRefundIcon
+  ReceiptRefundIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
+import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 const PAYMENT_STATUSES: { value: PaymentStatus | ''; label: string }[] = [
@@ -77,6 +79,7 @@ export default function ExpensesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewerModal, setShowViewerModal] = useState(false)
   const [showCategoriesModal, setShowCategoriesModal] = useState(false)
+  const [showScanModal, setShowScanModal] = useState(false)
   const [selectedExpenseId, setSelectedExpenseId] = useState('')
 
   // Load initial data
@@ -410,6 +413,15 @@ export default function ExpensesPage() {
           >
             <Cog6ToothIcon className="h-4 w-4 mr-2" />
             Categories
+          </motion.button>
+          <motion.button
+            onClick={() => setShowScanModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-colors"
+          >
+            <CameraIcon className="h-4 w-4 mr-2" />
+            Scan Receipt
           </motion.button>
           <motion.button
             onClick={() => setShowCreateModal(true)}
@@ -854,6 +866,12 @@ export default function ExpensesPage() {
         isOpen={showCategoriesModal}
         onClose={() => setShowCategoriesModal(false)}
         onCategoryUpdate={handleCategoryUpdate}
+      />
+
+      <ScanReceiptModal
+        isOpen={showScanModal}
+        onClose={() => setShowScanModal(false)}
+        onExpenseCreated={() => loadExpenses()}
       />
     </div>
   )

@@ -64,6 +64,13 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid')
 
+  // Tax breakdown state
+  const [subtotal, setSubtotal] = useState('')
+  const [taxGst, setTaxGst] = useState('')
+  const [taxPst, setTaxPst] = useState('')
+  const [taxHst, setTaxHst] = useState('')
+  const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
+
   // Receipt state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -161,6 +168,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setPaymentMethod('credit_card')
     setPaymentStatus('paid')
     setSelectedFile(null)
+    setSubtotal('')
+    setTaxGst('')
+    setTaxPst('')
+    setTaxHst('')
+    setShowTaxBreakdown(false)
   }
 
   const handleFileSelect = (file: File) => {
@@ -233,6 +245,12 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
     setSubmitting(true)
     try {
+      // Calculate tax total
+      const gst = parseFloat(taxGst) || 0
+      const pst = parseFloat(taxPst) || 0
+      const hst = parseFloat(taxHst) || 0
+      const taxTotal = gst + pst + hst
+
       const payload: CreateExpensePayload = {
         userId: profile.id,
         propertyId: propertyId || undefined,
@@ -248,6 +266,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         isTaxDeductible,
         paymentMethod,
         paymentStatus,
+        subtotal: parseFloat(subtotal) || undefined,
+        taxGst: gst || undefined,
+        taxPst: pst || undefined,
+        taxHst: hst || undefined,
+        taxTotal: taxTotal || undefined,
       }
 
       const response = await createExpense(payload)
@@ -461,6 +484,95 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               />
               <span className="text-sm text-gray-700">Tax Deductible</span>
             </label>
+          </div>
+
+          {/* Tax Breakdown (Optional) */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+              className="w-full px-4 py-3 bg-gray-50 text-left flex items-center justify-between hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700">Tax Breakdown (Optional)</span>
+              <span className={`transform transition-transform ${showTaxBreakdown ? 'rotate-180' : ''}`}>
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+            </button>
+
+            {showTaxBreakdown && (
+              <div className="p-4 space-y-4">
+                <p className="text-xs text-gray-500">Enter tax amounts if you want to track them separately</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Subtotal</label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={subtotal}
+                        onChange={(e) => setSubtotal(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">GST (5%)</label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={taxGst}
+                        onChange={(e) => setTaxGst(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">PST</label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={taxPst}
+                        onChange={(e) => setTaxPst(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">HST</label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={taxHst}
+                        onChange={(e) => setTaxHst(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {(parseFloat(taxGst) > 0 || parseFloat(taxPst) > 0 || parseFloat(taxHst) > 0) && (
+                  <div className="text-right text-sm text-gray-600">
+                    Total Tax: <span className="font-medium">${((parseFloat(taxGst) || 0) + (parseFloat(taxPst) || 0) + (parseFloat(taxHst) || 0)).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Receipt Upload */}
