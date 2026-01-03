@@ -72,6 +72,7 @@ export function AnalyticsWidget({
       console.log('Fetching analytics with request:', request)
       const res = await getAnalytics(request)
       console.log('Analytics response:', res)
+      console.log('Timeline data:', res?.data?.timeline, 'length:', res?.data?.timeline?.length)
 
       if (res.status === 'success') {
         setAnalyticsData(res.data)

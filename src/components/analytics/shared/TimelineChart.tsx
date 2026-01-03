@@ -115,13 +115,41 @@ export function TimelineChart({
 
   // Wait for container to have valid dimensions before rendering chart
   useEffect(() => {
-    if (containerRef.current) {
-      const { clientWidth, clientHeight } = containerRef.current
-      if (clientWidth > 0 && clientHeight > 0) {
-        setContainerReady(true)
+    const checkContainer = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current
+        if (clientWidth > 0 && clientHeight > 0) {
+          setContainerReady(true)
+          return true
+        }
       }
+      return false
     }
-  }, [])
+
+    // Check immediately
+    if (checkContainer()) return
+
+    // If not ready, poll until it is (handles SSR/dynamic sizing)
+    const interval = setInterval(() => {
+      if (checkContainer()) {
+        clearInterval(interval)
+      }
+    }, 50)
+
+    // Also use ResizeObserver for more reliable detection
+    const observer = new ResizeObserver(() => {
+      checkContainer()
+    })
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+
+    return () => {
+      clearInterval(interval)
+      observer.disconnect()
+    }
+  }, [data])
 
   // Format dates for display
   const chartData = useMemo(() => {
@@ -168,6 +196,9 @@ export function TimelineChart({
       </div>
     )
   }
+
+  // Debug: log what data we're receiving
+  console.log('TimelineChart data:', { dataLength: data?.length, data, containerReady })
 
   if (!data || data.length === 0) {
     return (
