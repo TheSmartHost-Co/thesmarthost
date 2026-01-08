@@ -95,10 +95,15 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       return
     }
 
-    // Validate email format if provided
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      showNotification('Please enter a valid email address', 'error')
-      return
+    // Validate email format if provided (supports comma-separated emails)
+    if (trimmedEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emails = trimmedEmail.split(',').map(e => e.trim()).filter(e => e)
+      const allValid = emails.length > 0 && emails.every(e => emailRegex.test(e))
+      if (!allValid) {
+        showNotification('Please enter valid email address(es)', 'error')
+        return
+      }
     }
 
     try {
@@ -148,12 +153,13 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
         <div>
           <label className="block text-sm font-medium mb-1">Email</label>
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. john.smith@email.com"
+            placeholder="e.g. john@email.com, jane@email.com"
           />
+          <p className="text-xs text-gray-500 mt-1">Multiple emails can be separated by commas</p>
         </div>
 
         {/* Phone field */}

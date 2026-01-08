@@ -76,18 +76,28 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return matchedStatus?.id
   }
 
-  // Validate email format
+  // Validate email format (supports comma-separated emails)
   const isValidEmail = (email: string): boolean => {
     if (!email) return true // Empty is valid (not required)
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    // Split by comma, trim each, filter empty, validate each
+    const emails = email.split(',').map(e => e.trim()).filter(e => e)
+    return emails.length > 0 && emails.every(e => emailRegex.test(e))
+  }
+
+  // Parse comma-separated emails into array of lowercase emails
+  const parseEmails = (email: string): string[] => {
+    if (!email) return []
+    return email.split(',').map(e => e.trim().toLowerCase()).filter(e => e)
   }
 
   // Parse and validate all rows
   useEffect(() => {
+    // Build set of existing emails (flattened from comma-separated)
     const existingEmails = new Set(
       existingClients
         .filter(c => c.email)
-        .map(c => c.email!.toLowerCase())
+        .flatMap(c => parseEmails(c.email!))
     )
 
     const parsedRows: PreviewRow[] = csvRows.map((row, index) => {
@@ -112,16 +122,15 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         errors.push('Invalid email format')
       }
 
-      // Check for duplicate email
-      const isDuplicate = email ? existingEmails.has(email.toLowerCase()) : false
+      // Check for duplicate email (any email in comma-separated list)
+      const emailList = parseEmails(email)
+      const isDuplicate = emailList.some(e => existingEmails.has(e))
       if (isDuplicate) {
         errors.push('Email already exists')
       }
 
-      // Add email to set to detect duplicates within the import
-      if (email) {
-        existingEmails.add(email.toLowerCase())
-      }
+      // Add all emails to set to detect duplicates within the import
+      emailList.forEach(e => existingEmails.add(e))
 
       // Find status ID
       const statusId = findStatusId(status)
