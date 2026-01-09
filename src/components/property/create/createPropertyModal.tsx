@@ -91,14 +91,12 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       return
     }
 
-    if (!commissionRate || isNaN(parsedCommissionRate)) {
-      showNotification('Commission rate is required', 'error')
-      return
-    }
-
-    if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
-      showNotification('Commission rate must be between 0 and 100', 'error')
-      return
+    // Validate commission rate only if provided
+    if (commissionRate && !isNaN(parsedCommissionRate)) {
+      if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
+        showNotification('Commission rate must be between 0 and 100', 'error')
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -107,7 +105,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       const payload: CreatePropertyPayload = {
         address: trimmedAddress,
         propertyType,
-        commissionRate: parsedCommissionRate,
+        ...(commissionRate && !isNaN(parsedCommissionRate) && { commissionRate: parsedCommissionRate }),
         ...(clientId && { clientId }),
         ...(trimmedListingName && { listingName: trimmedListingName }),
         ...(trimmedListingId && { listingId: trimmedListingId }),
@@ -239,15 +237,14 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
 
         {/* Commission Rate */}
         <div>
-          <label className="block text-sm font-medium mb-1">Commission Rate (%) *</label>
+          <label className="block text-sm font-medium mb-1">Commission Rate (%)</label>
           <input
-            required
             type="number"
             step="0.01"
             value={commissionRate}
             onChange={(e) => setCommissionRate(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. 15"
+            placeholder="e.g. 15 (optional)"
           />
         </div>
 

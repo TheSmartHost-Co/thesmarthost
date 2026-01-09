@@ -70,14 +70,12 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       return
     }
 
-    if (!commissionRate || parsedCommissionRate === undefined || isNaN(parsedCommissionRate)) {
-      showNotification('Commission rate is required', 'error')
-      return
-    }
-
-    if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
-      showNotification('Commission rate must be between 0 and 100', 'error')
-      return
+    // Validate commission rate only if provided
+    if (commissionRate && parsedCommissionRate !== undefined && !isNaN(parsedCommissionRate)) {
+      if (parsedCommissionRate <= 0 || parsedCommissionRate > 100) {
+        showNotification('Commission rate must be between 0 and 100', 'error')
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -86,14 +84,14 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       const payload: UpdatePropertyPayload = {
         address: trimmedAddress,
         propertyType,
-        commissionRate: parsedCommissionRate,
-        // Allow empty strings to clear values, or set to undefined if not provided
-        listingName: trimmedListingName || undefined,
-        listingId: trimmedListingId || undefined,
-        postalCode: trimmedPostalCode || undefined,
-        province: trimmedProvince || undefined,
-        externalName: trimmedExternalName || undefined,
-        internalName: trimmedInternalName || undefined,
+        // Send null to clear fields, value to update
+        commissionRate: commissionRate && parsedCommissionRate !== undefined && !isNaN(parsedCommissionRate) ? parsedCommissionRate : null,
+        listingName: trimmedListingName || null,
+        listingId: trimmedListingId || null,
+        postalCode: trimmedPostalCode || null,
+        province: trimmedProvince || null,
+        externalName: trimmedExternalName || null,
+        internalName: trimmedInternalName || null,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -282,10 +280,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Commission *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Commission</label>
               <div className="relative">
                 <input
-                  required
                   type="number"
                   step="0.01"
                   value={commissionRate}
