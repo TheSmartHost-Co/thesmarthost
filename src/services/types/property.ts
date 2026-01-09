@@ -90,18 +90,19 @@ export interface CreatePropertyPayload {
 /**
  * Payload for updating a property
  * All fields optional for partial updates
+ * Use null to clear a field, undefined to keep existing value
  */
 export interface UpdatePropertyPayload {
-  listingName?: string // Renamed from 'name'
-  listingId?: string // Renamed from 'hostawayListingId'
-  externalName?: string // NEW: Optional public-facing name
-  internalName?: string // NEW: Optional internal reference name
+  listingName?: string | null // null to clear, undefined keeps existing
+  listingId?: string | null
+  externalName?: string | null
+  internalName?: string | null
   address?: string
-  postalCode?: string // NEW: Postal code
-  province?: string
+  postalCode?: string | null
+  province?: string | null
   propertyType?: 'STR' | 'LTR'
-  commissionRate?: number
-  owners?: UpdatePropertyOwner[] // Replace all owners
+  commissionRate?: number | null
+  owners?: UpdatePropertyOwner[]
 }
 
 /**
