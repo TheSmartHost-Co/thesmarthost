@@ -85,9 +85,9 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     const trimmedProvince = province.trim()
     const parsedCommissionRate = parseFloat(commissionRate)
 
-    // Validation
-    if (!trimmedListingName || !trimmedListingId || !trimmedAddress || !trimmedPostalCode || !trimmedProvince || !clientId) {
-      showNotification('All required fields must be filled', 'error')
+    // Validation - only address is strictly required, others make property "incomplete"
+    if (!trimmedAddress) {
+      showNotification('Address is required', 'error')
       return
     }
 
@@ -105,14 +105,14 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
 
     try {
       const payload: CreatePropertyPayload = {
-        clientId,
-        listingName: trimmedListingName,
-        listingId: trimmedListingId,
         address: trimmedAddress,
-        postalCode: trimmedPostalCode,
-        province: trimmedProvince,
         propertyType,
         commissionRate: parsedCommissionRate,
+        ...(clientId && { clientId }),
+        ...(trimmedListingName && { listingName: trimmedListingName }),
+        ...(trimmedListingId && { listingId: trimmedListingId }),
+        ...(trimmedPostalCode && { postalCode: trimmedPostalCode }),
+        ...(trimmedProvince && { province: trimmedProvince }),
         ...(trimmedExternalName && { externalName: trimmedExternalName }),
         ...(trimmedInternalName && { internalName: trimmedInternalName }),
       }
@@ -154,27 +154,25 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
 
         {/* Listing Name */}
         <div>
-          <label className="block text-sm font-medium mb-1">Listing Name *</label>
+          <label className="block text-sm font-medium mb-1">Listing Name</label>
           <input
-            required
             type="text"
             value={listingName}
             onChange={(e) => setListingName(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. Lake Estate"
+            placeholder="e.g. Lake Estate (optional)"
           />
         </div>
 
         {/* Listing ID */}
         <div>
-          <label className="block text-sm font-medium mb-1">Listing ID *</label>
+          <label className="block text-sm font-medium mb-1">Listing ID</label>
           <input
-            required
             type="text"
             value={listingId}
             onChange={(e) => setListingId(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g. HOST-123"
+            placeholder="e.g. HOST-123 (optional)"
           />
         </div>
 
@@ -218,9 +216,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         {/* Postal Code & Province */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Postal Code *</label>
+            <label className="block text-sm font-medium mb-1">Postal Code</label>
             <input
-              required
               type="text"
               value={postalCode}
               onChange={(e) => setPostalCode(e.target.value)}
@@ -229,9 +226,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Province *</label>
+            <label className="block text-sm font-medium mb-1">Province</label>
             <input
-              required
               type="text"
               value={province}
               onChange={(e) => setProvince(e.target.value)}
@@ -257,7 +253,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
 
         {/* Property Owner */}
         <div>
-          <label className="block text-sm font-medium mb-1">Property Owner *</label>
+          <label className="block text-sm font-medium mb-1">Property Owner</label>
           {loadingClients ? (
             <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -265,16 +261,15 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             </div>
           ) : clients.length === 0 ? (
             <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
-              No active clients available. Please create a client first.
+              No active clients available. You can assign a client later.
             </div>
           ) : (
             <select
-              required
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Select a client</option>
+              <option value="">Select a client (optional)</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name} {client.email ? `(${client.email})` : ''}
@@ -283,9 +278,18 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             </select>
           )}
           <p className="text-xs text-gray-500 mt-1">
-            This client will be the primary owner. Add co-owners after creation.
+            This client will be the primary owner. You can assign or change owners later.
           </p>
         </div>
+
+        {/* Incomplete Property Notice */}
+        {(!listingName.trim() || !listingId.trim() || !clientId) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-sm text-amber-700">
+              <span className="font-medium">Note:</span> Properties without a listing name, listing ID, or client will be marked as <span className="font-medium">incomplete</span> and can be completed later.
+            </p>
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="flex justify-end space-x-4 pt-4">
@@ -298,7 +302,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={loadingClients || clients.length === 0 || isSubmitting}
+            disabled={loadingClients || isSubmitting}
             className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? 'Creating...' : 'Create Property'}

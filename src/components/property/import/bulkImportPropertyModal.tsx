@@ -133,11 +133,11 @@ const BulkImportPropertyModal: React.FC<BulkImportPropertyModalProps> = ({
     setIsImporting(true)
 
     try {
-      // Build the payload
+      // Build the payload - clientId, listingName, listingId can be undefined for incomplete properties
       const properties: BulkImportPropertyPayload[] = validRows.map(row => ({
-        clientId: row.data.clientId || '',
-        listingName: row.data.listingName || '',
-        listingId: row.data.listingId || '',
+        clientId: row.data.clientId,
+        listingName: row.data.listingName,
+        listingId: row.data.listingId,
         address: row.data.address || '',
         province: row.data.province || '',
         propertyType: row.data.propertyType || 'STR',
@@ -155,10 +155,19 @@ const BulkImportPropertyModal: React.FC<BulkImportPropertyModalProps> = ({
 
       if (response.status === 'success' && response.data) {
         const { summary, imported } = response.data
-        showNotification(
-          `Successfully imported ${summary.imported} properties${summary.skipped > 0 ? `. ${summary.skipped} skipped.` : ''}`,
-          'success'
-        )
+        // Count incomplete properties in the imported set
+        const incompleteCount = imported.filter(p => !p.listingName || !p.listingId || p.owners.length === 0).length
+        const completeCount = summary.imported - incompleteCount
+
+        let message = `Successfully imported ${summary.imported} properties`
+        if (incompleteCount > 0) {
+          message += ` (${completeCount} complete, ${incompleteCount} incomplete)`
+        }
+        if (summary.skipped > 0) {
+          message += `. ${summary.skipped} skipped.`
+        }
+
+        showNotification(message, 'success')
         onImportComplete(imported)
         onClose()
       } else {

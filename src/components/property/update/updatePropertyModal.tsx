@@ -24,8 +24,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   onUpdate,
 }) => {
   // Property fields
-  const [listingName, setListingName] = useState(property.listingName)
-  const [listingId, setListingId] = useState(property.listingId)
+  const [listingName, setListingName] = useState(property.listingName || '')
+  const [listingId, setListingId] = useState(property.listingId || '')
   const [externalName, setExternalName] = useState(property.externalName || '')
   const [internalName, setInternalName] = useState(property.internalName || '')
   const [address, setAddress] = useState(property.address)
@@ -40,8 +40,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   // Initialize form with property data
   useEffect(() => {
     if (isOpen) {
-      setListingName(property.listingName)
-      setListingId(property.listingId)
+      setListingName(property.listingName || '')
+      setListingId(property.listingId || '')
       setExternalName(property.externalName || '')
       setInternalName(property.internalName || '')
       setAddress(property.address)
@@ -64,9 +64,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     const trimmedProvince = province.trim()
     const parsedCommissionRate = commissionRate ? parseFloat(commissionRate) : undefined
 
-    // Validation
-    if (!trimmedListingName || !trimmedListingId || !trimmedAddress || !trimmedPostalCode || !trimmedProvince) {
-      showNotification('All required fields must be filled', 'error')
+    // Validation - only address is strictly required
+    if (!trimmedAddress) {
+      showNotification('Address is required', 'error')
       return
     }
 
@@ -84,15 +84,16 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
 
     try {
       const payload: UpdatePropertyPayload = {
-        listingName: trimmedListingName,
-        listingId: trimmedListingId,
         address: trimmedAddress,
-        postalCode: trimmedPostalCode,
-        province: trimmedProvince,
         propertyType,
         commissionRate: parsedCommissionRate,
-        ...(trimmedExternalName ? { externalName: trimmedExternalName } : { externalName: '' }),
-        ...(trimmedInternalName ? { internalName: trimmedInternalName } : { internalName: '' }),
+        // Allow empty strings to clear values, or set to undefined if not provided
+        listingName: trimmedListingName || undefined,
+        listingId: trimmedListingId || undefined,
+        postalCode: trimmedPostalCode || undefined,
+        province: trimmedProvince || undefined,
+        externalName: trimmedExternalName || undefined,
+        internalName: trimmedInternalName || undefined,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -200,25 +201,23 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
           {/* Listing Name & ID */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Listing Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Listing Name</label>
               <input
-                required
                 type="text"
                 value={listingName}
                 onChange={(e) => setListingName(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="e.g., Lake Estate"
+                placeholder="e.g., Lake Estate (optional)"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Listing ID *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Listing ID</label>
               <input
-                required
                 type="text"
                 value={listingId}
                 onChange={(e) => setListingId(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="e.g., HOST-123"
+                placeholder="e.g., HOST-123 (optional)"
               />
             </div>
           </div>
@@ -263,9 +262,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
           {/* Postal Code, Province, Commission */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
               <input
-                required
                 type="text"
                 value={postalCode}
                 onChange={(e) => setPostalCode(e.target.value)}
@@ -274,9 +272,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
               <input
-                required
                 type="text"
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
@@ -300,6 +297,20 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Incomplete Property Notice */}
+          {(!listingName.trim() || !listingId.trim() || property.owners.length === 0) && (
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+              <p className="text-sm text-amber-700">
+                <span className="font-medium">Incomplete property:</span> This property is missing{' '}
+                {[
+                  !listingName.trim() && 'listing name',
+                  !listingId.trim() && 'listing ID',
+                  property.owners.length === 0 && 'client assignment'
+                ].filter(Boolean).join(', ')}.
+              </p>
+            </div>
+          )}
 
           {/* Info note */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">

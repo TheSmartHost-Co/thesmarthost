@@ -20,8 +20,8 @@ export interface PropertyOwner {
  */
 export interface Property {
   id: string
-  listingName: string // Renamed from 'name'
-  listingId: string // Renamed from 'hostawayListingId'
+  listingName?: string // Can be null/empty for incomplete properties
+  listingId?: string // Can be null/empty for incomplete properties
   externalName?: string // NEW: Public-facing name
   internalName?: string // NEW: Internal reference name
   address: string
@@ -70,15 +70,16 @@ export interface CsvUpload {
 
 /**
  * Payload for creating a new property
- * Single client owner initially, co-owners added via update
+ * Only address is required - properties without listingName, listingId, or clientId
+ * will be created as "incomplete" and can be completed later
  */
 export interface CreatePropertyPayload {
-  clientId: string // First owner (will be marked as primary)
-  listingName: string // Renamed from 'name'
-  listingId: string // Renamed from 'hostawayListingId'
+  clientId?: string // Optional - first owner (will be marked as primary)
+  listingName?: string // Optional - incomplete if missing
+  listingId?: string // Optional - incomplete if missing
   externalName?: string // Optional public-facing name
   internalName?: string // Optional internal reference name
-  address: string
+  address: string // Required
   postalCode?: string // Optional postal code
   province?: string // Optional province
   propertyType: 'STR' | 'LTR'
@@ -165,12 +166,14 @@ export interface PropertyStats {
 
 /**
  * Payload for a single property in bulk import
+ * Only address is required - properties without listingName, listingId, or clientId
+ * will be imported as "incomplete" and can be completed later via the edit modal
  */
 export interface BulkImportPropertyPayload {
-  listingName: string
-  listingId: string
-  address: string
-  clientId: string // Required - the primary owner
+  listingName?: string // Optional - incomplete if missing
+  listingId?: string // Optional - incomplete if missing
+  address: string // Required
+  clientId?: string // Optional - incomplete if missing (no primary owner)
   province?: string // Optional
   propertyType?: 'STR' | 'LTR' // Defaults to STR
   externalName?: string

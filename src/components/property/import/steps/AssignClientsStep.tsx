@@ -89,10 +89,10 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
     }
   }, [propertyRows, initialAssignments])
 
-  // Validate that all rows have a client assigned
+  // Client assignment is now optional - always valid
   useEffect(() => {
-    const isValid = assignments.length > 0 && assignments.every(a => a.clientId !== '')
-    onValidationChange(isValid)
+    // Always valid - properties without clients will be marked as incomplete
+    onValidationChange(true)
     onAssignmentsChange(assignments)
   }, [assignments])
 
@@ -136,13 +136,18 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
       {/* Summary */}
       <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-200">
         <div>
-          <h3 className="text-sm font-medium text-gray-900">Client Assignment Progress</h3>
+          <h3 className="text-sm font-medium text-gray-900">Client Assignment Progress <span className="text-gray-400 font-normal">(Optional)</span></h3>
           <p className="text-sm text-gray-500 mt-1">
             {assignedCount} of {totalCount} properties assigned
+            {assignedCount < totalCount && (
+              <span className="text-amber-600 ml-1">
+                ({totalCount - assignedCount} will be incomplete)
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`text-2xl font-bold ${assignedCount === totalCount ? 'text-green-600' : 'text-amber-600'}`}>
+          <div className={`text-2xl font-bold ${assignedCount === totalCount ? 'text-green-600' : 'text-blue-600'}`}>
             {Math.round((assignedCount / totalCount) * 100)}%
           </div>
         </div>
@@ -199,7 +204,7 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
         <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
           <h3 className="text-sm font-medium text-gray-900">Assign Owner to Each Property</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Each property needs a primary owner (client) assigned before import.
+            Optionally assign a primary owner (client) to each property. Properties without an owner will be marked as incomplete.
           </p>
         </div>
 
@@ -210,7 +215,7 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Row</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Property</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Listing ID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-72 bg-gray-50">Assign Client *</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-72 bg-gray-50">Assign Client</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -251,10 +256,10 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
                           className={`w-full appearance-none bg-white border rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             isAssigned
                               ? 'border-green-300 bg-green-50'
-                              : 'border-red-300'
+                              : 'border-gray-300'
                           }`}
                         >
-                          <option value="">Select client...</option>
+                          <option value="">Select client (optional)...</option>
                           {(searchQuery ? filteredClients : clients).map(client => (
                             <option key={client.id} value={client.id}>
                               {client.name} {client.companyName ? `(${client.companyName})` : ''}
@@ -279,11 +284,11 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
         </div>
       </div>
 
-      {/* Validation Message */}
+      {/* Info Message */}
       {assignedCount < totalCount && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-          <p className="text-sm text-yellow-700">
-            Please assign a client to all {totalCount - assignedCount} remaining properties before continuing.
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <p className="text-sm text-blue-700">
+            {totalCount - assignedCount} {totalCount - assignedCount === 1 ? 'property' : 'properties'} without a client will be imported as incomplete. You can assign clients later from the property edit screen.
           </p>
         </div>
       )}

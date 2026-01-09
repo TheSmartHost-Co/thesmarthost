@@ -19,6 +19,8 @@ export interface PreviewRow {
   data: Partial<BulkImportPropertyPayload>
   clientName: string
   isValid: boolean
+  isIncomplete: boolean
+  incompleteReasons: string[]
   errors: string[]
   isDuplicate: boolean
 }
@@ -83,11 +85,14 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   // Parse and validate all rows
   useEffect(() => {
     const existingListingIds = new Set(
-      existingProperties.map(p => p.listingId.toLowerCase())
+      existingProperties
+        .filter(p => p.listingId)
+        .map(p => p.listingId!.toLowerCase())
     )
 
     const parsedRows: PreviewRow[] = csvRows.map((row, index) => {
       const errors: string[] = []
+      const incompleteReasons: string[] = []
       const rowNumber = index + 2 // +2 because row 1 is header, and we're 0-indexed
 
       // Extract values
@@ -107,27 +112,29 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       const clientId = assignment?.clientId || ''
       const client = clientId ? getClientById(clientId) : undefined
 
-      // Validate required fields
-      if (!listingName) {
-        errors.push('Listing name required')
-      }
-      if (!listingId) {
-        errors.push('Listing ID required')
-      }
+      // Only address is truly required - others make the property "incomplete"
       if (!address) {
         errors.push('Address required')
       }
+
+      // Track incomplete reasons (not blocking errors)
+      if (!listingName) {
+        incompleteReasons.push('No listing name')
+      }
+      if (!listingId) {
+        incompleteReasons.push('No listing ID')
+      }
       if (!clientId) {
-        errors.push('No client assigned')
+        incompleteReasons.push('No client assigned')
       }
 
-      // Check for duplicate listing ID
+      // Check for duplicate listing ID (only if listing ID is provided)
       const isDuplicate = listingId ? existingListingIds.has(listingId.toLowerCase()) : false
       if (isDuplicate) {
         errors.push('Listing ID exists')
       }
 
-      // Add listing ID to set to detect duplicates within the import
+      // Add listing ID to set to detect duplicates within the import (only if provided)
       if (listingId) {
         existingListingIds.add(listingId.toLowerCase())
       }
@@ -137,9 +144,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       const commissionRate = parseCommissionRate(commissionRateRaw)
 
       const data: Partial<BulkImportPropertyPayload> = {
-        clientId,
-        listingName,
-        listingId,
+        clientId: clientId || undefined,
+        listingName: listingName || undefined,
+        listingId: listingId || undefined,
         address,
         province,
         propertyType,
@@ -150,11 +157,15 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         description: description || undefined
       }
 
+      const isIncomplete = incompleteReasons.length > 0
+
       return {
         rowNumber,
         data,
         clientName: client?.name || 'Unassigned',
         isValid: errors.length === 0,
+        isIncomplete,
+        incompleteReasons,
         errors,
         isDuplicate
       }
@@ -166,23 +177,30 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
   // Calculate summary
   const summary = useMemo(() => {
-    const valid = previewRows.filter(r => r.isValid).length
+    const total = previewRows.length
+    const valid = previewRows.filter(r => r.isValid && !r.isIncomplete).length
+    const incomplete = previewRows.filter(r => r.isValid && r.isIncomplete).length
     const invalid = previewRows.filter(r => !r.isValid && !r.isDuplicate).length
     const duplicates = previewRows.filter(r => r.isDuplicate).length
-    return { total: previewRows.length, valid, invalid, duplicates }
+    const readyToImport = valid + incomplete // All valid rows can be imported
+    return { total, valid, incomplete, invalid, duplicates, readyToImport }
   }, [previewRows])
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-3">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
           <p className="text-xs text-gray-500 mt-1">Total Rows</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-green-600">{summary.valid}</p>
-          <p className="text-xs text-green-600 mt-1">Ready to Import</p>
+          <p className="text-xs text-green-600 mt-1">Complete</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-amber-600">{summary.incomplete}</p>
+          <p className="text-xs text-amber-600 mt-1">Incomplete</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-yellow-600">{summary.duplicates}</p>
@@ -224,16 +242,20 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.02 }}
                   className={`${
-                    row.isValid
+                    row.isValid && !row.isIncomplete
                       ? 'bg-green-50/50 hover:bg-green-50'
+                      : row.isValid && row.isIncomplete
+                      ? 'bg-amber-50/50 hover:bg-amber-50'
                       : row.isDuplicate
                       ? 'bg-yellow-50/50 hover:bg-yellow-50'
                       : 'bg-red-50/50 hover:bg-red-50'
                   }`}
                 >
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {row.isValid ? (
+                    {row.isValid && !row.isIncomplete ? (
                       <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                    ) : row.isValid && row.isIncomplete ? (
+                      <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                     ) : row.isDuplicate ? (
                       <ExclamationCircleIcon className="h-5 w-5 text-yellow-500" />
                     ) : (
@@ -250,16 +272,16 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                       </div>
                       <div>
                         <span className="text-sm font-medium text-gray-900 block">
-                          {row.data.listingName || <span className="text-red-500 italic">Missing</span>}
+                          {row.data.listingName || <span className="text-amber-500 italic">No name</span>}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {row.data.address || <span className="text-red-500 italic">Missing</span>}
+                          {row.data.address || <span className="text-red-500 italic">Missing address</span>}
                         </span>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {row.data.listingId || <span className="text-red-500 italic">Missing</span>}
+                    {row.data.listingId || <span className="text-amber-500 italic">No ID</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
@@ -287,22 +309,30 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {row.errors.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {row.errors.map((error, i) => (
-                          <span
-                            key={i}
-                            className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                              row.isDuplicate && error.includes('exists')
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {error}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {/* Show errors first (red) */}
+                      {row.errors.map((error, i) => (
+                        <span
+                          key={`error-${i}`}
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                            row.isDuplicate && error.includes('exists')
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {error}
+                        </span>
+                      ))}
+                      {/* Show incomplete reasons (amber) - only if row is valid */}
+                      {row.isValid && row.incompleteReasons.map((reason, i) => (
+                        <span
+                          key={`incomplete-${i}`}
+                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                 </motion.tr>
               ))}
@@ -323,9 +353,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-blue-900 mb-2">What happens when you import?</h4>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li><CheckCircleIcon className="h-4 w-4 inline mr-2 text-green-500" />{summary.valid} valid properties will be created</li>
+          <li><CheckCircleIcon className="h-4 w-4 inline mr-2 text-green-500" />{summary.valid} complete properties will be created</li>
+          <li><ExclamationCircleIcon className="h-4 w-4 inline mr-2 text-amber-500" />{summary.incomplete} incomplete properties will be created (missing name, ID, or client - can be completed later)</li>
           <li><ExclamationCircleIcon className="h-4 w-4 inline mr-2 text-yellow-500" />{summary.duplicates} duplicate listing IDs will be skipped</li>
-          <li><XCircleIcon className="h-4 w-4 inline mr-2 text-red-500" />{summary.invalid} invalid rows will be skipped</li>
+          <li><XCircleIcon className="h-4 w-4 inline mr-2 text-red-500" />{summary.invalid} invalid rows will be skipped (missing address)</li>
         </ul>
       </div>
     </div>

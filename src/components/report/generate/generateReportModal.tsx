@@ -36,6 +36,11 @@ import {
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import Modal from '@/components/shared/modal'
 
+// Helper function to check if a property is incomplete
+const isPropertyIncomplete = (property: Property): boolean => {
+  return !property.listingName || !property.listingId || property.owners.length === 0
+}
+
 interface GenerateReportModalProps {
   isOpen: boolean
   onClose: () => void
@@ -427,6 +432,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     }
   }, [logos])
 
+  // Filter out incomplete properties - they can't be used for reports
+  const completeProperties = properties.filter(p => !isPropertyIncomplete(p))
+  const incompleteCount = properties.length - completeProperties.length
+
   const handlePropertyToggle = (propertyId: string) => {
     if (format === 'pdf') {
       setSelectedPropertyIds([propertyId])
@@ -440,16 +449,16 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   }
 
   const handleSelectAllProperties = () => {
-    if (selectedPropertyIds.length === properties.length) {
+    if (selectedPropertyIds.length === completeProperties.length) {
       setSelectedPropertyIds([])
     } else {
-      setSelectedPropertyIds(properties.map(p => p.id))
+      setSelectedPropertyIds(completeProperties.map(p => p.id))
     }
   }
 
-  const filteredProperties = properties.filter(p =>
-    p.listingName.toLowerCase().includes(propertySearch.toLowerCase()) ||
-    p.address.toLowerCase().includes(propertySearch.toLowerCase())
+  const filteredProperties = completeProperties.filter(p =>
+    (p.listingName ?? '').toLowerCase().includes(propertySearch.toLowerCase()) ||
+    (p.address ?? '').toLowerCase().includes(propertySearch.toLowerCase())
   )
 
   const getSelectedPropertyNames = () => {
@@ -664,8 +673,15 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                     onClick={handleSelectAllProperties}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
-                    {selectedPropertyIds.length === properties.length ? 'Deselect All' : 'Select All'}
+                    {selectedPropertyIds.length === completeProperties.length ? 'Deselect All' : 'Select All'}
                   </button>
+                )}
+
+                {/* Incomplete properties warning */}
+                {incompleteCount > 0 && (
+                  <div className="text-sm text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
+                    {incompleteCount} incomplete {incompleteCount === 1 ? 'property is' : 'properties are'} hidden (missing name, ID, or client)
+                  </div>
                 )}
 
                 {/* Property Grid */}
@@ -709,7 +725,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
 
                 {filteredProperties.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    No properties match your search
+                    {completeProperties.length === 0
+                      ? 'No complete properties available. Properties must have a name, listing ID, and client assigned.'
+                      : 'No properties match your search'
+                    }
                   </div>
                 )}
               </motion.div>

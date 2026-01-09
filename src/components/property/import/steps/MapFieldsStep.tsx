@@ -6,8 +6,8 @@ import { CsvHeader } from '@/services/types/csvMapping'
 
 // Property fields that can be mapped
 const PROPERTY_FIELDS = [
-  { field: 'listingName', label: 'Listing Name', required: true },
-  { field: 'listingId', label: 'Listing ID', required: true },
+  { field: 'listingName', label: 'Listing Name', required: false },
+  { field: 'listingId', label: 'Listing ID', required: false },
   { field: 'address', label: 'Address', required: true },
   { field: 'province', label: 'Province', required: false },
   { field: 'propertyType', label: 'Property Type (STR/LTR)', required: false },
@@ -120,7 +120,7 @@ const MapFieldsStep: React.FC<MapFieldsStepProps> = ({
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h3 className="text-sm font-medium text-blue-900 mb-2">Map CSV Columns to Property Fields</h3>
         <p className="text-sm text-blue-700">
-          Match each CSV column to the corresponding property field. Required fields are marked with *.
+          Match each CSV column to the corresponding property field. Only Address is required - properties without Listing Name, Listing ID, or Client will be marked as incomplete and can be completed later.
         </p>
       </div>
 
@@ -211,7 +211,7 @@ const MapFieldsStep: React.FC<MapFieldsStepProps> = ({
       {!validateMappings(mappings) && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <p className="text-sm text-yellow-700">
-            Please map the required fields (Listing Name, Listing ID, Address) before continuing.
+            Please map the required field (Address) before continuing. Listing Name, Listing ID, and Client can be assigned later.
           </p>
         </div>
       )}

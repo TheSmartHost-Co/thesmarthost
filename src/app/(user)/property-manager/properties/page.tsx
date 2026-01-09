@@ -19,6 +19,7 @@ import {
   EyeIcon,
   XMarkIcon,
   AdjustmentsHorizontalIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { getProperties, calculatePropertyStats, formatOwnerDisplay } from '@/services/propertyService'
@@ -39,12 +40,28 @@ import { getChannelIcon } from '@/services/channelUtils'
 type ViewMode = 'grid' | 'list'
 type FilterType = 'all' | 'STR' | 'LTR'
 type FilterStatus = 'all' | 'active' | 'inactive'
+type FilterCompletion = 'all' | 'complete' | 'incomplete'
+
+// Helper function to check if a property is incomplete
+const isPropertyIncomplete = (property: Property): boolean => {
+  return !property.listingName || !property.listingId || property.owners.length === 0
+}
+
+// Get specific incomplete reasons
+const getIncompleteReasons = (property: Property): string[] => {
+  const reasons: string[] = []
+  if (!property.listingName) reasons.push('No listing name')
+  if (!property.listingId) reasons.push('No listing ID')
+  if (property.owners.length === 0) reasons.push('No client assigned')
+  return reasons
+}
 
 export default function PropertyManagerPropertiesPage() {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<FilterType>('all')
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [completionFilter, setCompletionFilter] = useState<FilterCompletion>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [showFilters, setShowFilters] = useState(false)
 
@@ -261,19 +278,28 @@ export default function PropertyManagerPropertiesPage() {
     .filter(property => {
       const searchLower = searchTerm.toLowerCase()
       const matchesSearch =
-        property.listingName.toLowerCase().includes(searchLower) ||
+        (property.listingName?.toLowerCase().includes(searchLower) || false) ||
         property.address.toLowerCase().includes(searchLower) ||
-        property.listingId.toLowerCase().includes(searchLower) ||
+        (property.listingId?.toLowerCase().includes(searchLower) || false) ||
         (property.externalName && property.externalName.toLowerCase().includes(searchLower))
       const matchesType = typeFilter === 'all' || property.propertyType === typeFilter
       const matchesStatus = statusFilter === 'all' ||
         (statusFilter === 'active' && property.isActive) ||
         (statusFilter === 'inactive' && !property.isActive)
-      return matchesSearch && matchesType && matchesStatus
+      const matchesCompletion = completionFilter === 'all' ||
+        (completionFilter === 'complete' && !isPropertyIncomplete(property)) ||
+        (completionFilter === 'incomplete' && isPropertyIncomplete(property))
+      return matchesSearch && matchesType && matchesStatus && matchesCompletion
     })
     .sort((a, b) => {
+      // Sort incomplete properties first within each status group
       if (a.isActive && !b.isActive) return -1
       if (!a.isActive && b.isActive) return 1
+      // Within same status, incomplete properties come first
+      const aIncomplete = isPropertyIncomplete(a)
+      const bIncomplete = isPropertyIncomplete(b)
+      if (aIncomplete && !bIncomplete) return -1
+      if (!aIncomplete && bIncomplete) return 1
       return 0
     })
 
@@ -435,7 +461,7 @@ export default function PropertyManagerPropertiesPage() {
             >
               <AdjustmentsHorizontalIcon className="h-5 w-5" />
               Filters
-              {(typeFilter !== 'all' || statusFilter !== 'all') && (
+              {(typeFilter !== 'all' || statusFilter !== 'all' || completionFilter !== 'all') && (
                 <span className="w-2 h-2 bg-amber-500 rounded-full" />
               )}
             </button>
@@ -519,11 +545,33 @@ export default function PropertyManagerPropertiesPage() {
                   ))}
                 </div>
 
-                {(typeFilter !== 'all' || statusFilter !== 'all') && (
+                <div className="w-px h-6 bg-slate-200 mx-2 hidden sm:block" />
+
+                <span className="text-sm text-slate-500">Completion:</span>
+                <div className="flex gap-2">
+                  {(['all', 'complete', 'incomplete'] as FilterCompletion[]).map((completion) => (
+                    <button
+                      key={completion}
+                      onClick={() => setCompletionFilter(completion)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        completionFilter === completion
+                          ? completion === 'incomplete'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {completion === 'all' ? 'All' : completion.charAt(0).toUpperCase() + completion.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {(typeFilter !== 'all' || statusFilter !== 'all' || completionFilter !== 'all') && (
                   <button
                     onClick={() => {
                       setTypeFilter('all')
                       setStatusFilter('all')
+                      setCompletionFilter('all')
                     }}
                     className="ml-auto text-sm text-amber-600 hover:text-amber-700 font-medium"
                   >
@@ -630,17 +678,29 @@ export default function PropertyManagerPropertiesPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        <div className={`relative w-12 h-12 rounded-xl flex items-center justify-center ${
                           property.propertyType === 'STR'
                             ? 'bg-gradient-to-br from-blue-500 to-blue-600'
                             : 'bg-gradient-to-br from-purple-500 to-purple-600'
                         }`}>
                           <HomeIcon className="w-6 h-6 text-white" />
+                          {isPropertyIncomplete(property) && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white">
+                              <ExclamationTriangleIcon className="w-3 h-3 text-white" />
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 truncate max-w-[200px]">
-                            {property.listingName}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900 truncate max-w-[200px]">
+                              {property.listingName || <span className="text-amber-600 italic">No name</span>}
+                            </p>
+                            {isPropertyIncomplete(property) && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                                Incomplete
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-slate-500 truncate max-w-[200px]">
                             {property.address}
                           </p>
@@ -648,9 +708,13 @@ export default function PropertyManagerPropertiesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-mono text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg">
-                        {property.listingId}
-                      </span>
+                      {property.listingId ? (
+                        <span className="text-sm font-mono text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg">
+                          {property.listingId}
+                        </span>
+                      ) : (
+                        <span className="text-sm italic text-amber-600">No ID</span>
+                      )}
                     </td>
                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
@@ -800,7 +864,7 @@ export default function PropertyManagerPropertiesPage() {
             isOpen={showLicenseModal}
             onClose={handleLicenseModalClose}
             propertyId={selectedProperty.id}
-            propertyName={selectedProperty.listingName}
+            propertyName={selectedProperty.listingName ?? ''}
             initialLicenses={selectedProperty.licenses}
             onRefreshProperties={refreshProperties}
           />
@@ -809,7 +873,7 @@ export default function PropertyManagerPropertiesPage() {
             isOpen={showChannelModal}
             onClose={handleChannelModalClose}
             propertyId={selectedProperty.id}
-            propertyName={selectedProperty.listingName}
+            propertyName={selectedProperty.listingName ?? ''}
             initialChannels={selectedProperty.channels}
             onRefreshProperties={refreshProperties}
           />
@@ -858,6 +922,8 @@ function PropertyCard({
 }: PropertyCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const primaryOwner = property.owners.find(o => o.isPrimary)
+  const incomplete = isPropertyIncomplete(property)
+  const incompleteReasons = getIncompleteReasons(property)
 
   return (
     <motion.div
@@ -892,7 +958,7 @@ function PropertyCard({
         </div>
 
         {/* Status Badge */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4 flex gap-2">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
             property.isActive
               ? 'bg-white/20 text-white'
@@ -901,6 +967,12 @@ function PropertyCard({
             <span className={`w-1.5 h-1.5 rounded-full ${property.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`} />
             {property.isActive ? 'Active' : 'Inactive'}
           </span>
+          {incomplete && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white backdrop-blur-sm">
+              <ExclamationTriangleIcon className="w-3 h-3" />
+              Incomplete
+            </span>
+          )}
         </div>
 
         {/* Type Badge */}
@@ -958,8 +1030,8 @@ function PropertyCard({
       <div className="p-6 pt-12">
         {/* Title and Address */}
         <div className="mb-4">
-          <h3 className="text-lg font-bold text-slate-900 truncate mb-1" title={property.listingName}>
-            {property.listingName}
+          <h3 className="text-lg font-bold text-slate-900 truncate mb-1" title={property.listingName || 'No name'}>
+            {property.listingName || <span className="text-amber-600 italic">No name</span>}
           </h3>
           <div className="flex items-center gap-1.5 text-slate-500">
             <MapPinIcon className="w-4 h-4 flex-shrink-0" />
@@ -971,9 +1043,13 @@ function PropertyCard({
 
         {/* Listing ID */}
         <div className="mb-4">
-          <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-            #{property.listingId}
-          </span>
+          {property.listingId ? (
+            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+              #{property.listingId}
+            </span>
+          ) : (
+            <span className="text-xs italic text-amber-600">No listing ID</span>
+          )}
         </div>
 
         {/* Quick Info Grid */}
@@ -1007,14 +1083,27 @@ function PropertyCard({
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-100">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-slate-600">
-                {primaryOwner?.clientName?.charAt(0) || '?'}
-              </span>
-            </div>
-            <span className="text-sm text-slate-600 truncate">
-              {primaryOwner?.clientName || 'No owner'}
-            </span>
+            {primaryOwner ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-slate-600">
+                    {primaryOwner.clientName?.charAt(0) || '?'}
+                  </span>
+                </div>
+                <span className="text-sm text-slate-600 truncate">
+                  {primaryOwner.clientName}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center flex-shrink-0">
+                  <ExclamationTriangleIcon className="w-4 h-4 text-amber-600" />
+                </div>
+                <span className="text-sm text-amber-600 italic truncate">
+                  No client assigned
+                </span>
+              </>
+            )}
           </div>
           <div className="text-right flex-shrink-0">
             <span className="text-lg font-bold text-slate-900">{property.commissionRate || 0}%</span>
