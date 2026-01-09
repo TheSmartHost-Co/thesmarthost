@@ -8,7 +8,7 @@ import { getProperties } from '@/services/propertyService'
 import { Property } from '@/services/types/property'
 import { PropertyMapping, PropertyIdentificationState } from '../types/wizard'
 import { parseCsvFile } from '@/utils/csvParser'
-import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon, ChevronDownIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 interface StepProps {
   uploadedFile: any
@@ -147,9 +147,20 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
 
   // Update property mapping
   const updatePropertyMapping = useCallback((listingName: string, propertyId: string | null) => {
-    const newMappings = propertyMappings.map(mapping => 
-      mapping.listingName === listingName 
+    const newMappings = propertyMappings.map(mapping =>
+      mapping.listingName === listingName
         ? { ...mapping, propertyId, isNewProperty: false }
+        : mapping
+    )
+    setPropertyMappings(newMappings)
+    onPropertyMappingsUpdate(newMappings)
+  }, [propertyMappings, onPropertyMappingsUpdate])
+
+  // Toggle exclude listing
+  const toggleExcludeListing = useCallback((listingName: string) => {
+    const newMappings = propertyMappings.map(mapping =>
+      mapping.listingName === listingName
+        ? { ...mapping, isExcluded: !mapping.isExcluded }
         : mapping
     )
     setPropertyMappings(newMappings)
@@ -177,10 +188,11 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     showNotification('Property created successfully', 'success')
   }
 
-  // Validation state
+  // Validation state - only check non-excluded listings
   const isValid = useMemo(() => {
-    return propertyMappings.length > 0 && 
-           propertyMappings.every(mapping => mapping.propertyId !== null)
+    const activeMappings = propertyMappings.filter(m => !m.isExcluded)
+    return activeMappings.length > 0 &&
+           activeMappings.every(mapping => mapping.propertyId !== null)
   }, [propertyMappings])
 
   // Total bookings
@@ -188,17 +200,28 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     return Object.values(bookingCounts).reduce((sum, count) => sum + count, 0)
   }, [bookingCounts])
 
-  // Update parent state
+  // Filter out excluded listings for parent state
+  const activeMappings = useMemo(() => {
+    return propertyMappings.filter(m => !m.isExcluded)
+  }, [propertyMappings])
+
+  const activeBookingsCount = useMemo(() => {
+    return activeMappings.reduce((sum, m) => sum + (m.bookingCount || 0), 0)
+  }, [activeMappings])
+
+  // Update parent state - only pass non-excluded listings
   useEffect(() => {
     const state: PropertyIdentificationState = {
-      uniqueListings,
-      propertyMappings,
+      uniqueListings: activeMappings.map(m => m.listingName),
+      propertyMappings: activeMappings,
       isValid,
-      totalBookings,
-      bookingCounts,
+      totalBookings: activeBookingsCount,
+      bookingCounts: Object.fromEntries(
+        activeMappings.map(m => [m.listingName, m.bookingCount || 0])
+      ),
     }
     onPropertyMappingComplete(state)
-  }, [uniqueListings, propertyMappings, isValid, totalBookings, bookingCounts, onPropertyMappingComplete])
+  }, [activeMappings, isValid, activeBookingsCount, onPropertyMappingComplete])
 
   if (loading) {
     return (
@@ -230,7 +253,12 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
                 <p>• Found {uniqueListings.length} unique listings</p>
                 <p>• Total of {totalBookings.toLocaleString()} bookings</p>
                 <p className="mt-2 font-medium">
-                  {propertyMappings.filter(m => m.propertyId).length} of {uniqueListings.length} listings mapped
+                  {activeMappings.filter(m => m.propertyId).length} of {activeMappings.length} listings mapped
+                  {propertyMappings.some(m => m.isExcluded) && (
+                    <span className="text-gray-500 font-normal ml-1">
+                      ({propertyMappings.filter(m => m.isExcluded).length} excluded)
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -243,47 +271,74 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
           
           <div className="space-y-3">
             {propertyMappings.map((mapping) => (
-              <div 
+              <div
                 key={mapping.listingName}
-                className="bg-white border border-gray-200 rounded-lg p-4"
+                className={`
+                  bg-white border rounded-lg p-4 transition-all
+                  ${mapping.isExcluded
+                    ? 'border-gray-200 bg-gray-50 opacity-60'
+                    : 'border-gray-200'
+                  }
+                `}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-gray-900">{mapping.listingName}</h4>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h4 className={`text-sm font-medium ${mapping.isExcluded ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                      {mapping.listingName}
+                    </h4>
+                    <p className={`text-sm mt-1 ${mapping.isExcluded ? 'text-gray-400' : 'text-gray-500'}`}>
                       {mapping.bookingCount} booking{mapping.bookingCount !== 1 ? 's' : ''}
+                      {mapping.isExcluded && <span className="ml-2 text-red-400">(Excluded)</span>}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
-                    <div className="w-64 relative">
-                      <select
-                        value={mapping.propertyId || ''}
-                        onChange={(e) => updatePropertyMapping(mapping.listingName, e.target.value || null)}
-                        className="
-                          appearance-none w-full px-3 py-2 pr-8 
-                          border border-gray-300 rounded-lg bg-white
-                          text-sm text-gray-900 
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                        "
-                        required
-                      >
-                        <option value="">Select a property</option>
-                        {properties.map((property) => (
-                          <option key={property.id} value={property.id}>
-                            {property.listingName} {property.address && `- ${property.address}`}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                    
+                    {!mapping.isExcluded && (
+                      <>
+                        <div className="w-64 relative">
+                          <select
+                            value={mapping.propertyId || ''}
+                            onChange={(e) => updatePropertyMapping(mapping.listingName, e.target.value || null)}
+                            className="
+                              appearance-none w-full px-3 py-2 pr-8
+                              border border-gray-300 rounded-lg bg-white
+                              text-sm text-gray-900
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                            "
+                            required
+                          >
+                            <option value="">Select a property</option>
+                            {properties.map((property) => (
+                              <option key={property.id} value={property.id}>
+                                {property.listingName} {property.address && `- ${property.address}`}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+
+                        <button
+                          onClick={() => handleCreatePropertyForListing(mapping.listingName)}
+                          className="flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Create new property"
+                        >
+                          <PlusCircleIcon className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+
                     <button
-                      onClick={() => handleCreatePropertyForListing(mapping.listingName)}
-                      className="flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Create new property"
+                      onClick={() => toggleExcludeListing(mapping.listingName)}
+                      className={`
+                        flex items-center px-2 py-2 text-sm rounded-lg transition-colors cursor-pointer
+                        ${mapping.isExcluded
+                          ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          : 'text-red-500 hover:text-red-600 hover:bg-red-50'
+                        }
+                      `}
+                      title={mapping.isExcluded ? 'Include this listing' : 'Exclude this listing'}
                     >
-                      <PlusCircleIcon className="w-5 h-5" />
+                      <XCircleIcon className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
