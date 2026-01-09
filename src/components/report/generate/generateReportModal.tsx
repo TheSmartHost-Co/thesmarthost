@@ -238,6 +238,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     return date.toISOString().split('T')[0]
   }
 
+  // Parse date string as local date to avoid timezone issues
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   const handlePresetSelect = (presetLabel: string) => {
     const preset = DATE_PRESETS.find(p => p.label === presetLabel)
     if (preset) {
@@ -808,7 +814,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                   >
                     <CalendarDaysIcon className="w-5 h-5 text-blue-600" />
                     <span className="text-sm text-blue-800">
-                      Reporting period: <strong>{new Date(startDate).toLocaleDateString()}</strong> to <strong>{new Date(endDate).toLocaleDateString()}</strong>
+                      Reporting period: <strong>{parseLocalDate(startDate).toLocaleDateString()}</strong> to <strong>{parseLocalDate(endDate).toLocaleDateString()}</strong>
                     </span>
                   </motion.div>
                 )}
@@ -955,7 +961,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                   <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date Range</p>
                     <p className="font-semibold text-gray-900 text-sm">
-                      {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {parseLocalDate(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {parseLocalDate(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </p>
                   </div>
                   <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
