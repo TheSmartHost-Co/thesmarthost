@@ -249,6 +249,7 @@ export interface CompletionState {
 export interface PropertyMapping {
   listingName: string               // "Casa Madera"
   propertyId: string | null         // Selected existing property ID
+  isExcluded?: boolean              // Exclude this listing from import
   isNewProperty?: boolean           // Creating new property flag
   newPropertyData?: {               // New property details
     name: string
