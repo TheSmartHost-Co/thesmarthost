@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { ChevronDownIcon, UserIcon, HomeIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { UserIcon, HomeIcon } from '@heroicons/react/24/outline'
 import { CsvHeader } from '@/services/types/csvMapping'
 import { Client } from '@/services/types/client'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 
 export interface PropertyRowData {
   rowNumber: number
@@ -44,8 +45,16 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
   onValidationChange
 }) => {
   const [assignments, setAssignments] = useState<ClientAssignment[]>(initialAssignments)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [bulkClientId, setBulkClientId] = useState('')
+  const [bulkClientId, setBulkClientId] = useState<string | null>(null)
+
+  // Convert clients to SearchableSelect options
+  const clientOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return clients.map(client => ({
+      value: client.id,
+      label: client.name,
+      secondaryLabel: client.companyName || client.email || undefined,
+    }))
+  }, [clients])
 
   // Get the index of a column by its name
   const getColumnIndex = (columnName: string): number => {
@@ -110,22 +119,12 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
     setAssignments(prev =>
       prev.map(a => ({ ...a, clientId: bulkClientId }))
     )
+    setBulkClientId(null)
   }
 
   const getClientById = (clientId: string): Client | undefined => {
     return clients.find(c => c.id === clientId)
   }
-
-  // Filter clients by search query
-  const filteredClients = useMemo(() => {
-    if (!searchQuery.trim()) return clients
-    const query = searchQuery.toLowerCase()
-    return clients.filter(c =>
-      c.name.toLowerCase().includes(query) ||
-      c.email?.toLowerCase().includes(query) ||
-      c.companyName?.toLowerCase().includes(query)
-    )
-  }, [clients, searchQuery])
 
   // Count assigned rows
   const assignedCount = assignments.filter(a => a.clientId !== '').length
@@ -156,27 +155,22 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
       {/* Bulk Assign */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-blue-900 mb-3">Bulk Assign Client</h4>
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <select
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <SearchableSelect
+              options={clientOptions}
               value={bulkClientId}
-              onChange={(e) => setBulkClientId(e.target.value)}
-              className="w-full appearance-none bg-white border border-blue-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select a client to assign to all...</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.name} {client.companyName ? `(${client.companyName})` : ''}
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="h-4 w-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+              onChange={setBulkClientId}
+              placeholder="Select a client to assign to all..."
+              emptyText="No clients found"
+              clearable={true}
+            />
           </div>
           <button
             type="button"
             onClick={handleBulkAssign}
             disabled={!bulkClientId}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               bulkClientId
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -185,18 +179,6 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
             Apply to All
           </button>
         </div>
-      </div>
-
-      {/* Client Search */}
-      <div className="relative">
-        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Search clients by name, email, or company..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
       </div>
 
       {/* Assignment Table */}
@@ -249,31 +231,22 @@ const AssignClientsStep: React.FC<AssignClientsStepProps> = ({
                       {row.listingId || <span className="text-gray-400">-</span>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="relative">
-                        <select
-                          value={assignment?.clientId || ''}
-                          onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
-                          className={`w-full appearance-none bg-white border rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isAssigned
-                              ? 'border-green-300 bg-green-50'
-                              : 'border-gray-300'
-                          }`}
-                        >
-                          <option value="">Select client (optional)...</option>
-                          {(searchQuery ? filteredClients : clients).map(client => (
-                            <option key={client.id} value={client.id}>
-                              {client.name} {client.companyName ? `(${client.companyName})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none flex items-center gap-1">
-                          {isAssigned && (
-                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-1">
-                              <UserIcon className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                          <ChevronDownIcon className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            options={clientOptions}
+                            value={assignment?.clientId || null}
+                            onChange={(value) => handleClientChange(row.rowNumber, value || '')}
+                            placeholder="Select client (optional)..."
+                            emptyText="No clients found"
+                            clearable={true}
+                          />
                         </div>
+                        {isAssigned && (
+                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <UserIcon className="h-3 w-3 text-white" />
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

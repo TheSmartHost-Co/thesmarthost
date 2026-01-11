@@ -71,8 +71,10 @@ export async function createExpense(data: CreateExpensePayload): Promise<Expense
   formData.append('userId', data.userId)
   formData.append('expenseDate', data.expenseDate)
   formData.append('amount', data.amount.toString())
-  formData.append('category', data.category)
 
+  if (data.category) {
+    formData.append('category', data.category)
+  }
   if (data.propertyId) {
     formData.append('propertyId', data.propertyId)
   }
@@ -407,7 +409,7 @@ export function sortExpensesByDate(expenses: Expense[], descending = true): Expe
  */
 export function groupExpensesByCategory(expenses: Expense[]): Record<string, Expense[]> {
   return expenses.reduce((groups, expense) => {
-    const category = expense.category
+    const category = expense.category || 'uncategorized'
     if (!groups[category]) {
       groups[category] = []
     }

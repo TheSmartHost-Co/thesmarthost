@@ -18,6 +18,7 @@ export interface PreviewRow {
   isValid: boolean
   errors: string[]
   isDuplicate: boolean
+  isExcluded?: boolean
 }
 
 interface PreviewStepProps {
@@ -150,26 +151,46 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         data,
         isValid: errors.length === 0,
         errors,
-        isDuplicate
+        isDuplicate,
+        isExcluded: false
       }
     })
 
     setPreviewRows(parsedRows)
-    onValidatedRows(parsedRows)
   }, [csvRows, csvHeaders, fieldMappings, existingClients, statusCodes])
 
-  // Calculate summary
+  // Notify parent of validated rows (excluding manually excluded ones)
+  useEffect(() => {
+    const activeRows = previewRows.map(row => ({
+      ...row,
+      // Mark excluded rows as invalid so they won't be imported
+      isValid: row.isExcluded ? false : row.isValid
+    }))
+    onValidatedRows(activeRows)
+  }, [previewRows, onValidatedRows])
+
+  // Toggle exclude for a specific row
+  const toggleExcludeRow = (rowNumber: number) => {
+    setPreviewRows(prev => prev.map(row =>
+      row.rowNumber === rowNumber
+        ? { ...row, isExcluded: !row.isExcluded }
+        : row
+    ))
+  }
+
+  // Calculate summary (excluding manually excluded rows from valid count)
   const summary = useMemo(() => {
-    const valid = previewRows.filter(r => r.isValid).length
-    const invalid = previewRows.filter(r => !r.isValid && !r.isDuplicate).length
-    const duplicates = previewRows.filter(r => r.isDuplicate).length
-    return { total: previewRows.length, valid, invalid, duplicates }
+    const excluded = previewRows.filter(r => r.isExcluded).length
+    const valid = previewRows.filter(r => r.isValid && !r.isExcluded).length
+    const invalid = previewRows.filter(r => !r.isValid && !r.isDuplicate && !r.isExcluded).length
+    const duplicates = previewRows.filter(r => r.isDuplicate && !r.isExcluded).length
+    return { total: previewRows.length, valid, invalid, duplicates, excluded }
   }, [previewRows])
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
           <p className="text-xs text-gray-500 mt-1">Total Rows</p>
@@ -186,6 +207,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           <p className="text-2xl font-bold text-red-600">{summary.invalid}</p>
           <p className="text-xs text-red-600 mt-1">Invalid (Skip)</p>
         </div>
+        <div className="bg-gray-50 border border-gray-300 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-gray-500">{summary.excluded}</p>
+          <p className="text-xs text-gray-500 mt-1">Excluded</p>
+        </div>
       </div>
 
       {/* Preview Table */}
@@ -199,15 +224,16 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
         <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 sticky top-0">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Row</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Client Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Issues</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Row</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Phone</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Client Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Issues</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase sticky right-0 z-30 bg-gray-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)]">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -218,7 +244,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.02 }}
                   className={`${
-                    row.isValid
+                    row.isExcluded
+                      ? 'bg-gray-100 opacity-60'
+                      : row.isValid
                       ? 'bg-green-50/50 hover:bg-green-50'
                       : row.isDuplicate
                       ? 'bg-yellow-50/50 hover:bg-yellow-50'
@@ -226,7 +254,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   }`}
                 >
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {row.isValid ? (
+                    {row.isExcluded ? (
+                      <XCircleIcon className="h-5 w-5 text-gray-400" />
+                    ) : row.isValid ? (
                       <CheckCircleIcon className="h-5 w-5 text-green-500" />
                     ) : row.isDuplicate ? (
                       <ExclamationCircleIcon className="h-5 w-5 text-yellow-500" />
@@ -239,22 +269,26 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <UserIcon className="h-4 w-4 text-blue-600" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${row.isExcluded ? 'bg-gray-200' : 'bg-blue-100'}`}>
+                        <UserIcon className={`h-4 w-4 ${row.isExcluded ? 'text-gray-400' : 'text-blue-600'}`} />
                       </div>
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className={`text-sm font-medium ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                         {row.data.name || <span className="text-red-500 italic">Missing</span>}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                     {row.data.email || <span className="text-gray-400">-</span>}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                     {row.data.phone || <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {row.data.statusId ? (
+                    {row.isExcluded ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-gray-200 text-gray-500">
+                        Excluded
+                      </span>
+                    ) : row.data.statusId ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-blue-100 text-blue-700">
                         Mapped
                       </span>
@@ -265,7 +299,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {row.errors.length > 0 && (
+                    {row.isExcluded ? (
+                      <span className="text-xs text-gray-400">Manually excluded</span>
+                    ) : row.errors.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {row.errors.map((error, i) => (
                           <span
@@ -280,7 +316,30 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                           </span>
                         ))}
                       </div>
-                    )}
+                    ) : null}
+                  </td>
+                  <td className={`px-4 py-3 text-center sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] ${
+                    row.isExcluded
+                      ? 'bg-gray-100'
+                      : row.isValid
+                      ? 'bg-green-50'
+                      : row.isDuplicate
+                      ? 'bg-yellow-50'
+                      : 'bg-red-50'
+                  }`}>
+                    <button
+                      onClick={() => toggleExcludeRow(row.rowNumber)}
+                      className={`
+                        p-1.5 rounded-lg transition-colors cursor-pointer
+                        ${row.isExcluded
+                          ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          : 'text-red-500 hover:text-red-600 hover:bg-red-50'
+                        }
+                      `}
+                      title={row.isExcluded ? 'Include this client' : 'Exclude this client'}
+                    >
+                      <XCircleIcon className="h-5 w-5" />
+                    </button>
                   </td>
                 </motion.tr>
               ))}
@@ -304,6 +363,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           <li><CheckCircleIcon className="h-4 w-4 inline mr-2 text-green-500" />{summary.valid} valid clients will be created</li>
           <li><ExclamationCircleIcon className="h-4 w-4 inline mr-2 text-yellow-500" />{summary.duplicates} duplicate emails will be skipped</li>
           <li><XCircleIcon className="h-4 w-4 inline mr-2 text-red-500" />{summary.invalid} invalid rows will be skipped</li>
+          {summary.excluded > 0 && (
+            <li><XCircleIcon className="h-4 w-4 inline mr-2 text-gray-400" />{summary.excluded} manually excluded rows will be skipped</li>
+          )}
         </ul>
       </div>
     </div>

@@ -1,16 +1,16 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { 
-  CheckCircleIcon, 
-  ExclamationTriangleIcon, 
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
   BuildingOfficeIcon,
-  PlusIcon,
-  ChevronDownIcon
+  PlusIcon
 } from '@heroicons/react/24/outline'
 import { PropertyMapping, PropertyMappingState } from '../types/wizard'
 import { Property } from '@/services/types/property'
 import { Client } from '@/services/types/client'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { getProperties } from '@/services/propertyService'
 import { getClientsByParentId, createClient } from '@/services/clientService'
 import { useUserStore } from '@/store/useUserStore'
@@ -61,6 +61,24 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+
+  // Convert properties to SearchableSelect options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
+
+  // Convert clients to SearchableSelect options
+  const clientOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return clients.map(client => ({
+      value: client.id,
+      label: client.name,
+      secondaryLabel: client.email || undefined,
+    }))
+  }, [clients])
 
   // Initialize property mappings when component loads
   useEffect(() => {
@@ -431,23 +449,18 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
                 <div className="space-y-3">
                   {/* Property Dropdown */}
                   <div className="flex items-center space-x-3">
-                    <div className="flex-1 relative">
-                      <select
-                        value={mapping?.propertyId || ''}
-                        onChange={(e) => handlePropertySelect(listingName, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-gray-900"
-                        disabled={loadingProperties}
-                      >
-                        <option value="">Select existing property...</option>
-                        {properties.map((property) => (
-                          <option key={property.id} value={property.id}>
-                            {property.listingName} ({property.address})
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={propertyOptions}
+                        value={mapping?.propertyId || null}
+                        onChange={(value) => handlePropertySelect(listingName, value || '')}
+                        placeholder="Select existing property..."
+                        loading={loadingProperties}
+                        loadingText="Loading properties..."
+                        emptyText="No properties found"
+                      />
                     </div>
-                    
+
                     <button
                       onClick={() => handleCreateNewProperty(listingName)}
                       className="px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center"
@@ -619,23 +632,18 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
                       
                       {!showNewClientForms[listingName] ? (
                         <div className="flex items-center space-x-3">
-                          <div className="flex-1 relative">
-                            <select
-                              value={mapping?.newPropertyData?.clientId || ''}
-                              onChange={(e) => handleClientSelect(listingName, e.target.value)}
-                              className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                              disabled={loadingClients}
-                            >
-                              <option value="">Select property owner...</option>
-                              {clients.map((client) => (
-                                <option key={client.id} value={client.id}>
-                                  {client.name} {client.email ? `(${client.email})` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                          <div className="flex-1">
+                            <SearchableSelect
+                              options={clientOptions}
+                              value={mapping?.newPropertyData?.clientId || null}
+                              onChange={(value) => handleClientSelect(listingName, value || '')}
+                              placeholder="Select property owner..."
+                              loading={loadingClients}
+                              loadingText="Loading clients..."
+                              emptyText="No clients found"
+                            />
                           </div>
-                          
+
                           <button
                             onClick={() => handleCreateNewClient(listingName)}
                             className="px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center"

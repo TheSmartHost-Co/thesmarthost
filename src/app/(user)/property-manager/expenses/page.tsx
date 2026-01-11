@@ -17,6 +17,7 @@ import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import type { Expense, ExpenseTotals, PaymentStatus } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -259,14 +260,16 @@ export default function ExpensesPage() {
     },
   ]
 
-  const getCategoryLabel = (code: string) => {
-    const cat = categories.find(c => c.code === code)
-    return cat?.label || code
+  const getCategoryLabel = (code: string | undefined) => {
+    if (!code) return null
+    const catInfo = getCategoryByCode(code, categories)
+    return catInfo?.label || code
   }
 
-  const getCategoryColor = (code: string) => {
-    const cat = categories.find(c => c.code === code)
-    return cat?.colorHex || '#6B7280'
+  const getCategoryColor = (code: string | undefined) => {
+    if (!code) return '#6B7280'
+    const catInfo = getCategoryByCode(code, categories)
+    return catInfo?.colorHex || '#6B7280'
   }
 
   const getPaymentStatusBadge = (status: PaymentStatus) => {
@@ -285,7 +288,7 @@ export default function ExpensesPage() {
     return (
       expense.vendorName?.toLowerCase().includes(searchLower) ||
       expense.description?.toLowerCase().includes(searchLower) ||
-      expense.category.toLowerCase().includes(searchLower) ||
+      expense.category?.toLowerCase().includes(searchLower) ||
       expense.propertyName?.toLowerCase().includes(searchLower)
     )
   })
@@ -563,11 +566,22 @@ export default function ExpensesPage() {
                           className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
                         >
                           <option value="">All Categories</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.code}>
-                              {cat.label}
-                            </option>
-                          ))}
+                          <optgroup label="Default Categories">
+                            {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
+                              <option key={cat.code} value={cat.code}>
+                                {cat.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                          {categories.length > 0 && (
+                            <optgroup label="Custom Categories">
+                              {categories.map((cat) => (
+                                <option key={cat.id} value={cat.code}>
+                                  {cat.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
 
@@ -684,15 +698,21 @@ export default function ExpensesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
-                      style={{
-                        backgroundColor: getCategoryColor(expense.category) + '20',
-                        color: getCategoryColor(expense.category)
-                      }}
-                    >
-                      {getCategoryLabel(expense.category)}
-                    </span>
+                    {expense.category ? (
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
+                        style={{
+                          backgroundColor: getCategoryColor(expense.category) + '20',
+                          color: getCategoryColor(expense.category)
+                        }}
+                      >
+                        {getCategoryLabel(expense.category)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-700">
+                        Needs Category
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">

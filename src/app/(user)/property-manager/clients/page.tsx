@@ -237,8 +237,9 @@ export default function PropertyManagerClientsPage() {
         (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (client.companyName && client.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = statusFilter === 'All Status' ||
-        (statusFilter === 'Active' && client.isActive) ||
+        (statusFilter === 'Active' && client.isActive && client.status !== 'onboarding') ||
         (statusFilter === 'Inactive' && !client.isActive) ||
+        (statusFilter === 'Onboarding' && client.status === 'onboarding') ||
         (client.statusId === statusFilter) // Match custom status codes by ID
       return matchesSearch && matchesStatus
     })
@@ -267,6 +268,16 @@ export default function PropertyManagerClientsPage() {
             style={{ backgroundColor: client.statusInfo.colorHex }}
           ></span>
           {client.statusInfo.label}
+        </span>
+      )
+    }
+
+    // Check for onboarding status
+    if (client.status === 'onboarding') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          Onboarding
         </span>
       )
     }
@@ -469,6 +480,7 @@ export default function PropertyManagerClientsPage() {
                 <option value="All Status">All Status</option>
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
+                <option value="Onboarding">Onboarding</option>
                 {statusCodes.length > 0 && <option disabled>──────────</option>}
                 {statusCodes.map((status) => (
                   <option key={status.id} value={status.id}>

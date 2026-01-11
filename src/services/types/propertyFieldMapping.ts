@@ -18,6 +18,50 @@ export interface PropertyFieldMappingTemplate {
 }
 
 /**
+ * Global Field Mapping Template
+ * Stores reusable field mapping configurations that apply to all properties
+ * propertyId is null for global templates
+ */
+export interface GlobalFieldMappingTemplate {
+  id: string
+  propertyId: null
+  userId: string
+  mappingName: string
+  fieldMappings: Record<Platform, Record<string, string>>
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Payload for creating a global field mapping template
+ */
+export interface CreateGlobalFieldMappingPayload {
+  userId: string
+  mappingName: string
+  fieldMappings: Record<Platform, Record<string, string>>
+  isDefault?: boolean
+}
+
+/**
+ * API response for single global field mapping template
+ */
+export interface GlobalFieldMappingResponse {
+  status: 'success' | 'failed'
+  data: GlobalFieldMappingTemplate
+  message?: string
+}
+
+/**
+ * API response for multiple global field mapping templates
+ */
+export interface GlobalFieldMappingListResponse {
+  status: 'success' | 'failed'
+  data: GlobalFieldMappingTemplate[]
+  message?: string
+}
+
+/**
  * Property Field Mapping Template with property name
  * Extended version for user's template list across all properties
  */

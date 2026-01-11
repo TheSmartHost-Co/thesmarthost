@@ -115,6 +115,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
         companyName: trimmedCompanyName || undefined,
         billingAddress: trimmedBillingAddress || undefined,
         pms: trimmedPms || undefined,
+        status: selectedStatus !== 'custom' ? selectedStatus : undefined,
         statusId: selectedStatus === 'custom' ? selectedStatusId : undefined,
       }
 
@@ -212,7 +213,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
         <div>
           <label className="block text-sm font-medium mb-1">Status</label>
           <div className="space-y-2">
-            {/* Simple Active/Inactive options */}
+            {/* Simple Active/Inactive/Onboarding options */}
             <div className="flex items-center space-x-4">
               <label className="flex items-center">
                 <input
@@ -239,6 +240,19 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                   className="mr-2"
                 />
                 <span className="text-sm">Inactive</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="onboarding"
+                  checked={selectedStatus === 'onboarding'}
+                  onChange={() => {
+                    setSelectedStatus('onboarding')
+                    setSelectedStatusId(undefined)
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-sm">Onboarding</span>
               </label>
             </div>
             

@@ -4,11 +4,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { getProperties } from '@/services/propertyService'
 import { Property } from '@/services/types/property'
 import { PropertyMapping, PropertyIdentificationState } from '../types/wizard'
 import { parseCsvFile } from '@/utils/csvParser'
-import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon, ChevronDownIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 interface StepProps {
   uploadedFile: any
@@ -200,6 +201,15 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     return Object.values(bookingCounts).reduce((sum, count) => sum + count, 0)
   }, [bookingCounts])
 
+  // Convert properties to SearchableSelect options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
+
   // Filter out excluded listings for parent state
   const activeMappings = useMemo(() => {
     return propertyMappings.filter(m => !m.isExcluded)
@@ -235,7 +245,9 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
 
   return (
     <>
-      <div className="p-8">
+      <div className="flex flex-col h-full">
+        {/* Scrollable Content - with bottom padding for fixed footer */}
+        <div className="flex-1 overflow-auto p-8 pb-24">
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Property Identification</h2>
@@ -295,26 +307,14 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
                   <div className="flex items-center gap-2">
                     {!mapping.isExcluded && (
                       <>
-                        <div className="w-64 relative">
-                          <select
-                            value={mapping.propertyId || ''}
-                            onChange={(e) => updatePropertyMapping(mapping.listingName, e.target.value || null)}
-                            className="
-                              appearance-none w-full px-3 py-2 pr-8
-                              border border-gray-300 rounded-lg bg-white
-                              text-sm text-gray-900
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                            "
-                            required
-                          >
-                            <option value="">Select a property</option>
-                            {properties.map((property) => (
-                              <option key={property.id} value={property.id}>
-                                {property.listingName} {property.address && `- ${property.address}`}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <div className="w-72">
+                          <SearchableSelect
+                            options={propertyOptions}
+                            value={mapping.propertyId}
+                            onChange={(value) => updatePropertyMapping(mapping.listingName, value)}
+                            placeholder="Select a property..."
+                            emptyText="No properties found"
+                          />
                         </div>
 
                         <button
@@ -347,45 +347,49 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-8 flex justify-between">
-          <button
-            onClick={onBack}
-            disabled={!canGoBack}
-            className={`
-              flex items-center px-4 py-2 text-sm font-medium rounded-lg
-              ${canGoBack 
-                ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50' 
-                : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-              }
-            `}
-          >
-            <ChevronLeftIcon className="w-4 h-4 mr-1" />
-            Back
-          </button>
+        </div>
 
-          <div className="flex gap-2">
+        {/* Fixed Action Buttons */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-4 z-50">
+          <div className="flex justify-between">
             <button
-              onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            
-            <button
-              onClick={onNext}
-              disabled={!isValid}
+              onClick={onBack}
+              disabled={!canGoBack}
               className={`
-                cursor-pointer flex items-center px-4 py-2 text-sm font-medium rounded-lg
-                ${isValid 
-                  ? 'text-white bg-blue-600 hover:bg-blue-700' 
+                flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                ${canGoBack
+                  ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
                   : 'text-gray-400 bg-gray-100 cursor-not-allowed'
                 }
               `}
             >
-              Continue
-              <ChevronRightIcon className="w-4 h-4 ml-1" />
+              <ChevronLeftIcon className="w-4 h-4 mr-1" />
+              Back
             </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={onNext}
+                disabled={!isValid}
+                className={`
+                  cursor-pointer flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                  ${isValid
+                    ? 'text-white bg-blue-600 hover:bg-blue-700'
+                    : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }
+                `}
+              >
+                Continue
+                <ChevronRightIcon className="w-4 h-4 ml-1" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

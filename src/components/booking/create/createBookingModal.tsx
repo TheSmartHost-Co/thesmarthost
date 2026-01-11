@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
+import SearchableSelect, { SearchableSelectOption } from '../../shared/SearchableSelect'
 import { createBooking } from '@/services/bookingService'
 import { getProperties } from '@/services/propertyService'
 import { CreateBookingPayload, Platform } from '@/services/types/booking'
@@ -66,6 +67,15 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
     { value: 'vrbo', label: 'VRBO' },
     { value: 'hostaway', label: 'Hostaway' },
   ]
+
+  // Transform properties into searchable select options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
 
   // Fetch properties when modal opens
   useEffect(() => {
@@ -255,28 +265,22 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
           {/* Property Selection */}
           <div>
             <label className="block text-sm font-medium mb-1">Property *</label>
-            {loadingProperties ? (
-              <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
-                Loading properties...
-              </div>
-            ) : properties.length === 0 ? (
+            {properties.length === 0 && !loadingProperties ? (
               <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
                 No active properties available. Please create a property first.
               </div>
             ) : (
-              <select
+              <SearchableSelect
+                options={propertyOptions}
+                value={propertyId || null}
+                onChange={(val) => setPropertyId(val || '')}
+                placeholder="Search for a property..."
+                loading={loadingProperties}
+                loadingText="Loading properties..."
+                emptyText="No properties found"
                 required
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a property</option>
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.listingName} - {property.address}
-                  </option>
-                ))}
-              </select>
+                clearable={false}
+              />
             )}
           </div>
 

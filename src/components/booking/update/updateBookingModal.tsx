@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { updateBooking, formatPlatformName } from '@/services/bookingService'
 import { getProperties } from '@/services/propertyService'
 import { Booking, UpdateBookingPayload, Platform } from '@/services/types/booking'
@@ -54,6 +55,15 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Convert properties to SearchableSelect options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
 
   // Helper function to format date for HTML date input (YYYY-MM-DD)
   const formatDateForInput = (dateString: string): string => {
@@ -221,25 +231,16 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
             {/* Property */}
             <div>
               <label className="block text-sm font-medium mb-1">Property *</label>
-              {loadingProperties ? (
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-500">
-                  Loading properties...
-                </div>
-              ) : (
-                <select
-                  required
-                  value={propertyId}
-                  onChange={(e) => setPropertyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a property</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.listingName} - {property.address}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <SearchableSelect
+                options={propertyOptions}
+                value={propertyId}
+                onChange={(value) => setPropertyId(value || '')}
+                placeholder="Select a property..."
+                loading={loadingProperties}
+                loadingText="Loading properties..."
+                emptyText="No properties found"
+                clearable={false}
+              />
             </div>
 
             {/* Platform */}

@@ -1,25 +1,28 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
-import { ChevronRightIcon, ChevronLeftIcon, BookmarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, BookmarkIcon, Cog6ToothIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import FieldMappingForm from '@/components/csv-mapping/FieldMappingForm'
 import PropertyFieldMappingModal from '@/components/property-field-mapping/propertyFieldMappingModal'
+import GlobalFieldMappingModal from '@/components/global-field-mapping/GlobalFieldMappingModal'
 import { CsvData, FieldMapping } from '@/services/types/csvMapping'
 import { parseCsvFile } from '@/utils/csvParser'
 import { getCalculationRules } from '@/services/calculationRuleService'
 import { CalculationRule } from '@/services/types/calculationRule'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { 
-  getDefaultPropertyFieldMapping,
+import {
   getPropertyFieldMappings,
   createPropertyFieldMapping,
   platformFieldMappingsToFieldMappings,
   fieldMappingsToPlatformFieldMappings,
-  updatePropertyFieldMapping
+  updatePropertyFieldMapping,
+  getGlobalFieldMappings,
+  createGlobalFieldMapping,
+  updateGlobalFieldMapping
 } from '@/services/propertyFieldMappingService'
-import type { PropertyFieldMappingTemplate } from '@/services/types/propertyFieldMapping'
+import type { PropertyFieldMappingTemplate, GlobalFieldMappingTemplate } from '@/services/types/propertyFieldMapping'
 import { 
   FieldMappingState, 
   FieldMappingMode, 
@@ -65,7 +68,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   )
   const [activePropertyTab, setActivePropertyTab] = useState<string | null>(null)
 
-  // Template management state
+  // Template management state (per-property)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [templateModalPropertyId, setTemplateModalPropertyId] = useState<string>('')
   const [templateModalPropertyName, setTemplateModalPropertyName] = useState<string>('')
@@ -73,6 +76,13 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   const [availableTemplates, setAvailableTemplates] = useState<PropertyFieldMappingTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<PropertyFieldMappingTemplate | null>(null)
   const [selectedTemplatesByProperty, setSelectedTemplatesByProperty] = useState<Record<string, PropertyFieldMappingTemplate | null>>({})
+
+  // Global template management state
+  const [showGlobalTemplateModal, setShowGlobalTemplateModal] = useState(false)
+  const [loadingGlobalTemplate, setLoadingGlobalTemplate] = useState(false)
+  const [availableGlobalTemplates, setAvailableGlobalTemplates] = useState<GlobalFieldMappingTemplate[]>([])
+  const [selectedGlobalTemplate, setSelectedGlobalTemplate] = useState<GlobalFieldMappingTemplate | null>(null)
+  const hasLoadedGlobalDefault = useRef(false)
 
   // Field mappings state - separated by mode
   const [globalMappings, setGlobalMappings] = useState<FieldMapping[]>(
@@ -99,7 +109,6 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   // Set initial active tab
   useEffect(() => {
     if (mappingMode === 'per-property' && properties.length > 0 && !activePropertyTab) {
-      console.log('🏠 Setting initial active tab:', properties[0].id)
       setActivePropertyTab(properties[0].id)
     }
   }, [mappingMode, properties, activePropertyTab])
@@ -140,6 +149,55 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
     loadTemplatesForProperty()
   }, [mappingMode, activePropertyTab])
+
+  // Load global templates and auto-load default when in global mode
+  useEffect(() => {
+    const loadGlobalTemplates = async () => {
+      if (mappingMode === 'global' && user?.id) {
+        try {
+          setLoadingGlobalTemplate(true)
+          const response = await getGlobalFieldMappings(user.id)
+          if (response.status === 'success') {
+            setAvailableGlobalTemplates(response.data)
+
+            // Auto-load default global template if exists and no mappings yet
+            const defaultTemplate = response.data.find(t => t.isDefault)
+            if (defaultTemplate && globalMappings.length === 0 && !hasLoadedGlobalDefault.current) {
+              hasLoadedGlobalDefault.current = true
+              loadGlobalTemplate(defaultTemplate)
+            }
+          }
+        } catch (error) {
+          console.error('Error loading global templates:', error)
+        } finally {
+          setLoadingGlobalTemplate(false)
+        }
+      }
+    }
+
+    loadGlobalTemplates()
+  }, [mappingMode, user?.id])
+
+  // Load a global template into the global mappings
+  const loadGlobalTemplate = useCallback((template: GlobalFieldMappingTemplate, showConfirm = false) => {
+    // Show confirmation if there are existing mappings and showConfirm is true
+    if (showConfirm && globalMappings.length > 0) {
+      const confirmMessage = `Loading template "${template.mappingName}" will replace your current field mappings. Continue?`
+      if (!confirm(confirmMessage)) {
+        return
+      }
+    }
+
+    try {
+      const fieldMappings = platformFieldMappingsToFieldMappings(template.fieldMappings)
+      setGlobalMappings(fieldMappings)
+      setSelectedGlobalTemplate(template)
+      showNotification(`Loaded global template: ${template.mappingName}`, 'success')
+    } catch (error) {
+      console.error('Error loading global template:', error)
+      showNotification('Failed to load global template', 'error')
+    }
+  }, [globalMappings.length, showNotification])
 
   // Auto-load default template for property
   const loadTemplateToProperty = useCallback((template: PropertyFieldMappingTemplate, propertyId: string) => {
@@ -240,9 +298,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
   // Update field mappings
   const handleFieldMappingsUpdate = useCallback((mappings: FieldMapping[]) => {
-    
     if (mappingMode === 'global') {
-      console.log('💾 Saving to global mappings')
       setGlobalMappings(mappings)
     } else if (activePropertyTab) {
       setPropertyMappings(prev => {
@@ -394,6 +450,101 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     loadTemplateToProperty(template, propertyId)
   }, [loadTemplateToProperty])
 
+  // Global template handlers
+  const handleOpenGlobalTemplateModal = useCallback(() => {
+    setShowGlobalTemplateModal(true)
+  }, [])
+
+  const handleGlobalTemplateChange = useCallback((template: GlobalFieldMappingTemplate | null) => {
+    if (template) {
+      loadGlobalTemplate(template, true) // Show confirmation before overwriting
+    }
+    setShowGlobalTemplateModal(false)
+  }, [loadGlobalTemplate])
+
+  const handleSaveAsGlobalTemplate = useCallback(async () => {
+    if (!user?.id) {
+      showNotification('User profile not found', 'error')
+      return
+    }
+
+    if (globalMappings.length === 0) {
+      showNotification('No field mappings to save', 'error')
+      return
+    }
+
+    const templateName = prompt('Enter a name for this global template:')
+    if (!templateName?.trim()) {
+      return
+    }
+
+    try {
+      setLoadingGlobalTemplate(true)
+      const platformMappings = fieldMappingsToPlatformFieldMappings(globalMappings)
+
+      const response = await createGlobalFieldMapping({
+        userId: user.id,
+        mappingName: templateName.trim(),
+        fieldMappings: platformMappings,
+        isDefault: availableGlobalTemplates.length === 0 // Set as default if it's the first template
+      })
+
+      if (response.status === 'success') {
+        showNotification(`Global template "${templateName}" saved successfully`, 'success')
+        setAvailableGlobalTemplates(prev => [...prev, response.data])
+        setSelectedGlobalTemplate(response.data)
+      } else {
+        showNotification(response.message || 'Failed to save global template', 'error')
+      }
+    } catch (error) {
+      console.error('Error saving global template:', error)
+      showNotification('Failed to save global template', 'error')
+    } finally {
+      setLoadingGlobalTemplate(false)
+    }
+  }, [user, globalMappings, availableGlobalTemplates, showNotification])
+
+  const handleUpdateGlobalTemplate = useCallback(async () => {
+    if (!user?.id || !selectedGlobalTemplate) {
+      showNotification('No template selected to update', 'error')
+      return
+    }
+
+    if (globalMappings.length === 0) {
+      showNotification('No field mappings to save', 'error')
+      return
+    }
+
+    const confirmMessage = `Update template "${selectedGlobalTemplate.mappingName}" with current field mappings?`
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      setLoadingGlobalTemplate(true)
+      const platformMappings = fieldMappingsToPlatformFieldMappings(globalMappings)
+
+      const response = await updateGlobalFieldMapping(selectedGlobalTemplate.id, {
+        fieldMappings: platformMappings
+      })
+
+      if (response.status === 'success') {
+        showNotification(`Global template "${selectedGlobalTemplate.mappingName}" updated successfully`, 'success')
+        setAvailableGlobalTemplates(prev => prev.map(t =>
+          t.id === selectedGlobalTemplate.id ? response.data : t
+        ))
+        setSelectedGlobalTemplate(response.data)
+      } else {
+        showNotification(response.message || 'Failed to update global template', 'error')
+      }
+    } catch (error) {
+      console.error('Error updating global template:', error)
+      showNotification('Failed to update global template', 'error')
+    } finally {
+      setLoadingGlobalTemplate(false)
+    }
+  }, [user, globalMappings, selectedGlobalTemplate, showNotification])
+
   // Validation
   const isValid = useMemo(() => {
     if (mappingMode === 'global') {
@@ -462,10 +613,13 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   }
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Field Mapping</h2>
+    <>
+      <div className="flex flex-col h-full">
+        {/* Scrollable Content - with bottom padding for fixed footer */}
+        <div className="flex-1 overflow-auto p-8 pb-24">
+        {/* Header */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Field Mapping</h2>
         <p className="text-gray-600">
           Map CSV columns to booking fields and configure calculation formulas
         </p>
@@ -529,6 +683,90 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           )}
         </div>
       </div>
+
+      {/* Global Template Management (Global Mode) */}
+      {mappingMode === 'global' && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <GlobeAltIcon className="h-5 w-5 text-blue-600" />
+              <h4 className="text-sm font-medium text-gray-900">Global Field Mapping Templates</h4>
+
+              {loadingGlobalTemplate ? (
+                <div className="flex items-center text-sm text-gray-600">
+                  <ArrowPathIcon className="h-4 w-4 animate-spin mr-2" />
+                  Loading templates...
+                </div>
+              ) : availableGlobalTemplates.length > 0 ? (
+                <div className="text-sm text-gray-600">
+                  {availableGlobalTemplates.length} template{availableGlobalTemplates.length !== 1 ? 's' : ''} available
+                  {selectedGlobalTemplate && (
+                    <span className="ml-2 text-blue-600">
+                      • Using: {selectedGlobalTemplate.mappingName}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">No global templates yet</div>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {availableGlobalTemplates.length > 0 && (
+                <select
+                  value={selectedGlobalTemplate?.id || ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const template = availableGlobalTemplates.find(t => t.id === e.target.value)
+                      if (template) {
+                        loadGlobalTemplate(template, true)
+                      }
+                    }
+                  }}
+                  className="text-black text-sm border border-gray-300 rounded px-3 py-1"
+                  disabled={loadingGlobalTemplate}
+                >
+                  <option value="">Select template...</option>
+                  {availableGlobalTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.mappingName} {template.isDefault ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {selectedGlobalTemplate && (
+                <button
+                  onClick={handleUpdateGlobalTemplate}
+                  disabled={loadingGlobalTemplate || globalMappings.length === 0}
+                  className="cursor-pointer text-sm text-green-600 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <BookmarkIcon className="h-4 w-4 mr-1" />
+                  Update Template
+                </button>
+              )}
+
+              <button
+                onClick={handleSaveAsGlobalTemplate}
+                disabled={loadingGlobalTemplate || globalMappings.length === 0}
+                className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                <BookmarkIcon className="h-4 w-4 mr-1" />
+                Save as New Template
+              </button>
+
+              <button
+                onClick={handleOpenGlobalTemplateModal}
+                disabled={loadingGlobalTemplate}
+                className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                <Cog6ToothIcon className="h-4 w-4 mr-1" />
+                Manage Templates
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Property Tabs (Per-Property Mode) */}
       {mappingMode === 'per-property' && (
@@ -687,7 +925,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           <div className="flex items-center text-red-600">
             <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
             <span className="text-sm font-medium">
-              {mappingMode === 'global' 
+              {mappingMode === 'global'
                 ? 'Please map at least one field'
                 : 'Please ensure all properties have field mappings'
               }
@@ -695,50 +933,54 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           </div>
         )}
       </div>
+        </div>
 
-      {/* Actions */}
-      <div className="flex justify-between">
-        <button
-          onClick={onBack}
-          disabled={!canGoBack}
-          className={`
-            flex items-center px-4 py-2 text-sm font-medium rounded-lg
-            ${canGoBack 
-              ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50' 
-              : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-            }
-          `}
-        >
-          <ChevronLeftIcon className="w-4 h-4 mr-1" />
-          Back
-        </button>
+        {/* Fixed Action Buttons */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-4 z-50">
+          <div className="flex justify-between">
+            <button
+              onClick={onBack}
+              disabled={!canGoBack}
+              className={`
+                flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                ${canGoBack
+                  ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                }
+              `}
+            >
+              <ChevronLeftIcon className="w-4 h-4 mr-1" />
+              Back
+            </button>
 
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          
-          <button
-            onClick={onNext}
-            disabled={!isValid}
-            className={`
-              flex items-center px-4 py-2 text-sm font-medium rounded-lg
-              ${isValid 
-                ? 'text-white bg-blue-600 hover:bg-blue-700' 
-                : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-              }
-            `}
-          >
-            Continue
-            <ChevronRightIcon className="w-4 h-4 ml-1" />
-          </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={onNext}
+                disabled={!isValid}
+                className={`
+                  flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                  ${isValid
+                    ? 'text-white bg-blue-600 hover:bg-blue-700'
+                    : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }
+                `}
+              >
+                Continue
+                <ChevronRightIcon className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Template Management Modal */}
+      {/* Template Management Modal (Per-Property) */}
       <PropertyFieldMappingModal
         isOpen={showTemplateModal}
         onClose={() => setShowTemplateModal(false)}
@@ -747,7 +989,16 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
         onTemplateChange={handleTemplateSelect}
         initialTemplate={selectedTemplate}
       />
-    </div>
+
+      {/* Global Template Management Modal */}
+      <GlobalFieldMappingModal
+        isOpen={showGlobalTemplateModal}
+        onClose={() => setShowGlobalTemplateModal(false)}
+        onTemplateChange={handleGlobalTemplateChange}
+        initialTemplate={selectedGlobalTemplate}
+        availableProperties={properties}
+      />
+    </>
   )
 }
 

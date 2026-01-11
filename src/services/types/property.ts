@@ -29,6 +29,7 @@ export interface Property {
   province: string
   propertyType: 'STR' | 'LTR'
   commissionRate?: number // Optional - can be null
+  registrationNumber?: string // Quebec CITQ registration number (required for QC properties)
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -84,6 +85,7 @@ export interface CreatePropertyPayload {
   province?: string // Optional province
   propertyType: 'STR' | 'LTR'
   commissionRate?: number // Optional commission rate
+  registrationNumber?: string // Quebec CITQ registration number
   commissionRateOverride?: number // Optional override for first owner
 }
 
@@ -102,6 +104,7 @@ export interface UpdatePropertyPayload {
   province?: string | null
   propertyType?: 'STR' | 'LTR'
   commissionRate?: number | null
+  registrationNumber?: string | null // Quebec CITQ registration number
   owners?: UpdatePropertyOwner[]
 }
 
@@ -181,6 +184,7 @@ export interface BulkImportPropertyPayload {
   internalName?: string
   postalCode?: string
   commissionRate?: number
+  registrationNumber?: string // Quebec CITQ registration number
   description?: string
 }
 

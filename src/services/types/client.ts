@@ -39,6 +39,7 @@ export interface CreateClientPayload {
   billingAddress?: string;
   pms?: string;
   agreementFilePath?: string;
+  status?: string;
   statusId?: string;
 }
 

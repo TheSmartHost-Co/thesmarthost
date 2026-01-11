@@ -13,6 +13,7 @@ import type {
   CreateExpenseCategoryPayload,
   UpdateExpenseCategoryPayload
 } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
@@ -186,10 +187,48 @@ const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Categories list */}
+          {/* Default Categories (read-only) */}
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-medium text-black">Current Categories</h3>
+              <h3 className="text-lg font-medium text-black">Default Categories</h3>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Always available</span>
+            </div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-y-auto max-h-48">
+                <table className="w-full">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Label</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {DEFAULT_EXPENSE_CATEGORIES.map((category) => (
+                      <tr key={category.code} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm font-mono text-gray-900">{category.code}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{category.label}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm">
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className="w-5 h-5 rounded border border-gray-300"
+                              style={{ backgroundColor: category.colorHex }}
+                            ></div>
+                            <span className="text-gray-500 text-xs">{category.colorHex}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Categories list */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium text-black">Custom Categories</h3>
               <button
                 onClick={handleCreateNew}
                 className="cursor-pointer flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -260,7 +299,7 @@ const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
                     {categories.length === 0 && (
                       <tr>
                         <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                          No expense categories found. Create your first category to get started.
+                          No custom categories yet. Default categories are always available. Add a custom category if you need something specific.
                         </td>
                       </tr>
                     )}

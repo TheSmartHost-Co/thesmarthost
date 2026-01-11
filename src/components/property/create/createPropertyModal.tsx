@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { createProperty } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
 import { CreatePropertyPayload } from '@/services/types/property'
@@ -29,13 +30,29 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [province, setProvince] = useState('')
   const [propertyType, setPropertyType] = useState<'STR' | 'LTR'>('STR')
   const [commissionRate, setCommissionRate] = useState('')
+  const [registrationNumber, setRegistrationNumber] = useState('')
   const [clientId, setClientId] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Helper to check if province is Quebec
+  const isQuebecProperty = () => {
+    const normalizedProvince = province.toLowerCase().trim()
+    return normalizedProvince === 'quebec' || normalizedProvince === 'qc' || normalizedProvince === 'québec'
+  }
+
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Convert clients to SearchableSelect options
+  const clientOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return clients.map(client => ({
+      value: client.id,
+      label: client.name,
+      secondaryLabel: client.email || undefined,
+    }))
+  }, [clients])
 
   // Fetch clients when modal opens
   useEffect(() => {
@@ -69,6 +86,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       setProvince('')
       setPropertyType('STR')
       setCommissionRate('')
+      setRegistrationNumber('')
       setClientId('')
     }
   }, [isOpen])
@@ -83,6 +101,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     const trimmedAddress = address.trim()
     const trimmedPostalCode = postalCode.trim()
     const trimmedProvince = province.trim()
+    const trimmedRegistrationNumber = registrationNumber.trim()
     const parsedCommissionRate = parseFloat(commissionRate)
 
     // Validation - only address is strictly required, others make property "incomplete"
@@ -113,6 +132,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         ...(trimmedProvince && { province: trimmedProvince }),
         ...(trimmedExternalName && { externalName: trimmedExternalName }),
         ...(trimmedInternalName && { internalName: trimmedInternalName }),
+        ...(trimmedRegistrationNumber && { registrationNumber: trimmedRegistrationNumber }),
       }
 
       const res = await createProperty(payload)
@@ -235,6 +255,26 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
           </div>
         </div>
 
+        {/* Quebec Registration Number - Only shown for Quebec properties */}
+        {isQuebecProperty() && (
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              CITQ Registration Number
+              <span className="text-gray-500 font-normal ml-1">(Quebec requirement)</span>
+            </label>
+            <input
+              type="text"
+              value={registrationNumber}
+              onChange={(e) => setRegistrationNumber(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="e.g., 123456"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Required for Quebec short-term rentals. Issued by Corporation de l&apos;industrie touristique du Québec.
+            </p>
+          </div>
+        )}
+
         {/* Commission Rate */}
         <div>
           <label className="block text-sm font-medium mb-1">Commission Rate (%)</label>
@@ -251,28 +291,21 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         {/* Property Owner */}
         <div>
           <label className="block text-sm font-medium mb-1">Property Owner</label>
-          {loadingClients ? (
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              Loading clients...
-            </div>
-          ) : clients.length === 0 ? (
+          {clients.length === 0 && !loadingClients ? (
             <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
               No active clients available. You can assign a client later.
             </div>
           ) : (
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select a client (optional)</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} {client.email ? `(${client.email})` : ''}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={clientOptions}
+              value={clientId || null}
+              onChange={(value) => setClientId(value || '')}
+              placeholder="Select a client (optional)"
+              loading={loadingClients}
+              loadingText="Loading clients..."
+              emptyText="No clients found"
+              clearable={true}
+            />
           )}
           <p className="text-xs text-gray-500 mt-1">
             This client will be the primary owner. You can assign or change owners later.

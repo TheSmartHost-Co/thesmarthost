@@ -73,7 +73,7 @@ export interface Expense {
   expenseDate: string
   amount: number
   currency: string
-  category: string
+  category?: string
   vendorName?: string
   description?: string
   receiptPath?: string
@@ -108,7 +108,7 @@ export interface CreateExpensePayload {
   expenseDate: string
   amount: number
   currency?: string
-  category: string
+  category?: string
   vendorName?: string
   description?: string
   receipt?: File
@@ -139,7 +139,7 @@ export interface UpdateExpensePayload {
   expenseDate: string
   amount: number
   currency?: string
-  category: string
+  category?: string
   vendorName?: string
   description?: string
   isReimbursable?: boolean
@@ -175,7 +175,7 @@ export interface ExpenseFilters {
  * Expense summary by category
  */
 export interface ExpenseSummaryByCategory {
-  category: string
+  category?: string
   expenseCount: number
   totalAmount: number
   reimbursableAmount: number

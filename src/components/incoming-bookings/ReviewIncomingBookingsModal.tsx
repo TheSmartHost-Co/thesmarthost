@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -12,10 +12,11 @@ import type { IncomingBooking, UpdateIncomingBookingMappingPayload, FieldChange 
 import type { Property } from '@/services/types/property'
 import type { Client } from '@/services/types/client'
 import type { Platform } from '@/services/types/propertyWebhookMapping'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import WebhookFieldMappingForm from '@/components/webhook-mapping/WebhookFieldMappingForm'
-import { 
-  XMarkIcon, 
-  ChevronDownIcon, 
+import {
+  XMarkIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   EyeIcon,
   MapIcon,
@@ -60,6 +61,32 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+
+  // Convert properties to SearchableSelect options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
+
+  // Convert clients to SearchableSelect options (from selected property owners or all clients)
+  const clientOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    const selectedProperty = properties.find(p => p.id === selectedPropertyId)
+    if (selectedProperty?.owners && selectedProperty.owners.length > 0) {
+      return selectedProperty.owners.map(owner => ({
+        value: owner.clientId,
+        label: owner.clientName,
+        secondaryLabel: owner.isPrimary ? 'Primary Owner' : undefined,
+      }))
+    }
+    return clients.map(client => ({
+      value: client.id,
+      label: client.name,
+      secondaryLabel: client.email || undefined,
+    }))
+  }, [properties, clients, selectedPropertyId])
 
   useEffect(() => {
     if (isOpen) {
@@ -486,18 +513,13 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Property
                   </label>
-                  <select
-                    value={selectedPropertyId}
-                    onChange={(e) => setSelectedPropertyId(e.target.value)}
-                    className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Property</option>
-                    {properties.map((property) => (
-                      <option key={property.id} value={property.id}>
-                        {property.listingName} - {property.address}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    options={propertyOptions}
+                    value={selectedPropertyId || null}
+                    onChange={(value) => setSelectedPropertyId(value || '')}
+                    placeholder="Select Property..."
+                    emptyText="No properties found"
+                  />
                   {currentBooking.listingName && (
                     <p className="text-xs text-gray-500 mt-1">
                       From webhook: {currentBooking.listingName}
@@ -509,22 +531,14 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Client (Property Owner) - Optional
                   </label>
-                  <select
-                    value={selectedClientId}
-                    onChange={(e) => setSelectedClientId(e.target.value)}
-                    className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Auto-select primary owner</option>
-                    {selectedProperty?.owners.map((owner) => (
-                      <option key={owner.clientId} value={owner.clientId}>
-                        {owner.clientName} {owner.isPrimary ? '(Primary)' : ''}
-                      </option>
-                    )) || clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    options={clientOptions}
+                    value={selectedClientId || null}
+                    onChange={(value) => setSelectedClientId(value || '')}
+                    placeholder="Auto-select primary owner"
+                    emptyText="No clients found"
+                    clearable={true}
+                  />
                 </div>
               </div>
             </div>

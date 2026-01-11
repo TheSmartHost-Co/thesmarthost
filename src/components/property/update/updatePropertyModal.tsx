@@ -29,11 +29,18 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [externalName, setExternalName] = useState(property.externalName || '')
   const [internalName, setInternalName] = useState(property.internalName || '')
   const [address, setAddress] = useState(property.address)
-  const [postalCode, setPostalCode] = useState(property.postalCode)
-  const [province, setProvince] = useState(property.province)
+  const [postalCode, setPostalCode] = useState(property.postalCode || '')
+  const [province, setProvince] = useState(property.province || '')
   const [propertyType, setPropertyType] = useState<'STR' | 'LTR'>(property.propertyType)
   const [commissionRate, setCommissionRate] = useState(property.commissionRate?.toString() ?? '')
+  const [registrationNumber, setRegistrationNumber] = useState(property.registrationNumber || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Helper to check if province is Quebec
+  const isQuebecProperty = () => {
+    const normalizedProvince = province.toLowerCase().trim()
+    return normalizedProvince === 'quebec' || normalizedProvince === 'qc' || normalizedProvince === 'québec'
+  }
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -45,10 +52,11 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setExternalName(property.externalName || '')
       setInternalName(property.internalName || '')
       setAddress(property.address)
-      setPostalCode(property.postalCode)
-      setProvince(property.province)
+      setPostalCode(property.postalCode || '')
+      setProvince(property.province || '')
       setPropertyType(property.propertyType)
       setCommissionRate(property.commissionRate?.toString() ?? '')
+      setRegistrationNumber(property.registrationNumber || '')
     }
   }, [isOpen, property])
 
@@ -62,6 +70,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     const trimmedAddress = address.trim()
     const trimmedPostalCode = postalCode.trim()
     const trimmedProvince = province.trim()
+    const trimmedRegistrationNumber = registrationNumber.trim()
     const parsedCommissionRate = commissionRate ? parseFloat(commissionRate) : undefined
 
     // Validation - only address is strictly required
@@ -92,6 +101,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         province: trimmedProvince || null,
         externalName: trimmedExternalName || null,
         internalName: trimmedInternalName || null,
+        registrationNumber: trimmedRegistrationNumber || null,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -294,6 +304,26 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Quebec Registration Number - Only shown for Quebec properties */}
+          {isQuebecProperty() && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CITQ Registration Number
+                <span className="text-gray-500 font-normal ml-1">(Quebec requirement)</span>
+              </label>
+              <input
+                type="text"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                placeholder="e.g., 123456"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Required for Quebec short-term rentals. Issued by Corporation de l&apos;industrie touristique du Québec.
+              </p>
+            </div>
+          )}
 
           {/* Incomplete Property Notice */}
           {(!listingName.trim() || !listingId.trim() || property.owners.length === 0) && (

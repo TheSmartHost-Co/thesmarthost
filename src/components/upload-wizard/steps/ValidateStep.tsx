@@ -253,7 +253,9 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex flex-col h-full">
+      {/* Scrollable Content - with bottom padding for fixed footer */}
+      <div className="flex-1 overflow-auto p-6 pb-24 space-y-6">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Field Mapping</h2>
@@ -312,36 +314,40 @@ const ValidateStep: React.FC<ValidateStepProps> = ({
         }}
       />
 
-      {/* Action Buttons */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
-        <button
-          onClick={onBack}
-          disabled={!canGoBack}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Back
-        </button>
-        
-        <div className="flex items-center space-x-3">
-          {isValidMappings ? (
-            <div className="flex items-center text-green-600">
-              <CheckCircleIcon className="h-5 w-5 mr-2" />
-              <span className="text-sm font-medium">All required fields mapped</span>
-            </div>
-          ) : (
-            <div className="flex items-center text-yellow-600">
-              <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-              <span className="text-sm font-medium">Map required fields to continue</span>
-            </div>
-          )}
-          
+      </div>
+
+      {/* Fixed Action Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-50">
+        <div className="flex justify-between">
           <button
-            onClick={onNext}
-            disabled={!canGoNext || !isValidMappings}
-            className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onClick={onBack}
+            disabled={!canGoBack}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Continue
+            Back
           </button>
+
+          <div className="flex items-center space-x-3">
+            {isValidMappings ? (
+              <div className="flex items-center text-green-600">
+                <CheckCircleIcon className="h-5 w-5 mr-2" />
+                <span className="text-sm font-medium">All required fields mapped</span>
+              </div>
+            ) : (
+              <div className="flex items-center text-yellow-600">
+                <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
+                <span className="text-sm font-medium">Map required fields to continue</span>
+              </div>
+            )}
+
+            <button
+              onClick={onNext}
+              disabled={!canGoNext || !isValidMappings}
+              className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -23,6 +23,7 @@ import type {
   PaymentStatus
 } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -195,7 +196,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setExpenseDate(exp.expenseDate.split('T')[0])
     setAmount(exp.amount.toString())
     setCurrency(exp.currency)
-    setCategory(exp.category)
+    setCategory(exp.category || '')
     setVendorName(exp.vendorName || '')
     setDescription(exp.description || '')
     setIsReimbursable(exp.isReimbursable)
@@ -266,7 +267,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         expenseDate,
         amount: parsedAmount,
         currency,
-        category,
+        category: category || undefined,
         vendorName: vendorName.trim() || undefined,
         description: description.trim() || undefined,
         isReimbursable,
@@ -400,14 +401,16 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     }
   }
 
-  const getCategoryLabel = (code: string) => {
-    const cat = categories.find(c => c.code === code)
-    return cat?.label || code
+  const getCategoryLabel = (code: string | undefined) => {
+    if (!code) return null
+    const catInfo = getCategoryByCode(code, categories)
+    return catInfo?.label || code
   }
 
-  const getCategoryColor = (code: string) => {
-    const cat = categories.find(c => c.code === code)
-    return cat?.colorHex || '#6B7280'
+  const getCategoryColor = (code: string | undefined) => {
+    if (!code) return '#6B7280'
+    const catInfo = getCategoryByCode(code, categories)
+    return catInfo?.colorHex || '#6B7280'
   }
 
   const getPaymentStatusBadge = (status: PaymentStatus) => {
@@ -431,15 +434,21 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-3">
-              <span
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-                style={{
-                  backgroundColor: getCategoryColor(expense.category) + '20',
-                  color: getCategoryColor(expense.category)
-                }}
-              >
-                {getCategoryLabel(expense.category)}
-              </span>
+              {expense.category ? (
+                <span
+                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                  style={{
+                    backgroundColor: getCategoryColor(expense.category) + '20',
+                    color: getCategoryColor(expense.category)
+                  }}
+                >
+                  {getCategoryLabel(expense.category)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
+                  Needs Category
+                </span>
+              )}
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusBadge(expense.paymentStatus)}`}>
                 {PAYMENT_STATUSES.find(s => s.value === expense.paymentStatus)?.label}
               </span>
@@ -715,18 +724,29 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Category *</label>
+            <label className="block text-sm font-medium mb-1">Category</label>
             <select
-              required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.code}>{cat.label}</option>
-              ))}
+              <option value="">No category (incomplete)</option>
+              <optgroup label="Default Categories">
+                {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
+                  <option key={cat.code} value={cat.code}>{cat.label}</option>
+                ))}
+              </optgroup>
+              {categories.length > 0 && (
+                <optgroup label="Custom Categories">
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.code}>{cat.label}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
+            {!category && (
+              <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>
+            )}
           </div>
         </div>
 

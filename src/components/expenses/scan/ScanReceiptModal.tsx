@@ -7,6 +7,7 @@ import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import type { OcrReceiptData, PaymentMethod, CreateExpensePayload } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
@@ -219,10 +220,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
       return
     }
 
-    if (!category) {
-      showNotification('Please select a category', 'error')
-      return
-    }
+    // Category is optional - expenses without category will be flagged as incomplete
 
     if (!expenseDate) {
       showNotification('Please enter a date', 'error')
@@ -238,7 +236,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
         expenseDate,
         amount: parsedAmount,
         currency: 'CAD',
-        category,
+        category: category || undefined,
         vendorName: vendorName.trim() || undefined,
         description: description.trim() || undefined,
         receipt: selectedFile || undefined,
@@ -565,18 +563,29 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
       {/* Category and Property */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Category *</label>
+          <label className="block text-sm font-medium mb-1">Category</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            required
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Select category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.code}>{cat.label}</option>
-            ))}
+            <option value="">No category (incomplete)</option>
+            <optgroup label="Default Categories">
+              {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
+                <option key={cat.code} value={cat.code}>{cat.label}</option>
+              ))}
+            </optgroup>
+            {categories.length > 0 && (
+              <optgroup label="Custom Categories">
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.code}>{cat.label}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
+          {!category && (
+            <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>
+          )}
         </div>
 
         <div>

@@ -382,11 +382,48 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         continue
       }
 
+      // Sort mappings to handle dependencies (process CSV columns first, then calculated fields)
+      const sortedMappings = [...applicableFieldMappings].sort((a, b) => {
+        const aIsDirect = csvData.headers.some(h => h.name.toLowerCase() === a.csvFormula?.toLowerCase())
+        const bIsDirect = csvData.headers.some(h => h.name.toLowerCase() === b.csvFormula?.toLowerCase())
+
+        if (aIsDirect && !bIsDirect) return -1
+        if (!aIsDirect && bIsDirect) return 1
+        return 0
+      })
+
       // Apply field mappings to create booking object
-      applicableFieldMappings.forEach(mapping => {
+      sortedMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
-          const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
-          booking[mapping.bookingField] = result
+          // Check if this is a simple CSV column reference
+          const isSimpleColumn = csvData.headers.some(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
+
+          if (isSimpleColumn) {
+            // Simple column mapping - use original CSV data
+            const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
+            booking[mapping.bookingField] = result
+          } else {
+            // Complex formula - create extended headers that include already calculated booking fields
+            const extendedHeaders = [
+              ...csvData.headers,
+              ...Object.keys(booking).filter(k => k !== 'rowIndex').map((field, index) => ({
+                name: field,
+                index: csvData.headers.length + index
+              }))
+            ]
+
+            // Create extended row that includes both CSV values and calculated values
+            const extendedRow = [
+              ...row,
+              ...Object.keys(booking).filter(k => k !== 'rowIndex').map(field => {
+                const value = booking[field]
+                return String(value ?? '0')
+              })
+            ]
+
+            const result = evaluateFormula(mapping.csvFormula, extendedRow, extendedHeaders)
+            booking[mapping.bookingField] = result
+          }
         }
       })
 
@@ -846,7 +883,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const hasValidMappings = missingRequired.length === 0
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex flex-col h-full">
+      {/* Scrollable Content - with bottom padding for fixed footer */}
+      <div className="flex-1 overflow-auto p-6 pb-24 space-y-6">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center">
@@ -1122,42 +1161,46 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
-        <button
-          onClick={onBack}
-          disabled={!canGoBack || isConfirming}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Back to Field Mapping
-        </button>
-        
-        <div className="flex items-center space-x-3">
-          {hasValidMappings && (
-            <div className="text-sm text-gray-600">
-              Ready to import {bookingPreviews.length} bookings
-            </div>
-          )}
-          
+      </div>
+
+      {/* Fixed Action Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-50">
+        <div className="flex justify-between">
           <button
-            onClick={handleConfirmValues}
-            disabled={!canGoNext || !hasValidMappings || isConfirming}
-            className="cursor-pointer px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+            onClick={onBack}
+            disabled={!canGoBack || isConfirming}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isConfirming ? (
-              <>
-                <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
-                Confirming...
-              </>
-            ) : hasValidMappings ? (
-              <>
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                Confirm & Import
-              </>
-            ) : (
-              'Fix Required Fields First'
-            )}
+            Back to Field Mapping
           </button>
+
+          <div className="flex items-center space-x-3">
+            {hasValidMappings && (
+              <div className="text-sm text-gray-600">
+                Ready to import {bookingPreviews.length} bookings
+              </div>
+            )}
+
+            <button
+              onClick={handleConfirmValues}
+              disabled={!canGoNext || !hasValidMappings || isConfirming}
+              className="cursor-pointer px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+            >
+              {isConfirming ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                  Confirming...
+                </>
+              ) : hasValidMappings ? (
+                <>
+                  <CheckCircleIcon className="h-4 w-4 mr-2" />
+                  Confirm & Import
+                </>
+              ) : (
+                'Fix Required Fields First'
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

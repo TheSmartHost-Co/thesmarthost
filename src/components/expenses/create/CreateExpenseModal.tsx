@@ -1,13 +1,15 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '@/components/shared/modal'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { createExpense } from '@/services/expenseService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
 import type { CreateExpensePayload, Expense, PaymentMethod, PaymentStatus } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -84,6 +86,24 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Convert properties to SearchableSelect options
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return properties.map(property => ({
+      value: property.id,
+      label: property.listingName || property.address,
+      secondaryLabel: property.listingName ? property.address : undefined,
+    }))
+  }, [properties])
+
+  // Convert bookings to SearchableSelect options
+  const bookingOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return bookings.map(booking => ({
+      value: booking.id,
+      label: booking.guestName,
+      secondaryLabel: new Date(booking.checkInDate).toLocaleDateString(),
+    }))
+  }, [bookings])
 
   // Load data on mount
   useEffect(() => {
@@ -238,10 +258,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       return
     }
 
-    if (!category) {
-      showNotification('Please select a category', 'error')
-      return
-    }
+    // Category is optional - expenses without category will be flagged as incomplete
 
     setSubmitting(true)
     try {
@@ -258,7 +275,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         expenseDate,
         amount: parsedAmount,
         currency,
-        category,
+        category: category || undefined,
         vendorName: vendorName.trim() || undefined,
         description: description.trim() || undefined,
         receipt: selectedFile || undefined,
@@ -290,8 +307,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   }
 
   const getCategoryColor = (categoryCode: string) => {
-    const cat = categories.find(c => c.code === categoryCode)
-    return cat?.colorHex || '#6B7280'
+    const catInfo = getCategoryByCode(categoryCode, categories)
+    return catInfo?.colorHex || '#6B7280'
   }
 
   return (
@@ -308,35 +325,27 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Property</label>
-              <select
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">No property (general expense)</option>
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.listingName}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                options={propertyOptions}
+                value={propertyId || null}
+                onChange={(value) => setPropertyId(value || '')}
+                placeholder="No property (general expense)"
+                emptyText="No properties found"
+                clearable={true}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Booking</label>
-              <select
-                value={bookingId}
-                onChange={(e) => setBookingId(e.target.value)}
+              <SearchableSelect
+                options={bookingOptions}
+                value={bookingId || null}
+                onChange={(value) => setBookingId(value || '')}
+                placeholder="No booking (property-level expense)"
+                emptyText="No bookings found"
                 disabled={!propertyId}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="">No booking (property-level expense)</option>
-                {bookings.map((booking) => (
-                  <option key={booking.id} value={booking.id}>
-                    {booking.guestName} - {new Date(booking.checkInDate).toLocaleDateString()}
-                  </option>
-                ))}
-              </select>
+                clearable={true}
+              />
               {!propertyId && (
                 <p className="mt-1 text-xs text-gray-500">Select a property first to attach to a booking</p>
               )}
@@ -381,9 +390,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Category *</label>
+              <label className="block text-sm font-medium mb-1">Category</label>
               <select
-                required
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -392,15 +400,26 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                   borderLeftColor: category ? getCategoryColor(category) : undefined
                 }}
               >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.code}>
-                    {cat.label} ({cat.code})
-                  </option>
-                ))}
+                <option value="">No category (incomplete)</option>
+                <optgroup label="Default Categories">
+                  {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
+                    <option key={cat.code} value={cat.code}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </optgroup>
+                {categories.length > 0 && (
+                  <optgroup label="Custom Categories">
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.code}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
-              {categories.length === 0 && (
-                <p className="mt-1 text-xs text-amber-600">No categories found. Create categories first.</p>
+              {!category && (
+                <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>
               )}
             </div>
           </div>

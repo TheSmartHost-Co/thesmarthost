@@ -24,6 +24,7 @@ import {
   ArrowDownIcon
 } from '@heroicons/react/24/outline'
 
+// Workflow status colors (pending, approved, rejected, imported, error)
 const statusColors = {
   pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
   approved: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
@@ -40,6 +41,27 @@ const statusIcons = {
   error: ExclamationCircleIcon
 }
 
+// PMS booking status colors (confirmed, cancelled, modified, new, etc.)
+const bookingStatusColors: Record<string, { bg: string; text: string }> = {
+  confirmed: { bg: 'bg-green-100', text: 'text-green-700' },
+  new: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  modified: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-700' },
+  canceled: { bg: 'bg-red-100', text: 'text-red-700' }, // alternate spelling
+  pending: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  inquiry: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  reserved: { bg: 'bg-teal-100', text: 'text-teal-700' },
+  awaiting_payment: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  checked_in: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  checked_out: { bg: 'bg-gray-100', text: 'text-gray-700' },
+}
+
+const getBookingStatusStyle = (bookingStatus: string | null) => {
+  if (!bookingStatus) return { bg: 'bg-gray-100', text: 'text-gray-600' }
+  const normalized = bookingStatus.toLowerCase().replace(/\s+/g, '_')
+  return bookingStatusColors[normalized] || { bg: 'bg-gray-100', text: 'text-gray-600' }
+}
+
 export default function IncomingBookingsPage() {
   const [bookings, setBookings] = useState<IncomingBooking[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,11 +71,16 @@ export default function IncomingBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<IncomingBooking | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('All Booking Statuses')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const filterPopoverRef = useRef<HTMLDivElement>(null)
+
+  // Bulk selection state
+  const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
+  const [isBulkApproving, setIsBulkApproving] = useState(false)
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -141,6 +168,85 @@ export default function IncomingBookingsPage() {
     setSelectedBooking(updatedBooking)
   }
 
+  // Bulk selection helpers
+  // Only pending bookings WITH a propertyId can be bulk approved
+  const getEligibleBookings = () => {
+    return filteredBookings.filter(b => b.status === 'pending' && b.propertyId)
+  }
+
+  const toggleBookingSelection = (bookingId: string) => {
+    setSelectedBookingIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(bookingId)) {
+        newSet.delete(bookingId)
+      } else {
+        newSet.add(bookingId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const eligible = getEligibleBookings()
+    const allSelected = eligible.every(b => selectedBookingIds.has(b.id))
+
+    if (allSelected) {
+      // Deselect all
+      setSelectedBookingIds(new Set())
+    } else {
+      // Select all eligible
+      setSelectedBookingIds(new Set(eligible.map(b => b.id)))
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedBookingIds(new Set())
+  }
+
+  const handleBulkApprove = async () => {
+    if (selectedBookingIds.size === 0) return
+
+    setIsBulkApproving(true)
+    const selectedIds = Array.from(selectedBookingIds)
+    let successCount = 0
+    let failCount = 0
+
+    // Process all selected bookings in parallel
+    const results = await Promise.allSettled(
+      selectedIds.map(async (bookingId) => {
+        const response = await updateIncomingBookingStatus(bookingId, { status: 'approved' })
+        if (response.status === 'success') {
+          return { success: true, bookingId }
+        } else {
+          throw new Error(response.message || 'Failed')
+        }
+      })
+    )
+
+    // Count successes and failures
+    results.forEach(result => {
+      if (result.status === 'fulfilled') {
+        successCount++
+      } else {
+        failCount++
+      }
+    })
+
+    // Show notification with results
+    if (failCount === 0) {
+      showNotification(`Successfully approved ${successCount} booking${successCount > 1 ? 's' : ''}`, 'success')
+    } else if (successCount === 0) {
+      showNotification(`Failed to approve ${failCount} booking${failCount > 1 ? 's' : ''}`, 'error')
+    } else {
+      showNotification(`Approved ${successCount}, failed ${failCount}`, 'info')
+    }
+
+    // Clear selection and refresh
+    clearSelection()
+    fetchIncomingBookings()
+    setIsBulkApproving(false)
+  }
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -182,7 +288,11 @@ export default function IncomingBookingsPage() {
         matchesDateRange = matchesDateRange && checkIn <= to
       }
 
-      return matchesSearch && matchesProperty && matchesDateRange
+      // PMS booking status filtering
+      const matchesBookingStatus = bookingStatusFilter === 'All Booking Statuses' ||
+        (booking.bookingStatus?.toLowerCase() === bookingStatusFilter.toLowerCase())
+
+      return matchesSearch && matchesProperty && matchesDateRange && matchesBookingStatus
     })
     .sort((a, b) => {
       // Sort by check-in date
@@ -200,9 +310,19 @@ export default function IncomingBookingsPage() {
 
   const propertyOptions = ['All Properties', ...uniqueProperties]
 
-  // Count active filters (excluding status which has its own dropdown)
+  // Booking status options for filter - derived from existing bookings
+  const uniqueBookingStatuses = Array.from(new Set(
+    bookings
+      .map(b => b.bookingStatus)
+      .filter((status): status is string => !!status && status.trim() !== '')
+  )).sort()
+
+  const bookingStatusOptions = ['All Booking Statuses', ...uniqueBookingStatuses]
+
+  // Count active filters (excluding workflow status which has its own dropdown)
   const activeFiltersCount = [
     propertyFilter !== 'All Properties',
+    bookingStatusFilter !== 'All Booking Statuses',
     dateFrom !== '',
     dateTo !== ''
   ].filter(Boolean).length
@@ -210,6 +330,7 @@ export default function IncomingBookingsPage() {
   // Clear all filters
   const clearAllFilters = () => {
     setPropertyFilter('All Properties')
+    setBookingStatusFilter('All Booking Statuses')
     setDateFrom('')
     setDateTo('')
   }
@@ -445,27 +566,48 @@ export default function IncomingBookingsPage() {
                       </select>
                     </div>
 
+                    {/* Booking Status Filter (PMS status) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Booking Status
+                      </label>
+                      <select
+                        value={bookingStatusFilter}
+                        onChange={(e) => setBookingStatusFilter(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all capitalize"
+                      >
+                        {bookingStatusOptions.map((status) => (
+                          <option key={status} value={status} className="capitalize">
+                            {status === 'All Booking Statuses' ? status : status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Date Range Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Check-in Date Range
                       </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
-                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                          placeholder="From"
-                        />
-                        <span className="text-gray-400">to</span>
-                        <input
-                          type="date"
-                          value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
-                          className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                          placeholder="To"
-                        />
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-xs text-gray-500 mb-1 block">From</span>
+                          <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-500 mb-1 block">To</span>
+                          <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -495,6 +637,31 @@ export default function IncomingBookingsPage() {
         transition={{ delay: 0.4 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
       >
+        {/* Bulk Selection Header */}
+        {getEligibleBookings().length > 0 && (
+          <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={getEligibleBookings().length > 0 && getEligibleBookings().every(b => selectedBookingIds.has(b.id))}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Select All Pending ({getEligibleBookings().length} eligible)
+              </span>
+            </label>
+            {selectedBookingIds.size > 0 && (
+              <button
+                onClick={clearSelection}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Clear selection
+              </button>
+            )}
+          </div>
+        )}
+
         {filteredBookings.length === 0 ? (
           <div className="text-center py-16 px-4">
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -515,6 +682,8 @@ export default function IncomingBookingsPage() {
             {filteredBookings.map((booking, index) => {
               const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
               const statusStyle = statusColors[booking.status as keyof typeof statusColors] || statusColors.pending
+              const isEligibleForBulk = booking.status === 'pending' && booking.propertyId
+              const isSelected = selectedBookingIds.has(booking.id)
 
               return (
                 <motion.div
@@ -522,11 +691,26 @@ export default function IncomingBookingsPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
-                  className="p-5 hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                  className={`p-5 hover:bg-blue-50/50 cursor-pointer transition-colors group ${isSelected ? 'bg-blue-50/70' : ''}`}
                   onClick={() => handleReviewBooking(booking)}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 min-w-0 flex-1">
+                      {/* Checkbox for eligible bookings */}
+                      {isEligibleForBulk && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleBookingSelection(booking.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                          />
+                        </div>
+                      )}
+                      {/* Placeholder for alignment when not eligible */}
+                      {!isEligibleForBulk && booking.status === 'pending' && (
+                        <div className="w-4" title="Assign a property to enable bulk approval" />
+                      )}
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
                         <CalendarDaysIcon className="h-6 w-6 text-white" />
                       </div>
@@ -536,10 +720,17 @@ export default function IncomingBookingsPage() {
                           <p className="text-sm font-semibold text-gray-900">
                             {booking.guestName || 'Unknown Guest'}
                           </p>
+                          {/* Workflow status badge */}
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                             {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : 'Unknown'}
                           </span>
+                          {/* PMS booking status badge */}
+                          {booking.bookingStatus && (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${getBookingStatusStyle(booking.bookingStatus).bg} ${getBookingStatusStyle(booking.bookingStatus).text}`}>
+                              {booking.bookingStatus.charAt(0).toUpperCase() + booking.bookingStatus.slice(1).replace(/_/g, ' ')}
+                            </span>
+                          )}
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg">
                             via {booking.platform || 'Unknown Platform'}
                           </span>
@@ -648,6 +839,63 @@ export default function IncomingBookingsPage() {
         onUpdate={fetchIncomingBookings}
         onBookingUpdate={handleBookingUpdate}
       />
+
+      {/* Floating Bulk Action Bar */}
+      {selectedBookingIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 100 }}
+          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50"
+        >
+          <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                <CheckCircleIcon className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="font-semibold">{selectedBookingIds.size} booking{selectedBookingIds.size > 1 ? 's' : ''} selected</p>
+                <p className="text-xs text-gray-400">Ready for bulk approval</p>
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-gray-700" />
+
+            <div className="flex items-center gap-3">
+              <motion.button
+                onClick={handleBulkApprove}
+                disabled={isBulkApproving}
+                whileHover={{ scale: isBulkApproving ? 1 : 1.02 }}
+                whileTap={{ scale: isBulkApproving ? 1 : 0.98 }}
+                className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/25"
+              >
+                {isBulkApproving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Approving...
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon className="h-4 w-4 mr-2" />
+                    Approve All
+                  </>
+                )}
+              </motion.button>
+
+              <motion.button
+                onClick={clearSelection}
+                disabled={isBulkApproving}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                <XMarkIcon className="h-4 w-4 mr-1.5" />
+                Cancel
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

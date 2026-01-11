@@ -13,7 +13,11 @@ import type {
   TemplateOption,
   TemplateValidationResult,
   TemplateStats,
-  PlatformFieldMappings
+  PlatformFieldMappings,
+  GlobalFieldMappingTemplate,
+  CreateGlobalFieldMappingPayload,
+  GlobalFieldMappingResponse,
+  GlobalFieldMappingListResponse
 } from './types/propertyFieldMapping'
 import type { FieldMapping, Platform, REQUIRED_BOOKING_FIELDS } from './types/csvMapping'
 
@@ -344,7 +348,7 @@ export function suggestTemplateName(
  * @param template - Template to check
  * @returns True if template has platform overrides
  */
-export function hasplatformOverrides(template: PropertyFieldMappingTemplate): boolean {
+export function hasPlatformOverrides(template: PropertyFieldMappingTemplate): boolean {
   return Object.keys(template.fieldMappings).some(
     platform => platform !== 'ALL' && Object.keys(template.fieldMappings[platform as Platform]).length > 0
   )
@@ -359,4 +363,112 @@ export function getTemplatePlatforms(template: PropertyFieldMappingTemplate): Pl
   return Object.keys(template.fieldMappings).filter(
     platform => Object.keys(template.fieldMappings[platform as Platform]).length > 0
   ) as Platform[]
+}
+
+// ============================================================================
+// GLOBAL FIELD MAPPING TEMPLATES
+// ============================================================================
+
+/**
+ * Get all global field mapping templates for a user
+ * Global templates have property_id = NULL and can be applied to all properties
+ * @param userId - User ID
+ * @returns Promise with global templates array
+ */
+export async function getGlobalFieldMappings(
+  userId: string
+): Promise<GlobalFieldMappingListResponse> {
+  return apiClient<GlobalFieldMappingListResponse>(`/property-field-mappings/user/${userId}/global`)
+}
+
+/**
+ * Get the default global field mapping template for a user
+ * @param userId - User ID
+ * @returns Promise with default global template or 404 if none exists
+ */
+export async function getDefaultGlobalFieldMapping(
+  userId: string
+): Promise<GlobalFieldMappingResponse> {
+  return apiClient<GlobalFieldMappingResponse>(`/property-field-mappings/user/${userId}/global/default`)
+}
+
+/**
+ * Create a new global field mapping template
+ * @param data - Template creation payload (no propertyId needed)
+ * @returns Promise with created template
+ */
+export async function createGlobalFieldMapping(
+  data: CreateGlobalFieldMappingPayload
+): Promise<GlobalFieldMappingResponse> {
+  return apiClient<GlobalFieldMappingResponse, CreateGlobalFieldMappingPayload>('/property-field-mappings/global', {
+    method: 'POST',
+    body: data,
+  })
+}
+
+/**
+ * Update an existing global field mapping template
+ * @param id - Template ID
+ * @param data - Template update payload
+ * @returns Promise with updated template
+ */
+export async function updateGlobalFieldMapping(
+  id: string,
+  data: Partial<CreateGlobalFieldMappingPayload>
+): Promise<GlobalFieldMappingResponse> {
+  return apiClient<GlobalFieldMappingResponse, Partial<CreateGlobalFieldMappingPayload>>(
+    `/property-field-mappings/global/${id}`,
+    {
+      method: 'PUT',
+      body: data,
+    }
+  )
+}
+
+/**
+ * Delete a global field mapping template
+ * @param id - Template ID
+ * @returns Promise with success message
+ */
+export async function deleteGlobalFieldMapping(
+  id: string
+): Promise<DeletePropertyFieldMappingResponse> {
+  return apiClient<DeletePropertyFieldMappingResponse>(`/property-field-mappings/global/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/**
+ * Set a global template as the default for the user
+ * Automatically unsets other global defaults for the same user
+ * @param id - Template ID
+ * @returns Promise with updated template
+ */
+export async function setGlobalFieldMappingAsDefault(
+  id: string
+): Promise<GlobalFieldMappingResponse> {
+  return apiClient<GlobalFieldMappingResponse>(`/property-field-mappings/global/${id}/set-default`, {
+    method: 'PUT',
+  })
+}
+
+/**
+ * Copy a global template to a specific property
+ * @param templateId - Global template ID to copy from
+ * @param propertyId - Target property ID
+ * @param userId - User ID
+ * @returns Promise with created property template
+ */
+export async function copyGlobalTemplateToProperty(
+  templateId: string,
+  propertyId: string,
+  userId: string
+): Promise<PropertyFieldMappingResponse> {
+  return apiClient<PropertyFieldMappingResponse, { propertyId: string; userId: string }>(
+    `/property-field-mappings/global/${templateId}/copy-to-property`,
+    {
+      method: 'POST',
+      body: { propertyId, userId },
+    }
+  )
 }

@@ -23,6 +23,7 @@ export interface PreviewRow {
   incompleteReasons: string[]
   errors: string[]
   isDuplicate: boolean
+  isExcluded?: boolean
 }
 
 interface PreviewStepProps {
@@ -167,29 +168,49 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         isIncomplete,
         incompleteReasons,
         errors,
-        isDuplicate
+        isDuplicate,
+        isExcluded: false
       }
     })
 
     setPreviewRows(parsedRows)
-    onValidatedRows(parsedRows)
   }, [csvRows, csvHeaders, fieldMappings, clientAssignments, existingProperties, clients])
 
-  // Calculate summary
+  // Notify parent of validated rows (excluding manually excluded ones)
+  useEffect(() => {
+    const activeRows = previewRows.map(row => ({
+      ...row,
+      // Mark excluded rows as invalid so they won't be imported
+      isValid: row.isExcluded ? false : row.isValid
+    }))
+    onValidatedRows(activeRows)
+  }, [previewRows, onValidatedRows])
+
+  // Toggle exclude for a specific row
+  const toggleExcludeRow = (rowNumber: number) => {
+    setPreviewRows(prev => prev.map(row =>
+      row.rowNumber === rowNumber
+        ? { ...row, isExcluded: !row.isExcluded }
+        : row
+    ))
+  }
+
+  // Calculate summary (excluding manually excluded rows)
   const summary = useMemo(() => {
     const total = previewRows.length
-    const valid = previewRows.filter(r => r.isValid && !r.isIncomplete).length
-    const incomplete = previewRows.filter(r => r.isValid && r.isIncomplete).length
-    const invalid = previewRows.filter(r => !r.isValid && !r.isDuplicate).length
-    const duplicates = previewRows.filter(r => r.isDuplicate).length
+    const excluded = previewRows.filter(r => r.isExcluded).length
+    const valid = previewRows.filter(r => r.isValid && !r.isIncomplete && !r.isExcluded).length
+    const incomplete = previewRows.filter(r => r.isValid && r.isIncomplete && !r.isExcluded).length
+    const invalid = previewRows.filter(r => !r.isValid && !r.isDuplicate && !r.isExcluded).length
+    const duplicates = previewRows.filter(r => r.isDuplicate && !r.isExcluded).length
     const readyToImport = valid + incomplete // All valid rows can be imported
-    return { total, valid, incomplete, invalid, duplicates, readyToImport }
+    return { total, valid, incomplete, invalid, duplicates, excluded, readyToImport }
   }, [previewRows])
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
           <p className="text-xs text-gray-500 mt-1">Total Rows</p>
@@ -210,6 +231,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           <p className="text-2xl font-bold text-red-600">{summary.invalid}</p>
           <p className="text-xs text-red-600 mt-1">Invalid (Skip)</p>
         </div>
+        <div className="bg-gray-50 border border-gray-300 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-gray-500">{summary.excluded}</p>
+          <p className="text-xs text-gray-500 mt-1">Excluded</p>
+        </div>
       </div>
 
       {/* Preview Table */}
@@ -223,7 +248,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
         <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 sticky top-0 z-10">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Row</th>
@@ -232,6 +257,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Owner</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase bg-gray-50">Issues</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase sticky right-0 z-30 bg-gray-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)]">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -242,7 +268,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.02 }}
                   className={`${
-                    row.isValid && !row.isIncomplete
+                    row.isExcluded
+                      ? 'bg-gray-100 opacity-60'
+                      : row.isValid && !row.isIncomplete
                       ? 'bg-green-50/50 hover:bg-green-50'
                       : row.isValid && row.isIncomplete
                       ? 'bg-amber-50/50 hover:bg-amber-50'
@@ -252,7 +280,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   }`}
                 >
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {row.isValid && !row.isIncomplete ? (
+                    {row.isExcluded ? (
+                      <XCircleIcon className="h-5 w-5 text-gray-400" />
+                    ) : row.isValid && !row.isIncomplete ? (
                       <CheckCircleIcon className="h-5 w-5 text-green-500" />
                     ) : row.isValid && row.isIncomplete ? (
                       <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
@@ -267,72 +297,118 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <HomeIcon className="h-4 w-4 text-purple-600" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${row.isExcluded ? 'bg-gray-200' : 'bg-purple-100'}`}>
+                        <HomeIcon className={`h-4 w-4 ${row.isExcluded ? 'text-gray-400' : 'text-purple-600'}`} />
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-900 block">
-                          {row.data.listingName || <span className="text-amber-500 italic">No name</span>}
+                        <span className={`text-sm font-medium block ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                          {row.data.listingName || <span className={row.isExcluded ? 'italic' : 'text-amber-500 italic'}>No name</span>}
                         </span>
-                        <span className="text-xs text-gray-500">
-                          {row.data.address || <span className="text-red-500 italic">Missing address</span>}
+                        <span className={`text-xs ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-500'}`}>
+                          {row.data.address || <span className={row.isExcluded ? 'italic' : 'text-red-500 italic'}>Missing address</span>}
                         </span>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {row.data.listingId || <span className="text-amber-500 italic">No ID</span>}
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm ${row.isExcluded ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                    {row.data.listingId || <span className={row.isExcluded ? 'italic' : 'text-amber-500 italic'}>No ID</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                      row.data.propertyType === 'STR'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {row.data.propertyType || 'STR'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        row.clientName === 'Unassigned' ? 'bg-red-100' : 'bg-green-100'
-                      }`}>
-                        <UserIcon className={`h-3 w-3 ${
-                          row.clientName === 'Unassigned' ? 'text-red-600' : 'text-green-600'
-                        }`} />
-                      </div>
-                      <span className={`text-sm ${
-                        row.clientName === 'Unassigned' ? 'text-red-600 italic' : 'text-gray-900'
-                      }`}>
-                        {row.clientName}
+                    {row.isExcluded ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-gray-200 text-gray-500">
+                        {row.data.propertyType || 'STR'}
                       </span>
-                    </div>
+                    ) : (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
+                        row.data.propertyType === 'STR'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {row.data.propertyType || 'STR'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {row.isExcluded ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-200">
+                          <UserIcon className="h-3 w-3 text-gray-400" />
+                        </div>
+                        <span className="text-sm text-gray-400 line-through">
+                          {row.clientName}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          row.clientName === 'Unassigned' ? 'bg-red-100' : 'bg-green-100'
+                        }`}>
+                          <UserIcon className={`h-3 w-3 ${
+                            row.clientName === 'Unassigned' ? 'text-red-600' : 'text-green-600'
+                          }`} />
+                        </div>
+                        <span className={`text-sm ${
+                          row.clientName === 'Unassigned' ? 'text-red-600 italic' : 'text-gray-900'
+                        }`}>
+                          {row.clientName}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {/* Show errors first (red) */}
-                      {row.errors.map((error, i) => (
-                        <span
-                          key={`error-${i}`}
-                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                            row.isDuplicate && error.includes('exists')
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {error}
-                        </span>
-                      ))}
-                      {/* Show incomplete reasons (amber) - only if row is valid */}
-                      {row.isValid && row.incompleteReasons.map((reason, i) => (
-                        <span
-                          key={`incomplete-${i}`}
-                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700"
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
+                    {row.isExcluded ? (
+                      <span className="text-xs text-gray-400">Manually excluded</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {/* Show errors first (red) */}
+                        {row.errors.map((error, i) => (
+                          <span
+                            key={`error-${i}`}
+                            className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              row.isDuplicate && error.includes('exists')
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {error}
+                          </span>
+                        ))}
+                        {/* Show incomplete reasons (amber) - only if row is valid */}
+                        {row.isValid && row.incompleteReasons.map((reason, i) => (
+                          <span
+                            key={`incomplete-${i}`}
+                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700"
+                          >
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className={`px-4 py-3 text-center sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] ${
+                    row.isExcluded
+                      ? 'bg-gray-100'
+                      : row.isValid && !row.isIncomplete
+                      ? 'bg-green-50'
+                      : row.isValid && row.isIncomplete
+                      ? 'bg-amber-50'
+                      : row.isDuplicate
+                      ? 'bg-yellow-50'
+                      : 'bg-red-50'
+                  }`}>
+                    <button
+                      onClick={() => toggleExcludeRow(row.rowNumber)}
+                      className={`
+                        p-1.5 rounded-lg transition-colors cursor-pointer
+                        ${row.isExcluded
+                          ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          : 'text-red-500 hover:text-red-600 hover:bg-red-50'
+                        }
+                      `}
+                      title={row.isExcluded ? 'Include this property' : 'Exclude this property'}
+                    >
+                      <XCircleIcon className="h-5 w-5" />
+                    </button>
                   </td>
                 </motion.tr>
               ))}
@@ -357,6 +433,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           <li><ExclamationCircleIcon className="h-4 w-4 inline mr-2 text-amber-500" />{summary.incomplete} incomplete properties will be created (missing name, ID, or client - can be completed later)</li>
           <li><ExclamationCircleIcon className="h-4 w-4 inline mr-2 text-yellow-500" />{summary.duplicates} duplicate listing IDs will be skipped</li>
           <li><XCircleIcon className="h-4 w-4 inline mr-2 text-red-500" />{summary.invalid} invalid rows will be skipped (missing address)</li>
+          {summary.excluded > 0 && (
+            <li><XCircleIcon className="h-4 w-4 inline mr-2 text-gray-400" />{summary.excluded} manually excluded rows will be skipped</li>
+          )}
         </ul>
       </div>
     </div>
