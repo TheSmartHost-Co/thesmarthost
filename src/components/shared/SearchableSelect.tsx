@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { ChevronUpDownIcon, MagnifyingGlassIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ChevronUpDownIcon, MagnifyingGlassIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 /**
  * Generic option type for the SearchableSelect
@@ -12,6 +12,12 @@ export interface SearchableSelectOption<T = string> {
   label: string
   secondaryLabel?: string
   disabled?: boolean
+}
+
+export interface SearchableSelectHeaderAction {
+  label: string
+  icon?: React.ReactNode
+  onClick: () => void
 }
 
 export interface SearchableSelectProps<T = string> {
@@ -47,6 +53,8 @@ export interface SearchableSelectProps<T = string> {
   renderOption?: (option: SearchableSelectOption<T>, isSelected: boolean, isHighlighted: boolean) => React.ReactNode
   /** ID for accessibility */
   id?: string
+  /** Header action rendered at top of dropdown (e.g., "Create New") */
+  headerAction?: SearchableSelectHeaderAction
 }
 
 function SearchableSelect<T = string>({
@@ -66,6 +74,7 @@ function SearchableSelect<T = string>({
   filterFn,
   renderOption,
   id,
+  headerAction,
 }: SearchableSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -226,15 +235,16 @@ function SearchableSelect<T = string>({
         </label>
       )}
 
-      {/* Trigger Button */}
-      <button
-        type="button"
+      {/* Trigger */}
+      <div
+        role="combobox"
         id={componentId}
-        onClick={handleOpen}
+        tabIndex={disabled ? -1 : 0}
+        onClick={disabled ? undefined : handleOpen}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-disabled={disabled}
         aria-labelledby={label ? `${componentId}-label` : undefined}
         className={`
           relative w-full cursor-pointer bg-white
@@ -279,7 +289,7 @@ function SearchableSelect<T = string>({
             className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           />
         </div>
-      </button>
+      </div>
 
       {/* Dropdown */}
       {isOpen && (
@@ -315,6 +325,22 @@ function SearchableSelect<T = string>({
               />
             </div>
           </div>
+
+          {/* Header Action (e.g., "Create New") */}
+          {headerAction && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                headerAction.onClick()
+                handleClose()
+              }}
+              className="w-full px-3 py-2.5 flex items-center gap-2 text-amber-600 hover:bg-amber-50 border-b border-gray-100 transition-colors text-left"
+            >
+              {headerAction.icon || <PlusIcon className="w-4 h-4" />}
+              <span className="text-sm font-medium">{headerAction.label}</span>
+            </button>
+          )}
 
           {/* Options List */}
           <ul

@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import Modal from '../../shared/modal'
+import { PlusIcon } from '@heroicons/react/24/outline'
+import DualModalContainer from '../../shared/DualModalContainer'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
+import QuickCreateClientModal from '@/components/client/quick-create/QuickCreateClientModal'
 import { createProperty } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
 import { CreatePropertyPayload } from '@/services/types/property'
@@ -35,6 +37,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -88,8 +91,16 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       setCommissionRate('')
       setRegistrationNumber('')
       setClientId('')
+      setIsQuickCreateOpen(false)
     }
   }, [isOpen])
+
+  // Handle quick create success - add new client and auto-select
+  const handleQuickCreateSuccess = (newClient: Client) => {
+    setClients(prev => [...prev, newClient])
+    setClientId(newClient.id)
+    setIsQuickCreateOpen(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -153,8 +164,8 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     }
   }
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[90vh]">
+  const propertyFormContent = (
+    <>
       <h2 className="text-xl mb-4 text-black">Create New Property</h2>
       <form onSubmit={handleSubmit} className="space-y-4 text-black">
         {/* Property Type */}
@@ -291,22 +302,39 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         {/* Property Owner */}
         <div>
           <label className="block text-sm font-medium mb-1">Property Owner</label>
-          {clients.length === 0 && !loadingClients ? (
-            <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
-              No active clients available. You can assign a client later.
+          <div className="flex gap-2">
+            <div className="flex-1">
+              {clients.length === 0 && !loadingClients ? (
+                <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
+                  No active clients available. Create one or assign later.
+                </div>
+              ) : (
+                <SearchableSelect
+                  options={clientOptions}
+                  value={clientId || null}
+                  onChange={(value) => setClientId(value || '')}
+                  placeholder="Select a client (optional)"
+                  loading={loadingClients}
+                  loadingText="Loading clients..."
+                  emptyText="No clients found"
+                  clearable={true}
+                  headerAction={{
+                    label: 'Create New Client',
+                    icon: <PlusIcon className="w-4 h-4" />,
+                    onClick: () => setIsQuickCreateOpen(true),
+                  }}
+                />
+              )}
             </div>
-          ) : (
-            <SearchableSelect
-              options={clientOptions}
-              value={clientId || null}
-              onChange={(value) => setClientId(value || '')}
-              placeholder="Select a client (optional)"
-              loading={loadingClients}
-              loadingText="Loading clients..."
-              emptyText="No clients found"
-              clearable={true}
-            />
-          )}
+            <button
+              type="button"
+              onClick={() => setIsQuickCreateOpen(true)}
+              className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg border border-amber-200 transition-colors flex-shrink-0"
+              title="Create new client"
+            >
+              <PlusIcon className="w-5 h-5" />
+            </button>
+          </div>
           <p className="text-xs text-gray-500 mt-1">
             This client will be the primary owner. You can assign or change owners later.
           </p>
@@ -332,14 +360,34 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={loadingClients || isSubmitting}
+            disabled={loadingClients || isSubmitting || isQuickCreateOpen}
             className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? 'Creating...' : 'Create Property'}
           </button>
         </div>
       </form>
-    </Modal>
+    </>
+  )
+
+  const quickCreateContent = (
+    <QuickCreateClientModal
+      onCancel={() => setIsQuickCreateOpen(false)}
+      onCreate={handleQuickCreateSuccess}
+    />
+  )
+
+  return (
+    <DualModalContainer
+      isOpen={isOpen}
+      onClose={onClose}
+      primaryModal={propertyFormContent}
+      secondaryModal={quickCreateContent}
+      isSecondaryOpen={isQuickCreateOpen}
+      onSecondaryClose={() => setIsQuickCreateOpen(false)}
+      primaryStyle="p-6 max-w-lg w-[28rem] max-h-[90vh]"
+      secondaryStyle="p-5 w-80 max-h-[85vh]"
+    />
   )
 }
 
