@@ -45,13 +45,8 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   
   // Initialize platform mappings with initial data instead of empty state
   const [platformMappings, setPlatformMappings] = useState<Record<Platform, Record<string, string>>>(() => {
-    console.log('🔴 [FieldMappingForm] useState initializer running')
-    console.log('🔴 [FieldMappingForm] initialFieldMappings:', initialFieldMappings?.length, initialFieldMappings?.slice(0, 3))
-    console.log('🔴 [FieldMappingForm] initialCompleteState:', !!initialCompleteState)
-
     // If we have initial field mappings, use them to initialize the state
     if (initialFieldMappings && initialFieldMappings.length > 0) {
-      console.log('🔴 [FieldMappingForm] Using initialFieldMappings to initialize')
       const initialMappings: Record<Platform, Record<string, string>> = {
         'ALL': {},
         'airbnb': {},
@@ -70,18 +65,15 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
         initialMappings[platform][mapping.bookingField] = mapping.csvFormula
       })
 
-      console.log('🔴 [FieldMappingForm] Initialized platformMappings.ALL:', initialMappings.ALL)
       return initialMappings
     }
 
     // If we have complete state, use its platform mappings
     if (initialCompleteState) {
-      console.log('🔴 [FieldMappingForm] Using initialCompleteState.platformMappings')
       return initialCompleteState.platformMappings
     }
 
     // Default empty state
-    console.log('🔴 [FieldMappingForm] Using default empty state')
     return {
       'ALL': {},
       'airbnb': {},
@@ -142,26 +134,14 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
 
   // Simplified initialization effect - only handle auto-suggestions for truly empty forms
   useEffect(() => {
-    console.log('🟠 [FieldMappingForm] Auto-suggestion effect running')
-    console.log('🟠 [FieldMappingForm] Checking conditions:', {
-      hasInitialCompleteState: !!initialCompleteState,
-      initialFieldMappingsLength: initialFieldMappings?.length,
-      hasRestoredRef: hasRestoredRef.current,
-      hasCsvHeaders: !!csvData?.headers
-    })
-
     // Only auto-suggest if we have no initial data and haven't already restored
     const shouldInitialize = !initialCompleteState &&
       (!initialFieldMappings || initialFieldMappings.length === 0) &&
       !hasRestoredRef.current
 
-    console.log('🟠 [FieldMappingForm] shouldInitialize:', shouldInitialize)
-
     if (shouldInitialize && csvData?.headers) {
-      console.log('🟠 [FieldMappingForm] AUTO-SUGGESTING mappings!')
       // First time initialization - auto-suggest mappings
       const suggestions = suggestMappings(csvData.headers)
-      console.log('🟠 [FieldMappingForm] Auto-suggestions:', suggestions)
 
       setPlatformMappings(prev => ({
         ...prev,
@@ -169,43 +149,27 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       }))
       hasRestoredRef.current = true
       isAutoSuggestedRef.current = true  // Mark as auto-suggested
-    } else {
-      console.log('🟠 [FieldMappingForm] Skipping auto-suggestions - form already has data or no CSV')
     }
   }, [csvData, initialFieldMappings, initialCompleteState])
 
   // Reinitialize platformMappings when initialFieldMappings prop changes (template loading)
   // This fixes the race condition where form mounts before template finishes loading
   useEffect(() => {
-    console.log('🟣 [FieldMappingForm] Template-reinitialize effect running')
-    console.log('🟣 [FieldMappingForm] initialFieldMappings:', initialFieldMappings?.length, initialFieldMappings?.slice(0, 2))
-
     // Skip if no initial field mappings
-    if (!initialFieldMappings || initialFieldMappings.length === 0) {
-      console.log('🟣 [FieldMappingForm] SKIP: No initialFieldMappings')
-      return
-    }
+    if (!initialFieldMappings || initialFieldMappings.length === 0) return
 
     // Skip if we have complete state (draft restore takes priority)
     if (initialCompleteState?.platformMappings) {
       const hasCompleteStateMappings = Object.keys(initialCompleteState.platformMappings.ALL || {}).length > 0
-      if (hasCompleteStateMappings) {
-        console.log('🟣 [FieldMappingForm] SKIP: Has complete state mappings')
-        return
-      }
+      if (hasCompleteStateMappings) return
     }
 
     // Only skip if we have user-edited values (not auto-suggestions)
     // Auto-suggestions should be overwritten by template values
     const currentAllMappings = platformMappings['ALL']
     const hasExistingValues = Object.keys(currentAllMappings).length > 0
-    console.log('🟣 [FieldMappingForm] hasExistingValues:', hasExistingValues, 'isAutoSuggestedRef:', isAutoSuggestedRef.current)
-    if (hasExistingValues && !isAutoSuggestedRef.current) {
-      console.log('🟣 [FieldMappingForm] SKIP: Has user-edited values')
-      return
-    }
+    if (hasExistingValues && !isAutoSuggestedRef.current) return
 
-    console.log('🟣 [FieldMappingForm] APPLYING template mappings!')
     // Rebuild platformMappings from initialFieldMappings
     const newPlatformMappings: Record<Platform, Record<string, string>> = {
       'ALL': {},
@@ -225,7 +189,6 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       newPlatformMappings[platform][mapping.bookingField] = mapping.csvFormula
     })
 
-    console.log('🟣 [FieldMappingForm] New platformMappings.ALL:', newPlatformMappings.ALL)
     setPlatformMappings(newPlatformMappings)
     hasRestoredRef.current = true
     isAutoSuggestedRef.current = false  // Template values are not auto-suggested
@@ -234,12 +197,11 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   // Detect formulas from initial field mappings (template load)
   // A value is a formula if it doesn't match any CSV header name
   // This runs whenever initialFieldMappings changes (template loaded)
+  // NOTE: We always detect formulas from initialFieldMappings, don't skip based on completeState
+  // because completeState may have stale fieldInputModes from wizard state
   useEffect(() => {
     if (!initialFieldMappings || initialFieldMappings.length === 0) return
     if (!csvData?.headers || csvData.headers.length === 0) return
-
-    // Skip if restored from draft (draft has its own fieldInputModes)
-    if (initialCompleteState?.fieldInputModes && Object.keys(initialCompleteState.fieldInputModes).length > 0) return
 
     const headerNames = csvData.headers.map(h => h.name.toLowerCase())
     const newModes: Record<string, 'dropdown' | 'formula'> = {}
@@ -253,13 +215,10 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
     })
 
     if (Object.keys(newModes).length > 0) {
-      // Merge with existing modes (don't remove user-set modes for other fields)
-      setFieldInputModes(prev => ({
-        ...prev,
-        ...newModes
-      }))
+      // Always set modes based on actual data - this ensures formula fields show correct toggle
+      setFieldInputModes(newModes)
     }
-  }, [initialFieldMappings, csvData, initialCompleteState])
+  }, [initialFieldMappings, csvData])
 
   // Validate ALL platform mappings
   useEffect(() => {

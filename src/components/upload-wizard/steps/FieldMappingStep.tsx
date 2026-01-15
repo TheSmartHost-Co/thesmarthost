@@ -159,21 +159,17 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   // Load global templates and auto-load default when in global mode
   useEffect(() => {
     const loadGlobalTemplates = async () => {
-      console.log('🔵 [FieldMappingStep] loadGlobalTemplates effect running', { mappingMode, userId: user?.id })
       if (mappingMode === 'global' && user?.id) {
         try {
           setLoadingGlobalTemplate(true)
           const response = await getGlobalFieldMappings(user.id)
-          console.log('🔵 [FieldMappingStep] Got global templates response:', response)
           if (response.status === 'success') {
             setAvailableGlobalTemplates(response.data)
 
             // Auto-load default global template if exists and no mappings yet
             const defaultTemplate = response.data.find(t => t.isDefault)
-            console.log('🔵 [FieldMappingStep] Default template found:', defaultTemplate?.mappingName, 'globalMappings.length:', globalMappings.length, 'hasLoadedGlobalDefault:', hasLoadedGlobalDefault.current)
             if (defaultTemplate && globalMappings.length === 0 && !hasLoadedGlobalDefault.current) {
               hasLoadedGlobalDefault.current = true
-              console.log('🔵 [FieldMappingStep] Calling loadGlobalTemplate with:', defaultTemplate.mappingName)
               loadGlobalTemplate(defaultTemplate)
             }
           }
@@ -190,9 +186,6 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
   // Load a global template into the global mappings
   const loadGlobalTemplate = useCallback((template: GlobalFieldMappingTemplate, showConfirm = false) => {
-    console.log('🟢 [FieldMappingStep] loadGlobalTemplate called with template:', template.mappingName)
-    console.log('🟢 [FieldMappingStep] Template fieldMappings:', JSON.stringify(template.fieldMappings, null, 2))
-
     // Show confirmation if there are existing mappings and showConfirm is true
     if (showConfirm && globalMappings.length > 0) {
       const confirmMessage = `Loading template "${template.mappingName}" will replace your current field mappings. Continue?`
@@ -203,10 +196,8 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
     try {
       const fieldMappings = platformFieldMappingsToFieldMappings(template.fieldMappings)
-      console.log('🟢 [FieldMappingStep] Converted fieldMappings:', JSON.stringify(fieldMappings, null, 2))
       setGlobalMappings(fieldMappings)
       setSelectedGlobalTemplate(template)
-      console.log('🟢 [FieldMappingStep] setGlobalMappings called, selectedGlobalTemplate set to:', template.id)
       showNotification(`Loaded global template: ${template.mappingName}`, 'success')
     } catch (error) {
       console.error('Error loading global template:', error)
@@ -298,16 +289,12 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
   // Get current field mappings based on mode
   const getCurrentMappings = useCallback((): FieldMapping[] => {
-    console.log('🟡 [FieldMappingStep] getCurrentMappings called', { mappingMode, globalMappingsLength: globalMappings.length })
     if (mappingMode === 'global') {
-      console.log('🟡 [FieldMappingStep] Returning globalMappings:', globalMappings.slice(0, 3), '... (first 3)')
       return globalMappings
     }
 
     if (activePropertyTab && propertyMappings[activePropertyTab]) {
-      const mappings = propertyMappings[activePropertyTab]
-
-      return mappings
+      return propertyMappings[activePropertyTab]
     }
 
     return []
@@ -899,14 +886,6 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
 
       {/* Field Mapping Form */}
       <div className="mb-8">
-        {(() => {
-          const formKey = mappingMode === 'per-property'
-            ? `property-${activePropertyTab}-${selectedTemplate?.id || 'no-template'}`
-            : `global-${selectedGlobalTemplate?.id || 'no-template'}`
-          const mappings = getCurrentMappings()
-          console.log('🔷 [FieldMappingStep] RENDERING FieldMappingForm with key:', formKey, 'mappings count:', mappings.length)
-          return null
-        })()}
         <FieldMappingForm
           key={mappingMode === 'per-property'
             ? `property-${activePropertyTab}-${selectedTemplate?.id || 'no-template'}`
