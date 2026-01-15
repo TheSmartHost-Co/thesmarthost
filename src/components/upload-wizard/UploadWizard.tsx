@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useReducer, useCallback, useRef } from 'react'
+import React, { useReducer, useCallback, useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   WizardStep,
@@ -22,6 +22,11 @@ import CompleteStep from './steps/CompleteStep'
 
 // Shared Components
 import StepIndicator from './shared/StepIndicator'
+import ResumeDraftModal from './ResumeDraftModal'
+
+// Hooks
+import { useWizardDraft } from '@/hooks/useWizardDraft'
+import { parseCsvText } from '@/utils/csvParser'
 
 interface UploadWizardProps {
   onComplete?: () => void
@@ -76,6 +81,12 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         currentStep: action.payload,
         canGoBack: action.payload > WizardStep.UPLOAD,
         canGoNext: false, // Will be set by individual steps
+      }
+
+    case WizardActionType.SET_COMPLETED_STEPS:
+      return {
+        ...state,
+        completedSteps: action.payload,
       }
 
     case WizardActionType.NEXT_STEP:
@@ -233,6 +244,144 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   const [state, dispatch] = useReducer(wizardReducer, initialState)
   const uploadedFileRef = useRef<any>(null)
 
+  // Draft save/restore functionality
+  const { hasDraft, draftInfo, saveDraft, loadDraft, clearDraft, autoSave } = useWizardDraft()
+  const [csvText, setCsvText] = useState<string>('')
+  const [showResumeModal, setShowResumeModal] = useState(false)
+  const hasHandledDraftPrompt = useRef(false)
+  const prevStepRef = useRef(state.currentStep)
+
+  // Check for existing draft - wait for hook to finish checking localStorage
+  useEffect(() => {
+    // Only show modal once per session, and only if there's a draft
+    if (!hasHandledDraftPrompt.current && hasDraft && draftInfo) {
+      hasHandledDraftPrompt.current = true
+      setShowResumeModal(true)
+    }
+  }, [hasDraft, draftInfo])
+
+  // Auto-save when step changes (after upload step)
+  useEffect(() => {
+    // Only save on actual step transitions (not initial render)
+    if (prevStepRef.current !== state.currentStep &&
+        state.currentStep > WizardStep.UPLOAD &&
+        csvText &&
+        state.uploadedFile) {
+      saveDraft(state, csvText)
+    }
+    prevStepRef.current = state.currentStep
+  }, [state.currentStep, state, csvText, saveDraft])
+
+  // Handle resuming a draft
+  const handleResumeDraft = useCallback(() => {
+    const draft = loadDraft()
+    if (!draft) {
+      setShowResumeModal(false)
+      return
+    }
+
+    try {
+      // Store CSV text for future saves
+      setCsvText(draft.csvText)
+
+      // Parse CSV text to reconstruct data
+      const csvData = parseCsvText(draft.csvText)
+
+      // Create synthetic uploaded file object (use File instead of Blob for instanceof check)
+      const syntheticFile = {
+        file: new File([draft.csvText], draft.fileName, { type: 'text/csv' }),
+        name: draft.fileName,
+        size: draft.fileSize,
+        type: 'text/csv',
+        detectedFormat: 'CSV' as const,
+        uploadedAt: new Date(),
+        // Add the parsed CSV data
+        csvData,
+      }
+      uploadedFileRef.current = syntheticFile
+
+      // Dispatch state restoration actions
+      dispatch({
+        type: WizardActionType.SET_UPLOADED_FILE,
+        payload: {
+          file: syntheticFile.file,
+          name: draft.fileName,
+          size: draft.fileSize,
+          type: 'text/csv',
+          uploadedAt: new Date(),
+        },
+      })
+
+      if (draft.propertyIdentificationState) {
+        dispatch({
+          type: WizardActionType.SET_PROPERTY_IDENTIFICATION_STATE,
+          payload: draft.propertyIdentificationState,
+        })
+      }
+
+      if (draft.propertyMappings) {
+        dispatch({
+          type: WizardActionType.SET_PROPERTY_MAPPINGS,
+          payload: draft.propertyMappings,
+        })
+      }
+
+      if (draft.fieldMappingState) {
+        dispatch({
+          type: WizardActionType.SET_FIELD_MAPPING_STATE,
+          payload: draft.fieldMappingState,
+        })
+      }
+
+      if (draft.fieldMappings) {
+        dispatch({
+          type: WizardActionType.SET_FIELD_MAPPINGS,
+          payload: draft.fieldMappings,
+        })
+      }
+
+      if (draft.completeFieldMappingState) {
+        dispatch({
+          type: WizardActionType.SET_COMPLETE_FIELD_MAPPING_STATE,
+          payload: draft.completeFieldMappingState,
+        })
+      }
+
+      // Restore completed steps
+      if (draft.completedSteps && draft.completedSteps.length > 0) {
+        dispatch({
+          type: WizardActionType.SET_COMPLETED_STEPS,
+          payload: draft.completedSteps,
+        })
+      }
+
+      // Navigate to the saved step
+      dispatch({
+        type: WizardActionType.SET_STEP,
+        payload: draft.currentStep,
+      })
+
+      setShowResumeModal(false)
+    } catch (error) {
+      console.error('Error restoring draft:', error)
+      clearDraft()
+      setShowResumeModal(false)
+    }
+  }, [loadDraft, clearDraft])
+
+  // Handle discarding a draft
+  const handleDiscardDraft = useCallback(() => {
+    clearDraft()
+    setShowResumeModal(false)
+  }, [clearDraft])
+
+  // Manual save handler (passed to step components)
+  const handleSaveDraft = useCallback(() => {
+    if (csvText && state.uploadedFile) {
+      saveDraft(state, csvText)
+    }
+  }, [saveDraft, state, csvText])
+
   // Navigation handlers
   const handleNext = useCallback(() => {
     console.log('handleNext called')
@@ -257,8 +406,19 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
     dispatch({ type: WizardActionType.SET_SELECTED_PROPERTY, payload: property })
   }, [])
 
-  const handleFileUploaded = useCallback((uploadedFile: any) => {
+  const handleFileUploaded = useCallback(async (uploadedFile: any) => {
     uploadedFileRef.current = uploadedFile
+
+    // Extract CSV text for draft saving
+    if (uploadedFile?.file) {
+      try {
+        const text = await uploadedFile.file.text()
+        setCsvText(text)
+      } catch (error) {
+        console.error('Error reading file text:', error)
+      }
+    }
+
     const uploadedFileState = {
       file: uploadedFile.file,
       name: uploadedFile.name,
@@ -300,9 +460,12 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }, [])
 
   const handleWizardComplete = useCallback(() => {
+    // Clear draft on successful completion
+    clearDraft()
+    setCsvText('')
     // This is called when user explicitly chooses to finish from CompleteStep
     onComplete?.()
-  }, [onComplete])
+  }, [onComplete, clearDraft])
 
   const handleFieldMappingsUpdate = useCallback((mappings: any[]) => {
     dispatch({ type: WizardActionType.SET_FIELD_MAPPINGS, payload: mappings })
@@ -322,8 +485,12 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }, [onCancel])
 
   const handleReset = useCallback(() => {
+    // Clear draft on reset (upload another)
+    clearDraft()
+    setCsvText('')
+    uploadedFileRef.current = null
     dispatch({ type: WizardActionType.RESET_WIZARD })
-  }, [])
+  }, [clearDraft])
 
   // Render current step component
   const renderCurrentStep = () => {
@@ -334,6 +501,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
       canGoNext: state.canGoNext,
       canGoBack: state.canGoBack,
       config: defaultConfig,
+      onSaveDraft: handleSaveDraft,
     }
 
     switch (state.currentStep) {
@@ -369,7 +537,9 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             uploadedFile={uploadedFileRef.current}
             fieldMappingState={state.fieldMappingState}
             propertyIdentificationState={state.propertyIdentificationState}
+            completeFieldMappingState={state.completeFieldMappingState}
             onValidationComplete={handleFieldMappingComplete}
+            onCompleteStateChange={handleCompleteFieldMappingStateUpdate}
           />
         )
 
@@ -419,40 +589,53 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
   }
 
   return (
-    <div className="space-y-6">
-      {/* Step Indicator Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8"
-      >
-        <StepIndicator
-          currentStep={state.currentStep}
-          completedSteps={state.completedSteps}
-          onStepClick={handleStepClick}
+    <>
+      {/* Resume Draft Modal */}
+      {draftInfo && (
+        <ResumeDraftModal
+          isOpen={showResumeModal}
+          onClose={() => setShowResumeModal(false)}
+          draftInfo={draftInfo}
+          onResume={handleResumeDraft}
+          onDiscard={handleDiscardDraft}
         />
-      </motion.div>
+      )}
 
-      {/* Main Content Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={state.currentStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {renderCurrentStep()}
-          </motion.div>
-        </AnimatePresence>
-      </motion.div>
-    </div>
+      <div className="space-y-6">
+        {/* Step Indicator Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8"
+        >
+          <StepIndicator
+            currentStep={state.currentStep}
+            completedSteps={state.completedSteps}
+            onStepClick={handleStepClick}
+          />
+        </motion.div>
+
+        {/* Main Content Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={state.currentStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderCurrentStep()}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    </>
   )
 }
 

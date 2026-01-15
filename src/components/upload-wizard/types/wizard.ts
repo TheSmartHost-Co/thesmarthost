@@ -353,6 +353,7 @@ export enum WizardActionType {
   SET_FIELD_MAPPINGS = 'SET_FIELD_MAPPINGS',
   SET_COMPLETE_FIELD_MAPPING_STATE = 'SET_COMPLETE_FIELD_MAPPING_STATE',
   SET_PROPERTY_MAPPINGS = 'SET_PROPERTY_MAPPINGS',
+  SET_COMPLETED_STEPS = 'SET_COMPLETED_STEPS',
   RESET_WIZARD = 'RESET_WIZARD',
 }
 
@@ -375,6 +376,7 @@ export type WizardAction =
   | { type: WizardActionType.SET_FIELD_MAPPINGS; payload: any[] }
   | { type: WizardActionType.SET_COMPLETE_FIELD_MAPPING_STATE; payload: any }
   | { type: WizardActionType.SET_PROPERTY_MAPPINGS; payload: PropertyMapping[] }
+  | { type: WizardActionType.SET_COMPLETED_STEPS; payload: WizardStep[] }
   | { type: WizardActionType.RESET_WIZARD }
 
 /**

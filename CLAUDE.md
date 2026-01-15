@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** December 30, 2025
+**Last Updated:** January 14, 2026
 
 ---
 
@@ -163,7 +163,7 @@ if (res.status === 'success') {
 
 ---
 
-## Complete Component Inventory (85+ components)
+## Complete Component Inventory (98 components)
 
 ### Analytics Components (8 files)
 ```
@@ -180,21 +180,23 @@ components/analytics/
     └── index.ts                  # Barrel exports
 ```
 
-### Booking Components (4 files)
+### Booking Components (5 files)
 ```
 components/booking/
 ├── create/createBookingModal.tsx
 ├── delete/deleteBookingModal.tsx
+├── import/ImportHostawayBookingsModal.tsx
 ├── preview/previewBookingModal.tsx
 └── update/updateBookingModal.tsx
 ```
 
-### Client Components (9 files)
+### Client Components (10 files)
 ```
 components/client/
 ├── create/createClientModal.tsx
 ├── delete/deleteClientModal.tsx
 ├── preview/previewClientModal.tsx
+├── quick-create/QuickCreateClientModal.tsx
 ├── update/updateClientModal.tsx
 └── import/
     ├── bulkImportClientModal.tsx
@@ -240,12 +242,13 @@ components/dashboard/
     └── TrendIndicator.tsx        # Up/down trend arrows
 ```
 
-### Expense Components (3 files)
+### Expense Components (4 files)
 ```
 components/expenses/
 ├── ExpenseViewerModal.tsx
 ├── categories/ExpenseCategoriesModal.tsx
-└── create/CreateExpenseModal.tsx
+├── create/CreateExpenseModal.tsx
+└── scan/ScanReceiptModal.tsx
 ```
 
 ### Property Components (14 files)
@@ -292,10 +295,11 @@ components/session/
 └── SessionWarningModal.tsx
 ```
 
-### Upload Wizard Components (14 files)
+### Upload Wizard Components (15 files)
 ```
 components/upload-wizard/
 ├── UploadWizard.tsx              # Main wizard container
+├── ResumeDraftModal.tsx          # Draft resume/discard prompt
 ├── shared/
 │   ├── StepIndicator.tsx
 │   ├── ColumnMapper.tsx
@@ -313,12 +317,13 @@ components/upload-wizard/
 └── types/wizard.ts
 ```
 
-### Other Components (11 files)
+### Other Components (12 files)
 ```
 components/calculation-rules/calculationRuleModal.tsx
 components/csv-mapping/FieldMappingForm.tsx
 components/field-value-changed/EditFieldModal.tsx
 components/footer/Footer.tsx
+components/global-field-mapping/GlobalFieldMappingModal.tsx
 components/incoming-bookings/ReviewIncomingBookingsModal.tsx
 components/navbar/
 ├── ManagerSidebar.tsx
@@ -330,11 +335,13 @@ components/webhook-mapping/
 └── WebhookFieldMappingForm.tsx
 ```
 
-### Shared Components (5 files)
+### Shared Components (7 files)
 ```
 components/shared/
+├── DualModalContainer.tsx
 ├── FloatingActionButton.tsx
 ├── LogoutModal.tsx
+├── SearchableSelect.tsx
 ├── TableActionsDropdown.tsx
 ├── modal.tsx
 └── notification.tsx
@@ -342,7 +349,7 @@ components/shared/
 
 ---
 
-## Complete Service Inventory (26 services)
+## Complete Service Inventory (25 services)
 
 ### Core Services
 | Service | File | Purpose |
@@ -380,7 +387,6 @@ components/shared/
 | Incoming Booking | `incomingBookingService.ts` | Webhook booking processing |
 | Calculation Rule | `calculationRuleService.ts` | Formula rules for calculations |
 | Field Values Changed | `fieldValuesChangedService.ts` | Booking field edit history |
-| Channel Utils | `channelUtils.tsx` | Channel icons and display names |
 
 ---
 
@@ -454,7 +460,7 @@ interface AnalyticsState {
 
 ---
 
-## Custom Hooks (1 file)
+## Custom Hooks (2 files)
 
 ### useSessionMonitor (`src/hooks/useSessionMonitor.ts`)
 ```typescript
@@ -463,9 +469,20 @@ interface AnalyticsState {
 // Shows expired modal and redirects to login on expiry
 ```
 
+### useWizardDraft (`src/hooks/useWizardDraft.ts`)
+```typescript
+// Manages Upload Wizard draft save/restore to localStorage
+// - Auto-saves on step transitions (not every interaction)
+// - Manual save via "Save Draft" button in step footers
+// - Shows ResumeDraftModal on page load if draft exists
+// - Stores raw CSV text (not File object) + wizard state
+// - localStorage key: 'upload-wizard-draft'
+// - Clears draft on wizard completion or reset
+```
+
 ---
 
-## Utilities (7 files)
+## Utilities (8 files)
 
 ### Supabase Utilities
 ```
@@ -482,6 +499,12 @@ utils/
 ├── csvParser.ts            # CSV parsing and validation
 ├── webhookFieldProcessor.ts # Webhook data transformation
 └── logoutState.ts          # Cross-tab logout coordination
+```
+
+### UI Utilities (in services/)
+```
+services/
+└── channelUtils.tsx        # Channel icons and display name React helpers
 ```
 
 ---
@@ -637,15 +660,21 @@ utils/
   - Individual file download
   - File deletion with confirmation
 
-### CSV Upload Wizard (7 Steps)
+### CSV Upload Wizard (6 Steps)
 1. **Upload** - File selection and parsing
 2. **Property Identification** - Map CSV listings to properties
 3. **Field Mapping** - Global or per-property column mapping
-4. **Property Mapping** - Assign bookings to properties
-5. **Validate** - Check data quality
-6. **Preview** - Review before import
-7. **Process** - Import with progress tracking
-8. **Complete** - Summary and next steps
+4. **Preview** - Review before import
+5. **Process** - Import with progress tracking
+6. **Complete** - Summary and next steps
+
+**Draft Save/Resume Feature:**
+- Auto-saves to localStorage on step transitions
+- Manual "Save Draft" button in step footers (steps 2-4)
+- `ResumeDraftModal` prompts to resume or start fresh on page load
+- Stores raw CSV text + wizard state (File objects can't be serialized)
+- Draft cleared on successful completion or "Upload Another"
+- Key files: `useWizardDraft.ts`, `ResumeDraftModal.tsx`
 
 ### Dashboard (Operational Hub)
 - **Action Bar (Sticky):**
@@ -876,4 +905,4 @@ Custom skills in `.claude/skills/`:
 
 ---
 
-**Last Updated:** December 30, 2025
+**Last Updated:** January 14, 2026

@@ -9,7 +9,7 @@ import { getProperties } from '@/services/propertyService'
 import { Property } from '@/services/types/property'
 import { PropertyMapping, PropertyIdentificationState } from '../types/wizard'
 import { parseCsvFile } from '@/utils/csvParser'
-import { ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, PlusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, PlusCircleIcon, XCircleIcon, BookmarkIcon } from '@heroicons/react/24/outline'
 
 interface StepProps {
   uploadedFile: any
@@ -22,6 +22,7 @@ interface StepProps {
   onNext: () => void
   onBack: () => void
   onCancel?: () => void
+  onSaveDraft?: () => void
   canGoNext: boolean
   canGoBack: boolean
 }
@@ -37,6 +38,7 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
   onNext,
   onBack,
   onCancel,
+  onSaveDraft,
   canGoNext,
   canGoBack,
 }) => {
@@ -352,20 +354,32 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
         {/* Fixed Action Buttons */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-4 z-50">
           <div className="flex justify-between">
-            <button
-              onClick={onBack}
-              disabled={!canGoBack}
-              className={`
-                flex items-center px-4 py-2 text-sm font-medium rounded-lg
-                ${canGoBack
-                  ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                  : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                }
-              `}
-            >
-              <ChevronLeftIcon className="w-4 h-4 mr-1" />
-              Back
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onBack}
+                disabled={!canGoBack}
+                className={`
+                  flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                  ${canGoBack
+                    ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }
+                `}
+              >
+                <ChevronLeftIcon className="w-4 h-4 mr-1" />
+                Back
+              </button>
+
+              {onSaveDraft && (
+                <button
+                  onClick={onSaveDraft}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <BookmarkIcon className="w-4 h-4 mr-1.5" />
+                  Save Draft
+                </button>
+              )}
+            </div>
 
             <div className="flex gap-2">
               <button

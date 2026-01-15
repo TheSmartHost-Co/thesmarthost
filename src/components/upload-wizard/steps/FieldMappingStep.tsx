@@ -6,7 +6,7 @@ import { ChevronRightIcon, ChevronLeftIcon, BookmarkIcon, Cog6ToothIcon, GlobeAl
 import FieldMappingForm from '@/components/csv-mapping/FieldMappingForm'
 import PropertyFieldMappingModal from '@/components/property-field-mapping/propertyFieldMappingModal'
 import GlobalFieldMappingModal from '@/components/global-field-mapping/GlobalFieldMappingModal'
-import { CsvData, FieldMapping } from '@/services/types/csvMapping'
+import { CsvData, FieldMapping, CompleteFieldMappingState } from '@/services/types/csvMapping'
 import { parseCsvFile } from '@/utils/csvParser'
 import { getCalculationRules } from '@/services/calculationRuleService'
 import { CalculationRule } from '@/services/types/calculationRule'
@@ -33,25 +33,31 @@ interface FieldMappingStepProps {
   onNext?: () => void
   onBack?: () => void
   onCancel?: () => void
+  onSaveDraft?: () => void
   canGoNext?: boolean
   canGoBack?: boolean
   config?: any
   uploadedFile?: any
   fieldMappingState?: FieldMappingState
   propertyIdentificationState?: PropertyIdentificationState
+  completeFieldMappingState?: CompleteFieldMappingState
   onValidationComplete?: (state: FieldMappingState) => void
+  onCompleteStateChange?: (completeState: CompleteFieldMappingState) => void
 }
 
 const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   onNext,
   onBack,
   onCancel,
+  onSaveDraft,
   canGoNext,
   canGoBack,
   uploadedFile,
   fieldMappingState,
   propertyIdentificationState,
-  onValidationComplete
+  completeFieldMappingState,
+  onValidationComplete,
+  onCompleteStateChange
 }) => {
   const user = useUserStore(state => state.profile)
   const showNotification = useNotificationStore(state => state.showNotification)
@@ -886,8 +892,10 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           key={mappingMode === 'per-property' ? `property-${activePropertyTab}-${selectedTemplate?.id || 'no-template'}` : 'global'}
           csvData={csvData}
           initialFieldMappings={getCurrentMappings()}
+          initialCompleteState={completeFieldMappingState}
           onMappingsChange={handleFieldMappingsUpdate}
           onValidationChange={(valid) => {}} // Handle validation if needed
+          onCompleteStateChange={onCompleteStateChange}
           calculationRules={calculationRules}
         />
       </div>
@@ -938,20 +946,32 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
         {/* Fixed Action Buttons */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-4 z-50">
           <div className="flex justify-between">
-            <button
-              onClick={onBack}
-              disabled={!canGoBack}
-              className={`
-                flex items-center px-4 py-2 text-sm font-medium rounded-lg
-                ${canGoBack
-                  ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                  : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                }
-              `}
-            >
-              <ChevronLeftIcon className="w-4 h-4 mr-1" />
-              Back
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onBack}
+                disabled={!canGoBack}
+                className={`
+                  flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                  ${canGoBack
+                    ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }
+                `}
+              >
+                <ChevronLeftIcon className="w-4 h-4 mr-1" />
+                Back
+              </button>
+
+              {onSaveDraft && (
+                <button
+                  onClick={onSaveDraft}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <BookmarkIcon className="w-4 h-4 mr-1.5" />
+                  Save Draft
+                </button>
+              )}
+            </div>
 
             <div className="flex gap-2">
               <button

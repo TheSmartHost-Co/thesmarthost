@@ -92,7 +92,10 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   
   // Track input mode for each field per platform
-  const [fieldInputModes, setFieldInputModes] = useState<Record<string, 'dropdown' | 'formula'>>({})
+  // Initialize from initialCompleteState if available (for draft restore)
+  const [fieldInputModes, setFieldInputModes] = useState<Record<string, 'dropdown' | 'formula'>>(
+    initialCompleteState?.fieldInputModes || {}
+  )
   
   // Custom fields modal state
   const [isCustomFieldsModalOpen, setIsCustomFieldsModalOpen] = useState(false)
@@ -474,25 +477,32 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
       return [...new Set(columns)] // Remove duplicates
     }
 
-    const getNumericCsvHeaders = () => {
-      // Get CSV headers that look numeric/financial for quick insert
-      const usedHeaders = new Set(Object.values(platformMappings['ALL']).filter(val => val.trim() !== ''))
-      
-      return csvData.headers.filter(header => {
-        // Exclude text-based headers (guest info, reservations, etc.)
-        const textPatterns = ['guest', 'name', 'channel', 'platform', 'listing', 'property', 'reservation', 'confirmation', 'code', 'id']
-        const headerLower = header.name.toLowerCase().replace(/[^a-z]/g, '')
-        const isTextHeader = textPatterns.some(pattern => headerLower.includes(pattern))
-        
-        // Exclude date fields 
-        const isDateHeader = headerLower.includes('date') || headerLower.includes('checkin') || headerLower.includes('checkout')
-        
-        // Exclude already used headers
-        const isAlreadyUsed = usedHeaders.has(header.name)
-        
-        // Include if it looks numeric and not already used
-        return !isTextHeader && !isDateHeader && !isAlreadyUsed
-      }).slice(0, 8) // Limit to first 8 to avoid UI overflow
+    const getFilteredCsvHeaders = (formulaValue: string) => {
+      // Extract the last segment being typed (after the last operator)
+      const operators = ['+', '-', '*', '/']
+      let searchTerm = formulaValue.trim()
+
+      // Find the last operator and get text after it
+      let lastOperatorIndex = -1
+      for (const op of operators) {
+        const idx = formulaValue.lastIndexOf(op)
+        if (idx > lastOperatorIndex) {
+          lastOperatorIndex = idx
+        }
+      }
+
+      if (lastOperatorIndex !== -1) {
+        searchTerm = formulaValue.substring(lastOperatorIndex + 1).trim()
+      }
+
+      // Filter headers based on search term (case-insensitive)
+      const filteredHeaders = csvData.headers.filter(header => {
+        if (!searchTerm) return true // Show all if no search term
+        return header.name.toLowerCase().includes(searchTerm.toLowerCase())
+      })
+
+      // Limit results to prevent UI overflow
+      return filteredHeaders.slice(0, 12)
     }
     
     return (
@@ -598,23 +608,46 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                   />
                 </div>
                 
-                {/* Quick Insert Buttons - Available CSV headers */}
+                {/* Quick Insert Buttons - CSV columns filtered by typing */}
                 <div className="flex flex-wrap gap-1">
-                  <span className="text-xs text-gray-500 mr-2">Quick insert:</span>
-                  {getNumericCsvHeaders().map(header => (
-                    <button
-                      key={header.name}
-                      type="button"
-                      onClick={() => {
-                        const newValue = currentValue + `${header.name}`
-                        handleMappingChange(field.field, newValue)
-                      }}
-                      className="cursor-pointer text-black px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded border"
-                      title={`Insert ${header.name}${header.sampleValue ? ` (e.g. ${header.sampleValue})` : ''}`}
-                    >
-                      {header.name}
-                    </button>
-                  ))}
+                  <span className="text-xs text-gray-500 mr-2">
+                    {currentValue ? 'Matching columns:' : 'Available columns:'}
+                  </span>
+                  {getFilteredCsvHeaders(currentValue).length > 0 ? (
+                    getFilteredCsvHeaders(currentValue).map(header => (
+                      <button
+                        key={header.name}
+                        type="button"
+                        onClick={() => {
+                          // Replace the search term with the selected column name
+                          const operators = ['+', '-', '*', '/']
+                          let lastOperatorIndex = -1
+                          for (const op of operators) {
+                            const idx = currentValue.lastIndexOf(op)
+                            if (idx > lastOperatorIndex) {
+                              lastOperatorIndex = idx
+                            }
+                          }
+
+                          let newValue: string
+                          if (lastOperatorIndex !== -1) {
+                            // Replace text after the last operator
+                            newValue = currentValue.substring(0, lastOperatorIndex + 1) + ' ' + header.name
+                          } else {
+                            // Replace entire value
+                            newValue = header.name
+                          }
+                          handleMappingChange(field.field, newValue)
+                        }}
+                        className="cursor-pointer text-black px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded border"
+                        title={`Insert ${header.name}${header.sampleValue ? ` (e.g. ${header.sampleValue})` : ''}`}
+                      >
+                        {header.name}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400 italic">No matching columns</span>
+                  )}
                   <button
                     type="button"
                     onClick={() => {

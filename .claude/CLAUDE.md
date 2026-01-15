@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** December 30, 2025
+**Last Updated:** January 14, 2026
 
 ---
 
@@ -106,6 +106,8 @@ components/
     ├── notification.tsx
     ├── TableActionsDropdown.tsx
     ├── FloatingActionButton.tsx
+    ├── DualModalContainer.tsx
+    ├── SearchableSelect.tsx
     └── LogoutModal.tsx
 ```
 
@@ -153,23 +155,24 @@ if (res.status === 'success') {
 
 ---
 
-## Component Inventory (85+ components)
+## Component Inventory (98 components)
 
 ### By Feature Area
 
 | Area | Components | Key Files |
 |------|------------|-----------|
 | Analytics | 8 | `AnalyticsWidget.tsx`, `KPIGrid.tsx`, `TimelineChart.tsx` |
-| Booking | 4 | CRUD modals |
-| Client | 9 | CRUD + bulk import + notes + agreements |
+| Booking | 5 | CRUD modals + ImportHostawayBookingsModal |
+| Client | 10 | CRUD + bulk import + QuickCreateClientModal |
 | Dashboard | 13 | `ActionBar`, `AlertsZone`, `MetricsZone`, shared utilities |
-| Expense | 3 | CRUD + categories |
+| Expense | 4 | CRUD + categories + ScanReceiptModal |
 | Property | 14 | CRUD + channels + licenses + owners + import |
 | Report | 2 | Generate + View modals |
 | Session | 2 | Warning + Expired modals |
-| Upload Wizard | 14 | 8 steps + shared components |
+| Upload Wizard | 16 | 6 steps + shared + ResumeDraftModal |
 | Connection | 2 | Hostaway + Guesty modals |
-| Shared | 5 | Modal, notification, dropdowns |
+| Shared | 7 | Modal, notification, DualModalContainer, SearchableSelect |
+| Other | 12 | GlobalFieldMappingModal + navbar + misc |
 
 ### Key Component Files
 ```
@@ -194,7 +197,7 @@ components/
 
 ---
 
-## Service Inventory (26 services)
+## Service Inventory (25 services)
 
 ### Core Services
 | Service | Purpose |
@@ -221,6 +224,11 @@ components/
 | `hostawayConnectionService.ts` | Hostaway PMS integration |
 | `guestyConnectionService.ts` | Guesty PMS integration |
 | `incomingBookingService.ts` | Webhook booking processing |
+
+### UI Utilities (in services/)
+| File | Purpose |
+|------|---------|
+| `channelUtils.tsx` | Channel icons and display name React helpers |
 
 ---
 
@@ -326,10 +334,11 @@ interface AnalyticsState {
 - Preview before generation
 - File version management
 
-### CSV Upload Wizard (8 Steps)
+### CSV Upload Wizard (6 Steps)
 1. Upload → 2. Property Identification → 3. Field Mapping
-4. Property Mapping → 5. Validate → 6. Preview
-7. Process → 8. Complete
+4. Preview → 5. Process → 6. Complete
+
+**Draft Save/Resume:** Auto-saves to localStorage on step transitions. `useWizardDraft` hook + `ResumeDraftModal` for resume prompt on page load.
 
 ### Dashboard
 - Action Bar (sticky quick actions)
@@ -502,4 +511,4 @@ Custom skills in `.claude/skills/`:
 
 ---
 
-**Last Updated:** December 30, 2025
+**Last Updated:** January 14, 2026

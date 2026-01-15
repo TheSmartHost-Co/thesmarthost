@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathIcon, PencilIcon, BookmarkIcon, ChevronLeftIcon } from '@heroicons/react/24/outline'
 import { parseCsvFile } from '@/utils/csvParser'
 import { CsvData } from '@/services/types/csvMapping'
 import { CreateBookingPayload } from '@/services/types/booking'
@@ -14,6 +14,7 @@ interface PreviewStepProps {
   onNext?: () => void
   onBack?: () => void
   onCancel?: () => void
+  onSaveDraft?: () => void
   canGoNext?: boolean
   canGoBack?: boolean
   config?: any
@@ -35,6 +36,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   onNext,
   onBack,
   onCancel,
+  onSaveDraft,
   canGoNext,
   canGoBack,
   uploadedFile,
@@ -1166,13 +1168,27 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       {/* Fixed Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-50">
         <div className="flex justify-between">
-          <button
-            onClick={onBack}
-            disabled={!canGoBack || isConfirming}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Back to Field Mapping
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onBack}
+              disabled={!canGoBack || isConfirming}
+              className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeftIcon className="w-4 h-4 mr-1" />
+              Back
+            </button>
+
+            {onSaveDraft && (
+              <button
+                onClick={onSaveDraft}
+                disabled={isConfirming}
+                className="flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+              >
+                <BookmarkIcon className="w-4 h-4 mr-1.5" />
+                Save Draft
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center space-x-3">
             {hasValidMappings && (
