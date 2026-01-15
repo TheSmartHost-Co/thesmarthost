@@ -9,7 +9,8 @@ import { getProperties } from '@/services/propertyService'
 import { Property } from '@/services/types/property'
 import { PropertyMapping, PropertyIdentificationState } from '../types/wizard'
 import { parseCsvFile } from '@/utils/csvParser'
-import { ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, PlusCircleIcon, XCircleIcon, BookmarkIcon } from '@heroicons/react/24/outline'
+import { findBestMatch } from '@/utils/fuzzyMatch'
+import { ChevronRightIcon, ChevronLeftIcon, PlusCircleIcon, XCircleIcon, BookmarkIcon, SparklesIcon } from '@heroicons/react/24/outline'
 
 interface StepProps {
   uploadedFile: any
@@ -62,6 +63,9 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
   // Modal states
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false)
   const [currentListingForNewProperty, setCurrentListingForNewProperty] = useState<string | null>(null)
+
+  // Track auto-matched listings (for UI badge, session only)
+  const [autoMatchedListings, setAutoMatchedListings] = useState<Set<string>>(new Set())
 
   // Load properties once
   useEffect(() => {
@@ -147,6 +151,50 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     analyzeCSV()
   }, [uploadedFile, showNotification, initialUniqueListings, storedMappings])
 
+  // Auto-match listings to properties using fuzzy matching
+  useEffect(() => {
+    // Only run if we have properties, mappings, and haven't already auto-matched
+    if (
+      properties.length === 0 ||
+      propertyMappings.length === 0 ||
+      autoMatchedListings.size > 0 ||
+      storedMappings?.some(m => m.propertyId) // Don't auto-match if restoring from draft with existing selections
+    ) {
+      return
+    }
+
+    const newAutoMatched = new Set<string>()
+    const updatedMappings = propertyMappings.map(mapping => {
+      // Skip if already has a property assigned
+      if (mapping.propertyId) return mapping
+
+      // Find best match, prioritizing listingName
+      const match = findBestMatch(
+        mapping.listingName,
+        properties,
+        (property) => [
+          { field: 'listingName', value: property.listingName },
+          { field: 'externalName', value: property.externalName },
+          { field: 'internalName', value: property.internalName },
+          { field: 'address', value: property.address },
+        ],
+        0.7 // 70% threshold for balanced matching
+      )
+
+      if (match) {
+        newAutoMatched.add(mapping.listingName)
+        return { ...mapping, propertyId: match.item.id }
+      }
+
+      return mapping
+    })
+
+    if (newAutoMatched.size > 0) {
+      setAutoMatchedListings(newAutoMatched)
+      setPropertyMappings(updatedMappings)
+      onPropertyMappingsUpdate(updatedMappings)
+    }
+  }, [properties, propertyMappings, autoMatchedListings.size, storedMappings, onPropertyMappingsUpdate])
 
   // Update property mapping
   const updatePropertyMapping = useCallback((listingName: string, propertyId: string | null) => {
@@ -157,7 +205,16 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
     )
     setPropertyMappings(newMappings)
     onPropertyMappingsUpdate(newMappings)
-  }, [propertyMappings, onPropertyMappingsUpdate])
+
+    // Remove from auto-matched if user manually changes selection
+    if (autoMatchedListings.has(listingName)) {
+      setAutoMatchedListings(prev => {
+        const updated = new Set(prev)
+        updated.delete(listingName)
+        return updated
+      })
+    }
+  }, [propertyMappings, onPropertyMappingsUpdate, autoMatchedListings])
 
   // Toggle exclude listing
   const toggleExcludeListing = useCallback((listingName: string) => {
@@ -300,10 +357,16 @@ const PropertyIdentificationStep: React.FC<StepProps> = ({
                     <h4 className={`text-sm font-medium ${mapping.isExcluded ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                       {mapping.listingName}
                     </h4>
-                    <p className={`text-sm mt-1 ${mapping.isExcluded ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {mapping.bookingCount} booking{mapping.bookingCount !== 1 ? 's' : ''}
-                      {mapping.isExcluded && <span className="ml-2 text-red-400">(Excluded)</span>}
-                    </p>
+                    <div className={`flex items-center gap-2 text-sm mt-1 ${mapping.isExcluded ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <span>{mapping.bookingCount} booking{mapping.bookingCount !== 1 ? 's' : ''}</span>
+                      {mapping.isExcluded && <span className="text-red-400">(Excluded)</span>}
+                      {!mapping.isExcluded && autoMatchedListings.has(mapping.listingName) && mapping.propertyId && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                          <SparklesIcon className="w-3 h-3" />
+                          Auto-matched
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

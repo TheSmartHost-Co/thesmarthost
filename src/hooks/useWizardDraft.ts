@@ -164,12 +164,9 @@ export function useWizardDraft(): UseWizardDraftReturn {
       localStorage.setItem(STORAGE_KEY, serialized)
       lastSaveRef.current = serialized
 
-      setHasDraft(true)
-      setDraftInfo({
-        fileName: draft.fileName,
-        savedAt: new Date(draft.savedAt),
-        currentStep: draft.currentStep,
-      })
+      // Note: Don't update hasDraft/draftInfo here - those are only for
+      // detecting drafts on mount. Updating them here would trigger
+      // the resume modal during an active session.
 
       showNotification('Draft saved', 'info')
     } catch (error) {

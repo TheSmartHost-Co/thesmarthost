@@ -6,6 +6,7 @@ import { parseCsvFile } from '@/utils/csvParser'
 import { CsvData } from '@/services/types/csvMapping'
 import { CreateBookingPayload } from '@/services/types/booking'
 import { useUserStore } from '@/store/useUserStore'
+import { useNotificationStore } from '@/store/useNotificationStore'
 import EditFieldModal from '@/components/field-value-changed/EditFieldModal'
 import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 import { isFinancialField, formatFieldName } from '@/services/fieldValuesChangedService'
@@ -72,6 +73,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   } | null>(null)
 
   const { profile } = useUserStore()
+  const showNotification = useNotificationStore((state) => state.showNotification)
+
+  // Track formula errors to show user notification
+  const formulaErrorsRef = React.useRef<Set<string>>(new Set())
 
   // Load CSV data and generate booking previews
   useEffect(() => {
@@ -96,18 +101,30 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       try {
         setLoading(true)
+        // Clear any previous formula errors
+        formulaErrorsRef.current.clear()
+
         // Extract the actual File object from the UploadedFile structure
         const fileToProcess = uploadedFile.file || uploadedFile
         const data = await parseCsvFile(fileToProcess)
         setCsvData(data)
-        
+
         // Generate booking previews with property-specific mappings
         const previews = generateBookingPreviewsWithPropertyMappings(
-          data, 
-          fieldMappingState, 
+          data,
+          fieldMappingState,
           propertyIdentificationState
         )
         setBookingPreviews(previews)
+
+        // Show notification if there were formula errors
+        if (formulaErrorsRef.current.size > 0) {
+          const errorMessages = Array.from(formulaErrorsRef.current)
+          const displayMessage = errorMessages.length === 1
+            ? errorMessages[0]
+            : `${errorMessages.length} formula errors found. Check field mappings for typos or missing columns.`
+          showNotification(displayMessage, 'error')
+        }
         
         // Group bookings by property for multi-property display
         const grouped = groupBookingsByProperty(previews)
@@ -137,7 +154,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     }
 
     loadPreviewData()
-  }, [uploadedFile, fieldMappingState, propertyIdentificationState])
+  }, [uploadedFile, fieldMappingState, propertyIdentificationState, showNotification])
 
   // Helper function to escape special regex characters
   const escapeRegExp = (string: string) => {
@@ -170,7 +187,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   }
 
   // Formula evaluator function
-  const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[]): number | string => {
+  // suppressWarning: When true, don't log warnings or add to formulaErrorsRef (used during pass 1 of two-pass evaluation)
+  const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[], suppressWarning: boolean = false): number | string => {
     try {
       // Removed excessive logging
       
@@ -225,18 +243,30 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       // Evaluate the mathematical expression safely
       if (!/^[0-9+\-*/.() ]+$/.test(expression)) {
-        console.warn(`Invalid formula expression: ${expression}`)
-        console.warn('Expression contains non-numeric/operator characters')
+        // Only log warning and add to errors if suppressWarning is false (i.e., this is pass 2)
+        if (!suppressWarning) {
+          console.warn(`Invalid formula expression: ${expression}`)
+          // Extract unresolved field names from the expression for user notification
+          const unresolvedFields = expression.match(/[a-z_]+/gi) || []
+          if (unresolvedFields.length > 0) {
+            formulaErrorsRef.current.add(`Formula "${formula}" has unresolved fields: ${unresolvedFields.join(', ')}`)
+          } else {
+            formulaErrorsRef.current.add(`Formula "${formula}" contains invalid characters`)
+          }
+        }
         return formula // Return original formula if invalid
       }
 
       // Use Function constructor for safe evaluation
       const result = new Function(`return ${expression}`)()
       const finalResult = isNaN(result) ? 0 : parseFloat(result.toFixed(2))
-      
+
       return finalResult
     } catch (error) {
-      console.error(`Formula evaluation error for "${formula}":`, error)
+      if (!suppressWarning) {
+        console.error(`Formula evaluation error for "${formula}":`, error)
+        formulaErrorsRef.current.add(`Formula "${formula}" failed to evaluate`)
+      }
       return formula // Return original formula if evaluation fails
     }
   }
@@ -384,46 +414,53 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         continue
       }
 
-      // Sort mappings to handle dependencies (process CSV columns first, then calculated fields)
-      const sortedMappings = [...applicableFieldMappings].sort((a, b) => {
-        const aIsDirect = csvData.headers.some(h => h.name.toLowerCase() === a.csvFormula?.toLowerCase())
-        const bIsDirect = csvData.headers.some(h => h.name.toLowerCase() === b.csvFormula?.toLowerCase())
+      // Helper to evaluate a single mapping with current booking state
+      // suppressWarning: When true, don't log warnings (used during pass 1)
+      const evaluateMappingWithBookingState = (mapping: any, suppressWarning: boolean = false) => {
+        const isSimpleColumn = csvData.headers.some(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
 
-        if (aIsDirect && !bIsDirect) return -1
-        if (!aIsDirect && bIsDirect) return 1
-        return 0
+        if (isSimpleColumn) {
+          return evaluateFormula(mapping.csvFormula, row, csvData.headers, suppressWarning)
+        } else {
+          // Complex formula - create extended headers that include already calculated booking fields
+          const extendedHeaders = [
+            ...csvData.headers,
+            ...Object.keys(booking).filter(k => k !== 'rowIndex').map((field, idx) => ({
+              name: field,
+              index: csvData.headers.length + idx
+            }))
+          ]
+
+          const extendedRow = [
+            ...row,
+            ...Object.keys(booking).filter(k => k !== 'rowIndex').map(field => {
+              const value = booking[field]
+              return String(value ?? '0')
+            })
+          ]
+
+          return evaluateFormula(mapping.csvFormula, extendedRow, extendedHeaders, suppressWarning)
+        }
+      }
+
+      // Two-pass approach to handle dependencies between calculated fields
+      // Pass 1: Evaluate all mappings in original order (suppress warnings - they may resolve in pass 2)
+      applicableFieldMappings.forEach(mapping => {
+        if (mapping.csvFormula && mapping.csvFormula.trim()) {
+          const result = evaluateMappingWithBookingState(mapping, true) // suppressWarning = true
+          booking[mapping.bookingField] = result
+        }
       })
 
-      // Apply field mappings to create booking object
-      sortedMappings.forEach(mapping => {
+      // Pass 2: Re-evaluate fields that returned formula text (unresolved dependencies)
+      // Now their dependencies should be resolved from pass 1
+      // If they still fail, warnings will be logged (suppressWarning = false)
+      applicableFieldMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
-          // Check if this is a simple CSV column reference
-          const isSimpleColumn = csvData.headers.some(h => h.name.toLowerCase() === mapping.csvFormula.toLowerCase())
-
-          if (isSimpleColumn) {
-            // Simple column mapping - use original CSV data
-            const result = evaluateFormula(mapping.csvFormula, row, csvData.headers)
-            booking[mapping.bookingField] = result
-          } else {
-            // Complex formula - create extended headers that include already calculated booking fields
-            const extendedHeaders = [
-              ...csvData.headers,
-              ...Object.keys(booking).filter(k => k !== 'rowIndex').map((field, index) => ({
-                name: field,
-                index: csvData.headers.length + index
-              }))
-            ]
-
-            // Create extended row that includes both CSV values and calculated values
-            const extendedRow = [
-              ...row,
-              ...Object.keys(booking).filter(k => k !== 'rowIndex').map(field => {
-                const value = booking[field]
-                return String(value ?? '0')
-              })
-            ]
-
-            const result = evaluateFormula(mapping.csvFormula, extendedRow, extendedHeaders)
+          const currentValue = booking[mapping.bookingField]
+          // If the value is still a string that looks like the original formula, try again
+          if (typeof currentValue === 'string' && currentValue === mapping.csvFormula) {
+            const result = evaluateMappingWithBookingState(mapping, false) // suppressWarning = false
             booking[mapping.bookingField] = result
           }
         }
@@ -609,9 +646,25 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return []
   }
 
+  // Field display order constant - matches FieldMappingStep (Required + Optional fields)
+  const FIELD_DISPLAY_ORDER = [
+    // Required fields
+    'reservation_code', 'guest_name', 'check_in_date', 'num_nights', 'platform', 'listing_name',
+    // Optional fields
+    'nightly_rate', 'cleaning_fee', 'total_payout', 'net_earnings', 'sales_tax',
+    'mgmt_fee', 'extra_guest_fees', 'lodging_tax', 'qst', 'gst',
+    'channel_fee', 'stripe_fee', 'bed_linen_fee', 'accommodation'
+  ]
+
+  // Helper function to get sort index for field ordering
+  const getFieldSortIndex = (fieldName: string): number => {
+    const index = FIELD_DISPLAY_ORDER.indexOf(fieldName)
+    return index === -1 ? FIELD_DISPLAY_ORDER.length : index // Unknown fields go to end
+  }
+
   const getMappedFields = () => {
     if (!fieldMappingState) return []
-    
+
     const { mappingMode, globalMappings, propertyMappings } = fieldMappingState
     
     if (mappingMode === 'global' && globalMappings) {
@@ -623,6 +676,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           mode: 'global',
           platform: mapping.platform || 'ALL'
         }))
+        .sort((a: any, b: any) => getFieldSortIndex(a.field) - getFieldSortIndex(b.field))
     }
     
     if (mappingMode === 'per-property' && propertyMappings) {
@@ -664,8 +718,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       })
       
       return Array.from(fieldInfoMap.values())
+        .sort((a: any, b: any) => getFieldSortIndex(a.field) - getFieldSortIndex(b.field))
     }
-    
+
     return []
   }
 
