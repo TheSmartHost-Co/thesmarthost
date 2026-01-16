@@ -6,8 +6,8 @@ import { ChevronRightIcon, ChevronLeftIcon, BookmarkIcon, Cog6ToothIcon, GlobeAl
 import FieldMappingForm from '@/components/csv-mapping/FieldMappingForm'
 import PropertyFieldMappingModal from '@/components/property-field-mapping/propertyFieldMappingModal'
 import GlobalFieldMappingModal from '@/components/global-field-mapping/GlobalFieldMappingModal'
-import { CsvData, FieldMapping, CompleteFieldMappingState } from '@/services/types/csvMapping'
-import { parseCsvFile } from '@/utils/csvParser'
+import { CsvData, CsvHeader, FieldMapping, CompleteFieldMappingState } from '@/services/types/csvMapping'
+import { parseCsvFile, suggestMappings } from '@/utils/csvParser'
 import { getCalculationRules } from '@/services/calculationRuleService'
 import { CalculationRule } from '@/services/types/calculationRule'
 import { useUserStore } from '@/store/useUserStore'
@@ -88,7 +88,12 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
   const [loadingGlobalTemplate, setLoadingGlobalTemplate] = useState(false)
   const [availableGlobalTemplates, setAvailableGlobalTemplates] = useState<GlobalFieldMappingTemplate[]>([])
   const [selectedGlobalTemplate, setSelectedGlobalTemplate] = useState<GlobalFieldMappingTemplate | null>(null)
-  const hasLoadedGlobalDefault = useRef(false)
+
+  // Initialization state - tracks which source was used (draft/template/fuzzy/empty)
+  const [initState, setInitState] = useState<{
+    source: 'loading' | 'draft' | 'template' | 'fuzzy' | 'empty'
+    isReady: boolean
+  }>({ source: 'loading', isReady: false })
 
   // Field mappings state - separated by mode
   const [globalMappings, setGlobalMappings] = useState<FieldMapping[]>(
@@ -127,7 +132,62 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     }
   }, [activePropertyTab, selectedTemplatesByProperty])
 
-  // Load templates for active property
+  // ============================================================================
+  // CONSOLIDATED INITIALIZATION - Runs ONCE on step mount
+  // Priority: 1) Draft → 2) Default Template → 3) Fuzzy Matching
+  // ============================================================================
+  useEffect(() => {
+    const initializeMappings = async () => {
+      // Priority 1: Draft restoration (completeFieldMappingState from cached workflow)
+      if (completeFieldMappingState?.platformMappings) {
+        const hasDraftMappings = Object.keys(completeFieldMappingState.platformMappings.ALL || {}).length > 0
+        if (hasDraftMappings) {
+          // Draft already loaded via props - just mark as ready
+          setInitState({ source: 'draft', isReady: true })
+          return
+        }
+      }
+
+      // Check if we already have field mappings from props (draft restoration)
+      if (fieldMappingState?.globalMappings && fieldMappingState.globalMappings.length > 0) {
+        setInitState({ source: 'draft', isReady: true })
+        return
+      }
+
+      // Priority 2: Default template auto-load (only in global mode for simplicity)
+      if (mappingMode === 'global' && user?.id) {
+        try {
+          const response = await getGlobalFieldMappings(user.id)
+          if (response.status === 'success') {
+            setAvailableGlobalTemplates(response.data)
+
+            const defaultTemplate = response.data.find(t => t.isDefault)
+            if (defaultTemplate) {
+              // Load template directly without notification (initial auto-load)
+              const fieldMappings = platformFieldMappingsToFieldMappings(defaultTemplate.fieldMappings)
+              setGlobalMappings(fieldMappings)
+              setSelectedGlobalTemplate(defaultTemplate)
+              setInitState({ source: 'template', isReady: true })
+              return
+            }
+          }
+        } catch (error) {
+          console.error('Error loading global templates during init:', error)
+        }
+      }
+
+      // Priority 3: Fuzzy matching (let FieldMappingForm handle this)
+      // We set initState to 'fuzzy' to indicate form should run auto-suggestions
+      setInitState({ source: 'fuzzy', isReady: true })
+    }
+
+    // Only run once when CSV data is ready
+    if (csvData && !initState.isReady) {
+      initializeMappings()
+    }
+  }, [csvData, user?.id, mappingMode, completeFieldMappingState, fieldMappingState])
+
+  // Load templates for active property (UI dropdown only - NO auto-loading)
   useEffect(() => {
     const loadTemplatesForProperty = async () => {
       if (mappingMode === 'per-property' && activePropertyTab) {
@@ -136,14 +196,8 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           const response = await getPropertyFieldMappings(activePropertyTab)
           if (response.status === 'success') {
             setAvailableTemplates(response.data)
-            
-            // Check if there's a default template and auto-load it
-            const defaultTemplate = response.data.find(t => t.isDefault)
-            const existingMappings = propertyMappings[activePropertyTab]
-                  
-            if (defaultTemplate && (!propertyMappings[activePropertyTab] || propertyMappings[activePropertyTab].length === 0)) {
-              loadTemplateToProperty(defaultTemplate, activePropertyTab)
-            }
+            // NOTE: Removed auto-loading of default template on tab switch
+            // Templates are only loaded when user explicitly selects from dropdown
           }
         } catch (error) {
           console.error('Error loading templates for property:', error)
@@ -156,22 +210,17 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     loadTemplatesForProperty()
   }, [mappingMode, activePropertyTab])
 
-  // Load global templates and auto-load default when in global mode
+  // Load global templates for UI dropdown (NO auto-loading - handled by init above)
   useEffect(() => {
     const loadGlobalTemplates = async () => {
-      if (mappingMode === 'global' && user?.id) {
+      // Only fetch for UI if not already loaded during initialization
+      if (mappingMode === 'global' && user?.id && availableGlobalTemplates.length === 0) {
         try {
           setLoadingGlobalTemplate(true)
           const response = await getGlobalFieldMappings(user.id)
           if (response.status === 'success') {
             setAvailableGlobalTemplates(response.data)
-
-            // Auto-load default global template if exists and no mappings yet
-            const defaultTemplate = response.data.find(t => t.isDefault)
-            if (defaultTemplate && globalMappings.length === 0 && !hasLoadedGlobalDefault.current) {
-              hasLoadedGlobalDefault.current = true
-              loadGlobalTemplate(defaultTemplate)
-            }
+            // NOTE: Removed auto-loading - handled by consolidated init useEffect
           }
         } catch (error) {
           console.error('Error loading global templates:', error)
@@ -182,7 +231,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     }
 
     loadGlobalTemplates()
-  }, [mappingMode, user?.id])
+  }, [mappingMode, user?.id, availableGlobalTemplates.length])
 
   // Load a global template into the global mappings
   const loadGlobalTemplate = useCallback((template: GlobalFieldMappingTemplate, showConfirm = false) => {
@@ -594,12 +643,14 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
     onValidationComplete
   ])
 
-  if (loading) {
+  if (loading || !initState.isReady) {
     return (
       <div className="p-8">
         <div className="flex items-center justify-center h-64">
           <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-500 mr-3" />
-          <span className="text-gray-500">Loading CSV data...</span>
+          <span className="text-gray-500">
+            {loading ? 'Loading CSV data...' : 'Initializing field mappings...'}
+          </span>
         </div>
       </div>
     )
@@ -897,6 +948,7 @@ const FieldMappingStep: React.FC<FieldMappingStepProps> = ({
           onValidationChange={(valid) => {}} // Handle validation if needed
           onCompleteStateChange={onCompleteStateChange}
           calculationRules={calculationRules}
+          skipAutoSuggestions={initState.source === 'draft' || initState.source === 'template'}
         />
       </div>
 
