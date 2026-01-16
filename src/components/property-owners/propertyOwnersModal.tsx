@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../shared/modal'
+import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
+import QuickCreateClientModal from '@/components/client/quick-create/QuickCreateClientModal'
 import { updateProperty } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
 import type { Property, PropertyOwner, UpdatePropertyOwner } from '@/services/types/property'
@@ -38,6 +40,7 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
   const [selectedClientId, setSelectedClientId] = useState('')
   const [newOwnerCommissionOverride, setNewOwnerCommissionOverride] = useState<string>('')
   const [hasChanges, setHasChanges] = useState(false)
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -48,6 +51,7 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
       fetchClients()
       setIsAdding(false)
       setHasChanges(false)
+      setIsQuickCreateOpen(false)
     }
   }, [isOpen, property])
 
@@ -72,6 +76,22 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
   const clientsNotOwners = availableClients.filter(
     client => !owners.some(owner => owner.clientId === client.id)
   )
+
+  // Convert clients not owners to SearchableSelect options
+  const clientOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return clientsNotOwners.map(client => ({
+      value: client.id,
+      label: client.name,
+      secondaryLabel: client.email || undefined,
+    }))
+  }, [clientsNotOwners])
+
+  // Handle quick create success - add new client and auto-select
+  const handleQuickCreateSuccess = (newClient: Client) => {
+    setAvailableClients(prev => [...prev, newClient])
+    setSelectedClientId(newClient.id)
+    setIsQuickCreateOpen(false)
+  }
 
   const handleAddOwner = () => {
     if (!selectedClientId) {
@@ -179,213 +199,244 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} style="p-6 max-w-2xl w-11/12">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">{property.listingName}</h2>
-        <p className="text-sm text-gray-500">Manage property owners and commission rates</p>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-500">Loading...</p>
-          </div>
+    <>
+      <Modal isOpen={isOpen} onClose={handleClose} style="p-6 max-w-2xl w-11/12">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">{property.listingName}</h2>
+          <p className="text-sm text-gray-500">Manage property owners and commission rates</p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700">
-                Property Owners ({owners.length})
-              </h3>
-              <p className="text-xs text-gray-500">
-                Default commission: {property.commissionRate || 0}%
-              </p>
-            </div>
-            {!isAdding && clientsNotOwners.length > 0 && (
-              <button
-                onClick={() => setIsAdding(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Add Owner
-              </button>
-            )}
-          </div>
 
-          {/* Owners List */}
-          <div className="space-y-3">
-            {owners.map((owner) => (
-              <div
-                key={owner.clientId}
-                className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${
-                  owner.isPrimary
-                    ? 'border-amber-200 bg-amber-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    owner.isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <UserGroupIcon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900">{owner.clientName}</p>
-                      {owner.isPrimary && (
-                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                          Primary
-                        </span>
-                      )}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-500">Loading...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Property Owners ({owners.length})
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Default commission: {property.commissionRate || 0}%
+                </p>
+              </div>
+              {!isAdding && clientsNotOwners.length > 0 && (
+                <button
+                  onClick={() => setIsAdding(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Owner
+                </button>
+              )}
+            </div>
+
+            {/* Owners List */}
+            <div className="space-y-3">
+              {owners.map((owner) => (
+                <div
+                  key={owner.clientId}
+                  className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${
+                    owner.isPrimary
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      owner.isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <UserGroupIcon className="w-5 h-5" />
                     </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <label className="text-xs text-gray-500">Commission override:</label>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-900">{owner.clientName}</p>
+                        {owner.isPrimary && (
+                          <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <label className="text-xs text-gray-500">Commission override:</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={owner.commissionRateOverride ?? ''}
+                          onChange={(e) => handleCommissionChange(owner.clientId, e.target.value)}
+                          placeholder={`${property.commissionRate || 0}%`}
+                          className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-3">
+                    {!owner.isPrimary && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimary(owner.clientId)}
+                        className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="Set as primary owner"
+                      >
+                        <StarIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    {owner.isPrimary && (
+                      <div className="p-2 text-amber-500">
+                        <StarIconSolid className="w-4 h-4" />
+                      </div>
+                    )}
+                    {owners.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOwner(owner.clientId)}
+                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove owner"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Owner Form */}
+            {isAdding && (
+              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-900">Add New Owner</h4>
+                  <button
+                    onClick={() => setIsAdding(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Client
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        {clientsNotOwners.length === 0 && !loading ? (
+                          <div className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 text-sm">
+                            No available clients. Create a new one.
+                          </div>
+                        ) : (
+                          <SearchableSelect
+                            options={clientOptions}
+                            value={selectedClientId || null}
+                            onChange={(value) => setSelectedClientId(value || '')}
+                            placeholder="Choose a client..."
+                            loading={loading}
+                            loadingText="Loading clients..."
+                            emptyText="No clients found"
+                            clearable={true}
+                            headerAction={{
+                              label: 'Create New Client',
+                              icon: <PlusIcon className="w-4 h-4" />,
+                              onClick: () => setIsQuickCreateOpen(true),
+                            }}
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickCreateOpen(true)}
+                        className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg border border-amber-200 transition-colors flex-shrink-0"
+                        title="Create new client"
+                      >
+                        <PlusIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Commission Override (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
                       <input
                         type="number"
                         step="0.01"
-                        value={owner.commissionRateOverride ?? ''}
-                        onChange={(e) => handleCommissionChange(owner.clientId, e.target.value)}
-                        placeholder={`${property.commissionRate || 0}%`}
-                        className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        value={newOwnerCommissionOverride}
+                        onChange={(e) => setNewOwnerCommissionOverride(e.target.value)}
+                        placeholder={`Default: ${property.commissionRate || 0}`}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <span className="text-xs text-gray-400">%</span>
+                      <span className="text-gray-500">%</span>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty to use property&apos;s default commission rate
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAdding(false)}
+                      className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddOwner}
+                      disabled={!selectedClientId}
+                      className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    >
+                      Add Owner
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 ml-3">
-                  {!owner.isPrimary && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrimary(owner.clientId)}
-                      className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                      title="Set as primary owner"
-                    >
-                      <StarIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                  {owner.isPrimary && (
-                    <div className="p-2 text-amber-500">
-                      <StarIconSolid className="w-4 h-4" />
-                    </div>
-                  )}
-                  {owners.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOwner(owner.clientId)}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Remove owner"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
               </div>
-            ))}
+            )}
+
+            {/* No Clients Available */}
+            {clientsNotOwners.length === 0 && !isAdding && (
+              <div className="text-center py-4 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                All available clients are already owners of this property.
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Add Owner Form */}
-          {isAdding && (
-            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-gray-900">Add New Owner</h4>
-                <button
-                  onClick={() => setIsAdding(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Client
-                  </label>
-                  <select
-                    value={selectedClientId}
-                    onChange={(e) => setSelectedClientId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Choose a client...</option>
-                    {clientsNotOwners.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.name} {client.email ? `(${client.email})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Commission Override (Optional)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newOwnerCommissionOverride}
-                      onChange={(e) => setNewOwnerCommissionOverride(e.target.value)}
-                      placeholder={`Default: ${property.commissionRate || 0}`}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <span className="text-gray-500">%</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty to use property's default commission rate
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAdding(false)}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddOwner}
-                    disabled={!selectedClientId}
-                    className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                  >
-                    Add Owner
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* No Clients Available */}
-          {clientsNotOwners.length === 0 && !isAdding && (
-            <div className="text-center py-4 text-sm text-gray-500 bg-gray-50 rounded-lg">
-              All available clients are already owners of this property.
-            </div>
-          )}
+        {/* Modal Footer */}
+        <div className="flex justify-between pt-6 border-t border-gray-200 mt-6">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
-      )}
+      </Modal>
 
-      {/* Modal Footer */}
-      <div className="flex justify-between pt-6 border-t border-gray-200 mt-6">
-        <button
-          onClick={handleClose}
-          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving || !hasChanges}
-          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
-    </Modal>
+      {/* Quick Create Client Modal */}
+      <Modal isOpen={isQuickCreateOpen} onClose={() => setIsQuickCreateOpen(false)} style="p-5 w-80 max-h-[85vh]" zIndex={70}>
+        <QuickCreateClientModal
+          onCancel={() => setIsQuickCreateOpen(false)}
+          onCreate={handleQuickCreateSuccess}
+        />
+      </Modal>
+    </>
   )
 }
 
