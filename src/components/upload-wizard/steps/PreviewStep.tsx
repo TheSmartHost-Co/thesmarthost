@@ -414,6 +414,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         continue
       }
 
+      // Detect platform for this booking row and filter to applicable mappings
+      const bookingPlatform = determineBookingPlatform(row, applicableFieldMappings, csvData.headers)
+      const platformFilteredMappings = getApplicableMappings(applicableFieldMappings, bookingPlatform)
+
       // Helper to evaluate a single mapping with current booking state
       // suppressWarning: When true, don't log warnings (used during pass 1)
       const evaluateMappingWithBookingState = (mapping: any, suppressWarning: boolean = false) => {
@@ -444,8 +448,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       }
 
       // Two-pass approach to handle dependencies between calculated fields
-      // Pass 1: Evaluate all mappings in original order (suppress warnings - they may resolve in pass 2)
-      applicableFieldMappings.forEach(mapping => {
+      // Pass 1: Evaluate all platform-filtered mappings in original order (suppress warnings - they may resolve in pass 2)
+      platformFilteredMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
           const result = evaluateMappingWithBookingState(mapping, true) // suppressWarning = true
           booking[mapping.bookingField] = result
@@ -455,7 +459,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       // Pass 2: Re-evaluate fields that returned formula text (unresolved dependencies)
       // Now their dependencies should be resolved from pass 1
       // If they still fail, warnings will be logged (suppressWarning = false)
-      applicableFieldMappings.forEach(mapping => {
+      platformFilteredMappings.forEach(mapping => {
         if (mapping.csvFormula && mapping.csvFormula.trim()) {
           const currentValue = booking[mapping.bookingField]
           // If the value is still a string that looks like the original formula, try again
@@ -668,55 +672,89 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     const { mappingMode, globalMappings, propertyMappings } = fieldMappingState
     
     if (mappingMode === 'global' && globalMappings) {
-      return globalMappings
+      // Deduplicate by booking field to avoid duplicate columns
+      const fieldMap = new Map<string, any>()
+
+      globalMappings
         .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
-        .map((mapping: any) => ({
-          field: mapping.bookingField,
-          source: mapping.csvFormula,
-          mode: 'global',
-          platform: mapping.platform || 'ALL'
-        }))
+        .forEach((mapping: any) => {
+          const existing = fieldMap.get(mapping.bookingField)
+          if (!existing) {
+            // First mapping for this field (could be ALL or platform-specific)
+            fieldMap.set(mapping.bookingField, {
+              field: mapping.bookingField,
+              source: mapping.csvFormula,
+              mode: 'global',
+              platform: mapping.platform || 'ALL',
+              hasOverrides: mapping.isOverride || false,
+              overridePlatforms: mapping.isOverride ? [mapping.platform] : []
+            })
+          } else if (mapping.isOverride) {
+            // Platform-specific override - mark field as having overrides
+            existing.hasOverrides = true
+            if (!existing.overridePlatforms.includes(mapping.platform)) {
+              existing.overridePlatforms.push(mapping.platform)
+            }
+          } else if (mapping.platform === 'ALL' || !mapping.platform) {
+            // This is a base (ALL) mapping - update source if we didn't have one
+            if (existing.platform !== 'ALL' && !existing.overridePlatforms.length) {
+              existing.source = mapping.csvFormula
+              existing.platform = 'ALL'
+            }
+          }
+        })
+
+      return Array.from(fieldMap.values())
         .sort((a: any, b: any) => getFieldSortIndex(a.field) - getFieldSortIndex(b.field))
     }
     
     if (mappingMode === 'per-property' && propertyMappings) {
       // For per-property mode, collect unique booking fields only (not field-source combinations)
-      const uniqueFields = new Set<string>()
       const fieldInfoMap = new Map<string, any>()
-      
+
       Object.entries(propertyMappings).forEach(([propertyId, config]: [string, any]) => {
         const fieldMappings = config.fieldMappings || []
-        
+
         fieldMappings
           .filter((mapping: any) => mapping.csvFormula && mapping.csvFormula.trim())
           .forEach((mapping: any) => {
             const fieldName = mapping.bookingField
-            uniqueFields.add(fieldName)
-            
-            // Store first occurrence info for display purposes
+
+            // Get or create field info
             if (!fieldInfoMap.has(fieldName)) {
               fieldInfoMap.set(fieldName, {
                 field: fieldName,
-                source: mapping.csvFormula, // Show first source found
+                source: mapping.csvFormula,
                 mode: 'per-property',
                 platform: mapping.platform || 'ALL',
-                usedByProperties: []
+                usedByProperties: [],
+                hasOverrides: mapping.isOverride || false,
+                overridePlatforms: mapping.isOverride ? [mapping.platform] : []
               })
+            } else if (mapping.isOverride) {
+              // Track platform overrides
+              const fieldInfo = fieldInfoMap.get(fieldName)
+              fieldInfo.hasOverrides = true
+              if (!fieldInfo.overridePlatforms.includes(mapping.platform)) {
+                fieldInfo.overridePlatforms.push(mapping.platform)
+              }
             }
-            
-            // Add property name to the field info
-            const fieldInfo = fieldInfoMap.get(fieldName)
-            const propMapping = propertyIdentificationState?.propertyMappings?.find(
-              (pm: any) => pm.propertyId === propertyId
-            )
-            const propertyName = propMapping?.listingName || propertyId
-            
-            if (propertyName && !fieldInfo.usedByProperties.includes(propertyName)) {
-              fieldInfo.usedByProperties.push(propertyName)
+
+            // Add property name to the field info (only for non-override mappings to avoid duplicates)
+            if (!mapping.isOverride) {
+              const fieldInfo = fieldInfoMap.get(fieldName)
+              const propMapping = propertyIdentificationState?.propertyMappings?.find(
+                (pm: any) => pm.propertyId === propertyId
+              )
+              const propertyName = propMapping?.listingName || propertyId
+
+              if (propertyName && !fieldInfo.usedByProperties.includes(propertyName)) {
+                fieldInfo.usedByProperties.push(propertyName)
+              }
             }
           })
       })
-      
+
       return Array.from(fieldInfoMap.values())
         .sort((a: any, b: any) => getFieldSortIndex(a.field) - getFieldSortIndex(b.field))
     }
@@ -1033,7 +1071,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                     )}
                   </>
                 )}
-                {mapping.platform !== 'ALL' && (
+                {mapping.hasOverrides && mapping.overridePlatforms?.length > 0 && (
+                  <span className="ml-1 text-blue-600 text-xs">
+                    (overrides: {mapping.overridePlatforms.join(', ')})
+                  </span>
+                )}
+                {!mapping.hasOverrides && mapping.platform !== 'ALL' && (
                   <span className="ml-1 text-blue-600">({mapping.platform})</span>
                 )}
               </div>
@@ -1042,7 +1085,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         </div>
         
         {/* Platform Override Legend */}
-        {mappedFields.some((f: any) => f.platform !== 'ALL' && f.isOverride) && (
+        {mappedFields.some((f: any) => f.hasOverrides) && (
           <div className="mt-3 pt-3 border-t border-gray-300">
             <h5 className="text-xs font-medium text-gray-700 mb-2">Legend:</h5>
             <div className="flex flex-wrap gap-3 text-xs text-gray-600">
