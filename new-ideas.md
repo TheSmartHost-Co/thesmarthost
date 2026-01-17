@@ -5,18 +5,30 @@
   - Recurring Expenses - Set up monthly expenses that auto-create (utilities, subscriptions)
   - Automated Reminders - Payment due dates, lease renewals, maintenance schedules
 
-  2. Client Portal
+    Scheduled Report Generation & Auto-Distribution
 
-  - Owner Dashboard - Let property owners log in to view their own reports, earnings, expenses
-  - Self-Service Reports - Owners generate their own reports on-demand
-  - Document Sharing - Secure area for agreements, tax documents, receipts
+  Current State: Reports are generated manually, downloaded, then emailed separately to clients.
 
-   3. Advanced Analytics
+  Opportunity:
+  - Schedule monthly reports to auto-generate on the 1st/5th of each month
+  - Auto-email to clients with PDF attachment
+  - Track delivery status (sent, opened, downloaded)
 
-  - Occupancy Trends - Visualize booking patterns by month/season
-  - Revenue Comparison - Compare properties, year-over-year, channel performance
-  - Forecasting - Predict future revenue based on historical data
-  - Commission Tracking - Track earned vs. paid commissions
+  Why it matters: This is your core value prop - reducing 2-4 hours → 10 minutes. Automating distribution
+ could reduce it further to near-zero ongoing effort.
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  Report Schedule Configuration                          │
+  ├─────────────────────────────────────────────────────────┤
+  │  Generate: [Monthly ▼] on day [5 ▼]                     │
+  │  Format: [PDF ▼]                                        │
+  │  Recipients: [All property owners ▼]                    │
+  │  Include: ☑ Financial Summary  ☑ Expense Details       │
+  │           ☑ Occupancy Stats    ☐ Raw Bookings          │
+  └─────────────────────────────────────────────────────────┘ 
+
+
+
 
   4. Financial Tools
 
@@ -26,12 +38,12 @@
 
   5. Integrations
 
-  - PMS Sync - Auto-import bookings from Hostaway, Guesty, etc.
   - Accounting Export - QuickBooks/Xero integration
   - Calendar Sync - Google Calendar for bookings
 
-  6. Operations
 
-  - Maintenance Tracking - Log work orders, vendor assignments, costs
-  - Cleaning Schedules - Track turnover cleanings tied to bookings
-  - Vendor Directory - Manage contractors with contact info, rates
+  2. Client Portal
+
+  - Owner Dashboard - Let property owners log in to view their own reports, earnings, expenses
+  - Self-Service Reports - Owners generate their own reports on-demand
+  - Document Sharing - Secure area for agreements, tax documents, receipts

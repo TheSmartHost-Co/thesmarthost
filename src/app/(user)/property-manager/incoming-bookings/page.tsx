@@ -7,6 +7,7 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus } from '@/services/incomingBookingService'
 import type { IncomingBooking } from '@/services/types/incomingBooking'
 import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
+import BulkApproveBookingsModal from '@/components/incoming-bookings/BulkApproveBookingsModal'
 import {
   InboxArrowDownIcon,
   CheckIcon,
@@ -81,6 +82,7 @@ export default function IncomingBookingsPage() {
   // Bulk selection state
   const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
   const [isBulkApproving, setIsBulkApproving] = useState(false)
+  const [bulkApproveModalOpen, setBulkApproveModalOpen] = useState(false)
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -135,13 +137,25 @@ export default function IncomingBookingsPage() {
 
       if (response.status === 'success') {
         showNotification(`Booking ${newStatus} successfully`, 'success')
-        fetchIncomingBookings() // Refresh the list
+        // Optimistic update - update local state instead of refetching
+        setBookings(prevBookings =>
+          prevBookings.map(booking =>
+            booking.id === bookingId
+              ? { ...booking, status: newStatus === 'approved' ? 'imported' : 'rejected' }
+              : booking
+          )
+        )
+        // Clear from selection if it was selected
+        setSelectedBookingIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(bookingId)
+          return newSet
+        })
       } else {
         showNotification(response.message || `Failed to ${newStatus} booking`, 'error')
       }
     } catch (error) {
       console.error(`Error updating booking status:`, error)
-      // Extract the error message from the thrown error
       const message = error instanceof Error ? error.message : `Failed to ${newStatus} booking`
       showNotification(message, 'error')
     }
@@ -203,17 +217,18 @@ export default function IncomingBookingsPage() {
     setSelectedBookingIds(new Set())
   }
 
-  const handleBulkApprove = async () => {
-    if (selectedBookingIds.size === 0) return
+  // Handle bulk approve - accepts optional array of booking IDs (from modal)
+  const handleBulkApprove = async (bookingIdsToApprove?: string[]) => {
+    const idsToProcess = bookingIdsToApprove || Array.from(selectedBookingIds)
+    if (idsToProcess.length === 0) return
 
     setIsBulkApproving(true)
-    const selectedIds = Array.from(selectedBookingIds)
     let successCount = 0
     let failCount = 0
 
     // Process all selected bookings in parallel
     const results = await Promise.allSettled(
-      selectedIds.map(async (bookingId) => {
+      idsToProcess.map(async (bookingId) => {
         const response = await updateIncomingBookingStatus(bookingId, { status: 'approved' })
         if (response.status === 'success') {
           return { success: true, bookingId }
@@ -241,8 +256,9 @@ export default function IncomingBookingsPage() {
       showNotification(`Approved ${successCount}, failed ${failCount}`, 'info')
     }
 
-    // Clear selection and refresh
+    // Clear selection, close modal, and refresh
     clearSelection()
+    setBulkApproveModalOpen(false)
     fetchIncomingBookings()
     setIsBulkApproving(false)
   }
@@ -840,6 +856,15 @@ export default function IncomingBookingsPage() {
         onBookingUpdate={handleBookingUpdate}
       />
 
+      {/* Bulk Approve Modal */}
+      <BulkApproveBookingsModal
+        isOpen={bulkApproveModalOpen}
+        onClose={() => setBulkApproveModalOpen(false)}
+        selectedBookings={filteredBookings.filter(b => selectedBookingIds.has(b.id))}
+        onApprove={handleBulkApprove}
+        isApproving={isBulkApproving}
+      />
+
       {/* Floating Bulk Action Bar */}
       {selectedBookingIds.size > 0 && (
         <motion.div
@@ -863,23 +888,14 @@ export default function IncomingBookingsPage() {
 
             <div className="flex items-center gap-3">
               <motion.button
-                onClick={handleBulkApprove}
+                onClick={() => setBulkApproveModalOpen(true)}
                 disabled={isBulkApproving}
                 whileHover={{ scale: isBulkApproving ? 1 : 1.02 }}
                 whileTap={{ scale: isBulkApproving ? 1 : 0.98 }}
                 className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/25"
               >
-                {isBulkApproving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Approving...
-                  </>
-                ) : (
-                  <>
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                    Approve All
-                  </>
-                )}
+                <CheckIcon className="h-4 w-4 mr-2" />
+                Review & Approve
               </motion.button>
 
               <motion.button

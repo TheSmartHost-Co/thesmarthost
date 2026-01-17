@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Skill(feature-dev:feature-dev)",
+      "Skill(frontend-design:frontend-design)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "WebSearch"
     ],
     "deny": []
   }
