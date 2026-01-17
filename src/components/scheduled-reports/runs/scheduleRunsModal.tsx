@@ -187,11 +187,11 @@ const ScheduleRunsModal: React.FC<ScheduleRunsModalProps> = ({
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3 min-w-0 flex-1">
-                          {getStatusIcon(run.status)}
+                          {getStatusIcon(run.status || 'pending')}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRunStatusColor(run.status)}`}>
-                                {RUN_STATUS_CONFIG[run.status]?.label || run.status}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRunStatusColor(run.status || 'pending')}`}>
+                                {RUN_STATUS_CONFIG[run.status as keyof typeof RUN_STATUS_CONFIG]?.label || run.status || 'Pending'}
                               </span>
                               <span className="text-xs text-gray-500">
                                 {run.triggerType === 'manual' ? 'Manual' : run.triggerType === 'test' ? 'Test' : 'Scheduled'}
@@ -238,12 +238,12 @@ const ScheduleRunsModal: React.FC<ScheduleRunsModalProps> = ({
                     <div className="flex items-center justify-center h-64">
                       <ArrowPathIcon className="w-8 h-8 text-gray-400 animate-spin" />
                     </div>
-                  ) : runDetails ? (
+                  ) : runDetails?.run ? (
                     <div className="p-6">
                       {/* Run Summary */}
                       <div className="mb-6">
                         <div className="flex items-center gap-2 mb-3">
-                          {getStatusIcon(runDetails.run.status)}
+                          {getStatusIcon(runDetails.run.status || 'pending')}
                           <h3 className="font-semibold text-gray-900">Run Details</h3>
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -300,7 +300,7 @@ const ScheduleRunsModal: React.FC<ScheduleRunsModalProps> = ({
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-start gap-2 min-w-0 flex-1">
-                                    {getDeliveryIcon(delivery.status)}
+                                    {getDeliveryIcon(delivery.status || 'pending')}
                                     <div className="min-w-0 flex-1">
                                       <div className="font-medium text-gray-900 text-sm truncate">
                                         {delivery.recipientName || delivery.recipientEmail}
@@ -312,8 +312,8 @@ const ScheduleRunsModal: React.FC<ScheduleRunsModalProps> = ({
                                       )}
                                     </div>
                                   </div>
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getDeliveryStatusColor(delivery.status)}`}>
-                                    {DELIVERY_STATUS_CONFIG[delivery.status]?.label || delivery.status}
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getDeliveryStatusColor(delivery.status || 'pending')}`}>
+                                    {DELIVERY_STATUS_CONFIG[delivery.status as keyof typeof DELIVERY_STATUS_CONFIG]?.label || delivery.status || 'Pending'}
                                   </span>
                                 </div>
 

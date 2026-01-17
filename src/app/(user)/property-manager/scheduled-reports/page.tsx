@@ -27,6 +27,7 @@ import {
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import CreateScheduleModal from '@/components/scheduled-reports/create/createScheduleModal'
 import ScheduleRunsModal from '@/components/scheduled-reports/runs/scheduleRunsModal'
+import ScheduleActionsModal from '@/components/scheduled-reports/actions/scheduleActionsModal'
 
 export default function ScheduledReportsPage() {
   const { profile } = useUserStore()
@@ -43,6 +44,7 @@ export default function ScheduledReportsPage() {
   // UI state
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false)
   const [showRunsModal, setShowRunsModal] = useState<boolean>(false)
+  const [showActionsModal, setShowActionsModal] = useState<boolean>(false)
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [runningId, setRunningId] = useState<string | null>(null)
@@ -141,6 +143,18 @@ export default function ScheduledReportsPage() {
   const handleViewRuns = (schedule: Schedule) => {
     setSelectedSchedule(schedule)
     setShowRunsModal(true)
+  }
+
+  const handleRowClick = (schedule: Schedule) => {
+    setSelectedSchedule(schedule)
+    setShowActionsModal(true)
+  }
+
+  // Refresh schedules and update selectedSchedule to prevent stale data
+  const handleScheduleUpdatedFromModal = async () => {
+    await loadSchedules()
+    // Note: selectedSchedule will be refreshed on next modal open
+    // or cleared when modal closes
   }
 
   const handleScheduleCreated = async () => {
@@ -374,7 +388,8 @@ export default function ScheduledReportsPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: index * 0.05 }}
-                className="p-6 hover:bg-gray-50/50 transition-colors"
+                onClick={() => handleRowClick(schedule)}
+                className="p-6 hover:bg-gray-50/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-4">
                   {/* Left: Schedule Info */}
@@ -415,11 +430,11 @@ export default function ScheduledReportsPage() {
                       <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <DocumentTextIcon className="w-3.5 h-3.5" />
-                          {schedule.propertyCount || 0} properties
+                          {schedule.properties?.length || 0} properties
                         </span>
                         <span className="flex items-center gap-1">
                           <EnvelopeIcon className="w-3.5 h-3.5" />
-                          {schedule.recipientCount || 0} recipients
+                          {schedule.recipients?.length || 0} recipients
                         </span>
                         <span className="flex items-center gap-1">
                           <Cog6ToothIcon className="w-3.5 h-3.5" />
@@ -458,16 +473,18 @@ export default function ScheduledReportsPage() {
                     </div>
 
                     {/* Actions */}
-                    {deletingId === schedule.id ? (
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    ) : (
-                      <TableActionsDropdown
-                        actions={getScheduleActions(schedule)}
-                        itemId={schedule.id}
-                      />
-                    )}
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {deletingId === schedule.id ? (
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      ) : (
+                        <TableActionsDropdown
+                          actions={getScheduleActions(schedule)}
+                          itemId={schedule.id}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -496,6 +513,27 @@ export default function ScheduledReportsPage() {
             setSelectedSchedule(null)
           }}
           schedule={selectedSchedule}
+        />
+      )}
+
+      {/* Schedule Actions Modal */}
+      {selectedSchedule && (
+        <ScheduleActionsModal
+          isOpen={showActionsModal}
+          onClose={() => {
+            setShowActionsModal(false)
+            setSelectedSchedule(null)
+          }}
+          schedule={selectedSchedule}
+          onEdit={() => {
+            setShowActionsModal(false)
+            setShowCreateModal(true)
+          }}
+          onViewAllRuns={() => {
+            setShowActionsModal(false)
+            setShowRunsModal(true)
+          }}
+          onScheduleUpdated={handleScheduleUpdatedFromModal}
         />
       )}
     </div>

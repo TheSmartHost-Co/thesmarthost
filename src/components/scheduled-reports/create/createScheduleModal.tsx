@@ -30,6 +30,7 @@ import {
   SparklesIcon,
   Cog6ToothIcon,
   ExclamationCircleIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import Modal from '@/components/shared/modal'
@@ -990,10 +991,10 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
               </button>
             </div>
 
-            {/* Test Email (Edit only) */}
-            {isEdit && (
-              <div className="pt-4 border-t border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Send Test Email</label>
+            {/* Test Email */}
+            <div className="pt-4 border-t border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Send Test Email</label>
+              {isEdit ? (
                 <div className="flex gap-2">
                   <input
                     type="email"
@@ -1015,8 +1016,20 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                     Send Test
                   </button>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                  <div className="flex items-start gap-3">
+                    <InformationCircleIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium text-blue-800">Test email available after saving</div>
+                      <div className="text-sm text-blue-600 mt-0.5">
+                        Save this schedule first, then edit it to send a test email with an actual report attached.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )
 
