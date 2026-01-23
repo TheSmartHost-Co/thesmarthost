@@ -47,6 +47,9 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
   const [totalPayout, setTotalPayout] = useState(booking.totalPayout?.toString() || '')
   const [mgmtFee, setMgmtFee] = useState(booking.mgmtFee?.toString() || '')
   const [netEarnings, setNetEarnings] = useState(booking.netEarnings?.toString() || '')
+  const [rentCollected, setRentCollected] = useState(booking.rentCollected?.toString() || '')
+  const [taxesCollected, setTaxesCollected] = useState(booking.taxesCollected?.toString() || '')
+  const [cohostFee, setCohostFee] = useState(booking.cohostFee?.toString() || '')
 
   // State
   const [properties, setProperties] = useState<Property[]>([])
@@ -97,6 +100,9 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
       setTotalPayout(booking.totalPayout?.toString() || '')
       setMgmtFee(booking.mgmtFee?.toString() || '')
       setNetEarnings(booking.netEarnings?.toString() || '')
+      setRentCollected(booking.rentCollected?.toString() || '')
+      setTaxesCollected(booking.taxesCollected?.toString() || '')
+      setCohostFee(booking.cohostFee?.toString() || '')
     }
   }, [isOpen, booking])
 
@@ -187,6 +193,9 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
         totalPayout: parseCurrency(totalPayout),
         mgmtFee: parseCurrency(mgmtFee),
         netEarnings: parseCurrency(netEarnings),
+        rentCollected: parseCurrency(rentCollected),
+        taxesCollected: parseCurrency(taxesCollected),
+        cohostFee: parseCurrency(cohostFee),
       }
 
       const res = await updateBooking(booking.id, payload)
@@ -494,6 +503,45 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
                   step="0.01"
                   value={netEarnings}
                   onChange={(e) => setNetEarnings(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Co-Host & Collected Amounts */}
+          <div>
+            <h4 className="text-md font-medium text-gray-700 mb-3">Co-Host & Collected Amounts</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Co-Host Fee ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={cohostFee}
+                  onChange={(e) => setCohostFee(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Rent Collected ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={rentCollected}
+                  onChange={(e) => setRentCollected(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Taxes Collected ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={taxesCollected}
+                  onChange={(e) => setTaxesCollected(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

@@ -66,6 +66,9 @@ export const OPTIONAL_BOOKING_FIELDS: BookingField[] = [
   { field: 'channel_fee', label: 'Channel Fee', required: false, type: 'number' },
   { field: 'stripe_fee', label: 'Stripe/Payment Fee', required: false, type: 'number' },
   { field: 'bed_linen_fee', label: 'Bed Linen Fee', required: false, type: 'number' },
+  { field: 'cohost_fee', label: 'Co-Host Fee', required: false, type: 'number' },
+  { field: 'rent_collected', label: 'Rent Collected', required: false, type: 'number' },
+  { field: 'taxes_collected', label: 'Taxes Collected', required: false, type: 'number' },
 ]
 
 export const ALL_BOOKING_FIELDS = [...REQUIRED_BOOKING_FIELDS, ...OPTIONAL_BOOKING_FIELDS]

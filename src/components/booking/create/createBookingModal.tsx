@@ -47,6 +47,9 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   const [mgmtFee, setMgmtFee] = useState('')
   const [netEarnings, setNetEarnings] = useState('')
   const [salesTax, setSalesTax] = useState('')
+  const [rentCollected, setRentCollected] = useState('')
+  const [taxesCollected, setTaxesCollected] = useState('')
+  const [cohostFee, setCohostFee] = useState('')
 
   // Properties data
   const [properties, setProperties] = useState<Property[]>([])
@@ -158,6 +161,9 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
       setMgmtFee('')
       setNetEarnings('')
       setSalesTax('')
+      setRentCollected('')
+      setTaxesCollected('')
+      setCohostFee('')
     }
   }, [isOpen])
 
@@ -232,6 +238,9 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
         mgmtFee: parseOptionalNumber(mgmtFee),
         netEarnings: parseOptionalNumber(netEarnings),
         salesTax: parseOptionalNumber(salesTax),
+        rentCollected: parseOptionalNumber(rentCollected),
+        taxesCollected: parseOptionalNumber(taxesCollected),
+        cohostFee: parseOptionalNumber(cohostFee),
         ...(csvUploadId && { csv_upload_id: csvUploadId }),
       }
 
@@ -547,6 +556,45 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
                 step="0.01"
                 value={netEarnings}
                 onChange={(e) => setNetEarnings(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          {/* Row 5: Co-Host and Collected amounts */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Co-Host Fee ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={cohostFee}
+                onChange={(e) => setCohostFee(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Rent Collected ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={rentCollected}
+                onChange={(e) => setRentCollected(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Taxes Collected ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={taxesCollected}
+                onChange={(e) => setTaxesCollected(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="0.00"
               />

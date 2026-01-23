@@ -101,12 +101,15 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
     { label: 'Channel Fee', value: booking.channelFee, type: 'currency' },
     { label: 'Stripe Fee', value: booking.stripeFee, type: 'currency' },
     { label: 'Sales Tax', value: booking.salesTax, type: 'currency' },
+    { label: 'Co-Host Fee', value: booking.cohostFee, type: 'currency' },
   ].filter(item => item.value !== null && item.value !== undefined)
 
   const summaryItems = [
     { label: 'Total Payout', value: booking.totalPayout, highlight: true },
     { label: 'Management Fee', value: booking.mgmtFee, isDeduction: true },
     { label: 'Net Earnings', value: booking.netEarnings, highlight: true, isNet: true },
+    { label: 'Rent Collected', value: booking.rentCollected, highlight: false },
+    { label: 'Taxes Collected', value: booking.taxesCollected, highlight: false },
   ].filter(item => item.value !== null && item.value !== undefined)
 
   return (

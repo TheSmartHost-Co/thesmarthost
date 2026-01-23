@@ -67,6 +67,7 @@ export interface ReportGenerationPayload {
   endDate: string
   format: ReportFormat
   logoId?: string
+  templateIds?: string[]  // Array of template IDs (PDF: 0-1, Excel/CSV: 0+)
 }
 
 /**
@@ -131,8 +132,9 @@ export interface EnhancedReportSummary {
   }>
   // Enhanced summary fields
   averageNightlyRate?: number
-  rentCollected?: string
-  taxesCollected?: string
+  totalRentCollected?: number
+  totalTaxesCollected?: number
+  totalCohostFee?: number
   
   // Individual totals (backward compatibility & direct access)
   totalBookings?: number
@@ -235,6 +237,9 @@ export interface BookingData {
   mgmtFee?: number
   netEarnings?: number
   salesTax?: number
+  rentCollected?: number
+  taxesCollected?: number
+  cohostFee?: number
   // Legacy fields for backward compatibility
   checkIn?: string
   checkOut?: string

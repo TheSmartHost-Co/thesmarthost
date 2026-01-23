@@ -14,6 +14,7 @@ import {
   InboxArrowDownIcon,
   BanknotesIcon,
   ClockIcon,
+  RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarItems = [
@@ -56,6 +57,11 @@ const sidebarItems = [
     name: 'Scheduled Reports',
     href: '/property-manager/scheduled-reports',
     icon: ClockIcon,
+  },
+  {
+    name: 'Report Templates',
+    href: '/property-manager/report-templates',
+    icon: RectangleStackIcon,
   },
   {
     name: 'Expenses',

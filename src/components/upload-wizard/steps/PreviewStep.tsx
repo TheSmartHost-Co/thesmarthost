@@ -657,7 +657,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     // Optional fields
     'nightly_rate', 'cleaning_fee', 'total_payout', 'net_earnings', 'sales_tax',
     'mgmt_fee', 'extra_guest_fees', 'lodging_tax', 'qst', 'gst',
-    'channel_fee', 'stripe_fee', 'bed_linen_fee', 'accommodation'
+    'channel_fee', 'stripe_fee', 'bed_linen_fee', 'accommodation',
+    // Additional calculated fields
+    'rent_collected', 'taxes_collected', 'cohost_fee'
   ]
 
   // Helper function to get sort index for field ordering
@@ -827,9 +829,10 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   const getEditableFields = (): string[] => {
     // Financial fields that can be edited
     return [
-      'nightly_rate', 'cleaning_fee', 'total_payout', 'net_earnings', 
-      'sales_tax', 'mgmt_fee', 'extra_guest_fees', 'lodging_tax', 
-      'qst', 'gst', 'channel_fee', 'stripe_fee', 'bed_linen_fee'
+      'nightly_rate', 'cleaning_fee', 'total_payout', 'net_earnings',
+      'sales_tax', 'mgmt_fee', 'extra_guest_fees', 'lodging_tax',
+      'qst', 'gst', 'channel_fee', 'stripe_fee', 'bed_linen_fee',
+      'cohost_fee', 'rent_collected', 'taxes_collected'
     ]
   }
 
@@ -871,6 +874,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         totalPayout: parseFloat(String(preview.total_payout || preview.totalAmount || preview.totalPayout || 0)) || undefined,
         mgmtFee: parseFloat(String(preview.mgmt_fee || preview.mgmtFee || 0)) || undefined,
         netEarnings: parseFloat(String(preview.net_earnings || preview.netAmount || preview.netEarnings || 0)) || undefined,
+        rentCollected: parseFloat(String(preview.rent_collected || preview.rentCollected || 0)) || undefined,
+        taxesCollected: parseFloat(String(preview.taxes_collected || preview.taxesCollected || 0)) || undefined,
+        cohostFee: parseFloat(String(preview.cohost_fee || preview.cohostFee || 0)) || undefined,
       }
 
       return payload
@@ -1163,7 +1169,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {bookings.slice(0, displayCount).map((booking, index) => {
+                    {[...bookings].sort((a, b) => {
+                      // Sort by check-in date (ascending)
+                      const dateA = a.check_in_date || a.checkInDate || ''
+                      const dateB = b.check_in_date || b.checkInDate || ''
+                      return String(dateA).localeCompare(String(dateB))
+                    }).slice(0, displayCount).map((booking, index) => {
                       const globalIndex = bookingPreviews.findIndex(b => b.rowIndex === booking.rowIndex)
                       
                       return (

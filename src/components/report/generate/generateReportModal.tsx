@@ -8,12 +8,15 @@ import {
   getLogos,
   uploadLogo
 } from '@/services/reportService'
+import { getTemplatesByProperty, getReportTemplates, getReportTemplateById } from '@/services/reportTemplateService'
 import type { Property } from '@/services/types/property'
 import type {
   ReportFormat,
   ReportGenerationPayload,
   Logo
 } from '@/services/types/report'
+import type { ReportTemplate } from '@/services/types/reportTemplate'
+import { useUserStore } from '@/store/useUserStore'
 import {
   XMarkIcon,
   DocumentTextIcon,
@@ -26,6 +29,7 @@ import {
   ChevronDownIcon,
   CloudArrowUpIcon,
   ArrowDownTrayIcon,
+  RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import Modal from '@/components/shared/modal'
@@ -148,6 +152,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   initialPropertyIds = []
 }) => {
   const { showNotification } = useNotificationStore()
+  const { profile } = useUserStore()
 
   // Form state
   const [format, setFormat] = useState<ReportFormat>('pdf')
@@ -166,6 +171,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [logos, setLogos] = useState<Logo[]>([])
   const [loadingLogos, setLoadingLogos] = useState<boolean>(false)
 
+  // Template state
+  const [availableTemplates, setAvailableTemplates] = useState<ReportTemplate[]>([])
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState<boolean>(false)
+  const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState<boolean>(false)
+
   // Modal step state (form or preview)
   const [step, setStep] = useState<ModalStep>('form')
   const [generatedReport, setGeneratedReport] = useState<GeneratedReportData | null>(null)
@@ -179,6 +190,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   // Refs
   const propertyDropdownRef = useRef<HTMLDivElement>(null)
   const logoDropdownRef = useRef<HTMLDivElement>(null)
+  const templateDropdownRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const logosLoadedRef = useRef<boolean>(false)
 
@@ -226,6 +238,94 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     }
   }, [isOpen, initialPropertyIds])
 
+  // Load templates when properties are selected
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!isOpen || !profile?.id) return
+
+      // PDF format: single property, single template selection
+      if (format === 'pdf' && selectedPropertyIds.length === 1) {
+        setLoadingTemplates(true)
+        try {
+          const res = await getTemplatesByProperty(selectedPropertyIds[0])
+          if (res.status === 'success') {
+            setAvailableTemplates(res.data || [])
+            // Auto-select system default or first template assigned to property
+            const systemDefault = res.data?.find(t => t.isSystemDefault)
+            if (systemDefault) {
+              setSelectedTemplateIds([systemDefault.id])
+            } else if (res.data && res.data.length > 0) {
+              setSelectedTemplateIds([res.data[0].id])
+            } else {
+              setSelectedTemplateIds([])
+            }
+          }
+        } catch (error) {
+          console.error('Error loading templates:', error)
+          // Fall back to all user templates
+          try {
+            const allTemplatesRes = await getReportTemplates(profile.id)
+            if (allTemplatesRes.status === 'success') {
+              setAvailableTemplates(allTemplatesRes.data || [])
+              const systemDefault = allTemplatesRes.data?.find(t => t.isSystemDefault)
+              if (systemDefault) {
+                setSelectedTemplateIds([systemDefault.id])
+              } else {
+                setSelectedTemplateIds([])
+              }
+            }
+          } catch (e) {
+            console.error('Error loading all templates:', e)
+          }
+        } finally {
+          setLoadingTemplates(false)
+        }
+      } else if ((format === 'excel' || format === 'csv') && selectedPropertyIds.length >= 1) {
+        // Excel/CSV format: support multi-select templates
+        setLoadingTemplates(true)
+        try {
+          // Get all templates for user
+          const res = await getReportTemplates(profile.id)
+          if (res.status === 'success' && res.data) {
+            setAvailableTemplates(res.data)
+
+            // Fetch full details for each template to get assigned properties
+            const templatesWithDetails = await Promise.all(
+              res.data.map(async (template) => {
+                try {
+                  const fullRes = await getReportTemplateById(template.id)
+                  return fullRes.status === 'success' ? fullRes.data : null
+                } catch {
+                  return null
+                }
+              })
+            )
+
+            // Find templates assigned to any of the selected properties
+            const matchingTemplateIds = templatesWithDetails
+              .filter(t => t !== null)
+              .filter(t => t.assignedProperties?.some(
+                ap => selectedPropertyIds.includes(ap.propertyId)
+              ))
+              .map(t => t.id)
+
+            setSelectedTemplateIds(matchingTemplateIds)
+          }
+        } catch (error) {
+          console.error('Error loading templates:', error)
+        } finally {
+          setLoadingTemplates(false)
+        }
+      } else if (selectedPropertyIds.length === 0) {
+        // No properties selected, clear templates
+        setAvailableTemplates([])
+        setSelectedTemplateIds([])
+      }
+    }
+
+    loadTemplates()
+  }, [isOpen, selectedPropertyIds, profile?.id, format])
+
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -243,6 +343,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
       if (logoDropdownRef.current && !logoDropdownRef.current.contains(event.target as Node)) {
         setIsLogoDropdownOpen(false)
       }
+      if (templateDropdownRef.current && !templateDropdownRef.current.contains(event.target as Node)) {
+        setIsTemplateDropdownOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
@@ -259,6 +362,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setPropertySearch('')
     setIsPropertyDropdownOpen(false)
     setIsLogoDropdownOpen(false)
+    // Reset template state
+    setSelectedTemplateIds([])
+    setAvailableTemplates([])
+    setIsTemplateDropdownOpen(false)
     // Reset preview state
     setStep('form')
     setGeneratedReport(null)
@@ -382,6 +489,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         endDate,
         format,
         logoId: selectedLogoId || undefined,
+        templateIds: selectedTemplateIds.length > 0 ? selectedTemplateIds : [],
       }
 
       const res = await generateReport(payload)
@@ -441,6 +549,36 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   }
 
   const selectedLogo = logos.find(l => l.id === selectedLogoId)
+
+  // Check if multi-select templates (Excel/CSV)
+  const isMultiSelectTemplates = format === 'excel' || format === 'csv'
+
+  // Handle template toggle (for both single and multi-select modes)
+  const handleTemplateToggle = (templateId: string) => {
+    if (isMultiSelectTemplates) {
+      // Multi-select: toggle the template
+      setSelectedTemplateIds(prev =>
+        prev.includes(templateId)
+          ? prev.filter(id => id !== templateId)
+          : [...prev, templateId]
+      )
+    } else {
+      // Single-select: select or deselect
+      setSelectedTemplateIds(prev =>
+        prev.includes(templateId) ? [] : [templateId]
+      )
+      setIsTemplateDropdownOpen(false)
+    }
+  }
+
+  // Handle select all templates
+  const handleSelectAllTemplates = () => {
+    if (selectedTemplateIds.length === availableTemplates.length) {
+      setSelectedTemplateIds([])
+    } else {
+      setSelectedTemplateIds(availableTemplates.map(t => t.id))
+    }
+  }
 
   // Show preview panel when in preview step with PDF
   const showPreviewPanel = step === 'preview' && format === 'pdf'
@@ -687,6 +825,243 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                   <p className="mt-2 text-xs text-red-600">PDF reports support only one property</p>
                 )}
               </div>
+
+              {/* Report Template Selector (shown when properties are selected) */}
+              {selectedPropertyIds.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <RectangleStackIcon className="w-4 h-4 inline-block mr-1" />
+                      {isMultiSelectTemplates ? 'Report Templates' : 'Report Template'} <span className="font-normal text-gray-400">(Optional)</span>
+                    </label>
+                    {isMultiSelectTemplates && availableTemplates.length > 0 && !isTemplateDropdownOpen && (
+                      <button
+                        onClick={handleSelectAllTemplates}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        {selectedTemplateIds.length === availableTemplates.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div ref={templateDropdownRef} className="relative">
+                    <button
+                      onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
+                      disabled={loadingTemplates}
+                      className={`
+                        w-full px-3 py-2.5 border rounded-lg text-left flex items-center justify-between transition-all text-sm
+                        ${isTemplateDropdownOpen
+                          ? 'border-blue-500 ring-2 ring-blue-500/20'
+                          : 'border-gray-200 hover:border-gray-300'
+                        }
+                        ${loadingTemplates ? 'opacity-50 cursor-wait' : ''}
+                      `}
+                    >
+                      <span className={selectedTemplateIds.length > 0 ? 'text-gray-900' : 'text-gray-400'}>
+                        {loadingTemplates
+                          ? 'Loading templates...'
+                          : selectedTemplateIds.length > 0
+                            ? isMultiSelectTemplates
+                              ? `${selectedTemplateIds.length} template${selectedTemplateIds.length > 1 ? 's' : ''} selected`
+                              : availableTemplates.find(t => t.id === selectedTemplateIds[0])?.name || 'Select template...'
+                            : 'Default (no custom template)'}
+                      </span>
+                      {loadingTemplates ? (
+                        <ArrowPathIcon className="w-4 h-4 text-gray-400 animate-spin" />
+                      ) : (
+                        <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isTemplateDropdownOpen ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+
+                    {/* Template Dropdown */}
+                    <AnimatePresence>
+                      {isTemplateDropdownOpen && !loadingTemplates && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+                        >
+                          {/* Select All / Deselect All for multi-select */}
+                          {isMultiSelectTemplates && availableTemplates.length > 0 && (
+                            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                              <button
+                                onClick={handleSelectAllTemplates}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                              >
+                                {selectedTemplateIds.length === availableTemplates.length ? 'Deselect All' : 'Select All'}
+                              </button>
+                              <span className="text-xs text-gray-500">
+                                {selectedTemplateIds.length} of {availableTemplates.length} selected
+                              </span>
+                            </div>
+                          )}
+
+                          {/* No template option */}
+                          <button
+                            onClick={() => {
+                              setSelectedTemplateIds([])
+                              if (!isMultiSelectTemplates) {
+                                setIsTemplateDropdownOpen(false)
+                              }
+                            }}
+                            className={`
+                              w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors border-b border-gray-100
+                              ${selectedTemplateIds.length === 0 ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                            `}
+                          >
+                            <div>
+                              <span className={`text-sm ${selectedTemplateIds.length === 0 ? 'text-blue-700 font-medium' : 'text-gray-600'}`}>
+                                Default (no custom template)
+                              </span>
+                              <p className="text-xs text-gray-500 mt-0.5">Use standard report format</p>
+                            </div>
+                            {selectedTemplateIds.length === 0 && <CheckIcon className="w-4 h-4 text-blue-600" />}
+                          </button>
+
+                          {/* Template list */}
+                          <div className="max-h-48 overflow-y-auto">
+                            {availableTemplates.length === 0 ? (
+                              <div className="px-3 py-4 text-center text-sm text-gray-500">
+                                No templates available
+                              </div>
+                            ) : (
+                              <>
+                                {/* System templates */}
+                                {availableTemplates.filter(t => t.isSystemTemplate).length > 0 && (
+                                  <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    System Templates
+                                  </div>
+                                )}
+                                {availableTemplates
+                                  .filter(t => t.isSystemTemplate)
+                                  .map((template) => {
+                                    const isSelected = selectedTemplateIds.includes(template.id)
+                                    return (
+                                      <button
+                                        key={template.id}
+                                        onClick={() => handleTemplateToggle(template.id)}
+                                        className={`
+                                          w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors
+                                          ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                                        `}
+                                      >
+                                        {/* Checkbox for multi-select */}
+                                        {isMultiSelectTemplates && (
+                                          <div className={`
+                                            w-4 h-4 rounded border flex items-center justify-center flex-shrink-0
+                                            ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}
+                                          `}>
+                                            {isSelected && <CheckIcon className="w-3 h-3 text-white" />}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                              {template.name}
+                                            </span>
+                                            {template.isSystemDefault && (
+                                              <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                                                Default
+                                              </span>
+                                            )}
+                                          </div>
+                                          {template.description && (
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate">{template.description}</p>
+                                          )}
+                                        </div>
+                                        {!isMultiSelectTemplates && isSelected && (
+                                          <CheckIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                        )}
+                                      </button>
+                                    )
+                                  })}
+
+                                {/* Custom templates */}
+                                {availableTemplates.filter(t => !t.isSystemTemplate).length > 0 && (
+                                  <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    Custom Templates
+                                  </div>
+                                )}
+                                {availableTemplates
+                                  .filter(t => !t.isSystemTemplate)
+                                  .map((template) => {
+                                    const isSelected = selectedTemplateIds.includes(template.id)
+                                    return (
+                                      <button
+                                        key={template.id}
+                                        onClick={() => handleTemplateToggle(template.id)}
+                                        className={`
+                                          w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors
+                                          ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                                        `}
+                                      >
+                                        {/* Checkbox for multi-select */}
+                                        {isMultiSelectTemplates && (
+                                          <div className={`
+                                            w-4 h-4 rounded border flex items-center justify-center flex-shrink-0
+                                            ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}
+                                          `}>
+                                            {isSelected && <CheckIcon className="w-3 h-3 text-white" />}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                          <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                            {template.name}
+                                          </span>
+                                          {template.description && (
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate">{template.description}</p>
+                                          )}
+                                        </div>
+                                        {!isMultiSelectTemplates && isSelected && (
+                                          <CheckIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                        )}
+                                      </button>
+                                    )
+                                  })}
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Selected Template Tags (for multi-select) */}
+                  {isMultiSelectTemplates && selectedTemplateIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {selectedTemplateIds.map((templateId) => {
+                        const template = availableTemplates.find(t => t.id === templateId)
+                        if (!template) return null
+                        return (
+                          <span
+                            key={templateId}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 rounded-full text-sm border border-blue-200"
+                          >
+                            <RectangleStackIcon className="w-3.5 h-3.5" />
+                            <span className="max-w-[120px] truncate">{template.name}</span>
+                            <button
+                              onClick={() => handleTemplateToggle(templateId)}
+                              className="p-0.5 hover:bg-blue-200 rounded-full transition-colors"
+                            >
+                              <XMarkIcon className="w-3 h-3" />
+                            </button>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {selectedTemplateIds.length > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {isMultiSelectTemplates
+                        ? `Report will use custom calculations from ${selectedTemplateIds.length} selected template${selectedTemplateIds.length > 1 ? 's' : ''}`
+                        : 'Report will use custom calculations from the selected template'}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Logo (PDF only) */}
               {format === 'pdf' && (

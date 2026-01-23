@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **HostMetrics Frontend** - Property management reporting platform built with Next.js, TypeScript, and Tailwind CSS
 
-**Last Updated:** January 14, 2026
+**Last Updated:** January 22, 2026
 
 ---
 
@@ -359,6 +359,8 @@ interface AnalyticsState {
 - Field edit history
 - Incoming webhooks
 - Review/import workflow
+- **Financial Fields:** `nightlyRate`, `cleaningFee`, `gst`, `qst`, `lodgingTax`, `salesTax`, `channelFee`, `stripeFee`, `mgmtFee`, `cohostFee`, `totalPayout`, `netEarnings`, `rentCollected`, `taxesCollected`
+- **New Fields (Jan 2026):** `rentCollected`, `taxesCollected`, `cohostFee` - user-defined via CSV formulas
 
 ### Expenses
 - Full CRUD
@@ -511,4 +513,4 @@ Custom skills in `.claude/skills/`:
 
 ---
 
-**Last Updated:** January 14, 2026
+**Last Updated:** January 22, 2026

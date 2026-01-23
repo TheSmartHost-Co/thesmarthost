@@ -37,6 +37,9 @@ export interface Booking {
   mgmtFee?: number
   netEarnings?: number
   salesTax?: number
+  rentCollected?: number
+  taxesCollected?: number
+  cohostFee?: number
   createdAt: string
 }
 
@@ -67,6 +70,9 @@ export interface CreateBookingPayload {
   mgmtFee?: number
   netEarnings?: number
   salesTax?: number
+  rentCollected?: number
+  taxesCollected?: number
+  cohostFee?: number
 }
 
 /**
@@ -95,6 +101,9 @@ export interface UpdateBookingPayload {
   mgmtFee?: number
   netEarnings?: number
   salesTax?: number
+  rentCollected?: number
+  taxesCollected?: number
+  cohostFee?: number
 }
 
 /**
@@ -286,6 +295,9 @@ export interface BulkImportBookingPayload {
   mgmtFee?: number
   netEarnings?: number
   salesTax?: number
+  rentCollected?: number
+  taxesCollected?: number
+  cohostFee?: number
 }
 
 /**
