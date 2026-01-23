@@ -16,7 +16,8 @@ import {
   XCircleIcon,
   FunnelIcon,
   Cog6ToothIcon,
-  ArrowUpTrayIcon
+  ArrowUpTrayIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
@@ -35,6 +36,7 @@ import ClientNoteModal from '@/components/client-note/clientNoteModal'
 import BulkImportClientModal from '@/components/client/import/bulkImportClientModal'
 import PreviewClientModal from '@/components/client/preview/previewClientModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
+import { exportToCsv } from '@/utils/csvExport'
 
 export default function PropertyManagerClientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -192,6 +194,21 @@ export default function PropertyManagerClientsPage() {
   const handleBulkImportComplete = (importedClients: Client[]) => {
     // Add imported clients to the list
     setClients(prev => [...importedClients, ...prev])
+  }
+
+  const handleExportCsv = () => {
+    // Export filtered clients (what user sees on screen)
+    const columns = [
+      { key: 'name', header: 'Name' },
+      { key: 'email', header: 'Email' },
+      { key: 'phone', header: 'Phone' },
+      { key: 'companyName', header: 'Company Name' },
+      { key: 'billingAddress', header: 'Billing Address' },
+      { key: 'pms', header: 'PMS' },
+      { key: 'status', header: 'Status' },
+    ]
+
+    exportToCsv(filteredClients, columns, 'clients')
   }
 
   const getClientActions = (client: Client): ActionItem[] => [
@@ -398,6 +415,16 @@ export default function PropertyManagerClientsPage() {
           <p className="text-gray-500 mt-1">Manage your client relationships</p>
         </div>
         <div className="flex items-center gap-3">
+          <motion.button
+            onClick={handleExportCsv}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            disabled={filteredClients.length === 0}
+            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+            Export CSV
+          </motion.button>
           <motion.button
             onClick={() => setShowImportModal(true)}
             whileHover={{ scale: 1.02 }}

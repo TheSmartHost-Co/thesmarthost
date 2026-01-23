@@ -76,7 +76,7 @@ export default function IncomingBookingsPage() {
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const filterPopoverRef = useRef<HTMLDivElement>(null)
 
   // Bulk selection state
@@ -311,9 +311,9 @@ export default function IncomingBookingsPage() {
       return matchesSearch && matchesProperty && matchesDateRange && matchesBookingStatus
     })
     .sort((a, b) => {
-      // Sort by check-in date
-      const dateA = a.checkInDate ? new Date(a.checkInDate).getTime() : 0
-      const dateB = b.checkInDate ? new Date(b.checkInDate).getTime() : 0
+      // Sort by received date (webhookReceivedAt)
+      const dateA = a.webhookReceivedAt ? new Date(a.webhookReceivedAt).getTime() : 0
+      const dateB = b.webhookReceivedAt ? new Date(b.webhookReceivedAt).getTime() : 0
       return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
     })
 
@@ -519,14 +519,14 @@ export default function IncomingBookingsPage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            title={sortDirection === 'asc' ? 'Sorted oldest first' : 'Sorted newest first'}
+            title={sortDirection === 'asc' ? 'Sorted by oldest received first' : 'Sorted by newest received first'}
           >
             {sortDirection === 'asc' ? (
               <ArrowUpIcon className="h-4 w-4 mr-2" />
             ) : (
               <ArrowDownIcon className="h-4 w-4 mr-2" />
             )}
-            {sortDirection === 'asc' ? 'Oldest First' : 'Newest First'}
+            {sortDirection === 'asc' ? 'Oldest Received' : 'Newest Received'}
           </motion.button>
 
           {/* Filters Popover */}

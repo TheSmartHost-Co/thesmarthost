@@ -19,10 +19,13 @@ import { updateUserProfile } from '@/services/profileService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getConnectionByUserId, disconnectHostaway } from '@/services/hostawayConnectionService'
 import { getConnectionByUserId as getGuestyConnection, disconnectGuesty } from '@/services/guestyConnectionService'
+import { getConnectionByUserId as getHospitableConnection, disconnectHospitable } from '@/services/hospitableConnectionService'
 import HostawayConnectionModal from '@/components/connection/hostaway/HostawayConnectionModal'
 import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnectionModal'
+import HospitableConnectionModal from '@/components/connection/hospitable/HospitableConnectionModal'
 import type { HostawayConnection } from '@/services/types/hostawayConnection'
 import type { GuestyConnection } from '@/services/types/guestyConnection'
+import type { HospitableConnection } from '@/services/types/hospitableConnection'
 
 export default function PropertyManagerSettingsPage() {
   const [loading, setLoading] = useState(false)
@@ -47,6 +50,11 @@ export default function PropertyManagerSettingsPage() {
   const [showGuestyModal, setShowGuestyModal] = useState(false)
   const [guestyConnection, setGuestyConnection] = useState<GuestyConnection | null>(null)
   const [loadingGuestyConnection, setLoadingGuestyConnection] = useState(false)
+
+  // Hospitable modal state
+  const [showHospitableModal, setShowHospitableModal] = useState(false)
+  const [hospitableConnection, setHospitableConnection] = useState<HospitableConnection | null>(null)
+  const [loadingHospitableConnection, setLoadingHospitableConnection] = useState(false)
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -143,9 +151,29 @@ export default function PropertyManagerSettingsPage() {
     }
   }
 
+  const fetchHospitableConnection = async () => {
+    if (!profile?.id) return
+
+    setLoadingHospitableConnection(true)
+    try {
+      const response = await getHospitableConnection(profile.id)
+      if (response.status === 'success' && response.data) {
+        setHospitableConnection(response.data)
+      } else {
+        setHospitableConnection(null)
+      }
+    } catch (error) {
+      console.error('Error fetching Hospitable connection:', error)
+      setHospitableConnection(null)
+    } finally {
+      setLoadingHospitableConnection(false)
+    }
+  }
+
   useEffect(() => {
     fetchHostawayConnection()
     fetchGuestyConnection()
+    fetchHospitableConnection()
   }, [profile?.id])
 
   const handleHostawayConnect = async (accountId: string, apiKey: string) => {
@@ -213,6 +241,42 @@ export default function PropertyManagerSettingsPage() {
       showNotification('Failed to disconnect from Guesty', 'error')
     } finally {
       setLoadingGuestyConnection(false)
+    }
+  }
+
+  const handleConnectHospitable = () => {
+    setShowHospitableModal(true)
+  }
+
+  const handleHospitableConnect = async (personalAccessToken: string) => {
+    setShowHospitableModal(false)
+    showNotification('Hospitable connection successful!', 'success')
+    // Refresh connection data
+    fetchHospitableConnection()
+  }
+
+  const handleHospitableDisconnect = async () => {
+    if (!hospitableConnection?.id) return
+
+    try {
+      setLoadingHospitableConnection(true)
+      const response = await disconnectHospitable(hospitableConnection.id)
+
+      if (response.status === 'success') {
+        setHospitableConnection(null)
+        if (response.warnings && response.warnings.length > 0) {
+          showNotification(`Disconnected with warnings: ${response.warnings.join(', ')}`, 'error')
+        } else {
+          showNotification('Hospitable connection disconnected successfully', 'success')
+        }
+      } else {
+        showNotification(response.message || 'Failed to disconnect', 'error')
+      }
+    } catch (error) {
+      console.error('Error disconnecting Hospitable:', error)
+      showNotification('Failed to disconnect from Hospitable', 'error')
+    } finally {
+      setLoadingHospitableConnection(false)
     }
   }
 
@@ -615,6 +679,101 @@ export default function PropertyManagerSettingsPage() {
               )}
             </div>
 
+            {/* Hospitable Connection */}
+            <div className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 bg-gradient-to-br from-teal-400 to-teal-500 rounded-xl flex items-center justify-center shadow-md">
+                    <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Hospitable</h4>
+                    <p className="text-sm text-gray-500">
+                      Sync bookings and reservations automatically
+                    </p>
+                    <div className="mt-2">
+                      {loadingHospitableConnection ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600">
+                          <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          Loading...
+                        </span>
+                      ) : hospitableConnection ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
+                          <CheckCircleIcon className="w-3.5 h-3.5" />
+                          Connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
+                          <XCircleIcon className="w-3.5 h-3.5" />
+                          Not Connected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {hospitableConnection ? (
+                  <motion.button
+                    onClick={handleHospitableDisconnect}
+                    disabled={loadingHospitableConnection}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingHospitableConnection ? 'Disconnecting...' : 'Disconnect'}
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    onClick={handleConnectHospitable}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/25 transition-colors"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Connect
+                  </motion.button>
+                )}
+              </div>
+
+              {/* Connection details (show when connected) */}
+              {hospitableConnection && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500 block mb-1">Account ID</span>
+                      <span className="font-mono text-gray-900">{hospitableConnection.hospitableAccountId || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block mb-1">Status</span>
+                      <span className={`font-semibold ${hospitableConnection.status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                        {hospitableConnection.status}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block mb-1">Token Expires</span>
+                      <span className={`text-xs ${hospitableConnection.tokenExpiresAt && new Date(hospitableConnection.tokenExpiresAt) > new Date() ? 'text-green-600' : 'text-yellow-600'}`}>
+                        {hospitableConnection.tokenExpiresAt
+                          ? new Date(hospitableConnection.tokenExpiresAt).toLocaleDateString()
+                          : 'Unknown'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block mb-1">Auto Import</span>
+                      <span className={`text-xs ${hospitableConnection.autoImport ? 'text-green-600' : 'text-gray-600'}`}>
+                        {hospitableConnection.autoImport ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                  {hospitableConnection.lastSyncAt && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+                      Last synced: {new Date(hospitableConnection.lastSyncAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Future PMS integrations placeholder */}
             <div className="p-6 border-2 border-dashed border-gray-200 rounded-xl">
               <div className="text-center">
@@ -702,6 +861,14 @@ export default function PropertyManagerSettingsPage() {
         isOpen={showGuestyModal}
         onClose={() => setShowGuestyModal(false)}
         onConnect={handleGuestyConnect}
+        userId={profile?.id!}
+      />
+
+      {/* Hospitable Connection Modal */}
+      <HospitableConnectionModal
+        isOpen={showHospitableModal}
+        onClose={() => setShowHospitableModal(false)}
+        onConnect={handleHospitableConnect}
         userId={profile?.id!}
       />
     </div>

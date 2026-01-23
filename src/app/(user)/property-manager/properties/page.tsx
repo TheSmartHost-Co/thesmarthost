@@ -12,6 +12,7 @@ import {
   CheckCircleIcon,
   ChartBarIcon,
   ArrowUpTrayIcon,
+  ArrowDownTrayIcon,
   DocumentTextIcon,
   SignalIcon,
   UserGroupIcon,
@@ -36,6 +37,7 @@ import PropertyLicenseModal from '@/components/property-license/propertyLicenseM
 import PropertyChannelModal from '@/components/property-channel/propertyChannelModal'
 import PropertyOwnersModal from '@/components/property-owners/propertyOwnersModal'
 import { getChannelIcon } from '@/services/channelUtils'
+import { exportToCsv } from '@/utils/csvExport'
 
 type ViewMode = 'grid' | 'list'
 type FilterType = 'all' | 'STR' | 'LTR'
@@ -145,6 +147,33 @@ export default function PropertyManagerPropertiesPage() {
 
   const handleBulkImportComplete = (importedProperties: Property[]) => {
     setProperties(prev => [...prev, ...importedProperties])
+  }
+
+  const handleExportCsv = () => {
+    // Transform properties to include owners as comma-separated string
+    const exportData = filteredProperties.map(property => ({
+      ...property,
+      owners: property.owners.map(o => o.clientName).join(', ') || '',
+      isActive: property.isActive ? 'Active' : 'Inactive',
+    }))
+
+    const columns = [
+      { key: 'listingName', header: 'Listing Name' },
+      { key: 'address', header: 'Address' },
+      { key: 'province', header: 'Province' },
+      { key: 'propertyType', header: 'Property Type' },
+      { key: 'listingId', header: 'Listing ID' },
+      { key: 'isActive', header: 'Status' },
+      { key: 'commissionRate', header: 'Commission Rate' },
+      { key: 'postalCode', header: 'Postal Code' },
+      { key: 'description', header: 'Description' },
+      { key: 'externalName', header: 'External Name' },
+      { key: 'internalName', header: 'Internal Name' },
+      { key: 'registrationNumber', header: 'Registration Number' },
+      { key: 'owners', header: 'Owners' },
+    ]
+
+    exportToCsv(exportData, columns, 'properties')
   }
 
   const handleEditProperty = (property: Property) => {
@@ -383,6 +412,16 @@ export default function PropertyManagerPropertiesPage() {
           <p className="text-gray-500 mt-1">Manage your property portfolio</p>
         </div>
         <div className="flex items-center gap-3">
+          <motion.button
+            onClick={handleExportCsv}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            disabled={filteredProperties.length === 0}
+            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+            Export CSV
+          </motion.button>
           <motion.button
             onClick={() => setShowBulkImportModal(true)}
             whileHover={{ scale: 1.02 }}
