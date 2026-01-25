@@ -584,10 +584,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const showPreviewPanel = step === 'preview' && format === 'pdf'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style={`w-full ${showPreviewPanel ? 'max-w-5xl' : 'max-w-xl'} mx-4 transition-all duration-300`}>
-      <div className="relative overflow-hidden bg-white rounded-2xl flex">
+    <Modal isOpen={isOpen} onClose={onClose} style={`w-full ${showPreviewPanel ? 'max-w-6xl' : 'max-w-2xl'} mx-4 transition-all duration-300 !overflow-hidden !max-h-[90vh]`}>
+      <div className="relative bg-white rounded-2xl flex max-h-[90vh]">
         {/* Form Panel */}
-        <div className={`flex-shrink-0 ${showPreviewPanel ? 'w-[400px]' : 'w-full'} flex flex-col`}>
+        <div className={`flex-shrink-0 ${showPreviewPanel ? 'w-[480px]' : 'w-full'} flex flex-col overflow-hidden`}>
           {/* Header */}
           <div className="border-b border-gray-100 px-6 py-4">
             <div className="flex items-center justify-between">
@@ -605,7 +605,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="flex-1 px-6 py-5 overflow-y-auto max-h-[60vh]">
+          <div className="flex-1 px-6 py-5 overflow-y-auto min-h-0">
             <div className="space-y-6">
               {/* Format Selection */}
               <div>
@@ -1226,7 +1226,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="flex-1 border-l border-gray-200 flex flex-col min-w-0 overflow-hidden"
             >
-              <div className="w-[500px] h-full flex flex-col">
+              <div className="w-[600px] h-full flex flex-col">
                 {/* Preview Header */}
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
                   <div className="flex items-center gap-2">

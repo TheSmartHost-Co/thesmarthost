@@ -87,12 +87,12 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all cursor-pointer ${
+      className={`group flex items-start gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
         isDragging
           ? 'opacity-50 bg-blue-50 border-blue-200'
           : isSelected
-            ? 'bg-blue-50 border-blue-300 shadow-sm'
-            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+            ? 'bg-gradient-to-r from-blue-50 to-blue-50/50 border-blue-300 shadow-sm ring-1 ring-blue-100'
+            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/80'
       }`}
       onClick={() => !isEditing && onSelect()}
     >
@@ -100,7 +100,7 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
       {!disabled && (
         <button
           type="button"
-          className="p-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+          className="p-1 mt-0.5 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing flex-shrink-0"
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
@@ -110,7 +110,7 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
       )}
 
       {/* Section name */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         {isEditing ? (
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <input
@@ -119,65 +119,66 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
               autoFocus
-              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="button"
               onClick={handleSave}
-              className="p-1 text-green-600 hover:bg-green-50 rounded"
+              className="p-1 text-green-600 hover:bg-green-50 rounded flex-shrink-0"
             >
               <CheckIcon className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={handleCancel}
-              className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+              className="p-1 text-gray-600 hover:bg-gray-100 rounded flex-shrink-0"
             >
               <XMarkIcon className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900 truncate">{section.name}</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-gray-900 break-words leading-snug">{section.name}</span>
             <span className="text-xs text-gray-500">
-              ({section.fields?.length || 0} fields)
+              {section.fields?.length || 0} field{section.fields?.length !== 1 ? 's' : ''}
             </span>
           </div>
         )}
       </div>
 
-      {/* Selection indicator */}
-      {isSelected && !isEditing && (
-        <ChevronRightIcon className="w-4 h-4 text-blue-600" />
-      )}
+      {/* Selection indicator & Actions */}
+      <div className="flex items-center gap-1 mt-0.5 flex-shrink-0">
+        {isSelected && !isEditing && (
+          <ChevronRightIcon className="w-4 h-4 text-blue-600" />
+        )}
 
-      {/* Actions */}
-      {!isEditing && !disabled && (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsEditing(true)
-            }}
-            className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-            title="Edit section name"
-          >
-            <PencilIcon className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete()
-            }}
-            className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-            title="Delete section"
-          >
-            <TrashIcon className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        {!isEditing && !disabled && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsEditing(true)
+              }}
+              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Edit section name"
+            >
+              <PencilIcon className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete section"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -511,7 +511,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
 
     const getFilteredCsvHeaders = (formulaValue: string) => {
       // Extract the last segment being typed (after the last operator)
-      const operators = ['+', '-', '*', '/']
+      const operators = ['+', '-', '*', '/', '(', ')', '[', ']']
       let searchTerm = formulaValue.trim()
 
       // Find the last operator and get text after it
@@ -626,14 +626,26 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
             ) : (!isRequired && inputMode === 'formula') ? (
               // Formula Mode (only for optional fields)
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
+                <div className="flex items-start space-x-2">
+                  <textarea
+                    ref={(el) => {
+                      // Auto-resize on mount and when value changes
+                      if (el) {
+                        el.style.height = 'auto'
+                        el.style.height = `${el.scrollHeight}px`
+                      }
+                    }}
+                    rows={1}
                     value={currentValue}
-                    onChange={(e) => handleMappingChange(field.field, e.target.value)}
+                    onChange={(e) => {
+                      // Auto-resize: reset height then set to scrollHeight
+                      e.target.style.height = 'auto'
+                      e.target.style.height = `${e.target.scrollHeight}px`
+                      handleMappingChange(field.field, e.target.value)
+                    }}
                     placeholder="Enter formula like [Accommodation Fee] or [Total Price] * 0.15 + [Cleaning Fee]"
-                    className={`text-black bg-white border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[400px] ${
-                      isOverridden 
+                    className={`text-black bg-white border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[400px] resize-none overflow-hidden ${
+                      isOverridden
                         ? 'border-green-300 bg-green-50'
                         : 'border-gray-300'
                     }`}
@@ -652,7 +664,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
                         type="button"
                         onClick={() => {
                           // Replace the search term with the selected column name
-                          const operators = ['+', '-', '*', '/']
+                          const operators = ['+', '-', '*', '/', '(', ')', '[', ']']
                           let lastOperatorIndex = -1
                           for (const op of operators) {
                             const idx = currentValue.lastIndexOf(op)

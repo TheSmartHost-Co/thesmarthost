@@ -255,16 +255,15 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   }
 
   // Field operations
-  const handleAddField = async () => {
+  const handleAddField = async (data: { name: string; formula: string; format: ReportFieldFormat }) => {
     if (!profile?.id || !selectedSectionId) return
 
     try {
-      const currentSection = template?.sections.find((s) => s.id === selectedSectionId)
       const res = await createReportField({
         sectionId: selectedSectionId,
-        name: `Field ${(currentSection?.fields?.length || 0) + 1}`,
-        formula: '',
-        format: 'currency',
+        name: data.name,
+        formula: data.formula,
+        format: data.format,
         userId: profile.id,
       })
 
@@ -447,68 +446,72 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-5xl w-[95vw] h-[85vh]" closable={false}>
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex-1 min-w-0">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-5xl w-[95vw] h-[85vh] !max-h-[85vh]" closable={false}>
+      <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-gray-100">
+        {/* Header - Refined with subtle gradient and proper spacing */}
+        <div className="flex items-center justify-between px-6 py-5 bg-white border-b border-gray-200/80 shadow-sm">
+          <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={handleSaveBasicInfo}
-                className="text-xl font-semibold text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-1 -ml-1"
+                className="w-full max-w-md text-xl font-semibold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none py-1 transition-colors"
                 placeholder="Template name"
               />
               {saving && (
-                <ArrowPathIcon className="w-4 h-4 text-gray-400 animate-spin" />
+                <ArrowPathIcon className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" />
               )}
             </div>
+            <p className="text-sm text-gray-500 mt-1">Edit sections, fields, and property assignments</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all flex-shrink-0"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left panel - Sections */}
-          <div className="w-72 border-r border-gray-200 p-4 overflow-y-auto bg-gray-50">
-            <SectionList
-              sections={template.sections || []}
-              selectedSectionId={selectedSectionId}
-              onSelectSection={setSelectedSectionId}
-              onReorder={handleReorderSections}
-              onEditSection={handleEditSection}
-              onDeleteSection={handleDeleteSection}
-              onAddSection={handleAddSection}
-            />
+          {/* Left panel - Sections and Property Assignments in single scrollable container */}
+          <div className="w-80 border-r border-gray-200/80 flex flex-col bg-white/60 backdrop-blur-sm">
+            <div className="flex-1 p-5 overflow-y-auto">
+              <div className="space-y-6">
+                {/* Sections */}
+                <SectionList
+                  sections={template.sections || []}
+                  selectedSectionId={selectedSectionId}
+                  onSelectSection={setSelectedSectionId}
+                  onReorder={handleReorderSections}
+                  onEditSection={handleEditSection}
+                  onDeleteSection={handleDeleteSection}
+                  onAddSection={handleAddSection}
+                />
 
-            {/* Property assignments */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <PropertyAssignmentSelector
-                assignedPropertyIds={assignedPropertyIds}
-                assignedPropertyDetails={assignedPropertyDetails}
-                onAssign={handleAssignProperty}
-                onUnassign={handleUnassignProperty}
-              />
+                {/* Property Assignments - flows below sections */}
+                <div className="pt-5 border-t border-gray-200/80">
+                  <PropertyAssignmentSelector
+                    assignedPropertyIds={assignedPropertyIds}
+                    assignedPropertyDetails={assignedPropertyDetails}
+                    onAssign={handleAssignProperty}
+                    onUnassign={handleUnassignProperty}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Right panel - Fields */}
-          <div className="flex-1 p-4 overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto">
             {selectedSection ? (
-              <div>
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedSection.name}</h3>
-                  <p className="text-sm text-gray-500">
+              <div className="h-full">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 break-words">{selectedSection.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">
                     Add fields with formulas to calculate values from booking data
                   </p>
                 </div>
@@ -522,16 +525,16 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                 />
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-                  <EyeIcon className="w-8 h-8 text-gray-400" />
+              <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mb-5 shadow-inner">
+                  <EyeIcon className="w-10 h-10 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {template.sections?.length === 0
                     ? 'No sections yet'
                     : 'Select a section'}
                 </h3>
-                <p className="text-gray-500 text-sm max-w-sm">
+                <p className="text-gray-500 text-sm max-w-xs leading-relaxed">
                   {template.sections?.length === 0
                     ? 'Add a section to start building your report template.'
                     : 'Click on a section in the left panel to view and edit its fields.'}
@@ -541,16 +544,22 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
-          <div className="text-sm text-gray-500">
-            {template.sections?.length || 0} sections,{' '}
-            {template.sections?.reduce((acc, s) => acc + (s.fields?.length || 0), 0) || 0} fields
+        {/* Footer - Subtle background with refined styling */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/80 bg-white">
+          <div className="text-sm text-gray-500 flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              {template.sections?.length || 0} sections
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+              {template.sections?.reduce((acc, s) => acc + (s.fields?.length || 0), 0) || 0} fields
+            </span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
           >
             Done
           </button>

@@ -10,6 +10,23 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import EditFieldModal from '@/components/field-value-changed/EditFieldModal'
 import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 import { isFinancialField, formatFieldName } from '@/services/fieldValuesChangedService'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface PreviewStepProps {
   onNext?: () => void
@@ -31,6 +48,44 @@ interface PreviewStepProps {
 interface BookingPreview {
   rowIndex: number
   [key: string]: any
+}
+
+// Sortable Header Component for draggable columns
+function SortableHeader({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'grab',
+    userSelect: 'none',
+    position: 'relative' as const,
+    zIndex: isDragging ? 10 : 1,
+    backgroundColor: isDragging ? '#e0e7ff' : undefined,
+  }
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
+    >
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400">⋮⋮</span>
+        {children}
+      </div>
+    </th>
+  )
 }
 
 const PreviewStep: React.FC<PreviewStepProps> = ({
@@ -71,6 +126,21 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
       checkInDate: string
     }
   } | null>(null)
+
+  // Column order state for drag-and-drop
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
+
+  // dnd-kit sensors for keyboard and pointer input
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -948,6 +1018,39 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     }
   }
 
+  // Get mapped fields for computing column order
+  const mappedFieldsForColumns = getMappedFields()
+
+  // Initialize column order when mappedFields changes
+  useEffect(() => {
+    if (mappedFieldsForColumns.length > 0 && columnOrder.length === 0) {
+      // Extract field names from mapped fields, maintain FIELD_DISPLAY_ORDER
+      const orderedFields = mappedFieldsForColumns.map((f: any) => f.field)
+      setColumnOrder(orderedFields)
+    }
+  }, [mappedFieldsForColumns, columnOrder.length])
+
+  // Handle drag end to reorder columns
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      setColumnOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string)
+        const newIndex = items.indexOf(over.id as string)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+  }
+
+  // Get ordered mapped fields based on current column order
+  const getOrderedMappedFields = () => {
+    if (columnOrder.length === 0) return mappedFieldsForColumns
+    // Return mapped fields in the order specified by columnOrder
+    return columnOrder
+      .map(fieldName => mappedFieldsForColumns.find((f: any) => f.field === fieldName))
+      .filter(Boolean)
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -979,7 +1082,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     )
   }
 
-  const mappedFields = getMappedFields()
+  const mappedFields = getOrderedMappedFields()
   const missingRequired = getRequiredFieldsMissing()
   const hasValidMappings = missingRequired.length === 0
 
@@ -1110,7 +1213,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       {/* Multi-Property Booking Previews */}
       <div className="space-y-6">
-        <h4 className="text-lg font-medium text-gray-900">Property Booking Previews</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-lg font-medium text-gray-900">Property Booking Previews</h4>
+          <span className="text-xs text-gray-500 flex items-center gap-1">
+            <span className="text-gray-400">⋮⋮</span> Drag column headers to reorder
+          </span>
+        </div>
         
         {Object.entries(groupedBookings).map(([groupKey, bookings]) => {
           // groupKey is now property_id, so we need to find the property info differently
@@ -1157,15 +1265,25 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
               
               {/* Bookings Table */}
               <div className="overflow-x-auto">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                      {mappedFields.map((field: any, fieldIndex: number) => (
-                        <th key={`${field.field}-${fieldIndex}`} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                          {field.field}
-                        </th>
-                      ))}
+                      <SortableContext
+                        items={columnOrder.length > 0 ? columnOrder : mappedFields.map((f: any) => f.field)}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {mappedFields.map((field: any) => (
+                          <SortableHeader key={field.field} id={field.field}>
+                            {field.field}
+                          </SortableHeader>
+                        ))}
+                      </SortableContext>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1245,8 +1363,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                     })}
                   </tbody>
                 </table>
+                </DndContext>
               </div>
-              
+
               {/* Show More for This Property */}
               {bookings.length > displayCount && (
                 <div className="p-3 bg-gray-50 border-t border-gray-200 text-center">

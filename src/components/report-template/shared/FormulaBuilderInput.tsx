@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { validateFormula } from '@/services/reportTemplateService'
 import {
   CheckCircleIcon,
@@ -37,6 +37,25 @@ const FORMULA_FUNCTIONS = [
   { name: 'COUNT', syntax: 'COUNT()', description: 'Total number of bookings' },
 ]
 
+// Operators for search term extraction
+const OPERATORS = ['+', '-', '*', '/', '(', ')', '[', ']', ' ']
+
+// Get the search term (text after the last operator)
+const getSearchTerm = (text: string): string => {
+  let lastOperatorIndex = -1
+  for (const op of OPERATORS) {
+    const idx = text.lastIndexOf(op)
+    if (idx > lastOperatorIndex) {
+      lastOperatorIndex = idx
+    }
+  }
+
+  if (lastOperatorIndex !== -1) {
+    return text.substring(lastOperatorIndex + 1).trim()
+  }
+  return text.trim()
+}
+
 interface FormulaBuilderInputProps {
   value: string
   onChange: (value: string) => void
@@ -59,9 +78,97 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     checking: boolean
   }>({ valid: null, error: null, checking: false })
   const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields'>('functions')
-  const inputRef = useRef<HTMLInputElement>(null)
+
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Get the current search term from the input value
+  const searchTerm = useMemo(() => getSearchTerm(value), [value])
+
+  // Filter suggestions based on search term for inline tags
+  const filteredSuggestions = useMemo(() => {
+    const term = searchTerm.toLowerCase()
+
+    const functions = FORMULA_FUNCTIONS.filter((f) =>
+      f.name.toLowerCase().includes(term)
+    ).slice(0, 4)
+
+    const columns = AVAILABLE_COLUMNS.filter((c) =>
+      c.name.toLowerCase().includes(term)
+    ).slice(0, 4)
+
+    const fields = existingFields
+      .filter((f) => f.toLowerCase().includes(term))
+      .slice(0, 4)
+
+    return { functions, columns, fields }
+  }, [searchTerm, existingFields])
+
+  // Handle tag click - insert at cursor position, replacing any partial text
+  const handleTagClick = (insertText: string, isFunctionWithParens: boolean = false) => {
+    if (!inputRef.current) {
+      // Fallback: append to end
+      onChange(value + insertText)
+      return
+    }
+
+    const cursorPos = inputRef.current.selectionStart ?? value.length
+
+    // Find the start of the current "word" (text since last operator) before cursor
+    const textBeforeCursor = value.substring(0, cursorPos)
+    let lastOperatorIndex = -1
+    for (const op of OPERATORS) {
+      const idx = textBeforeCursor.lastIndexOf(op)
+      if (idx > lastOperatorIndex) {
+        lastOperatorIndex = idx
+      }
+    }
+
+    // Replace the partial text with the selected item
+    const beforePartial = value.substring(0, lastOperatorIndex + 1)
+    const afterCursor = value.substring(cursorPos)
+
+    // Don't add space after opening paren
+    const needsSpace = lastOperatorIndex >= 0 && value[lastOperatorIndex] !== '('
+    const newValue = beforePartial + (needsSpace ? ' ' : '') + insertText + afterCursor
+
+    onChange(newValue)
+
+    // Calculate new cursor position
+    const insertedTextLength = (needsSpace ? 1 : 0) + insertText.length
+    let newCursorPos = lastOperatorIndex + 1 + insertedTextLength
+
+    // For functions, position cursor inside parentheses (before closing paren)
+    if (isFunctionWithParens) {
+      newCursorPos = newCursorPos - 1
+    }
+
+    setTimeout(() => {
+      inputRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+      inputRef.current?.focus()
+    }, 0)
+  }
+
+  // Handle operator click - insert operator at cursor position with spacing
+  const handleOperatorClick = (op: string) => {
+    if (!inputRef.current) {
+      onChange(value + ` ${op} `)
+      return
+    }
+
+    const cursorPos = inputRef.current.selectionStart ?? value.length
+    const textToInsert = ` ${op} `
+    const newValue = value.substring(0, cursorPos) + textToInsert + value.substring(cursorPos)
+
+    onChange(newValue)
+
+    const newCursorPos = cursorPos + textToInsert.length
+    setTimeout(() => {
+      inputRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+      inputRef.current?.focus()
+    }, 0)
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -123,6 +230,22 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }
   }, [value])
 
+  // Auto-resize textarea when value changes (handles programmatic changes)
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`
+    }
+  }, [value])
+
+  // Simple input change handler with auto-resize
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // Auto-resize: reset height then set to scrollHeight
+    e.target.style.height = 'auto'
+    e.target.style.height = `${e.target.scrollHeight}px`
+    onChange(e.target.value)
+  }
+
   const insertAtCursor = (text: string) => {
     if (!inputRef.current) {
       onChange(value + text)
@@ -175,15 +298,14 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="relative">
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setShowDropdown(true)}
+          onChange={handleInputChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full border rounded-lg px-3 py-2 pr-20 text-gray-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+          className={`w-full border rounded-lg px-3 py-2 pr-20 text-gray-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden ${
             validationState.valid === false
               ? 'border-red-300 focus:ring-red-500'
               : validationState.valid === true
@@ -218,7 +340,68 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
         <p className="text-xs text-red-600 mt-1">{validationState.error}</p>
       )}
 
-      {/* Dropdown */}
+      {/* Inline Suggestions - Always visible when not disabled */}
+      {!disabled && (
+        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+          {/* Functions - Blue */}
+          {filteredSuggestions.functions.map((func) => (
+            <button
+              key={func.name}
+              type="button"
+              onClick={() => handleTagClick(`${func.name}()`, true)}
+              className="px-2 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 rounded border border-blue-200 font-mono transition-colors"
+              title={func.description}
+            >
+              {func.name}()
+            </button>
+          ))}
+
+          {/* Columns - Gray */}
+          {filteredSuggestions.columns.map((col) => (
+            <button
+              key={col.name}
+              type="button"
+              onClick={() => handleTagClick(col.name)}
+              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 rounded border border-gray-200 font-mono transition-colors"
+              title={col.description}
+            >
+              {col.name}
+            </button>
+          ))}
+
+          {/* Field References - Purple */}
+          {filteredSuggestions.fields.map((field) => (
+            <button
+              key={field}
+              type="button"
+              onClick={() => handleTagClick(`{${field}}`)}
+              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
+              title="Reference this field's value"
+            >
+              {'{' + field + '}'}
+            </button>
+          ))}
+
+          {/* Divider and operator shortcuts */}
+          {(filteredSuggestions.functions.length > 0 ||
+            filteredSuggestions.columns.length > 0 ||
+            filteredSuggestions.fields.length > 0) && (
+            <span className="text-xs text-gray-400 mx-1">|</span>
+          )}
+          {['+', '-', '*', '/'].map((op) => (
+            <button
+              key={op}
+              type="button"
+              onClick={() => handleOperatorClick(op)}
+              className="px-2 py-1 text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 rounded border border-gray-200 font-mono transition-colors"
+            >
+              {op}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown - Full browsing mode (chevron click) */}
       {showDropdown && !disabled && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-72 overflow-hidden">
           {/* Tabs */}

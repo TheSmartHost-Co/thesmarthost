@@ -15,6 +15,8 @@ import {
   CurrencyDollarIcon,
   ChartBarIcon,
   CloudArrowDownIcon,
+  BarsArrowDownIcon,
+  BarsArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName } from '@/services/bookingService'
 import { getConnectionByUserId } from '@/services/hostawayConnectionService'
@@ -30,13 +32,36 @@ import DeleteBookingModal from '@/components/booking/delete/deleteBookingModal'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import ImportHostawayBookingsModal from '@/components/booking/import/ImportHostawayBookingsModal'
 
+// Sort configuration type
+type SortField = 'guestName' | 'propertyName' | 'checkInDate' | 'checkOutDate' | 'platform' | 'numNights' | 'totalPayout'
+type SortDirection = 'asc' | 'desc'
+
+interface SortConfig {
+  field: SortField
+  direction: SortDirection
+}
+
+// Sort field options with labels
+const SORT_OPTIONS: { field: SortField; label: string; ascLabel: string; descLabel: string }[] = [
+  { field: 'guestName', label: 'Guest Name', ascLabel: 'A → Z', descLabel: 'Z → A' },
+  { field: 'propertyName', label: 'Property Name', ascLabel: 'A → Z', descLabel: 'Z → A' },
+  { field: 'checkInDate', label: 'Check-in Date', ascLabel: 'Oldest first', descLabel: 'Newest first' },
+  { field: 'checkOutDate', label: 'Check-out Date', ascLabel: 'Oldest first', descLabel: 'Newest first' },
+  { field: 'platform', label: 'Platform', ascLabel: 'A → Z', descLabel: 'Z → A' },
+  { field: 'numNights', label: 'Nights', ascLabel: 'Low → High', descLabel: 'High → Low' },
+  { field: 'totalPayout', label: 'Revenue', ascLabel: 'Low → High', descLabel: 'High → Low' },
+]
+
 export default function BookingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [platformFilter, setPlatformFilter] = useState('All Platforms')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
+  const [showSortPopover, setShowSortPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'checkInDate', direction: 'desc' })
   const filterPopoverRef = useRef<HTMLDivElement>(null)
+  const sortPopoverRef = useRef<HTMLDivElement>(null)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
@@ -75,19 +100,22 @@ export default function BookingsPage() {
     fetchBookings()
   }, [profile?.id])
 
-  // Close filter popover when clicking outside
+  // Close popovers when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
         setShowFilterPopover(false)
       }
+      if (sortPopoverRef.current && !sortPopoverRef.current.contains(event.target as Node)) {
+        setShowSortPopover(false)
+      }
     }
 
-    if (showFilterPopover) {
+    if (showFilterPopover || showSortPopover) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showFilterPopover])
+  }, [showFilterPopover, showSortPopover])
 
   // Fetch Hostaway connection and properties for import modal
   useEffect(() => {
@@ -147,7 +175,22 @@ export default function BookingsPage() {
   }
 
   const handleBookingUpdated = (updatedBooking: Booking) => {
-    setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b))
+    setBookings(prev => prev.map(b => {
+      if (b.id !== updatedBooking.id) return b
+
+      // Merge updated booking with existing property info that may not be in the API response
+      // If property changed, look up the new property name from properties list
+      const isSameProperty = b.propertyId === updatedBooking.propertyId
+      const newProperty = !isSameProperty ? properties.find(p => p.id === updatedBooking.propertyId) : null
+
+      return {
+        ...updatedBooking,
+        // Preserve or update property display fields
+        propertyName: isSameProperty ? b.propertyName : (newProperty?.listingName || newProperty?.address || updatedBooking.propertyName),
+        propertyAddress: isSameProperty ? b.propertyAddress : (newProperty?.address || updatedBooking.propertyAddress),
+        listingName: isSameProperty ? b.listingName : (newProperty?.listingName || updatedBooking.listingName),
+      }
+    }))
   }
 
   const handleBookingsImported = () => {
@@ -159,6 +202,14 @@ export default function BookingsPage() {
         }
       })
     }
+  }
+
+  // Get current sort label for button display
+  const getCurrentSortLabel = () => {
+    const option = SORT_OPTIONS.find(o => o.field === sortConfig.field)
+    if (!option) return 'Sort'
+    const directionLabel = sortConfig.direction === 'asc' ? option.ascLabel : option.descLabel
+    return `${option.label}: ${directionLabel}`
   }
 
   const getBookingActions = (booking: Booking): ActionItem[] => [
@@ -182,22 +233,46 @@ export default function BookingsPage() {
     }
   ]
 
-  // Filter bookings
-  const filteredBookings = bookings.filter(booking => {
-    const searchLower = searchTerm.toLowerCase()
-    const matchesSearch = booking.guestName.toLowerCase().includes(searchLower) ||
-      booking.reservationCode.toLowerCase().includes(searchLower) ||
-      (booking.propertyName && booking.propertyName.toLowerCase().includes(searchLower)) ||
-      (booking.listingName && booking.listingName.toLowerCase().includes(searchLower))
+  // Filter and sort bookings
+  const filteredBookings = bookings
+    .filter(booking => {
+      const searchLower = searchTerm.toLowerCase()
+      const matchesSearch = booking.guestName.toLowerCase().includes(searchLower) ||
+        booking.reservationCode.toLowerCase().includes(searchLower) ||
+        (booking.propertyName && booking.propertyName.toLowerCase().includes(searchLower)) ||
+        (booking.listingName && booking.listingName.toLowerCase().includes(searchLower))
 
-    const matchesPlatform = platformFilter === 'All Platforms' ||
-      formatPlatformName(booking.platform) === platformFilter
+      const matchesPlatform = platformFilter === 'All Platforms' ||
+        formatPlatformName(booking.platform) === platformFilter
 
-    const matchesProperty = propertyFilter === 'All Properties' ||
-      booking.propertyName === propertyFilter
+      const matchesProperty = propertyFilter === 'All Properties' ||
+        booking.propertyName === propertyFilter
 
-    return matchesSearch && matchesPlatform && matchesProperty
-  })
+      return matchesSearch && matchesPlatform && matchesProperty
+    })
+    .sort((a, b) => {
+      const { field, direction } = sortConfig
+      const multiplier = direction === 'asc' ? 1 : -1
+
+      switch (field) {
+        case 'guestName':
+          return multiplier * a.guestName.localeCompare(b.guestName)
+        case 'propertyName':
+          return multiplier * (a.propertyName || '').localeCompare(b.propertyName || '')
+        case 'checkInDate':
+          return multiplier * (new Date(a.checkInDate).getTime() - new Date(b.checkInDate).getTime())
+        case 'checkOutDate':
+          return multiplier * (new Date(a.checkOutDate || a.checkInDate).getTime() - new Date(b.checkOutDate || b.checkInDate).getTime())
+        case 'platform':
+          return multiplier * a.platform.localeCompare(b.platform)
+        case 'numNights':
+          return multiplier * (a.numNights - b.numNights)
+        case 'totalPayout':
+          return multiplier * ((a.totalPayout || 0) - (b.totalPayout || 0))
+        default:
+          return 0
+      }
+    })
 
   // Calculate stats
   const stats = calculateBookingStats(filteredBookings)
@@ -426,6 +501,85 @@ export default function BookingsPage() {
                 className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
                 placeholder="Search by guest, reservation, property..."
               />
+            </div>
+
+            {/* Sort Button with Popover */}
+            <div className="relative" ref={sortPopoverRef}>
+              <motion.button
+                onClick={() => setShowSortPopover(!showSortPopover)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              >
+                {sortConfig.direction === 'desc' ? (
+                  <BarsArrowDownIcon className="h-4 w-4 mr-2" />
+                ) : (
+                  <BarsArrowUpIcon className="h-4 w-4 mr-2" />
+                )}
+                <span className="hidden sm:inline">{getCurrentSortLabel()}</span>
+                <span className="sm:hidden">Sort</span>
+              </motion.button>
+
+              {showSortPopover && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+                >
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-semibold text-gray-900">Sort by</h3>
+                      <button
+                        onClick={() => setShowSortPopover(false)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1">
+                      {SORT_OPTIONS.map((option) => {
+                        const isSelected = sortConfig.field === option.field
+                        return (
+                          <div key={option.field} className="space-y-1">
+                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2 pt-2">
+                              {option.label}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setSortConfig({ field: option.field, direction: 'asc' })
+                                  setShowSortPopover(false)
+                                }}
+                                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                  isSelected && sortConfig.direction === 'asc'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                              >
+                                {option.ascLabel}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSortConfig({ field: option.field, direction: 'desc' })
+                                  setShowSortPopover(false)
+                                }}
+                                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                  isSelected && sortConfig.direction === 'desc'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                              >
+                                {option.descLabel}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Filter Button with Popover */}
