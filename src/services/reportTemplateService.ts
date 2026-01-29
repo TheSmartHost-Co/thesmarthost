@@ -25,6 +25,7 @@ import type {
   CreateAssignmentPayload,
   PreviewTemplatePayload,
   ValidateFormulaPayload,
+  BatchSaveTemplatePayload,
 } from './types/reportTemplate'
 
 // ============================================
@@ -132,6 +133,24 @@ export async function cloneReportTemplate(
 ): Promise<ReportTemplateResponse> {
   return apiClient<ReportTemplateResponse, CloneReportTemplatePayload>(
     `/report-templates/${id}/clone`,
+    {
+      method: 'POST',
+      body: payload,
+    }
+  )
+}
+
+/**
+ * Batch save template - creates or updates entire template with sections, fields, and property assignments
+ * Uses POST to handle both creation and updates in a single endpoint
+ * @param payload - Full template state including sections, fields, and propertyIds
+ * @returns Promise with saved template
+ */
+export async function batchSaveTemplate(
+  payload: BatchSaveTemplatePayload
+): Promise<ReportTemplateResponse> {
+  return apiClient<ReportTemplateResponse, BatchSaveTemplatePayload>(
+    '/report-templates/batch',
     {
       method: 'POST',
       body: payload,

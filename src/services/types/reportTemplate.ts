@@ -22,7 +22,8 @@ export interface ReportTemplate {
 export interface ReportSection {
   id: string
   templateId: string
-  name: string
+  name: string           // Display name: "Invoice Summary"
+  logicalName: string    // Logical name for formulas: "invoice_summary"
   displayOrder: number
   createdAt: string
   updatedAt: string
@@ -35,7 +36,8 @@ export interface ReportSection {
 export interface ReportField {
   id: string
   sectionId: string
-  name: string
+  name: string           // Display name: "Total Revenue"
+  logicalName: string    // Logical name for formulas: "total_revenue"
   formula: string
   displayOrder: number
   format: ReportFieldFormat
@@ -82,6 +84,39 @@ export interface AvailableColumn {
   type: 'number' | 'string'
 }
 
+/**
+ * Related item (e.g. expenses) that supports aggregate functions
+ */
+export interface RelatedItem {
+  name: string
+  description: string
+  supportedAggregates: ('SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX')[]
+}
+
+/**
+ * Categorized available columns response from API
+ */
+export interface CategorizedAvailableColumns {
+  functions: string[]  // ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'SUMIF', 'AVGIF', 'COUNTIF', 'MINIF', 'MAXIF']
+  bookingColumns: AvailableColumn[]
+  calculatedColumns: AvailableColumn[]
+  relatedItems: RelatedItem[]
+}
+
+/**
+ * For cross-section field references in formula builder
+ */
+export interface SectionFieldReference {
+  sectionId: string
+  sectionName: string        // Display name
+  sectionLogicalName: string // Logical name for formulas
+  fields: {
+    id: string
+    name: string             // Display name
+    logicalName: string      // Logical name for formulas
+  }[]
+}
+
 // ============================================
 // Request Payloads
 // ============================================
@@ -106,11 +141,13 @@ export interface CloneReportTemplatePayload {
 export interface CreateReportSectionPayload {
   templateId: string
   name: string
+  logicalName?: string  // Auto-generated if not provided
   userId: string
 }
 
 export interface UpdateReportSectionPayload {
   name: string
+  logicalName?: string
   userId: string
 }
 
@@ -122,6 +159,7 @@ export interface ReorderSectionsPayload {
 export interface CreateReportFieldPayload {
   sectionId: string
   name: string
+  logicalName?: string  // Auto-generated if not provided
   formula: string
   format?: ReportFieldFormat
   userId: string
@@ -129,6 +167,7 @@ export interface CreateReportFieldPayload {
 
 export interface UpdateReportFieldPayload {
   name: string
+  logicalName?: string
   formula: string
   format?: ReportFieldFormat
   userId: string
@@ -154,6 +193,43 @@ export interface PreviewTemplatePayload {
 
 export interface ValidateFormulaPayload {
   formula: string
+}
+
+/**
+ * Batch update field payload (for batch save)
+ */
+export interface BatchUpdateFieldPayload {
+  id?: string              // Existing field ID, or undefined for new
+  name: string
+  logicalName: string
+  formula: string
+  format: ReportFieldFormat
+  displayOrder: number
+  _delete?: boolean        // Mark for deletion
+}
+
+/**
+ * Batch update section payload (for batch save)
+ */
+export interface BatchUpdateSectionPayload {
+  id?: string              // Existing section ID, or undefined for new
+  name: string
+  logicalName: string
+  displayOrder: number
+  _delete?: boolean        // Mark for deletion
+  fields: BatchUpdateFieldPayload[]
+}
+
+/**
+ * Batch save template payload - creates or updates entire template in one request
+ */
+export interface BatchSaveTemplatePayload {
+  userId: string
+  id?: string              // Template ID - if provided, update; if not, create new
+  name: string
+  description?: string
+  sections: BatchUpdateSectionPayload[]
+  propertyIds?: string[]   // Property IDs to assign to this template (syncs assignments)
 }
 
 // ============================================
@@ -196,7 +272,7 @@ export interface PropertyTemplatesResponse {
 export interface AvailableColumnsResponse {
   status: 'success' | 'failed'
   message?: string
-  data: AvailableColumn[]
+  data: CategorizedAvailableColumns
 }
 
 export interface AssignmentResponse {

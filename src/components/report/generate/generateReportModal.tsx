@@ -13,7 +13,8 @@ import type { Property } from '@/services/types/property'
 import type {
   ReportFormat,
   ReportGenerationPayload,
-  Logo
+  Logo,
+  DateFilterMode,
 } from '@/services/types/report'
 import type { ReportTemplate } from '@/services/types/reportTemplate'
 import { useUserStore } from '@/store/useUserStore'
@@ -106,6 +107,13 @@ const DATE_PRESETS = [
   },
 ]
 
+const DATE_FILTER_MODE_OPTIONS: { value: DateFilterMode; label: string; description: string }[] = [
+  { value: 'checkIn', label: 'Check-in', description: 'Bookings that start in this period' },
+  { value: 'checkOut', label: 'Check-out', description: 'Bookings that end in this period' },
+  { value: 'reservationCreated', label: 'Created', description: 'Bookings created in this period' },
+  { value: 'calendar', label: 'Calendar', description: 'Any bookings overlapping this period' },
+]
+
 const FORMAT_OPTIONS: {
   format: ReportFormat
   label: string
@@ -161,6 +169,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [endDate, setEndDate] = useState<string>('')
   const [selectedPreset, setSelectedPreset] = useState<string>('')
   const [selectedLogoId, setSelectedLogoId] = useState<string>('')
+  const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('checkIn')
 
   // UI state
   const [propertySearch, setPropertySearch] = useState<string>('')
@@ -359,6 +368,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setEndDate('')
     setSelectedPreset('')
     setSelectedLogoId('')
+    setDateFilterMode('checkIn')
     setPropertySearch('')
     setIsPropertyDropdownOpen(false)
     setIsLogoDropdownOpen(false)
@@ -490,6 +500,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         format,
         logoId: selectedLogoId || undefined,
         templateIds: selectedTemplateIds.length > 0 ? selectedTemplateIds : [],
+        dateFilterMode,
       }
 
       const res = await generateReport(payload)
@@ -691,6 +702,34 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Date Filter Mode */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Filter Bookings By
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {DATE_FILTER_MODE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setDateFilterMode(option.value)}
+                      title={option.description}
+                      className={`
+                        px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                        ${dateFilterMode === option.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs text-gray-500">
+                  {DATE_FILTER_MODE_OPTIONS.find(o => o.value === dateFilterMode)?.description}
+                </p>
               </div>
 
               {/* Properties */}

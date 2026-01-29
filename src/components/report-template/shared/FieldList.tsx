@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ReportField, ReportFieldFormat } from '@/services/types/reportTemplate'
+import type { ReportField, ReportFieldFormat, SectionFieldReference } from '@/services/types/reportTemplate'
 import FormulaBuilderInput from './FormulaBuilderInput'
 import {
   Bars3Icon,
@@ -33,6 +33,22 @@ import {
   DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 
+// Change info type
+interface ChangeInfo {
+  type: 'added' | 'modified' | 'deleted'
+  field?: string
+  previousValue?: string
+  currentValue?: string
+}
+
+// Helper function to convert display name to logical name
+const toLogicalName = (displayName: string): string => {
+  return displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')  // Replace non-alphanumeric with _
+    .replace(/^_|_$/g, '')         // Trim leading/trailing _
+}
+
 const FORMAT_OPTIONS: { value: ReportFieldFormat; label: string; icon: typeof CurrencyDollarIcon }[] = [
   { value: 'currency', label: 'Currency', icon: CurrencyDollarIcon },
   { value: 'percentage', label: 'Percentage', icon: CalculatorIcon },
@@ -42,26 +58,46 @@ const FORMAT_OPTIONS: { value: ReportFieldFormat; label: string; icon: typeof Cu
 
 interface SortableFieldItemProps {
   field: ReportField
-  existingFieldNames: string[]
+  allSections: SectionFieldReference[]
+  currentSectionId: string
   isExpanded: boolean
   onToggleExpand: () => void
-  onEdit: (updates: { name?: string; formula?: string; format?: ReportFieldFormat }) => void
+  onEdit: (updates: { name?: string; logicalName?: string; formula?: string; format?: ReportFieldFormat }) => void
   onDelete: () => void
   disabled?: boolean
+  changeInfo?: ChangeInfo
 }
 
 const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
   field,
-  existingFieldNames,
+  allSections,
+  currentSectionId,
   isExpanded,
   onToggleExpand,
   onEdit,
   onDelete,
   disabled = false,
+  changeInfo,
 }) => {
   const [editName, setEditName] = useState(field.name)
+  const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
+  const [logicalNameManuallyEdited, setLogicalNameManuallyEdited] = useState(false)
   const [editFormula, setEditFormula] = useState(field.formula)
   const [editFormat, setEditFormat] = useState<ReportFieldFormat>(field.format)
+
+  // Derive change status
+  const isNew = changeInfo?.type === 'added'
+  const isModified = changeInfo?.type === 'modified'
+  const showChangeIndicator = isNew || isModified
+
+  // Reset when field changes
+  useEffect(() => {
+    setEditName(field.name)
+    setEditLogicalName(field.logicalName || toLogicalName(field.name))
+    setLogicalNameManuallyEdited(false)
+    setEditFormula(field.formula)
+    setEditFormat(field.format)
+  }, [field.id, field.name, field.logicalName, field.formula, field.format])
 
   const {
     attributes,
@@ -78,8 +114,10 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
   }
 
   const handleSave = () => {
+    const finalLogicalName = editLogicalName.trim() || toLogicalName(editName.trim())
     onEdit({
       name: editName.trim(),
+      logicalName: finalLogicalName,
       formula: editFormula.trim(),
       format: editFormat,
     })
@@ -88,9 +126,25 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
 
   const handleCancel = () => {
     setEditName(field.name)
+    setEditLogicalName(field.logicalName || toLogicalName(field.name))
+    setLogicalNameManuallyEdited(false)
     setEditFormula(field.formula)
     setEditFormat(field.format)
     onToggleExpand()
+  }
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newName = e.target.value
+    setEditName(newName)
+    // Auto-generate logical name if not manually edited
+    if (!logicalNameManuallyEdited) {
+      setEditLogicalName(toLogicalName(newName))
+    }
+  }
+
+  const handleLogicalNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditLogicalName(e.target.value)
+    setLogicalNameManuallyEdited(true)
   }
 
   const FormatIcon = FORMAT_OPTIONS.find((f) => f.value === field.format)?.icon || HashtagIcon
@@ -104,7 +158,11 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
           ? 'opacity-50 bg-blue-50 border-blue-200'
           : isExpanded
             ? 'bg-white border-blue-300 shadow-sm'
-            : 'bg-white border-gray-200 hover:border-gray-300'
+            : isNew
+              ? 'bg-green-50/50 border-green-300 hover:border-green-400'
+              : isModified
+                ? 'bg-amber-50/50 border-amber-300 hover:border-amber-400'
+                : 'bg-white border-gray-200 hover:border-gray-300'
       }`}
     >
       {/* Collapsed view */}
@@ -122,15 +180,46 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
             </button>
           )}
 
-          {/* Format icon */}
-          <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center">
-            <FormatIcon className="w-4 h-4 text-gray-500" />
+          {/* Format icon with change indicator */}
+          <div className={`w-6 h-6 rounded flex items-center justify-center relative ${
+            isNew ? 'bg-green-100' : isModified ? 'bg-amber-100' : 'bg-gray-100'
+          }`}>
+            <FormatIcon className={`w-4 h-4 ${
+              isNew ? 'text-green-600' : isModified ? 'text-amber-600' : 'text-gray-500'
+            }`} />
+            {showChangeIndicator && (
+              <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                isNew ? 'bg-green-500' : 'bg-amber-500'
+              }`} />
+            )}
           </div>
 
           {/* Field info */}
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{field.name}</div>
-            <div className="text-xs text-gray-500 font-mono truncate">{field.formula}</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-medium text-gray-900 truncate">{field.name}</span>
+              {field.logicalName && (
+                <span className="text-xs text-gray-400 font-mono truncate">({field.logicalName})</span>
+              )}
+              {isNew && (
+                <span className="text-xs text-green-600 font-medium">new</span>
+              )}
+              {isModified && (
+                <span className="text-xs text-amber-600 font-medium">edited</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-mono truncate">{field.formula}</span>
+            </div>
+            {isModified && changeInfo?.previousValue && (
+              <div className="text-xs text-amber-600/80 italic truncate" title={`Previous: ${changeInfo.previousValue}`}>
+                was: {changeInfo.field?.includes('formula') ? (
+                  <span className="font-mono">{changeInfo.previousValue}</span>
+                ) : (
+                  <span>&quot;{changeInfo.previousValue}&quot;</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -160,15 +249,29 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
       {/* Expanded edit view */}
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Field name */}
+          {/* Display name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Field Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
             <input
               type="text"
               value={editName}
-              onChange={(e) => setEditName(e.target.value)}
+              onChange={handleNameChange}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. Total Revenue"
+            />
+          </div>
+
+          {/* Logical name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Logical Name <span className="text-gray-400 font-normal">(used in formulas)</span>
+            </label>
+            <input
+              type="text"
+              value={editLogicalName}
+              onChange={handleLogicalNameChange}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. total_revenue"
             />
           </div>
 
@@ -178,7 +281,8 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
             <FormulaBuilderInput
               value={editFormula}
               onChange={setEditFormula}
-              existingFields={existingFieldNames}
+              allSections={allSections}
+              currentSectionId={currentSectionId}
             />
           </div>
 
@@ -230,36 +334,48 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
 
 interface FieldListProps {
   fields: ReportField[]
+  allSections: SectionFieldReference[]  // All sections for cross-section references
+  currentSectionId: string              // Current section ID
   onReorder: (fields: ReportField[]) => void
-  onEditField: (fieldId: string, updates: { name?: string; formula?: string; format?: ReportFieldFormat }) => void
+  onEditField: (fieldId: string, updates: { name?: string; logicalName?: string; formula?: string; format?: ReportFieldFormat }) => void
   onDeleteField: (fieldId: string) => void
-  onAddField: (data: { name: string; formula: string; format: ReportFieldFormat }) => void
+  onAddField: (data: { name: string; logicalName: string; formula: string; format: ReportFieldFormat }) => void
   disabled?: boolean
+  changeStatus?: { [fieldId: string]: ChangeInfo }
 }
 
 const FieldList: React.FC<FieldListProps> = ({
   fields,
+  allSections,
+  currentSectionId,
   onReorder,
   onEditField,
   onDeleteField,
   onAddField,
   disabled = false,
+  changeStatus,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingField, setIsAddingField] = useState(false)
   const [newFieldName, setNewFieldName] = useState('')
+  const [newFieldLogicalName, setNewFieldLogicalName] = useState('')
+  const [newLogicalNameManuallyEdited, setNewLogicalNameManuallyEdited] = useState(false)
   const [newFieldFormula, setNewFieldFormula] = useState('')
   const [newFieldFormat, setNewFieldFormat] = useState<ReportFieldFormat>('currency')
 
   const handleSaveNewField = () => {
     if (!newFieldName.trim() || !newFieldFormula.trim()) return
+    const finalLogicalName = newFieldLogicalName.trim() || toLogicalName(newFieldName.trim())
     onAddField({
       name: newFieldName.trim(),
+      logicalName: finalLogicalName,
       formula: newFieldFormula.trim(),
       format: newFieldFormat,
     })
     // Reset form
     setNewFieldName('')
+    setNewFieldLogicalName('')
+    setNewLogicalNameManuallyEdited(false)
     setNewFieldFormula('')
     setNewFieldFormat('currency')
     setIsAddingField(false)
@@ -267,6 +383,8 @@ const FieldList: React.FC<FieldListProps> = ({
 
   const handleCancelAdd = () => {
     setNewFieldName('')
+    setNewFieldLogicalName('')
+    setNewLogicalNameManuallyEdited(false)
     setNewFieldFormula('')
     setNewFieldFormat('currency')
     setIsAddingField(false)
@@ -275,6 +393,20 @@ const FieldList: React.FC<FieldListProps> = ({
   const handleStartAddField = () => {
     setExpandedFieldId(null) // Collapse any expanded field
     setIsAddingField(true)
+  }
+
+  const handleNewNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newName = e.target.value
+    setNewFieldName(newName)
+    // Auto-generate logical name if not manually edited
+    if (!newLogicalNameManuallyEdited) {
+      setNewFieldLogicalName(toLogicalName(newName))
+    }
+  }
+
+  const handleNewLogicalNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewFieldLogicalName(e.target.value)
+    setNewLogicalNameManuallyEdited(true)
   }
 
   const sensors = useSensors(
@@ -299,10 +431,97 @@ const FieldList: React.FC<FieldListProps> = ({
     }
   }
 
-  // Get field names for fields above the current one (for cross-references)
-  const getExistingFieldNames = (fieldIndex: number) => {
-    return fields.slice(0, fieldIndex).map((f) => f.name)
-  }
+  // New field form component (used in both empty and non-empty states)
+  const NewFieldForm = () => (
+    <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
+          <PlusIcon className="w-4 h-4 text-blue-600" />
+        </div>
+        <span className="text-sm font-medium text-blue-700">New Field</span>
+      </div>
+
+      {/* Display name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+        <input
+          type="text"
+          value={newFieldName}
+          onChange={handleNewNameChange}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g. Total Revenue"
+          autoFocus
+        />
+      </div>
+
+      {/* Logical name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Logical Name <span className="text-gray-400 font-normal">(used in formulas)</span>
+        </label>
+        <input
+          type="text"
+          value={newFieldLogicalName}
+          onChange={handleNewLogicalNameChange}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g. total_revenue"
+        />
+      </div>
+
+      {/* Formula */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
+        <FormulaBuilderInput
+          value={newFieldFormula}
+          onChange={setNewFieldFormula}
+          allSections={allSections}
+          currentSectionId={currentSectionId}
+        />
+      </div>
+
+      {/* Format */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
+        <div className="flex flex-wrap gap-2">
+          {FORMAT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setNewFieldFormat(option.value)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                newFieldFormat === option.value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <option.icon className="w-4 h-4" />
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={handleCancelAdd}
+          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveNewField}
+          disabled={!newFieldName.trim() || !newFieldFormula.trim()}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <CheckIcon className="w-4 h-4" />
+          Save
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-3">
@@ -336,80 +555,7 @@ const FieldList: React.FC<FieldListProps> = ({
           )}
         </div>
       ) : fields.length === 0 && isAddingField ? (
-        /* Add New Field Form (when no existing fields) */
-        <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
-              <PlusIcon className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-blue-700">New Field</span>
-          </div>
-
-          {/* Field name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Field Name</label>
-            <input
-              type="text"
-              value={newFieldName}
-              onChange={(e) => setNewFieldName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. Total Revenue"
-              autoFocus
-            />
-          </div>
-
-          {/* Formula */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
-            <FormulaBuilderInput
-              value={newFieldFormula}
-              onChange={setNewFieldFormula}
-              existingFields={fields.map((f) => f.name)}
-            />
-          </div>
-
-          {/* Format */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
-            <div className="flex flex-wrap gap-2">
-              {FORMAT_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setNewFieldFormat(option.value)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-                    newFieldFormat === option.value
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <option.icon className="w-4 h-4" />
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={handleCancelAdd}
-              className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveNewField}
-              disabled={!newFieldName.trim() || !newFieldFormula.trim()}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckIcon className="w-4 h-4" />
-              Save
-            </button>
-          </div>
-        </div>
+        <NewFieldForm />
       ) : (
         <DndContext
           sensors={sensors}
@@ -421,11 +567,12 @@ const FieldList: React.FC<FieldListProps> = ({
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {fields.map((field, index) => (
+              {fields.map((field) => (
                 <SortableFieldItem
                   key={field.id}
                   field={field}
-                  existingFieldNames={getExistingFieldNames(index)}
+                  allSections={allSections}
+                  currentSectionId={currentSectionId}
                   isExpanded={expandedFieldId === field.id}
                   onToggleExpand={() =>
                     setExpandedFieldId(expandedFieldId === field.id ? null : field.id)
@@ -433,85 +580,12 @@ const FieldList: React.FC<FieldListProps> = ({
                   onEdit={(updates) => onEditField(field.id, updates)}
                   onDelete={() => onDeleteField(field.id)}
                   disabled={disabled}
+                  changeInfo={changeStatus?.[field.id]}
                 />
               ))}
 
               {/* Add New Field Form (when there are existing fields) */}
-              {isAddingField && (
-                <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
-                      <PlusIcon className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-blue-700">New Field</span>
-                  </div>
-
-                  {/* Field name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Field Name</label>
-                    <input
-                      type="text"
-                      value={newFieldName}
-                      onChange={(e) => setNewFieldName(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g. Total Revenue"
-                      autoFocus
-                    />
-                  </div>
-
-                  {/* Formula */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
-                    <FormulaBuilderInput
-                      value={newFieldFormula}
-                      onChange={setNewFieldFormula}
-                      existingFields={fields.map((f) => f.name)}
-                    />
-                  </div>
-
-                  {/* Format */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
-                    <div className="flex flex-wrap gap-2">
-                      {FORMAT_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setNewFieldFormat(option.value)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-                            newFieldFormat === option.value
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          <option.icon className="w-4 h-4" />
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={handleCancelAdd}
-                      className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveNewField}
-                      disabled={!newFieldName.trim() || !newFieldFormula.trim()}
-                      className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <CheckIcon className="w-4 h-4" />
-                      Save
-                    </button>
-                  </div>
-                </div>
-              )}
+              {isAddingField && <NewFieldForm />}
             </div>
           </SortableContext>
         </DndContext>

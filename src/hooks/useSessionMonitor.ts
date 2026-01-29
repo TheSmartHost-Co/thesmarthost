@@ -34,6 +34,7 @@ export function useSessionMonitor() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const warningShownRef = useRef(false)
+  const warningDismissTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const interactionListenerRef = useRef<(() => void) | null>(null)
 
   const checkSessionStatus = useCallback(async () => {
@@ -62,8 +63,23 @@ export function useSessionMonitor() {
       }
 
       const now = new Date().getTime() / 1000
-      const expiresAt = new Date(session.expires_at! * 1000)
-      const timeRemaining = Math.max(0, (session.expires_at! - now) / 60) // minutes
+
+      // Validate expires_at is present and reasonable
+      if (!session.expires_at || typeof session.expires_at !== 'number') {
+        console.warn('⚠️ Session expires_at is invalid:', session.expires_at)
+        // Don't trigger expiration, but log for debugging
+        return
+      }
+
+      const expiresAt = new Date(session.expires_at * 1000)
+      const timeRemaining = Math.max(0, (session.expires_at - now) / 60) // minutes
+
+      // Log session timing info for debugging
+      console.log('📊 Session status:', {
+        expiresAt: expiresAt.toISOString(),
+        timeRemaining: `${timeRemaining.toFixed(1)} minutes`,
+        now: new Date(now * 1000).toISOString()
+      })
 
       const isExpired = timeRemaining <= 0
       const isNearExpiry = timeRemaining <= 5 && timeRemaining > 0
@@ -268,6 +284,32 @@ export function useSessionMonitor() {
     return () => subscription.unsubscribe()
   }, [supabase, checkSessionStatus])
 
+  // Handle dismiss warning with re-show logic
+  const handleDismissWarning = useCallback(() => {
+    setShowWarningModal(false)
+
+    // Clear any existing re-show timeout
+    if (warningDismissTimeoutRef.current) {
+      clearTimeout(warningDismissTimeoutRef.current)
+    }
+
+    // Re-enable warning after 1 minute so it can show again
+    warningDismissTimeoutRef.current = setTimeout(() => {
+      console.log('🔔 Re-enabling session warning after dismiss timeout')
+      warningShownRef.current = false
+      warningDismissTimeoutRef.current = null
+    }, 60000) // 1 minute
+  }, [])
+
+  // Cleanup dismiss timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (warningDismissTimeoutRef.current) {
+        clearTimeout(warningDismissTimeoutRef.current)
+      }
+    }
+  }, [])
+
   return {
     sessionStatus,
     showWarningModal,
@@ -275,7 +317,7 @@ export function useSessionMonitor() {
     onRefreshSession: handleRefreshSession,
     onSignOut: handleSignOut,
     onLoginRedirect: handleLoginRedirect,
-    onDismissWarning: () => setShowWarningModal(false),
+    onDismissWarning: handleDismissWarning,
     onDismissExpired: () => setShowExpiredModal(false)
   }
 }

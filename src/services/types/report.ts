@@ -2,6 +2,8 @@
 
 export type ReportFormat = 'pdf' | 'csv' | 'excel'
 
+export type DateFilterMode = 'checkIn' | 'checkOut' | 'reservationCreated' | 'calendar'
+
 /**
  * Report file metadata
  */
@@ -68,6 +70,7 @@ export interface ReportGenerationPayload {
   format: ReportFormat
   logoId?: string
   templateIds?: string[]  // Array of template IDs (PDF: 0-1, Excel/CSV: 0+)
+  dateFilterMode?: DateFilterMode  // How to filter bookings by date (defaults to 'checkIn' on backend)
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import { ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline'
 
@@ -12,14 +12,36 @@ interface SessionWarningModalProps {
   onClose: () => void
 }
 
-export function SessionWarningModal({ 
-  isOpen, 
-  timeRemaining, 
-  onContinueSession, 
+export function SessionWarningModal({
+  isOpen,
+  timeRemaining,
+  onContinueSession,
   onSignOut,
-  onClose 
+  onClose
 }: SessionWarningModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  // Live countdown: track remaining seconds internally
+  const [displaySeconds, setDisplaySeconds] = useState(Math.round(timeRemaining * 60))
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Reset countdown when modal opens or timeRemaining changes
+  useEffect(() => {
+    if (isOpen) {
+      setDisplaySeconds(Math.round(timeRemaining * 60))
+
+      // Start countdown timer
+      timerRef.current = setInterval(() => {
+        setDisplaySeconds(prev => Math.max(0, prev - 1))
+      }, 1000)
+
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
+    }
+  }, [isOpen, timeRemaining])
 
   const handleContinueSession = async () => {
     setIsLoading(true)
@@ -32,9 +54,20 @@ export function SessionWarningModal({
     }
   }
 
-  const formatTimeRemaining = (minutes: number) => {
-    if (minutes <= 1) return 'less than 1 minute'
-    return `${minutes} minute${minutes > 1 ? 's' : ''}`
+  // Format seconds into human-readable time (e.g., "4:32" or "less than 1 minute")
+  const formatTimeRemaining = (seconds: number) => {
+    if (seconds <= 0) return 'expiring now'
+    if (seconds < 60) return `${seconds} second${seconds !== 1 ? 's' : ''}`
+
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+
+    if (mins < 5) {
+      // Show minutes:seconds format for last 5 minutes
+      return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
+
+    return `${mins} minute${mins !== 1 ? 's' : ''}`
   }
 
   return (
@@ -55,7 +88,7 @@ export function SessionWarningModal({
           <div className="flex items-center text-sm text-gray-600 mb-3">
             <ClockIcon className="h-4 w-4 mr-2" />
             <span>
-              Your session expires in {formatTimeRemaining(timeRemaining)}
+              Your session expires in <span className="font-mono font-medium text-gray-900">{formatTimeRemaining(displaySeconds)}</span>
             </span>
           </div>
           

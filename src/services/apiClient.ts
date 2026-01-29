@@ -1,8 +1,18 @@
 // services/apiClient.ts
 import { createClient } from '@/utils/supabase/component'
-import { useUserStore } from '@/store/useUserStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+
+// Singleton Supabase client - avoids creating new instances on every API call
+// This prevents race conditions and ensures consistent session state
+let supabaseInstance: ReturnType<typeof createClient> | null = null
+
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient()
+  }
+  return supabaseInstance
+}
 
 // Event emitter for session events
 type SessionEventType = 'session-expired' | 'session-invalid'
@@ -36,17 +46,45 @@ async function apiClient<T, B = unknown>(
 ): Promise<T> {
 
     const isFormData = body instanceof FormData;
-    
-    // Get access token from Supabase session instead of Zustand store
-    const supabase = createClient()
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    
+
+    // Get access token from Supabase session using singleton client
+    const supabase = getSupabaseClient()
+    let session = null
+
+    // Try to get current session
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
     if (sessionError) {
       console.error('Session error:', sessionError)
       sessionEvents.emit('session-invalid')
       throw new Error('Authentication error')
     }
-    
+
+    session = sessionData.session
+
+    // If session is null but no error, try refreshing once
+    // This handles cases where session storage is in a transient state
+    if (!session) {
+      console.log('🔄 Session null, attempting refresh...')
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+
+      if (refreshError) {
+        console.error('Session refresh failed:', refreshError)
+        sessionEvents.emit('session-expired')
+        throw new Error('Session expired - please log in again')
+      }
+
+      session = refreshData.session
+
+      if (session) {
+        console.log('✅ Session recovered via refresh')
+      } else {
+        console.log('❌ No session after refresh attempt')
+        sessionEvents.emit('session-expired')
+        throw new Error('No active session - please log in')
+      }
+    }
+
     const authHeaders = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
     
     const config: RequestInit = {
@@ -66,7 +104,6 @@ async function apiClient<T, B = unknown>(
     }
 
     const fullUrl = `${baseURL}${endpoint}`;
-    console.log('test change');
     
     // Comprehensive API logging like Postman
     console.group(`🚀 API Request: ${method} ${endpoint}`);

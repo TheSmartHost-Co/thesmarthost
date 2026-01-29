@@ -1,41 +1,14 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { validateFormula } from '@/services/reportTemplateService'
+import { validateFormula, getAvailableColumns } from '@/services/reportTemplateService'
+import type { CategorizedAvailableColumns, SectionFieldReference, RelatedItem } from '@/services/types/reportTemplate'
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   ChevronDownIcon,
   InformationCircleIcon,
 } from '@heroicons/react/24/outline'
-
-// Available booking columns for formulas
-const AVAILABLE_COLUMNS = [
-  { name: 'nightlyRate', description: 'Nightly rate per booking', type: 'number' },
-  { name: 'extraGuestFees', description: 'Extra guest fees', type: 'number' },
-  { name: 'cleaningFee', description: 'Cleaning fee', type: 'number' },
-  { name: 'bedLinenFee', description: 'Bed linen fee', type: 'number' },
-  { name: 'gst', description: 'GST tax amount', type: 'number' },
-  { name: 'qst', description: 'QST tax amount', type: 'number' },
-  { name: 'lodgingTax', description: 'Lodging tax', type: 'number' },
-  { name: 'salesTax', description: 'Sales tax', type: 'number' },
-  { name: 'channelFee', description: 'Channel/platform fee', type: 'number' },
-  { name: 'stripeFee', description: 'Stripe processing fee', type: 'number' },
-  { name: 'mgmtFee', description: 'Management fee', type: 'number' },
-  { name: 'cohostFee', description: 'Co-host fee', type: 'number' },
-  { name: 'totalPayout', description: 'Total payout amount', type: 'number' },
-  { name: 'netEarnings', description: 'Net earnings', type: 'number' },
-  { name: 'rentCollected', description: 'Rent collected', type: 'number' },
-  { name: 'taxesCollected', description: 'Taxes collected', type: 'number' },
-  { name: 'numNights', description: 'Number of nights', type: 'number' },
-]
-
-// Available formula functions
-const FORMULA_FUNCTIONS = [
-  { name: 'SUM', syntax: 'SUM(column)', description: 'Sum all values of a column' },
-  { name: 'AVG', syntax: 'AVG(column)', description: 'Average of a column' },
-  { name: 'COUNT', syntax: 'COUNT()', description: 'Total number of bookings' },
-]
 
 // Operators for search term extraction
 const OPERATORS = ['+', '-', '*', '/', '(', ')', '[', ']', ' ']
@@ -59,7 +32,8 @@ const getSearchTerm = (text: string): string => {
 interface FormulaBuilderInputProps {
   value: string
   onChange: (value: string) => void
-  existingFields?: string[] // Names of fields defined earlier in the template (for cross-references)
+  allSections?: SectionFieldReference[] // All sections with fields for cross-references
+  currentSectionId?: string // To identify "same section" fields
   placeholder?: string
   disabled?: boolean
 }
@@ -67,7 +41,8 @@ interface FormulaBuilderInputProps {
 const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   value,
   onChange,
-  existingFields = [],
+  allSections = [],
+  currentSectionId,
   placeholder = 'e.g. SUM(mgmtFee) or SUM(totalPayout) * 0.05',
   disabled = false,
 }) => {
@@ -77,11 +52,35 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     error: string | null
     checking: boolean
   }>({ valid: null, error: null, checking: false })
-  const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields'>('functions')
+  const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields' | 'related'>('functions')
+
+  // API data state
+  const [availableData, setAvailableData] = useState<CategorizedAvailableColumns | null>(null)
+  const [loadingColumns, setLoadingColumns] = useState(true)
+
+  // Aggregate picker state for related items
+  const [selectedRelatedItem, setSelectedRelatedItem] = useState<string | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Fetch available columns from API on mount
+  useEffect(() => {
+    const loadAvailableColumns = async () => {
+      try {
+        const res = await getAvailableColumns()
+        if (res.status === 'success') {
+          setAvailableData(res.data)
+        }
+      } catch (error) {
+        console.error('Error loading available columns:', error)
+      } finally {
+        setLoadingColumns(false)
+      }
+    }
+    loadAvailableColumns()
+  }, [])
 
   // Get the current search term from the input value
   const searchTerm = useMemo(() => getSearchTerm(value), [value])
@@ -90,20 +89,42 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   const filteredSuggestions = useMemo(() => {
     const term = searchTerm.toLowerCase()
 
-    const functions = FORMULA_FUNCTIONS.filter((f) =>
-      f.name.toLowerCase().includes(term)
-    ).slice(0, 4)
-
-    const columns = AVAILABLE_COLUMNS.filter((c) =>
-      c.name.toLowerCase().includes(term)
-    ).slice(0, 4)
-
-    const fields = existingFields
+    // Functions from API (fallback to basic set if not loaded)
+    const functionNames = availableData?.functions || ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX']
+    const functions = functionNames
       .filter((f) => f.toLowerCase().includes(term))
       .slice(0, 4)
 
-    return { functions, columns, fields }
-  }, [searchTerm, existingFields])
+    // Booking columns from API
+    const columns = (availableData?.bookingColumns || [])
+      .filter((c) => c.name.toLowerCase().includes(term))
+      .slice(0, 4)
+
+    // Fields from allSections
+    const fields: { insertValue: string; displayName: string; logicalName: string; sectionName?: string }[] = []
+    allSections.forEach((section) => {
+      section.fields.forEach((field) => {
+        if (field.name.toLowerCase().includes(term) || field.logicalName.toLowerCase().includes(term)) {
+          const isSameSection = section.sectionId === currentSectionId
+          fields.push({
+            insertValue: isSameSection
+              ? `{${field.logicalName}}`
+              : `{${section.sectionLogicalName}.${field.logicalName}}`,
+            displayName: field.name,
+            logicalName: field.logicalName,
+            sectionName: isSameSection ? undefined : section.sectionName,
+          })
+        }
+      })
+    })
+
+    // Related items from API
+    const relatedItems = (availableData?.relatedItems || [])
+      .filter((r) => r.name.toLowerCase().includes(term))
+      .slice(0, 4)
+
+    return { functions, columns, fields: fields.slice(0, 4), relatedItems }
+  }, [searchTerm, availableData, allSections, currentSectionId])
 
   // Handle tag click - insert at cursor position, replacing any partial text
   const handleTagClick = (insertText: string, isFunctionWithParens: boolean = false) => {
@@ -170,19 +191,27 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }, 0)
   }
 
+  // Handle related item insertion with aggregate function
+  const handleRelatedItemInsert = (aggregate: string, itemName: string) => {
+    const formula = `${aggregate}(${itemName})`
+    handleTagClick(formula, false)
+    setSelectedRelatedItem(null)
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false)
+        setSelectedRelatedItem(null)
       }
     }
 
-    if (showDropdown) {
+    if (showDropdown || selectedRelatedItem) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showDropdown])
+  }, [showDropdown, selectedRelatedItem])
 
   // Validate formula with debounce
   useEffect(() => {
@@ -267,11 +296,11 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }, 0)
   }
 
-  const handleFunctionClick = (func: (typeof FORMULA_FUNCTIONS)[0]) => {
-    if (func.name === 'COUNT') {
+  const handleFunctionClick = (funcName: string) => {
+    if (funcName === 'COUNT') {
       insertAtCursor('COUNT()')
     } else {
-      insertAtCursor(`${func.name}()`)
+      insertAtCursor(`${funcName}()`)
       // Position cursor inside parentheses
       setTimeout(() => {
         if (inputRef.current) {
@@ -285,15 +314,18 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     setShowDropdown(false)
   }
 
-  const handleColumnClick = (column: (typeof AVAILABLE_COLUMNS)[0]) => {
-    insertAtCursor(column.name)
+  const handleColumnClick = (columnName: string) => {
+    insertAtCursor(columnName)
     setShowDropdown(false)
   }
 
-  const handleFieldClick = (fieldName: string) => {
-    insertAtCursor(`{${fieldName}}`)
+  const handleFieldClick = (insertValue: string) => {
+    insertAtCursor(insertValue)
     setShowDropdown(false)
   }
+
+  // Check if there are any fields to show
+  const hasFieldsToShow = allSections.some(section => section.fields.length > 0)
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -346,13 +378,13 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
           {/* Functions - Blue */}
           {filteredSuggestions.functions.map((func) => (
             <button
-              key={func.name}
+              key={func}
               type="button"
-              onClick={() => handleTagClick(`${func.name}()`, true)}
+              onClick={() => handleTagClick(`${func}()`, true)}
               className="px-2 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 rounded border border-blue-200 font-mono transition-colors"
-              title={func.description}
+              title={`Insert ${func} function`}
             >
-              {func.name}()
+              {func}()
             </button>
           ))}
 
@@ -372,20 +404,51 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
           {/* Field References - Purple */}
           {filteredSuggestions.fields.map((field) => (
             <button
-              key={field}
+              key={field.insertValue}
               type="button"
-              onClick={() => handleTagClick(`{${field}}`)}
+              onClick={() => handleTagClick(field.insertValue)}
               className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
-              title="Reference this field's value"
+              title={field.sectionName ? `From ${field.sectionName}` : 'Same section field'}
             >
-              {'{' + field + '}'}
+              {field.insertValue}
             </button>
+          ))}
+
+          {/* Related Items - Amber with aggregate picker */}
+          {filteredSuggestions.relatedItems.map((item) => (
+            <div key={item.name} className="relative inline-block">
+              <button
+                type="button"
+                onClick={() => setSelectedRelatedItem(selectedRelatedItem === item.name ? null : item.name)}
+                className="px-2 py-1 text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 rounded border border-amber-200 font-mono transition-colors"
+                title={item.description}
+              >
+                {item.name}
+              </button>
+              {selectedRelatedItem === item.name && (
+                <div className="absolute z-50 mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
+                  <div className="p-1">
+                    {item.supportedAggregates.map((agg) => (
+                      <button
+                        key={agg}
+                        type="button"
+                        onClick={() => handleRelatedItemInsert(agg, item.name)}
+                        className="w-full text-left px-3 py-1.5 text-xs font-mono text-amber-800 hover:bg-amber-50 rounded transition-colors"
+                      >
+                        {agg}({item.name})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
 
           {/* Divider and operator shortcuts */}
           {(filteredSuggestions.functions.length > 0 ||
             filteredSuggestions.columns.length > 0 ||
-            filteredSuggestions.fields.length > 0) && (
+            filteredSuggestions.fields.length > 0 ||
+            filteredSuggestions.relatedItems.length > 0) && (
             <span className="text-xs text-gray-400 mx-1">|</span>
           )}
           {['+', '-', '*', '/'].map((op) => (
@@ -403,7 +466,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
 
       {/* Dropdown - Full browsing mode (chevron click) */}
       {showDropdown && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-72 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-gray-200">
             <button
@@ -428,7 +491,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
             >
               Columns
             </button>
-            {existingFields.length > 0 && (
+            {hasFieldsToShow && (
               <button
                 type="button"
                 onClick={() => setActiveTab('fields')}
@@ -441,71 +504,178 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                 Fields
               </button>
             )}
+            {(availableData?.relatedItems?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('related')}
+                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                  activeTab === 'related'
+                    ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Related
+              </button>
+            )}
           </div>
 
           {/* Content */}
-          <div className="max-h-56 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto">
+            {/* Functions Tab */}
             {activeTab === 'functions' && (
               <div className="p-2 space-y-1">
-                {FORMULA_FUNCTIONS.map((func) => (
-                  <button
-                    key={func.name}
-                    type="button"
-                    onClick={() => handleFunctionClick(func)}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <div className="font-mono text-sm text-blue-700">{func.syntax}</div>
-                    <div className="text-xs text-gray-500">{func.description}</div>
-                  </button>
-                ))}
-                <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <InformationCircleIcon className="w-4 h-4" />
-                    <span>Tip: Use +, -, *, / for arithmetic</span>
+                {loadingColumns ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="ml-2 text-xs text-gray-500">Loading...</span>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'columns' && (
-              <div className="p-2 space-y-1">
-                {AVAILABLE_COLUMNS.map((column) => (
-                  <button
-                    key={column.name}
-                    type="button"
-                    onClick={() => handleColumnClick(column)}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <div className="font-mono text-sm text-gray-900">{column.name}</div>
-                    <div className="text-xs text-gray-500">{column.description}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {activeTab === 'fields' && (
-              <div className="p-2 space-y-1">
-                {existingFields.length === 0 ? (
-                  <p className="text-xs text-gray-500 px-3 py-2">
-                    No previous fields available. Create fields above this one to reference them.
-                  </p>
                 ) : (
                   <>
-                    <p className="text-xs text-gray-500 px-3 py-1">
-                      Reference calculated values from fields above:
-                    </p>
-                    {existingFields.map((fieldName) => (
+                    {(availableData?.functions || ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX']).map((funcName) => (
                       <button
-                        key={fieldName}
+                        key={funcName}
                         type="button"
-                        onClick={() => handleFieldClick(fieldName)}
+                        onClick={() => handleFunctionClick(funcName)}
                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                       >
-                        <div className="font-mono text-sm text-purple-700">{`{${fieldName}}`}</div>
-                        <div className="text-xs text-gray-500">Reference this field&apos;s value</div>
+                        <div className="font-mono text-sm text-blue-700">
+                          {funcName}({funcName === 'COUNT' ? '' : 'column'})
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {funcName === 'SUM' && 'Sum all values of a column'}
+                          {funcName === 'AVG' && 'Average of a column'}
+                          {funcName === 'COUNT' && 'Total number of items'}
+                          {funcName === 'MIN' && 'Minimum value of a column'}
+                          {funcName === 'MAX' && 'Maximum value of a column'}
+                          {funcName.endsWith('IF') && `Conditional ${funcName.replace('IF', '').toLowerCase()}`}
+                        </div>
                       </button>
                     ))}
+                    <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <InformationCircleIcon className="w-4 h-4" />
+                        <span>Tip: Use +, -, *, / for arithmetic</span>
+                      </div>
+                    </div>
                   </>
+                )}
+              </div>
+            )}
+
+            {/* Columns Tab */}
+            {activeTab === 'columns' && (
+              <div className="p-2 space-y-1">
+                {loadingColumns ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="ml-2 text-xs text-gray-500">Loading...</span>
+                  </div>
+                ) : (availableData?.bookingColumns?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-gray-500 px-3 py-2">No columns available</p>
+                ) : (
+                  availableData?.bookingColumns.map((column) => (
+                    <button
+                      key={column.name}
+                      type="button"
+                      onClick={() => handleColumnClick(column.name)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="font-mono text-sm text-gray-900">{column.name}</div>
+                      <div className="text-xs text-gray-500">{column.description}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Fields Tab - Grouped by section with logical names */}
+            {activeTab === 'fields' && (
+              <div className="p-2 space-y-3">
+                {allSections.length === 0 ? (
+                  <p className="text-xs text-gray-500 px-3 py-2">
+                    No sections available. Create sections and fields to reference them.
+                  </p>
+                ) : (
+                  allSections.map((section) => (
+                    <div key={section.sectionId}>
+                      <div className="px-3 py-1 flex items-baseline gap-1.5">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">
+                          {section.sectionName}
+                        </span>
+                        <span className="text-xs text-gray-400 font-mono">
+                          ({section.sectionLogicalName})
+                        </span>
+                        {section.sectionId === currentSectionId && (
+                          <span className="text-xs text-blue-500 font-medium">(current)</span>
+                        )}
+                      </div>
+                      {section.fields.length === 0 ? (
+                        <p className="text-xs text-gray-400 px-3 py-1 italic">No fields yet</p>
+                      ) : (
+                        section.fields.map((field) => {
+                          const isSameSection = section.sectionId === currentSectionId
+                          const insertValue = isSameSection
+                            ? `{${field.logicalName}}`
+                            : `{${section.sectionLogicalName}.${field.logicalName}}`
+
+                          return (
+                            <button
+                              key={field.id}
+                              type="button"
+                              onClick={() => handleFieldClick(insertValue)}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors"
+                            >
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm text-gray-900">{field.name}</span>
+                                  <span className="ml-1.5 text-xs text-gray-400 font-mono">
+                                    ({field.logicalName})
+                                  </span>
+                                </div>
+                                <span className="font-mono text-xs text-purple-600">{insertValue}</span>
+                              </div>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Related Items Tab */}
+            {activeTab === 'related' && (
+              <div className="p-2 space-y-1">
+                {loadingColumns ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="ml-2 text-xs text-gray-500">Loading...</span>
+                  </div>
+                ) : (availableData?.relatedItems?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-gray-500 px-3 py-2">No related items available</p>
+                ) : (
+                  availableData?.relatedItems.map((item) => (
+                    <div key={item.name} className="px-3 py-2 border border-amber-100 rounded-lg bg-amber-50/50">
+                      <div className="font-mono text-sm text-amber-800 font-medium">{item.name}</div>
+                      <div className="text-xs text-gray-600 mt-0.5 mb-2">{item.description}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.supportedAggregates.map((agg) => (
+                          <button
+                            key={agg}
+                            type="button"
+                            onClick={() => {
+                              handleRelatedItemInsert(agg, item.name)
+                              setShowDropdown(false)
+                            }}
+                            className="px-2 py-1 text-xs font-mono bg-amber-100 text-amber-700 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
+                          >
+                            {agg}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}
