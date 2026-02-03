@@ -1,5 +1,7 @@
 // services/apiClient.ts
 import { createClient } from '@/utils/supabase/component'
+import { SessionError } from '@/services/sessionError'
+import { getSessionStore } from '@/store/useSessionStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -56,8 +58,10 @@ async function apiClient<T, B = unknown>(
 
     if (sessionError) {
       console.error('Session error:', sessionError)
+      // Set store state to trigger modal immediately
+      getSessionStore().setSessionError('Authentication error - please sign in again')
       sessionEvents.emit('session-invalid')
-      throw new Error('Authentication error')
+      throw new SessionError('Authentication error')
     }
 
     session = sessionData.session
@@ -70,8 +74,10 @@ async function apiClient<T, B = unknown>(
 
       if (refreshError) {
         console.error('Session refresh failed:', refreshError)
+        // Set store state to trigger modal immediately
+        getSessionStore().setSessionError('Session expired - please sign in again')
         sessionEvents.emit('session-expired')
-        throw new Error('Session expired - please log in again')
+        throw new SessionError('Session expired - please log in again')
       }
 
       session = refreshData.session
@@ -80,8 +86,10 @@ async function apiClient<T, B = unknown>(
         console.log('✅ Session recovered via refresh')
       } else {
         console.log('❌ No session after refresh attempt')
+        // Set store state to trigger modal immediately
+        getSessionStore().setSessionError('No active session - please sign in')
         sessionEvents.emit('session-expired')
-        throw new Error('No active session - please log in')
+        throw new SessionError('No active session - please log in')
       }
     }
 
@@ -135,12 +143,16 @@ async function apiClient<T, B = unknown>(
             console.log('❌ Error (no JSON):', response.statusText)
         }
         
-        // Emit session events for auth errors
+        // Handle auth errors with SessionError and trigger modal
         if (response.status === 401 || response.status === 403) {
-            console.log('🔒 Authentication error detected, emitting session-expired event')
+            console.log('🔒 Authentication error detected, triggering session modal')
+            // Set store state to trigger modal immediately
+            getSessionStore().setSessionError(errorMessage || 'Authentication required - please sign in again')
             sessionEvents.emit('session-expired')
+            console.groupEnd();
+            throw new SessionError(errorMessage);
         }
-        
+
         console.groupEnd();
         throw new Error(errorMessage);
     }

@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/component'
 import { sessionEvents } from '@/services/apiClient'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useSessionStore } from '@/store/useSessionStore'
 import { isLoggingOut, markIntentionalLogout } from '@/utils/logoutState'
 
 export interface SessionStatus {
@@ -21,6 +22,10 @@ export function useSessionMonitor() {
   const supabase = useMemo(() => createClient(), [])
   const { clearProfile, updateSessionCheck } = useUserStore()
   const showNotification = useNotificationStore(state => state.showNotification)
+
+  // Subscribe to session store for instant modal triggering from apiClient
+  const sessionError = useSessionStore(state => state.sessionError)
+  const clearSessionError = useSessionStore(state => state.clearSessionError)
   
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     isExpired: false,
@@ -178,6 +183,7 @@ export function useSessionMonitor() {
       markIntentionalLogout()
       await supabase.auth.signOut()
       clearProfile()
+      clearSessionError()
       setShowWarningModal(false)
       setShowExpiredModal(false)
       router.push('/login')
@@ -185,15 +191,18 @@ export function useSessionMonitor() {
       console.error('Sign out failed:', error)
       // Force logout even if sign out fails
       clearProfile()
+      clearSessionError()
       router.push('/login')
     }
-  }, [supabase, clearProfile, router])
+  }, [supabase, clearProfile, clearSessionError, router])
 
   const handleLoginRedirect = useCallback(() => {
     setShowExpiredModal(false)
+    // Clear session store error state
+    clearSessionError()
     console.log('🔄 Redirecting to login with session expired flag')
     router.push('/login?session=expired')
-  }, [router])
+  }, [router, clearSessionError])
 
   // Start AGGRESSIVE session monitoring
   useEffect(() => {
@@ -309,6 +318,15 @@ export function useSessionMonitor() {
       }
     }
   }, [])
+
+  // Watch session store for errors set by apiClient
+  // This enables INSTANT modal display when session errors occur
+  useEffect(() => {
+    if (sessionError && !showExpiredModal && !isLoggingOut()) {
+      console.log('🔔 Session error detected from store, showing expired modal:', sessionError)
+      handleSessionExpired()
+    }
+  }, [sessionError, showExpiredModal, handleSessionExpired])
 
   return {
     sessionStatus,
