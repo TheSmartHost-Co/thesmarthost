@@ -25,3 +25,11 @@ export function deleteUserProfile(userId: string): Promise<{ status: string; mes
     method: 'DELETE',
   });
 }
+
+// Get or create a cleaner profile when they log in via magic link
+export function getOrCreateCleanerProfile(authUserId: string, fullName: string): Promise<ProfileResponse> {
+  return apiClient<ProfileResponse>('/profile/cleaner', {
+    method: 'POST',
+    body: { authUserId, fullName },
+  });
+}

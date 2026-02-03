@@ -5,7 +5,7 @@
   interface UserProfile {
     id: string
     fullName: string
-    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT'
+    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER'
     email?: string
     phoneNumber?: string | null
     companyName?: string | null
@@ -69,6 +69,8 @@
               return '/property-manager/dashboard'
             case 'CLIENT':
               return '/client/dashboard'
+            case 'CLEANER':
+              return '/cleaner/dashboard'
             default:
               return '/dashboard'
           }

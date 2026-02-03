@@ -6,7 +6,11 @@
       "Skill(frontend-design:frontend-design)",
       "Bash(grep:*)",
       "Bash(wc:*)",
-      "WebSearch"
+      "WebSearch",
+      "Skill(thesmarthost-context)",
+      "Skill(add-frontend-feature)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ],
     "deny": []
   }

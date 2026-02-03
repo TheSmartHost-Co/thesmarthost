@@ -15,6 +15,8 @@ import {
   BanknotesIcon,
   ClockIcon,
   RectangleStackIcon,
+  ClipboardDocumentListIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarItems = [
@@ -67,6 +69,16 @@ const sidebarItems = [
     name: 'Expenses',
     href: '/property-manager/expenses',
     icon: BanknotesIcon,
+  },
+  {
+    name: 'Turnover',
+    href: '/property-manager/turnover',
+    icon: ClipboardDocumentListIcon,
+  },
+  {
+    name: 'Cleaners',
+    href: '/property-manager/cleaners',
+    icon: UserCircleIcon,
   },
   {
     name: 'Analytics',

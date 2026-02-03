@@ -1,7 +1,7 @@
 export interface UserProfile {
   id: string;
   fullName: string;
-  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT';
+  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER';
   phoneNumber?: string | null;
   companyName?: string | null;
   createdAt: string;
@@ -9,7 +9,7 @@ export interface UserProfile {
 
 export interface UpdateProfilePayload {
   fullName: string;
-  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT';
+  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER';
   phoneNumber?: string | null;
   companyName?: string | null;
 }
