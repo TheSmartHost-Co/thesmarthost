@@ -12,6 +12,7 @@ import {
   XCircleIcon,
   FunnelIcon,
   BuildingOfficeIcon,
+  ClockIcon,
   EyeIcon,
   EnvelopeIcon,
 } from '@heroicons/react/24/outline'
