@@ -703,3 +703,6 @@ TWILIO_FROM_EMAIL=noreply@thesmarthost.co
 - **Same-day detection**: Check if another booking starts on same property on same day
 - **iCal parsing**: Use `node-ical` to parse iCal URLs, extract VEVENT items
 - **Notifications**: Queue-based for reliability (consider Bull/BullMQ for production)
+
+
+
