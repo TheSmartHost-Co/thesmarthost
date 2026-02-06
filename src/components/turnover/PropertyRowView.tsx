@@ -14,6 +14,7 @@ interface PropertyRowViewProps {
   properties: Property[]
   dateRange: { start: string; end: string }
   onProjectClick: (project: CleaningProject) => void
+  issueCountsMap?: Record<string, number> // projectId -> open issue count
 }
 
 export default function PropertyRowView({
@@ -21,6 +22,7 @@ export default function PropertyRowView({
   properties,
   dateRange,
   onProjectClick,
+  issueCountsMap = {},
 }: PropertyRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
 
@@ -63,7 +65,8 @@ export default function PropertyRowView({
   // Custom event content render
   const renderEventContent = (eventInfo: EventContentArg) => {
     const project = eventInfo.event.extendedProps.project as CleaningProject
-    return <ProjectEvent project={project} />
+    const openIssueCount = issueCountsMap[project.id] || 0
+    return <ProjectEvent project={project} openIssueCount={openIssueCount} />
   }
 
   // Custom resource label render
@@ -98,6 +101,7 @@ export default function PropertyRowView({
           omitCommas: true,
         }}
         headerToolbar={false}
+        firstDay={6}
         height="auto"
         eventClick={handleEventClick}
         eventContent={renderEventContent}

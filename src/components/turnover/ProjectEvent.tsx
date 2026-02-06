@@ -7,15 +7,17 @@ import {
   HomeModernIcon,
   CheckCircleIcon,
   PlayCircleIcon,
+  FlagIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 
 interface ProjectEventProps {
   project: CleaningProject
   showProperty?: boolean // When in cleaner view, show property name instead of cleaner
+  openIssueCount?: number // Number of open/acknowledged issues
 }
 
-export default function ProjectEvent({ project, showProperty = false }: ProjectEventProps) {
+export default function ProjectEvent({ project, showProperty = false, openIssueCount = 0 }: ProjectEventProps) {
   const statusConfig = getStatusConfig(project.status)
   const isUnassigned = !project.cleanerId
 
@@ -83,6 +85,14 @@ export default function ProjectEvent({ project, showProperty = false }: ProjectE
           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
             <ExclamationTriangleIcon className="w-2.5 h-2.5" />
             Same Day
+          </span>
+        )}
+
+        {/* Issues badge */}
+        {openIssueCount > 0 && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">
+            <FlagIcon className="w-2.5 h-2.5" />
+            {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
           </span>
         )}
 

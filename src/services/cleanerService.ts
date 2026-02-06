@@ -15,6 +15,14 @@ export function getCleaners(userId: string): Promise<CleanersResponse> {
   return apiClient<CleanersResponse>(`/cleaners?userId=${userId}`)
 }
 
+/**
+ * Get cleaner record by their Supabase auth user ID (for cleaner portal)
+ * This allows a logged-in cleaner to find their cleaner record and PM's userId
+ */
+export function getCleanerByAuthUserId(authUserId: string): Promise<CleanerResponse> {
+  return apiClient<CleanerResponse>(`/cleaners/me?authUserId=${authUserId}`)
+}
+
 export function getCleanerById(id: string): Promise<CleanerResponse> {
   return apiClient<CleanerResponse>(`/cleaners/${id}`)
 }

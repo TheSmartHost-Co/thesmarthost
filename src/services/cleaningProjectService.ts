@@ -380,3 +380,17 @@ export function getItemsNeedingPhotos(items: ProjectChecklistItem[]): ProjectChe
 export function getIncompleteItems(items: ProjectChecklistItem[]): ProjectChecklistItem[] {
   return items.filter(item => !item.isCompleted)
 }
+
+/**
+ * Format a time string (HH:MM:SS or HH:MM) to 12-hour format with AM/PM
+ * @param time - Time string in 24-hour format (e.g., "14:30:00" or "14:30")
+ * @returns Formatted time string (e.g., "2:30 PM") or null if no time provided
+ */
+export function formatTime(time: string | null | undefined): string | null {
+  if (!time) return null
+  const [hours, minutes] = time.split(':')
+  const h = parseInt(hours, 10)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 || 12
+  return `${h12}:${minutes} ${ampm}`
+}

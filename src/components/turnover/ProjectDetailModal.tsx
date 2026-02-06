@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useCallback } from 'react'
 import {
   XMarkIcon,
   HomeModernIcon,
@@ -13,11 +12,16 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
+  FlagIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { assignCleanerToProject, updateCleaningProject, getStatusDisplay, formatDuration } from '@/services/cleaningProjectService'
+import { getIssueCounts } from '@/services/projectIssueService'
+import type { IssueCounts } from '@/services/types/projectIssue'
 import EditProjectModal from './update/EditProjectModal'
+import { ReportIssueModal, ViewIssuesModal } from './issues'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
@@ -43,6 +47,30 @@ export default function ProjectDetailModal({
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState(project.cleanerId || '')
   const [showEditModal, setShowEditModal] = useState(false)
+
+  // Issues state
+  const [issueCounts, setIssueCounts] = useState<IssueCounts | null>(null)
+  const [showReportIssueModal, setShowReportIssueModal] = useState(false)
+  const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
+
+  // Fetch issue counts when modal opens
+  const fetchIssueCounts = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getIssueCounts(project.id)
+      if (res.status === 'success') {
+        setIssueCounts(res.data)
+      }
+    } catch (err) {
+      console.error('Error fetching issue counts:', err)
+    }
+  }, [project.id])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchIssueCounts()
+    }
+  }, [isOpen, fetchIssueCounts])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -105,13 +133,8 @@ export default function ProjectDetailModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-auto overflow-hidden"
-      >
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-4xl w-11/12 max-h-[90vh]">
+      <div>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -228,9 +251,9 @@ export default function ProjectDetailModal({
             <div className="bg-gray-50 rounded-xl p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <ClockIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Check-in</span>
+                <span className="text-xs font-medium uppercase tracking-wider">Next Check-in</span>
               </div>
-              <p className="font-semibold text-gray-900">{formatTime(project.checkinTime)}</p>
+              <p className="font-semibold text-gray-900">{project.checkinTime ? formatTime(project.checkinTime) : 'No check-in on same day'}</p>
             </div>
           </div>
 
@@ -273,6 +296,63 @@ export default function ProjectDetailModal({
               <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{project.pmNotes}</p>
             </div>
           )}
+
+          {/* Issues Section */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-gray-500">
+                <FlagIcon className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">Issues</span>
+              </div>
+              <button
+                onClick={() => setShowReportIssueModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Report Issue
+              </button>
+            </div>
+
+            {issueCounts && issueCounts.total > 0 ? (
+              <button
+                onClick={() => setShowViewIssuesModal(true)}
+                className="w-full text-left bg-gray-50 hover:bg-gray-100 rounded-xl p-4 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      issueCounts.open > 0 ? 'bg-red-100' : issueCounts.acknowledged > 0 ? 'bg-amber-100' : 'bg-green-100'
+                    }`}>
+                      <ExclamationTriangleIcon className={`w-5 h-5 ${
+                        issueCounts.open > 0 ? 'text-red-600' : issueCounts.acknowledged > 0 ? 'text-amber-600' : 'text-green-600'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {issueCounts.total} issue{issueCounts.total !== 1 ? 's' : ''}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        {issueCounts.open > 0 && (
+                          <span className="text-red-600">{issueCounts.open} open</span>
+                        )}
+                        {issueCounts.acknowledged > 0 && (
+                          <span className="text-amber-600">{issueCounts.acknowledged} acknowledged</span>
+                        )}
+                        {issueCounts.resolved > 0 && (
+                          <span className="text-green-600">{issueCounts.resolved} resolved</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm text-purple-600 font-medium">View →</span>
+                </div>
+              </button>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">No issues reported</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -291,7 +371,7 @@ export default function ProjectDetailModal({
             Edit Project
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Edit Project Modal */}
       <EditProjectModal
@@ -304,6 +384,32 @@ export default function ProjectDetailModal({
         project={project}
         properties={properties}
         cleaners={cleaners}
+      />
+
+      {/* Report Issue Modal */}
+      <ReportIssueModal
+        isOpen={showReportIssueModal}
+        onClose={() => setShowReportIssueModal(false)}
+        projectId={project.id}
+        cleanerId={project.cleanerId}
+        onIssueCreated={() => {
+          setShowReportIssueModal(false)
+          fetchIssueCounts()
+        }}
+      />
+
+      {/* View Issues Modal */}
+      <ViewIssuesModal
+        isOpen={showViewIssuesModal}
+        onClose={() => setShowViewIssuesModal(false)}
+        projectId={project.id}
+        projectName={project.propertyName}
+        isPM={true}
+        onReportIssue={() => {
+          setShowViewIssuesModal(false)
+          setShowReportIssueModal(true)
+        }}
+        onIssuesChanged={fetchIssueCounts}
       />
     </Modal>
   )

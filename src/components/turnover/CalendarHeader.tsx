@@ -35,10 +35,16 @@ export default function CalendarHeader({
   onCreateProject,
   onCreateChecklist,
 }: CalendarHeaderProps) {
+  // Parse date string as local time (not UTC)
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   // Format the date range for display
   const formatDateRange = () => {
-    const start = new Date(dateRange.start)
-    const end = new Date(dateRange.end)
+    const start = parseLocalDate(dateRange.start)
+    const end = parseLocalDate(dateRange.end)
 
     const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
     const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
@@ -55,8 +61,8 @@ export default function CalendarHeader({
   // Check if current view is today's week
   const isCurrentWeek = () => {
     const today = new Date()
-    const start = new Date(dateRange.start)
-    const end = new Date(dateRange.end)
+    const start = parseLocalDate(dateRange.start)
+    const end = parseLocalDate(dateRange.end)
     return today >= start && today <= end
   }
 

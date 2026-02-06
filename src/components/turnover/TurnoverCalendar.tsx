@@ -12,6 +12,7 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleaningProjects, getCleaningProjectStats } from '@/services/cleaningProjectService'
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
+import { getOpenIssues } from '@/services/projectIssueService'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
@@ -45,6 +46,7 @@ export default function TurnoverCalendar({
   const [properties, setProperties] = useState<Property[]>(initialProperties || [])
   const [cleaners, setCleaners] = useState<Cleaner[]>(initialCleaners || [])
   const [stats, setStats] = useState<CleaningProjectStats | null>(null)
+  const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
 
   // Loading state
   const [loading, setLoading] = useState(true)
@@ -56,21 +58,31 @@ export default function TurnoverCalendar({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCreateChecklistModal, setShowCreateChecklistModal] = useState(false)
 
-  // Calculate date range for the current week view
+  // Format date as YYYY-MM-DD in local time (avoid timezone issues)
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Calculate date range for the current week view (Saturday-Friday)
   const dateRange = useMemo(() => {
     const start = new Date(currentDate)
-    const day = start.getDay()
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1) // Monday
-    start.setDate(diff)
+    const day = start.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    // Go back to Saturday (start of week)
+    // Saturday=0 back, Sunday=1 back, Monday=2 back, ..., Friday=6 back
+    const daysToSaturday = (day + 1) % 7
+    start.setDate(start.getDate() - daysToSaturday)
     start.setHours(0, 0, 0, 0)
 
     const end = new Date(start)
-    end.setDate(end.getDate() + 6) // Sunday
+    end.setDate(end.getDate() + 6) // Friday
     end.setHours(23, 59, 59, 999)
 
     return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
+      start: formatLocalDate(start),
+      end: formatLocalDate(end),
     }
   }, [currentDate])
 
@@ -112,6 +124,17 @@ export default function TurnoverCalendar({
         if (statsRes.status === 'success') {
           setStats(statsRes.data)
         }
+
+        // Fetch open issues to show on calendar badges
+        const issuesRes = await getOpenIssues(profile.id)
+        if (issuesRes.status === 'success') {
+          // Build a map of projectId -> open issue count
+          const countsMap: Record<string, number> = {}
+          issuesRes.data.forEach(issue => {
+            countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
+          })
+          setIssueCountsMap(countsMap)
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load calendar data'
         setError(message)
@@ -124,6 +147,23 @@ export default function TurnoverCalendar({
     fetchData()
   }, [profile?.id, dateRange.start, dateRange.end, initialProperties, initialCleaners, showNotification])
 
+  // Refresh issue counts (call after issues are modified)
+  const refreshIssueCounts = async () => {
+    if (!profile?.id) return
+    try {
+      const issuesRes = await getOpenIssues(profile.id)
+      if (issuesRes.status === 'success') {
+        const countsMap: Record<string, number> = {}
+        issuesRes.data.forEach(issue => {
+          countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
+        })
+        setIssueCountsMap(countsMap)
+      }
+    } catch (err) {
+      console.error('Error refreshing issue counts:', err)
+    }
+  }
+
   // Handle project click
   const handleProjectClick = (project: CleaningProject) => {
     setSelectedProject(project)
@@ -135,6 +175,8 @@ export default function TurnoverCalendar({
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p))
     setShowDetailModal(false)
     setSelectedProject(null)
+    // Also refresh issue counts in case issues were modified
+    refreshIssueCounts()
   }
 
   // Handle new project created
@@ -264,6 +306,7 @@ export default function TurnoverCalendar({
                 properties={properties}
                 dateRange={dateRange}
                 onProjectClick={handleProjectClick}
+                issueCountsMap={issueCountsMap}
               />
             ) : (
               <CleanerRowView
@@ -271,6 +314,7 @@ export default function TurnoverCalendar({
                 cleaners={cleaners}
                 dateRange={dateRange}
                 onProjectClick={handleProjectClick}
+                issueCountsMap={issueCountsMap}
               />
             )}
           </motion.div>
@@ -284,6 +328,8 @@ export default function TurnoverCalendar({
           onClose={() => {
             setShowDetailModal(false)
             setSelectedProject(null)
+            // Refresh issue counts when modal closes (in case issues were modified)
+            refreshIssueCounts()
           }}
           project={selectedProject}
           cleaners={cleaners}
