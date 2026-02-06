@@ -14,14 +14,29 @@ import {
   PencilSquareIcon,
   FlagIcon,
   PlusIcon,
+  ClipboardDocumentCheckIcon,
+  CameraIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { assignCleanerToProject, updateCleaningProject, getStatusDisplay, formatDuration } from '@/services/cleaningProjectService'
+import {
+  assignCleanerToProject,
+  updateCleaningProject,
+  getStatusDisplay,
+  formatDuration,
+  getProjectChecklist,
+  updateProjectChecklistItem,
+  initializeProjectChecklist,
+  groupChecklistItemsByRoom,
+  getCompletionPercentage,
+} from '@/services/cleaningProjectService'
 import { getIssueCounts } from '@/services/projectIssueService'
 import type { IssueCounts } from '@/services/types/projectIssue'
+import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
+import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
@@ -53,6 +68,14 @@ export default function ProjectDetailModal({
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
 
+  // Checklist state
+  const [checklistItems, setChecklistItems] = useState<ProjectChecklistItem[]>([])
+  const [checklistProgress, setChecklistProgress] = useState<ChecklistProgress | null>(null)
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false)
+  const [isInitializingChecklist, setIsInitializingChecklist] = useState(false)
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; task: string } | null>(null)
+
   // Fetch issue counts when modal opens
   const fetchIssueCounts = useCallback(async () => {
     if (!project.id) return
@@ -66,11 +89,74 @@ export default function ProjectDetailModal({
     }
   }, [project.id])
 
+  // Fetch checklist items when modal opens
+  const fetchChecklist = useCallback(async () => {
+    if (!project.id) return
+    setIsLoadingChecklist(true)
+    try {
+      const res = await getProjectChecklist(project.id)
+      if (res.status === 'success') {
+        setChecklistItems(res.data.items)
+        setChecklistProgress(res.data.progress)
+      }
+    } catch (err) {
+      console.error('Error fetching checklist:', err)
+    } finally {
+      setIsLoadingChecklist(false)
+    }
+  }, [project.id])
+
+  // Initialize checklist from template
+  const handleInitializeChecklist = async () => {
+    if (!project.id || !project.checklistId) return
+    setIsInitializingChecklist(true)
+    try {
+      const res = await initializeProjectChecklist(project.id)
+      if (res.status === 'success') {
+        showNotification(`Initialized ${res.data.initialized} checklist items`, 'success')
+        await fetchChecklist()
+      } else {
+        showNotification(res.message || 'Failed to initialize checklist', 'error')
+      }
+    } catch (err) {
+      console.error('Error initializing checklist:', err)
+      showNotification('Error initializing checklist', 'error')
+    } finally {
+      setIsInitializingChecklist(false)
+    }
+  }
+
+  // Toggle checklist item completion
+  const handleToggleItem = async (item: ProjectChecklistItem) => {
+    setUpdatingItemId(item.id)
+    try {
+      const res = await updateProjectChecklistItem(project.id, item.id, {
+        isCompleted: !item.isCompleted,
+      })
+      if (res.status === 'success') {
+        // Update local state
+        setChecklistItems(prev =>
+          prev.map(i => i.id === item.id ? res.data : i)
+        )
+        // Refresh progress
+        await fetchChecklist()
+      } else {
+        showNotification(res.message || 'Failed to update item', 'error')
+      }
+    } catch (err) {
+      console.error('Error updating checklist item:', err)
+      showNotification('Error updating item', 'error')
+    } finally {
+      setUpdatingItemId(null)
+    }
+  }
+
   useEffect(() => {
     if (isOpen) {
       fetchIssueCounts()
+      fetchChecklist()
     }
-  }, [isOpen, fetchIssueCounts])
+  }, [isOpen, fetchIssueCounts, fetchChecklist])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -297,6 +383,101 @@ export default function ProjectDetailModal({
             </div>
           )}
 
+          {/* Checklist Section */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-gray-500">
+                <ClipboardDocumentCheckIcon className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">Checklist</span>
+                {checklistProgress && checklistProgress.totalItems > 0 && (
+                  <span className="ml-2 text-xs font-semibold text-purple-600">
+                    {checklistProgress.completedItems}/{checklistProgress.totalItems} ({getCompletionPercentage(checklistProgress)}%)
+                  </span>
+                )}
+              </div>
+              {project.checklistId && checklistItems.length === 0 && !isLoadingChecklist && (
+                <button
+                  onClick={handleInitializeChecklist}
+                  disabled={isInitializingChecklist}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isInitializingChecklist ? 'Initializing...' : 'Initialize Checklist'}
+                </button>
+              )}
+            </div>
+
+            {isLoadingChecklist ? (
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">Loading checklist...</p>
+              </div>
+            ) : checklistItems.length > 0 ? (
+              <div className="bg-gray-50 rounded-xl p-4 max-h-64 overflow-y-auto">
+                {Object.entries(groupChecklistItemsByRoom(checklistItems)).map(([roomName, items]) => (
+                  <div key={roomName} className="mb-4 last:mb-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {roomName || 'General'}
+                    </p>
+                    <div className="space-y-2">
+                      {items.map(item => (
+                        <div
+                          key={item.id}
+                          className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${
+                            item.isCompleted ? 'bg-green-50' : 'bg-white'
+                          }`}
+                        >
+                          <button
+                            onClick={() => handleToggleItem(item)}
+                            disabled={updatingItemId === item.id}
+                            className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                              item.isCompleted
+                                ? 'bg-green-500 border-green-500 text-white'
+                                : 'border-gray-300 hover:border-purple-500'
+                            } ${updatingItemId === item.id ? 'opacity-50' : ''}`}
+                          >
+                            {item.isCompleted && <CheckIcon className="w-3 h-3" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${item.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                              {item.taskDescription}
+                            </p>
+                            {item.notes && (
+                              <p className="text-xs text-gray-500 mt-0.5">{item.notes}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {item.photoUrl ? (
+                              <button
+                                onClick={() => setPreviewImage({ url: item.photoUrl!, task: item.taskDescription })}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors cursor-pointer"
+                                title="View photo"
+                              >
+                                <CameraIcon className="w-3.5 h-3.5" />
+                                View
+                              </button>
+                            ) : item.requiresPhoto ? (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-1 text-xs text-amber-600 bg-amber-50 rounded-lg">
+                                <CameraIcon className="w-3.5 h-3.5" />
+                                Required
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : project.checklistId ? (
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">Checklist not initialized yet</p>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">No checklist assigned</p>
+              </div>
+            )}
+          </div>
+
           {/* Issues Section */}
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-3">
@@ -410,6 +591,14 @@ export default function ProjectDetailModal({
           setShowReportIssueModal(true)
         }}
         onIssuesChanged={fetchIssueCounts}
+      />
+
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        isOpen={!!previewImage}
+        onClose={() => setPreviewImage(null)}
+        imageUrl={previewImage?.url || ''}
+        title={previewImage?.task}
       />
     </Modal>
   )

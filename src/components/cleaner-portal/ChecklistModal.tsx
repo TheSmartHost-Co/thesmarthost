@@ -13,11 +13,13 @@ import {
   TrashIcon,
   FlagIcon,
   PlusIcon,
+  MagnifyingGlassPlusIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getProjectChecklist,
+  initializeProjectChecklist,
   updateProjectChecklistItem,
   uploadProjectChecklistItemPhoto,
   deleteProjectChecklistItemPhoto,
@@ -52,6 +54,7 @@ export default function ChecklistModal({
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
+  const [viewingImage, setViewingImage] = useState<string | null>(null)
 
   // Fetch checklist data
   const fetchChecklist = useCallback(async () => {
@@ -61,6 +64,23 @@ export default function ChecklistModal({
     try {
       const res = await getProjectChecklist(project.id)
       if (res.status === 'success') {
+        // If no items but project has a checklist assigned, auto-initialize
+        if (res.data.items.length === 0 && project.checklistId) {
+          console.log('No checklist items found, auto-initializing from template...')
+          const initRes = await initializeProjectChecklist(project.id)
+          if (initRes.status === 'success' && initRes.data.initialized > 0) {
+            // Re-fetch after initialization
+            const refreshRes = await getProjectChecklist(project.id)
+            if (refreshRes.status === 'success') {
+              setItems(refreshRes.data.items)
+              setProgress(refreshRes.data.progress)
+              const rooms = new Set(refreshRes.data.items.map(item => item.roomName || 'General'))
+              setExpandedRooms(rooms)
+              return
+            }
+          }
+        }
+
         setItems(res.data.items)
         setProgress(res.data.progress)
         // Expand all rooms by default
@@ -75,7 +95,7 @@ export default function ChecklistModal({
     } finally {
       setLoading(false)
     }
-  }, [project.id, showNotification])
+  }, [project.id, project.checklistId, showNotification])
 
   useEffect(() => {
     if (isOpen) {
@@ -354,6 +374,7 @@ export default function ChecklistModal({
                 onToggleItem={handleToggleItem}
                 onUploadPhoto={handlePhotoUpload}
                 onDeletePhoto={handleDeletePhoto}
+                onViewPhoto={setViewingImage}
                 uploadingItems={uploadingItems}
                 togglingItems={togglingItems}
               />
@@ -404,6 +425,53 @@ export default function ChecklistModal({
           showNotification('Issue reported successfully', 'success')
         }}
       />
+
+      {/* Image Viewer Lightbox */}
+      <AnimatePresence>
+        {viewingImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setViewingImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-4xl max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={viewingImage}
+                alt="Full size photo"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%239ca3af"%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"%3E%3C/path%3E%3C/svg%3E'
+                }}
+              />
+              <button
+                onClick={() => setViewingImage(null)}
+                className="absolute -top-3 -right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <XMarkIcon className="w-5 h-5 text-gray-700" />
+              </button>
+              {/* Open in new tab button */}
+              <a
+                href={viewingImage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-4 right-4 px-3 py-2 bg-white/90 rounded-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Open in new tab
+              </a>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
@@ -417,6 +485,7 @@ interface RoomSectionProps {
   onToggleItem: (item: ProjectChecklistItem) => void
   onUploadPhoto: (itemId: string, file: File) => void
   onDeletePhoto: (itemId: string) => void
+  onViewPhoto: (url: string) => void
   uploadingItems: Set<string>
   togglingItems: Set<string>
 }
@@ -429,6 +498,7 @@ function RoomSection({
   onToggleItem,
   onUploadPhoto,
   onDeletePhoto,
+  onViewPhoto,
   uploadingItems,
   togglingItems,
 }: RoomSectionProps) {
@@ -474,6 +544,7 @@ function RoomSection({
                   onToggle={() => onToggleItem(item)}
                   onUploadPhoto={(file) => onUploadPhoto(item.id, file)}
                   onDeletePhoto={() => onDeletePhoto(item.id)}
+                  onViewPhoto={onViewPhoto}
                   isUploading={uploadingItems.has(item.id)}
                   isToggling={togglingItems.has(item.id)}
                 />
@@ -492,6 +563,7 @@ interface ChecklistItemRowProps {
   onToggle: () => void
   onUploadPhoto: (file: File) => void
   onDeletePhoto: () => void
+  onViewPhoto: (url: string) => void
   isUploading: boolean
   isToggling: boolean
 }
@@ -501,6 +573,7 @@ function ChecklistItemRow({
   onToggle,
   onUploadPhoto,
   onDeletePhoto,
+  onViewPhoto,
   isUploading,
   isToggling,
 }: ChecklistItemRowProps) {
@@ -548,18 +621,35 @@ function ChecklistItemRow({
         {item.requiresPhoto && (
           <div className="mt-2">
             {item.photoUrl ? (
-              <div className="relative inline-block">
-                <img
-                  src={item.photoUrl}
-                  alt="Uploaded"
-                  className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                />
+              <div className="relative inline-flex items-end gap-2">
+                <div className="relative group">
+                  <img
+                    src={item.photoUrl}
+                    alt="Uploaded photo"
+                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => onViewPhoto(item.photoUrl!)}
+                    onError={(e) => {
+                      // Handle broken image - show placeholder
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      target.parentElement?.classList.add('bg-gray-100')
+                    }}
+                  />
+                  {/* View overlay on hover */}
+                  <div
+                    className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                    onClick={() => onViewPhoto(item.photoUrl!)}
+                  >
+                    <MagnifyingGlassPlusIcon className="w-6 h-6 text-white" />
+                  </div>
+                </div>
                 <button
                   onClick={onDeletePhoto}
                   disabled={isUploading}
-                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors cursor-pointer"
+                  className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
+                  title="Delete photo"
                 >
-                  <TrashIcon className="w-3 h-3" />
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
             ) : (
