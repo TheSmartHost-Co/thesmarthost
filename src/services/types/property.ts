@@ -153,6 +153,32 @@ export interface DeletePropertyResponse {
 }
 
 /**
+ * API response for permanent delete operation
+ * Includes counts of all deleted associated records
+ */
+export interface PermanentDeletePropertyResponse {
+  status: 'success' | 'error'
+  message: string
+  data?: {
+    propertyId: string
+    deletedCounts: {
+      fieldValuesChanged: number
+      expenses: number
+      incomingBookings: number
+      propertyLicenses: number
+      propertyFieldMappings: number
+      propertyWebhookMappings: number
+      propertyChannels: number
+      csvUploads: number
+      bookings: number
+      reportProperties: number
+      propertyReportTemplates: number
+      clientProperties: number
+    }
+  }
+}
+
+/**
  * Property statistics for dashboard
  */
 export interface PropertyStats {

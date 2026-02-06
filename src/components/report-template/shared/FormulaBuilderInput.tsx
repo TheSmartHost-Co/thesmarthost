@@ -13,6 +13,34 @@ import {
 // Operators for search term extraction
 const OPERATORS = ['+', '-', '*', '/', '(', ')', '[', ']', ' ']
 
+// Function syntax hints (shown for complex functions)
+const FUNCTION_SYNTAX: Record<string, string> = {
+  SUM: 'SUM(column)',
+  AVG: 'AVG(column)',
+  COUNT: 'COUNT()',
+  MIN: 'MIN(column)',
+  MAX: 'MAX(column)',
+  SUMIF: 'SUMIF(column, "operator", value)',
+  AVGIF: 'AVGIF(column, "operator", value)',
+  COUNTIF: 'COUNTIF(column, "operator", value)',
+  MINIF: 'MINIF(column, "operator", value)',
+  MAXIF: 'MAXIF(column, "operator", value)',
+}
+
+// Function descriptions
+const FUNCTION_DESCRIPTIONS: Record<string, string> = {
+  SUM: 'Sum all values of a column',
+  AVG: 'Average of a column',
+  COUNT: 'Total number of items',
+  MIN: 'Minimum value of a column',
+  MAX: 'Maximum value of a column',
+  SUMIF: 'Sum values where condition is met',
+  AVGIF: 'Average where condition is met',
+  COUNTIF: 'Count items where condition is met',
+  MINIF: 'Minimum where condition is met',
+  MAXIF: 'Maximum where condition is met',
+}
+
 // Get the search term (text after the last operator)
 const getSearchTerm = (text: string): string => {
   let lastOperatorIndex = -1
@@ -542,13 +570,16 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                           {funcName}({funcName === 'COUNT' ? '' : 'column'})
                         </div>
                         <div className="text-xs text-gray-500">
-                          {funcName === 'SUM' && 'Sum all values of a column'}
-                          {funcName === 'AVG' && 'Average of a column'}
-                          {funcName === 'COUNT' && 'Total number of items'}
-                          {funcName === 'MIN' && 'Minimum value of a column'}
-                          {funcName === 'MAX' && 'Maximum value of a column'}
-                          {funcName.endsWith('IF') && `Conditional ${funcName.replace('IF', '').toLowerCase()}`}
+                          {FUNCTION_DESCRIPTIONS[funcName] || `Conditional ${funcName.replace('IF', '').toLowerCase()}`}
                         </div>
+                        {/* Syntax hint for IF functions */}
+                        {funcName.endsWith('IF') && FUNCTION_SYNTAX[funcName] && (
+                          <div className="mt-1">
+                            <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                              {FUNCTION_SYNTAX[funcName]}
+                            </span>
+                          </div>
+                        )}
                       </button>
                     ))}
                     <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">

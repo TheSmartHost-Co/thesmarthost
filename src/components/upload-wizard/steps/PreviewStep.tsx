@@ -256,6 +256,12 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     )
   }
 
+  // Strip currency formatting ($, commas, whitespace) for numeric parsing
+  const stripCurrency = (value: string): string => {
+    if (typeof value !== 'string') return String(value)
+    return value.replace(/[$,\s]/g, '').trim()
+  }
+
   // Formula evaluator function
   // suppressWarning: When true, don't log warnings or add to formulaErrorsRef (used during pass 1 of two-pass evaluation)
   const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[], suppressWarning: boolean = false): number | string => {
@@ -275,7 +281,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           return
         }
         
-        const numValue = parseFloat(columnValue)
+        const numValue = parseFloat(stripCurrency(columnValue))
         // For numeric calculations, use numbers. For text, keep original text
         const valueToUse = isNaN(numValue) ? columnValue : numValue.toString()
         valueMap.set(headerLower, valueToUse)
@@ -294,7 +300,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         }
         
         // For non-date/non-listing fields, try to parse as number
-        const numValue = parseFloat(simpleValue)
+        const numValue = parseFloat(stripCurrency(simpleValue))
         return isNaN(numValue) ? simpleValue : numValue
       }
 
@@ -930,23 +936,23 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         numNights: parseInt(String(preview.num_nights || preview.nights)) || 1,
         platform: mapPlatformName(String(preview.platform || 'direct')),
         listingName: preview.listing_name || preview.propertyName,
-        // Financial fields - use the exact values from preview (already calculated)
-        nightlyRate: parseFloat(String(preview.nightly_rate || preview.nightlyRate || 0)) || undefined,
-        extraGuestFees: parseFloat(String(preview.extra_guest_fees || preview.extraGuestFees || 0)) || undefined,
-        cleaningFee: parseFloat(String(preview.cleaning_fee || preview.cleaningFee || 0)) || undefined,
-        lodgingTax: parseFloat(String(preview.lodging_tax || preview.lodgingTax || 0)) || undefined,
-        bedLinenFee: parseFloat(String(preview.bed_linen_fee || preview.bedLinenFee || 0)) || undefined,
-        gst: parseFloat(String(preview.gst || 0)) || undefined,
-        qst: parseFloat(String(preview.qst || 0)) || undefined,
-        channelFee: parseFloat(String(preview.channel_fee || preview.channelFee || 0)) || undefined,
-        stripeFee: parseFloat(String(preview.stripe_fee || preview.stripeFee || 0)) || undefined,
-        salesTax: parseFloat(String(preview.sales_tax || preview.salesTax || 0)) || undefined,
-        totalPayout: parseFloat(String(preview.total_payout || preview.totalAmount || preview.totalPayout || 0)) || undefined,
-        mgmtFee: parseFloat(String(preview.mgmt_fee || preview.mgmtFee || 0)) || undefined,
-        netEarnings: parseFloat(String(preview.net_earnings || preview.netAmount || preview.netEarnings || 0)) || undefined,
-        rentCollected: parseFloat(String(preview.rent_collected || preview.rentCollected || 0)) || undefined,
-        taxesCollected: parseFloat(String(preview.taxes_collected || preview.taxesCollected || 0)) || undefined,
-        cohostFee: parseFloat(String(preview.cohost_fee || preview.cohostFee || 0)) || undefined,
+        // Financial fields - use stripCurrency as safety net for any remaining currency formatting
+        nightlyRate: parseFloat(stripCurrency(String(preview.nightly_rate || preview.nightlyRate || 0))) || undefined,
+        extraGuestFees: parseFloat(stripCurrency(String(preview.extra_guest_fees || preview.extraGuestFees || 0))) || undefined,
+        cleaningFee: parseFloat(stripCurrency(String(preview.cleaning_fee || preview.cleaningFee || 0))) || undefined,
+        lodgingTax: parseFloat(stripCurrency(String(preview.lodging_tax || preview.lodgingTax || 0))) || undefined,
+        bedLinenFee: parseFloat(stripCurrency(String(preview.bed_linen_fee || preview.bedLinenFee || 0))) || undefined,
+        gst: parseFloat(stripCurrency(String(preview.gst || 0))) || undefined,
+        qst: parseFloat(stripCurrency(String(preview.qst || 0))) || undefined,
+        channelFee: parseFloat(stripCurrency(String(preview.channel_fee || preview.channelFee || 0))) || undefined,
+        stripeFee: parseFloat(stripCurrency(String(preview.stripe_fee || preview.stripeFee || 0))) || undefined,
+        salesTax: parseFloat(stripCurrency(String(preview.sales_tax || preview.salesTax || 0))) || undefined,
+        totalPayout: parseFloat(stripCurrency(String(preview.total_payout || preview.totalAmount || preview.totalPayout || 0))) || undefined,
+        mgmtFee: parseFloat(stripCurrency(String(preview.mgmt_fee || preview.mgmtFee || 0))) || undefined,
+        netEarnings: parseFloat(stripCurrency(String(preview.net_earnings || preview.netAmount || preview.netEarnings || 0))) || undefined,
+        rentCollected: parseFloat(stripCurrency(String(preview.rent_collected || preview.rentCollected || 0))) || undefined,
+        taxesCollected: parseFloat(stripCurrency(String(preview.taxes_collected || preview.taxesCollected || 0))) || undefined,
+        cohostFee: parseFloat(stripCurrency(String(preview.cohost_fee || preview.cohostFee || 0))) || undefined,
       }
 
       return payload

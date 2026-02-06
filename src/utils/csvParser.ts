@@ -25,85 +25,91 @@ export function parseCsvFile(file: File): Promise<CsvData> {
 }
 
 /**
- * Parse CSV text content
+ * Parse CSV text content using a state-machine approach
+ * Properly handles RFC 4180: quoted fields with embedded newlines and escaped quotes
  */
 export function parseCsvText(csvText: string): CsvData {
-  // Split by lines and filter out empty lines
-  const lines = csvText.split('\n').filter(line => line.trim().length > 0)
-  
-  if (lines.length === 0) {
+  // Normalize line endings (Windows \r\n and old Mac \r to Unix \n)
+  const normalizedText = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // Parse using state machine - handles quoted fields with embedded newlines
+  const allRows: string[][] = []
+  let currentRow: string[] = []
+  let currentField = ''
+  let inQuotes = false
+
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i]
+    const nextChar = normalizedText[i + 1]
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote ("" -> ")
+        currentField += '"'
+        i++
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes
+      }
+    } else if (char === ',' && !inQuotes) {
+      // End of field (only if not inside quotes)
+      currentRow.push(currentField.trim())
+      currentField = ''
+    } else if (char === '\n' && !inQuotes) {
+      // End of row (only if not inside quotes)
+      currentRow.push(currentField.trim())
+      // Only add rows that have at least one non-empty field
+      if (currentRow.some(field => field.length > 0)) {
+        allRows.push(currentRow)
+      }
+      currentRow = []
+      currentField = ''
+    } else {
+      // Regular character - includes newlines inside quoted fields
+      // For embedded newlines in quoted fields, replace with space for cleaner data
+      if (char === '\n' && inQuotes) {
+        currentField += ' '
+      } else {
+        currentField += char
+      }
+    }
+  }
+
+  // Handle the last field/row (file may not end with newline)
+  currentRow.push(currentField.trim())
+  if (currentRow.some(field => field.length > 0)) {
+    allRows.push(currentRow)
+  }
+
+  if (allRows.length === 0) {
     throw new Error('CSV file is empty')
   }
-  
-  // Parse header row
-  const headerRow = lines[0]
-  const headerNames = parseCsvRow(headerRow)
-  
-  // Create headers with sample data from first row
+
+  // First row is headers
+  const headerNames = allRows[0]
+  const dataRows = allRows.slice(1)
+
+  // Create headers with sample data from first data row
   const headers: CsvHeader[] = headerNames.map((name, index) => {
     let sampleValue = ''
-    if (lines.length > 1) {
-      const firstDataRow = parseCsvRow(lines[1])
-      sampleValue = firstDataRow[index] || ''
+    if (dataRows.length > 0) {
+      sampleValue = dataRows[0][index] || ''
     }
-    
+
     return {
       index,
       name: name.trim(),
       sampleValue: sampleValue.trim()
     }
   })
-  
-  // Parse all data rows
-  const rows: string[][] = lines.slice(1).map(line => parseCsvRow(line))
-  
+
   return {
     headers,
-    rows,
-    totalRows: rows.length
+    rows: dataRows,
+    totalRows: dataRows.length
   }
 }
 
-/**
- * Parse a single CSV row, handling quotes and commas
- */
-function parseCsvRow(row: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-  let i = 0
-  
-  while (i < row.length) {
-    const char = row[i]
-    const nextChar = row[i + 1]
-    
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        // Escaped quote
-        current += '"'
-        i += 2
-      } else {
-        // Toggle quote state
-        inQuotes = !inQuotes
-        i++
-      }
-    } else if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(current)
-      current = ''
-      i++
-    } else {
-      // Regular character
-      current += char
-      i++
-    }
-  }
-  
-  // Add the last field
-  result.push(current)
-  
-  return result
-}
 
 /**
  * Auto-suggest mappings based on header names

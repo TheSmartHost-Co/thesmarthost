@@ -10,6 +10,7 @@ import type {
   PropertyDetailsResponse,
   PropertiesResponse,
   DeletePropertyResponse,
+  PermanentDeletePropertyResponse,
   PropertyStats,
   BulkImportPropertiesPayload,
   BulkImportPropertiesResponse,
@@ -85,6 +86,21 @@ export async function deleteProperty(
   id: string
 ): Promise<DeletePropertyResponse> {
   return apiClient<DeletePropertyResponse>(`/properties/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+/**
+ * Permanently delete a property and all associated data
+ * This is irreversible - deletes bookings, CSV uploads, channels, licenses, owner associations, etc.
+ * Only works for inactive properties
+ * @param id - Property ID
+ * @returns Promise with deletion counts
+ */
+export async function permanentlyDeleteProperty(
+  id: string
+): Promise<PermanentDeletePropertyResponse> {
+  return apiClient<PermanentDeletePropertyResponse>(`/properties/${id}/permanent`, {
     method: 'DELETE',
   })
 }

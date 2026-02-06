@@ -21,6 +21,7 @@ import {
   XMarkIcon,
   AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { getProperties, calculatePropertyStats, formatOwnerDisplay } from '@/services/propertyService'
@@ -31,6 +32,7 @@ import { useUserStore } from '@/store/useUserStore'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
 import UpdatePropertyModal from '@/components/property/update/updatePropertyModal'
 import DeletePropertyModal from '@/components/property/delete/deletePropertyModal'
+import PermanentDeletePropertyModal from '@/components/property/permanent-delete/permanentDeletePropertyModal'
 import PreviewPropertyModal from '@/components/property/preview/previewPropertyModal'
 import BulkImportPropertyModal from '@/components/property/import/bulkImportPropertyModal'
 import PropertyLicenseModal from '@/components/property-license/propertyLicenseModal'
@@ -71,6 +73,7 @@ export default function PropertyManagerPropertiesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showPermanentDeleteModal, setShowPermanentDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [showLicenseModal, setShowLicenseModal] = useState(false)
@@ -195,6 +198,15 @@ export default function PropertyManagerPropertiesPage() {
     setProperties(prev => prev.filter(p => p.id !== propertyId))
   }
 
+  const handlePermanentDeleteProperty = (property: Property) => {
+    setSelectedProperty(property)
+    setShowPermanentDeleteModal(true)
+  }
+
+  const handlePropertyPermanentlyDeleted = (propertyId: string) => {
+    setProperties(prev => prev.filter(p => p.id !== propertyId))
+  }
+
   const handlePropertyUpdated = (updatedProperty: Property) => {
     updatePropertyInState(updatedProperty)
   }
@@ -269,38 +281,52 @@ export default function PropertyManagerPropertiesPage() {
   }
 
   // Generate actions for table dropdown
-  const getPropertyActions = (property: Property): ActionItem[] => [
-    {
-      label: 'Edit Property',
-      icon: PencilIcon,
-      onClick: () => handleEditProperty(property),
-      variant: 'default'
-    },
-    {
-      label: 'Property Licenses',
-      icon: DocumentTextIcon,
-      onClick: () => handleOpenLicenses(property),
-      variant: 'default'
-    },
-    {
-      label: 'Property Channels',
-      icon: SignalIcon,
-      onClick: () => handleOpenChannels(property),
-      variant: 'default'
-    },
-    {
-      label: 'Property Owners',
-      icon: UserGroupIcon,
-      onClick: () => handleOpenOwners(property),
-      variant: 'default'
-    },
-    {
-      label: 'Delete Property',
-      icon: TrashIcon,
-      onClick: () => handleDeleteProperty(property),
-      variant: 'danger'
+  const getPropertyActions = (property: Property): ActionItem[] => {
+    const actions: ActionItem[] = [
+      {
+        label: 'Edit Property',
+        icon: PencilIcon,
+        onClick: () => handleEditProperty(property),
+        variant: 'default'
+      },
+      {
+        label: 'Property Licenses',
+        icon: DocumentTextIcon,
+        onClick: () => handleOpenLicenses(property),
+        variant: 'default'
+      },
+      {
+        label: 'Property Channels',
+        icon: SignalIcon,
+        onClick: () => handleOpenChannels(property),
+        variant: 'default'
+      },
+      {
+        label: 'Property Owners',
+        icon: UserGroupIcon,
+        onClick: () => handleOpenOwners(property),
+        variant: 'default'
+      },
+      {
+        label: 'Delete Property',
+        icon: TrashIcon,
+        onClick: () => handleDeleteProperty(property),
+        variant: 'danger'
+      }
+    ]
+
+    // Only show permanent delete for inactive properties
+    if (!property.isActive) {
+      actions.push({
+        label: 'Permanently Delete',
+        icon: NoSymbolIcon,
+        onClick: () => handlePermanentDeleteProperty(property),
+        variant: 'danger'
+      })
     }
-  ]
+
+    return actions
+  }
 
   // Filter and sort properties
   const filteredProperties = properties
@@ -881,6 +907,16 @@ export default function PropertyManagerPropertiesPage() {
             }}
             property={selectedProperty}
             onDeleted={handlePropertyDeleted}
+          />
+
+          <PermanentDeletePropertyModal
+            isOpen={showPermanentDeleteModal}
+            onClose={() => {
+              setShowPermanentDeleteModal(false)
+              setSelectedProperty(null)
+            }}
+            property={selectedProperty}
+            onDeleted={handlePropertyPermanentlyDeleted}
           />
 
           <PreviewPropertyModal
