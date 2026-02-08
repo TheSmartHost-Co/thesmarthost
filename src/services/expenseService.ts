@@ -13,7 +13,9 @@ import type {
   CreateExpensePayload,
   UpdateExpensePayload,
   ExpenseFilters,
-  ExpenseTotals
+  ExpenseTotals,
+  BulkExpensePayload,
+  BulkImportExpensesResponse
 } from './types/expense'
 
 /**
@@ -173,6 +175,22 @@ export async function updateExpense(id: string, data: UpdateExpensePayload): Pro
 export async function deleteExpense(id: string, userId: string): Promise<DeleteExpenseResponse> {
   return apiClient<DeleteExpenseResponse>(`/expenses/${id}?userId=${userId}`, {
     method: 'DELETE',
+  })
+}
+
+/**
+ * Bulk import expenses from CSV
+ * @param userId - User ID
+ * @param expenses - Array of expense payloads to import
+ * @returns Promise with import summary and imported expenses
+ */
+export async function bulkImportExpenses(
+  userId: string,
+  expenses: BulkExpensePayload[]
+): Promise<BulkImportExpensesResponse> {
+  return apiClient<BulkImportExpensesResponse>('/expenses/bulk', {
+    method: 'POST',
+    body: { userId, expenses },
   })
 }
 

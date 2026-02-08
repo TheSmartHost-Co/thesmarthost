@@ -279,3 +279,63 @@ export interface ScanReceiptResponse {
   data?: OcrReceiptData
   message?: string
 }
+
+// ============================================================================
+// BULK IMPORT TYPES
+// ============================================================================
+
+/**
+ * Payload for a single expense in bulk import
+ * expenseDate and amount are required
+ */
+export interface BulkExpensePayload {
+  propertyId?: string | null
+  expenseDate: string
+  amount: number
+  currency?: string
+  category?: string
+  vendorName?: string
+  description?: string
+  isReimbursable?: boolean
+  isTaxDeductible?: boolean
+  paymentMethod?: string
+  paymentStatus?: string
+  isRecurring?: boolean
+  recurringFrequency?: string
+  recurringEndDate?: string
+  subtotal?: number
+  taxGst?: number
+  taxPst?: number
+  taxHst?: number
+  taxTotal?: number
+}
+
+/**
+ * Imported expense result with validation info
+ */
+export interface BulkImportedExpense {
+  expense: Expense
+  categoryValid: boolean
+  propertyValid: boolean
+}
+
+/**
+ * Summary of bulk import operation
+ */
+export interface BulkImportExpenseSummary {
+  total: number
+  imported: number
+  skipped: number
+}
+
+/**
+ * API response for bulk expense import
+ */
+export interface BulkImportExpensesResponse {
+  status: 'success' | 'failed'
+  data?: {
+    summary: BulkImportExpenseSummary
+    imported: BulkImportedExpense[]
+  }
+  message?: string
+}

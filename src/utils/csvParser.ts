@@ -25,12 +25,27 @@ export function parseCsvFile(file: File): Promise<CsvData> {
 }
 
 /**
- * Parse CSV text content using a state-machine approach
+ * Detect delimiter from first line of text (tab vs comma)
+ * Returns '\t' if more tabs than commas, otherwise ','
+ */
+function detectDelimiter(text: string): string {
+  const firstLine = text.split('\n')[0] || ''
+  const tabCount = (firstLine.match(/\t/g) || []).length
+  const commaCount = (firstLine.match(/,/g) || []).length
+  return tabCount > commaCount ? '\t' : ','
+}
+
+/**
+ * Parse CSV/TSV text content using a state-machine approach
  * Properly handles RFC 4180: quoted fields with embedded newlines and escaped quotes
+ * Auto-detects delimiter (comma or tab) based on first line
  */
 export function parseCsvText(csvText: string): CsvData {
   // Normalize line endings (Windows \r\n and old Mac \r to Unix \n)
   const normalizedText = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // Auto-detect delimiter from first line
+  const delimiter = detectDelimiter(normalizedText)
 
   // Parse using state machine - handles quoted fields with embedded newlines
   const allRows: string[][] = []
@@ -51,7 +66,7 @@ export function parseCsvText(csvText: string): CsvData {
         // Toggle quote state
         inQuotes = !inQuotes
       }
-    } else if (char === ',' && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       // End of field (only if not inside quotes)
       currentRow.push(currentField.trim())
       currentField = ''
