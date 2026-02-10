@@ -5,13 +5,12 @@ import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getReportTemplates, deleteReportTemplate, cloneReportTemplate } from '@/services/reportTemplateService'
-import type { ReportTemplate } from '@/services/types/reportTemplate'
+import type { FullReportTemplate } from '@/services/types/reportTemplate'
 import {
   PlusIcon,
   DocumentDuplicateIcon,
   TrashIcon,
   PencilSquareIcon,
-  EyeIcon,
   XMarkIcon,
   DocumentTextIcon,
   SparklesIcon,
@@ -21,14 +20,13 @@ import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActio
 import CreateReportTemplateModal from '@/components/report-template/create/createReportTemplateModal'
 import DeleteReportTemplateModal from '@/components/report-template/delete/deleteReportTemplateModal'
 import EditReportTemplateModal from '@/components/report-template/edit/editReportTemplateModal'
-import PreviewReportTemplateModal from '@/components/report-template/preview/previewReportTemplateModal'
 
 export default function ReportTemplatesPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
   // Data state
-  const [templates, setTemplates] = useState<ReportTemplate[]>([])
+  const [templates, setTemplates] = useState<FullReportTemplate[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,8 +37,7 @@ export default function ReportTemplatesPage() {
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false)
   const [showEditModal, setShowEditModal] = useState<boolean>(false)
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false)
-  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false)
-  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<FullReportTemplate | null>(null)
 
   // Action state
   const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null)
@@ -72,7 +69,7 @@ export default function ReportTemplatesPage() {
     }
   }
 
-  const handleCloneTemplate = async (template: ReportTemplate) => {
+  const handleCloneTemplate = async (template: FullReportTemplate) => {
     try {
       setCloningTemplateId(template.id)
       const res = await cloneReportTemplate(template.id, {
@@ -97,22 +94,17 @@ export default function ReportTemplatesPage() {
     }
   }
 
-  const handleEditTemplate = (template: ReportTemplate) => {
+  const handleEditTemplate = (template: FullReportTemplate) => {
     setSelectedTemplate(template)
     setShowEditModal(true)
   }
 
-  const handlePreviewTemplate = (template: ReportTemplate) => {
-    setSelectedTemplate(template)
-    setShowPreviewModal(true)
-  }
-
-  const handleDeleteTemplate = (template: ReportTemplate) => {
+  const handleDeleteTemplate = (template: FullReportTemplate) => {
     setSelectedTemplate(template)
     setShowDeleteModal(true)
   }
 
-  const handleTemplateCreated = (newTemplate: ReportTemplate) => {
+  const handleTemplateCreated = (newTemplate: FullReportTemplate) => {
     setShowCreateModal(false)
     loadTemplates()
     // Open edit modal for the newly created template
@@ -131,18 +123,12 @@ export default function ReportTemplatesPage() {
   }
 
   // Get template actions for dropdown
-  const getTemplateActions = (template: ReportTemplate): ActionItem[] => {
+  const getTemplateActions = (template: FullReportTemplate): ActionItem[] => {
     const actions: ActionItem[] = [
       {
         label: 'Edit',
         icon: PencilSquareIcon,
         onClick: () => handleEditTemplate(template),
-        variant: 'default',
-      },
-      {
-        label: 'Preview',
-        icon: EyeIcon,
-        onClick: () => handlePreviewTemplate(template),
         variant: 'default',
       },
       {
@@ -502,26 +488,15 @@ export default function ReportTemplatesPage() {
       />
 
       {selectedTemplate && (
-        <>
-          <EditReportTemplateModal
-            isOpen={showEditModal}
-            onClose={() => {
-              setShowEditModal(false)
-              setSelectedTemplate(null)
-            }}
-            onUpdated={handleTemplateUpdated}
-            templateId={selectedTemplate.id}
-          />
-
-          <PreviewReportTemplateModal
-            isOpen={showPreviewModal}
-            onClose={() => {
-              setShowPreviewModal(false)
-              setSelectedTemplate(null)
-            }}
-            templateId={selectedTemplate.id}
-          />
-        </>
+        <EditReportTemplateModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedTemplate(null)
+          }}
+          onUpdated={handleTemplateUpdated}
+          template={selectedTemplate}
+        />
       )}
     </div>
   )

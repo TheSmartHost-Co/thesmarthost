@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { createReportTemplate, getReportTemplates, cloneReportTemplate } from '@/services/reportTemplateService'
-import type { ReportTemplate } from '@/services/types/reportTemplate'
+import type { FullReportTemplate } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { DocumentDuplicateIcon } from '@heroicons/react/24/outline'
@@ -11,7 +11,7 @@ import { DocumentDuplicateIcon } from '@heroicons/react/24/outline'
 interface CreateReportTemplateModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreated: (newTemplate: ReportTemplate) => void
+  onCreated: (newTemplate: FullReportTemplate) => void
 }
 
 const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
@@ -22,7 +22,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [cloneFromId, setCloneFromId] = useState<string>('')
-  const [availableTemplates, setAvailableTemplates] = useState<ReportTemplate[]>([])
+  const [availableTemplates, setAvailableTemplates] = useState<FullReportTemplate[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
 

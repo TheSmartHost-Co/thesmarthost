@@ -18,8 +18,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ReportField, ReportFieldFormat, SectionFieldReference, DataSourceColumn } from '@/services/types/reportTemplate'
-import FormulaBuilderInput from './FormulaBuilderInput'
+import type { ReportField, ReportFieldFormat } from '@/services/types/reportTemplate'
+import { HEADER_VARIABLES } from '@/services/types/reportTemplate'
+import { validateHeaderField } from '@/utils/formulaValidator'
 import {
   Bars3Icon,
   PencilIcon,
@@ -27,9 +28,7 @@ import {
   PlusIcon,
   CheckIcon,
   XMarkIcon,
-  CurrencyDollarIcon,
-  CalculatorIcon,
-  HashtagIcon,
+  ExclamationCircleIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 
@@ -45,63 +44,57 @@ interface ChangeInfo {
 const toLogicalName = (displayName: string): string => {
   return displayName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')  // Replace non-alphanumeric with _
-    .replace(/^_|_$/g, '')         // Trim leading/trailing _
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
 }
 
-const FORMAT_OPTIONS: { value: ReportFieldFormat; label: string; icon: typeof CurrencyDollarIcon }[] = [
-  { value: 'currency', label: 'Currency', icon: CurrencyDollarIcon },
-  { value: 'percentage', label: 'Percentage', icon: CalculatorIcon },
-  { value: 'number', label: 'Number', icon: HashtagIcon },
-  { value: 'text', label: 'Text', icon: DocumentTextIcon },
-]
+// Variable display labels
+const VARIABLE_LABELS: Record<string, string> = {
+  propertyName: 'Property Name',
+  ownerNames: 'Owner Names',
+  reportPeriod: 'Report Period',
+  generatedDate: 'Generated Date',
+  propertyAddress: 'Property Address',
+  hostName: 'Host Name',
+  hostEmail: 'Host Email',
+  logo: 'Logo',
+}
 
-interface SortableFieldItemProps {
+interface SortableHeaderFieldProps {
   field: ReportField
-  allSections: SectionFieldReference[]
-  currentSectionId: string
   isExpanded: boolean
   onToggleExpand: () => void
-  onEdit: (updates: { name?: string; logicalName?: string; formula?: string; format?: ReportFieldFormat }) => void
+  onEdit: (updates: { name?: string; logicalName?: string; formula?: string }) => void
   onDelete: () => void
   disabled?: boolean
   changeInfo?: ChangeInfo
-  tableSections?: { name: string; logicalName: string; columns: string[] }[]
-  availableColumnsCache?: { booking: DataSourceColumn[]; expense: DataSourceColumn[] }
 }
 
-const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
+const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
   field,
-  allSections,
-  currentSectionId,
   isExpanded,
   onToggleExpand,
   onEdit,
   onDelete,
   disabled = false,
   changeInfo,
-  tableSections = [],
-  availableColumnsCache,
 }) => {
   const [editName, setEditName] = useState(field.name)
   const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
   const [logicalNameManuallyEdited, setLogicalNameManuallyEdited] = useState(false)
-  const [editFormula, setEditFormula] = useState(field.formula)
-  const [editFormat, setEditFormat] = useState<ReportFieldFormat>(field.format)
+  const [editValue, setEditValue] = useState(field.formula)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
-  // Derive change status
   const isNew = changeInfo?.type === 'added'
   const isModified = changeInfo?.type === 'modified'
-  const showChangeIndicator = isNew || isModified
 
-  // Reset when field changes
   useEffect(() => {
     setEditName(field.name)
     setEditLogicalName(field.logicalName || toLogicalName(field.name))
     setLogicalNameManuallyEdited(false)
-    setEditFormula(field.formula)
-    setEditFormat(field.format)
-  }, [field.id, field.name, field.logicalName, field.formula, field.format])
+    setEditValue(field.formula)
+    setValidationError(null)
+  }, [field.id, field.name, field.logicalName, field.formula])
 
   const {
     attributes,
@@ -117,13 +110,24 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
     transition,
   }
 
+  const handleValueChange = (value: string) => {
+    setEditValue(value)
+    const result = validateHeaderField(value)
+    setValidationError(result.valid ? null : result.error || null)
+  }
+
   const handleSave = () => {
+    const result = validateHeaderField(editValue)
+    if (!result.valid) {
+      setValidationError(result.error || 'Invalid value')
+      return
+    }
+
     const finalLogicalName = editLogicalName.trim() || toLogicalName(editName.trim())
     onEdit({
       name: editName.trim(),
       logicalName: finalLogicalName,
-      formula: editFormula.trim(),
-      format: editFormat,
+      formula: editValue.trim(),
     })
     onToggleExpand()
   }
@@ -132,26 +136,23 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
     setEditName(field.name)
     setEditLogicalName(field.logicalName || toLogicalName(field.name))
     setLogicalNameManuallyEdited(false)
-    setEditFormula(field.formula)
-    setEditFormat(field.format)
+    setEditValue(field.formula)
+    setValidationError(null)
     onToggleExpand()
   }
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setEditName(newName)
-    // Auto-generate logical name if not manually edited
     if (!logicalNameManuallyEdited) {
       setEditLogicalName(toLogicalName(newName))
     }
   }
 
-  const handleLogicalNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditLogicalName(e.target.value)
-    setLogicalNameManuallyEdited(true)
+  const insertVariable = (variable: string) => {
+    const newValue = editValue ? `${editValue} {${variable}}` : `{${variable}}`
+    handleValueChange(newValue.trim())
   }
-
-  const FormatIcon = FORMAT_OPTIONS.find((f) => f.value === field.format)?.icon || HashtagIcon
 
   return (
     <div
@@ -172,7 +173,6 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
       {/* Collapsed view */}
       {!isExpanded && (
         <div className="flex items-center gap-2 p-3">
-          {/* Drag handle */}
           {!disabled && (
             <button
               type="button"
@@ -184,56 +184,25 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
             </button>
           )}
 
-          {/* Format icon with change indicator */}
-          <div className={`w-6 h-6 rounded flex items-center justify-center relative ${
-            isNew ? 'bg-green-100' : isModified ? 'bg-amber-100' : 'bg-gray-100'
-          }`}>
-            <FormatIcon className={`w-4 h-4 ${
-              isNew ? 'text-green-600' : isModified ? 'text-amber-600' : 'text-gray-500'
-            }`} />
-            {showChangeIndicator && (
-              <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                isNew ? 'bg-green-500' : 'bg-amber-500'
-              }`} />
-            )}
+          <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
+            <DocumentTextIcon className="w-4 h-4 text-purple-600" />
           </div>
 
-          {/* Field info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
               <span className="font-medium text-gray-900 truncate">{field.name}</span>
-              {field.logicalName && (
-                <span className="text-xs text-gray-400 font-mono truncate">({field.logicalName})</span>
-              )}
-              {isNew && (
-                <span className="text-xs text-green-600 font-medium">new</span>
-              )}
-              {isModified && (
-                <span className="text-xs text-amber-600 font-medium">edited</span>
-              )}
+              {isNew && <span className="text-xs text-green-600 font-medium">new</span>}
+              {isModified && <span className="text-xs text-amber-600 font-medium">edited</span>}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 font-mono truncate">{field.formula}</span>
-            </div>
-            {isModified && changeInfo?.previousValue && (
-              <div className="text-xs text-amber-600/80 italic truncate" title={`Previous: ${changeInfo.previousValue}`}>
-                was: {changeInfo.field?.includes('formula') ? (
-                  <span className="font-mono">{changeInfo.previousValue}</span>
-                ) : (
-                  <span>&quot;{changeInfo.previousValue}&quot;</span>
-                )}
-              </div>
-            )}
+            <span className="text-xs text-gray-500 font-mono truncate block">{field.formula}</span>
           </div>
 
-          {/* Actions */}
           {!disabled && (
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={onToggleExpand}
                 className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                title="Edit field"
               >
                 <PencilIcon className="w-4 h-4" />
               </button>
@@ -241,7 +210,6 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
                 type="button"
                 onClick={onDelete}
                 className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                title="Delete field"
               >
                 <TrashIcon className="w-4 h-4" />
               </button>
@@ -253,7 +221,6 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
       {/* Expanded edit view */}
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Display name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
             <input
@@ -261,60 +228,67 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
               value={editName}
               onChange={handleNameChange}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. Total Revenue"
+              placeholder="e.g. Property Header"
             />
           </div>
 
-          {/* Logical name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Logical Name <span className="text-gray-400 font-normal">(used in formulas)</span>
+              Logical Name <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             <input
               type="text"
               value={editLogicalName}
-              onChange={handleLogicalNameChange}
+              onChange={(e) => {
+                setEditLogicalName(e.target.value)
+                setLogicalNameManuallyEdited(true)
+              }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. total_revenue"
+              placeholder="e.g. property_header"
             />
           </div>
 
-          {/* Formula */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
-            <FormulaBuilderInput
-              value={editFormula}
-              onChange={setEditFormula}
-              allSections={allSections}
-              currentSectionId={currentSectionId}
-              tableSections={tableSections}
-              externalDataSourceColumns={availableColumnsCache?.booking}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => handleValueChange(e.target.value)}
+              className={`w-full border rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 ${
+                validationError
+                  ? 'border-red-300 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              placeholder="e.g. {propertyName} or plain text"
             />
+            {validationError && (
+              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                <ExclamationCircleIcon className="w-3 h-3" />
+                {validationError}
+              </p>
+            )}
           </div>
 
-          {/* Format */}
+          {/* Variable chips */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
-            <div className="flex flex-wrap gap-2">
-              {FORMAT_OPTIONS.map((option) => (
+            <label className="block text-sm font-medium text-gray-700 mb-2">Insert Variable</label>
+            <div className="flex flex-wrap gap-1.5">
+              {HEADER_VARIABLES.map((variable) => (
                 <button
-                  key={option.value}
+                  key={variable}
                   type="button"
-                  onClick={() => setEditFormat(option.value)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-                    editFormat === option.value
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
+                  onClick={() => insertVariable(variable)}
+                  className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
                 >
-                  <option.icon className="w-4 h-4" />
-                  {option.label}
+                  {`{${variable}}`}
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Click to insert at end. Mix variables with plain text like &quot;Report for {'{propertyName}'}&quot;
+            </p>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
             <button
               type="button"
@@ -326,7 +300,8 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1"
+              disabled={!!validationError}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckIcon className="w-4 h-4" />
               Save
@@ -338,94 +313,36 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
   )
 }
 
-interface FieldListProps {
+interface HeaderFieldListProps {
   fields: ReportField[]
-  allSections: SectionFieldReference[]  // All sections for cross-section references
-  currentSectionId: string              // Current section ID
   onReorder: (fields: ReportField[]) => void
-  onEditField: (fieldId: string, updates: { name?: string; logicalName?: string; formula?: string; format?: ReportFieldFormat }) => void
+  onEditField: (fieldId: string, updates: { name?: string; logicalName?: string; formula?: string }) => void
   onDeleteField: (fieldId: string) => void
   onAddField: (data: { name: string; logicalName: string; formula: string; format: ReportFieldFormat }) => void
   disabled?: boolean
   changeStatus?: { [fieldId: string]: ChangeInfo }
-  // Sections (table + field-mode) for aggregate field validation - format: {sectionName.fieldName}
-  tableSections?: { name: string; logicalName: string; columns: string[] }[]
-  // Cached columns from parent for validation
-  availableColumnsCache?: { booking: DataSourceColumn[]; expense: DataSourceColumn[] }
 }
 
-const FieldList: React.FC<FieldListProps> = ({
+const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
   fields,
-  allSections,
-  currentSectionId,
   onReorder,
   onEditField,
   onDeleteField,
   onAddField,
   disabled = false,
   changeStatus,
-  tableSections = [],
-  availableColumnsCache,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingField, setIsAddingField] = useState(false)
   const [newFieldName, setNewFieldName] = useState('')
   const [newFieldLogicalName, setNewFieldLogicalName] = useState('')
   const [newLogicalNameManuallyEdited, setNewLogicalNameManuallyEdited] = useState(false)
-  const [newFieldFormula, setNewFieldFormula] = useState('')
-  const [newFieldFormat, setNewFieldFormat] = useState<ReportFieldFormat>('currency')
-
-  const handleSaveNewField = () => {
-    if (!newFieldName.trim() || !newFieldFormula.trim()) return
-    const finalLogicalName = newFieldLogicalName.trim() || toLogicalName(newFieldName.trim())
-    onAddField({
-      name: newFieldName.trim(),
-      logicalName: finalLogicalName,
-      formula: newFieldFormula.trim(),
-      format: newFieldFormat,
-    })
-    // Reset form
-    setNewFieldName('')
-    setNewFieldLogicalName('')
-    setNewLogicalNameManuallyEdited(false)
-    setNewFieldFormula('')
-    setNewFieldFormat('currency')
-    setIsAddingField(false)
-  }
-
-  const handleCancelAdd = () => {
-    setNewFieldName('')
-    setNewFieldLogicalName('')
-    setNewLogicalNameManuallyEdited(false)
-    setNewFieldFormula('')
-    setNewFieldFormat('currency')
-    setIsAddingField(false)
-  }
-
-  const handleStartAddField = () => {
-    setExpandedFieldId(null) // Collapse any expanded field
-    setIsAddingField(true)
-  }
-
-  const handleNewNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newName = e.target.value
-    setNewFieldName(newName)
-    // Auto-generate logical name if not manually edited
-    if (!newLogicalNameManuallyEdited) {
-      setNewFieldLogicalName(toLogicalName(newName))
-    }
-  }
-
-  const handleNewLogicalNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewFieldLogicalName(e.target.value)
-    setNewLogicalNameManuallyEdited(true)
-  }
+  const [newFieldValue, setNewFieldValue] = useState('')
+  const [newFieldError, setNewFieldError] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -434,7 +351,6 @@ const FieldList: React.FC<FieldListProps> = ({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
-
     if (over && active.id !== over.id) {
       const oldIndex = fields.findIndex((f) => f.id === active.id)
       const newIndex = fields.findIndex((f) => f.id === over.id)
@@ -443,17 +359,63 @@ const FieldList: React.FC<FieldListProps> = ({
     }
   }
 
-  // New field form component (used in both empty and non-empty states)
-  const NewFieldForm = () => (
+  const handleNewValueChange = (value: string) => {
+    setNewFieldValue(value)
+    const result = validateHeaderField(value)
+    setNewFieldError(result.valid ? null : result.error || null)
+  }
+
+  const handleSaveNewField = () => {
+    if (!newFieldName.trim() || !newFieldValue.trim()) return
+
+    const result = validateHeaderField(newFieldValue)
+    if (!result.valid) {
+      setNewFieldError(result.error || 'Invalid value')
+      return
+    }
+
+    const finalLogicalName = newFieldLogicalName.trim() || toLogicalName(newFieldName.trim())
+    onAddField({
+      name: newFieldName.trim(),
+      logicalName: finalLogicalName,
+      formula: newFieldValue.trim(),
+      format: 'text',
+    })
+    resetNewFieldForm()
+  }
+
+  const resetNewFieldForm = () => {
+    setNewFieldName('')
+    setNewFieldLogicalName('')
+    setNewLogicalNameManuallyEdited(false)
+    setNewFieldValue('')
+    setNewFieldError(null)
+    setIsAddingField(false)
+  }
+
+  const handleNewNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newName = e.target.value
+    setNewFieldName(newName)
+    if (!newLogicalNameManuallyEdited) {
+      setNewFieldLogicalName(toLogicalName(newName))
+    }
+  }
+
+  const insertNewVariable = (variable: string) => {
+    const newValue = newFieldValue ? `${newFieldValue} {${variable}}` : `{${variable}}`
+    handleNewValueChange(newValue.trim())
+  }
+
+  // Inline JSX for new field form to prevent focus loss on re-render
+  const newFieldFormJSX = isAddingField ? (
     <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
           <PlusIcon className="w-4 h-4 text-blue-600" />
         </div>
-        <span className="text-sm font-medium text-blue-700">New Field</span>
+        <span className="text-sm font-medium text-blue-700">New Header Field</span>
       </div>
 
-      {/* Display name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
         <input
@@ -461,65 +423,68 @@ const FieldList: React.FC<FieldListProps> = ({
           value={newFieldName}
           onChange={handleNewNameChange}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g. Total Revenue"
+          placeholder="e.g. Property Header"
           autoFocus
         />
       </div>
 
-      {/* Logical name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Logical Name <span className="text-gray-400 font-normal">(used in formulas)</span>
+          Logical Name <span className="text-gray-400 font-normal">(optional)</span>
         </label>
         <input
           type="text"
           value={newFieldLogicalName}
-          onChange={handleNewLogicalNameChange}
+          onChange={(e) => {
+            setNewFieldLogicalName(e.target.value)
+            setNewLogicalNameManuallyEdited(true)
+          }}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g. total_revenue"
+          placeholder="e.g. property_header"
         />
       </div>
 
-      {/* Formula */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
-        <FormulaBuilderInput
-          value={newFieldFormula}
-          onChange={setNewFieldFormula}
-          allSections={allSections}
-          currentSectionId={currentSectionId}
-          tableSections={tableSections}
-          externalDataSourceColumns={availableColumnsCache?.booking}
+        <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
+        <input
+          type="text"
+          value={newFieldValue}
+          onChange={(e) => handleNewValueChange(e.target.value)}
+          className={`w-full border rounded-lg px-3 py-2 text-gray-900 text-sm font-mono focus:outline-none focus:ring-2 ${
+            newFieldError
+              ? 'border-red-300 focus:ring-red-500'
+              : 'border-gray-300 focus:ring-blue-500'
+          }`}
+          placeholder="e.g. {propertyName} or plain text"
         />
+        {newFieldError && (
+          <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+            <ExclamationCircleIcon className="w-3 h-3" />
+            {newFieldError}
+          </p>
+        )}
       </div>
 
-      {/* Format */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
-        <div className="flex flex-wrap gap-2">
-          {FORMAT_OPTIONS.map((option) => (
+        <label className="block text-sm font-medium text-gray-700 mb-2">Insert Variable</label>
+        <div className="flex flex-wrap gap-1.5">
+          {HEADER_VARIABLES.map((variable) => (
             <button
-              key={option.value}
+              key={variable}
               type="button"
-              onClick={() => setNewFieldFormat(option.value)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
-                newFieldFormat === option.value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={() => insertNewVariable(variable)}
+              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
             >
-              <option.icon className="w-4 h-4" />
-              {option.label}
+              {`{${variable}}`}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
         <button
           type="button"
-          onClick={handleCancelAdd}
+          onClick={resetNewFieldForm}
           className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
           Cancel
@@ -527,26 +492,29 @@ const FieldList: React.FC<FieldListProps> = ({
         <button
           type="button"
           onClick={handleSaveNewField}
-          disabled={!newFieldName.trim() || !newFieldFormula.trim()}
+          disabled={!newFieldName.trim() || !newFieldValue.trim() || !!newFieldError}
           className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <CheckIcon className="w-4 h-4" />
-          Save
+          Add Field
         </button>
       </div>
     </div>
-  )
+  ) : null
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
-          Fields
+          Header Fields
         </h3>
         {!disabled && !isAddingField && (
           <button
             type="button"
-            onClick={handleStartAddField}
+            onClick={() => {
+              setExpandedFieldId(null)
+              setIsAddingField(true)
+            }}
             className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
             <PlusIcon className="w-4 h-4" />
@@ -557,19 +525,19 @@ const FieldList: React.FC<FieldListProps> = ({
 
       {fields.length === 0 && !isAddingField ? (
         <div className="text-center py-8 border border-dashed border-gray-300 rounded-lg">
-          <p className="text-gray-500 text-sm">No fields in this section</p>
+          <p className="text-gray-500 text-sm">No header fields yet</p>
           {!disabled && (
             <button
               type="button"
-              onClick={handleStartAddField}
+              onClick={() => setIsAddingField(true)}
               className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
-              Add your first field
+              Add your first header field
             </button>
           )}
         </div>
       ) : fields.length === 0 && isAddingField ? (
-        <NewFieldForm />
+        newFieldFormJSX
       ) : (
         <DndContext
           sensors={sensors}
@@ -582,11 +550,9 @@ const FieldList: React.FC<FieldListProps> = ({
           >
             <div className="space-y-2">
               {fields.map((field) => (
-                <SortableFieldItem
+                <SortableHeaderField
                   key={field.id}
                   field={field}
-                  allSections={allSections}
-                  currentSectionId={currentSectionId}
                   isExpanded={expandedFieldId === field.id}
                   onToggleExpand={() =>
                     setExpandedFieldId(expandedFieldId === field.id ? null : field.id)
@@ -595,19 +561,23 @@ const FieldList: React.FC<FieldListProps> = ({
                   onDelete={() => onDeleteField(field.id)}
                   disabled={disabled}
                   changeInfo={changeStatus?.[field.id]}
-                  tableSections={tableSections}
-                  availableColumnsCache={availableColumnsCache}
                 />
               ))}
 
-              {/* Add New Field Form (when there are existing fields) */}
-              {isAddingField && <NewFieldForm />}
+              {newFieldFormJSX}
             </div>
           </SortableContext>
         </DndContext>
       )}
+
+      <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+        <p className="text-xs text-purple-700">
+          <strong>Header Mode:</strong> Display property metadata using variables like{' '}
+          <code className="bg-purple-100 px-1 rounded">{'{propertyName}'}</code> or mix with plain text.
+        </p>
+      </div>
     </div>
   )
 }
 
-export default FieldList
+export default HeaderFieldList

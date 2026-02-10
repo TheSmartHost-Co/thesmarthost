@@ -8,8 +8,11 @@ import type {
   ReportFieldResponse,
   PropertyTemplatesResponse,
   AvailableColumnsResponse,
+  DataSourceColumnsResponse,
+  DataSource,
   AssignmentResponse,
   ValidateFormulaResponse,
+  ValidateTableColumnResponse,
   TemplatePreviewResponse,
   DeleteResponse,
   ReorderResponse,
@@ -25,6 +28,7 @@ import type {
   CreateAssignmentPayload,
   PreviewTemplatePayload,
   ValidateFormulaPayload,
+  ValidateTableColumnPayload,
   BatchSaveTemplatePayload,
 } from './types/reportTemplate'
 
@@ -60,11 +64,26 @@ export async function getTemplatesByProperty(propertyId: string): Promise<Proper
 }
 
 /**
- * Get available booking columns for formula building
+ * Get available booking columns for formula building (legacy endpoint)
  * @returns Promise with list of available columns
+ * @deprecated Use getDataSourceColumns instead for table sections
  */
 export async function getAvailableColumns(): Promise<AvailableColumnsResponse> {
   return apiClient<AvailableColumnsResponse>('/report-templates/available-columns')
+}
+
+/**
+ * Get available columns for a specific data source (booking or expense)
+ * Used for table sections to populate column options
+ * @param dataSource - 'booking' or 'expense'
+ * @returns Promise with columns for the specified data source
+ */
+export async function getDataSourceColumns(
+  dataSource: DataSource
+): Promise<DataSourceColumnsResponse> {
+  return apiClient<DataSourceColumnsResponse>(
+    `/report-templates/columns?dataSource=${dataSource}`
+  )
 }
 
 /**
@@ -150,7 +169,7 @@ export async function batchSaveTemplate(
   payload: BatchSaveTemplatePayload
 ): Promise<ReportTemplateResponse> {
   return apiClient<ReportTemplateResponse, BatchSaveTemplatePayload>(
-    '/report-templates/batch',
+    '/report-templates',
     {
       method: 'POST',
       body: payload,
@@ -190,6 +209,24 @@ export async function validateFormula(
     {
       method: 'POST',
       body: { formula },
+    }
+  )
+}
+
+/**
+ * Validate a table column formula/source
+ * For table-mode sections: validates bare column names or calculated formulas
+ * @param payload - Column validation data (formula, columnType, sectionColumns)
+ * @returns Promise with validation result
+ */
+export async function validateTableColumn(
+  payload: ValidateTableColumnPayload
+): Promise<ValidateTableColumnResponse> {
+  return apiClient<ValidateTableColumnResponse, ValidateTableColumnPayload>(
+    '/report-templates/validate-table-column',
+    {
+      method: 'POST',
+      body: payload,
     }
   )
 }

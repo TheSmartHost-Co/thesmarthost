@@ -2,6 +2,82 @@
 
 export type ReportFieldFormat = 'currency' | 'percentage' | 'number' | 'text'
 
+// Section mode types - now includes 'header' for metadata sections
+export type SectionMode = 'field' | 'table' | 'header'
+
+// Data source for table sections
+export type DataSource = 'booking' | 'expense'
+
+// Header metadata variables that can be used in header sections
+export const HEADER_VARIABLES = [
+  'propertyName',
+  'ownerNames',
+  'reportPeriod',
+  'generatedDate',
+  'propertyAddress',
+  'hostName',
+  'hostEmail',
+  'logo',
+] as const
+
+export type HeaderVariable = (typeof HEADER_VARIABLES)[number]
+
+// Table column types for table mode sections
+export type ColumnType = 'text' | 'numeric' | 'date' | 'calculated'
+export type TotalsFunction = 'SUM' | 'AVG' | 'COUNT' | 'NONE' | 'CUSTOM'
+
+// Available booking columns for table mode
+export const BOOKING_COLUMNS = {
+  numeric: [
+    'nightlyRate',
+    'extraGuestFees',
+    'cleaningFee',
+    'bedLinenFee',
+    'numNights',
+    'gst',
+    'qst',
+    'lodgingTax',
+    'salesTax',
+    'channelFee',
+    'stripeFee',
+    'mgmtFee',
+    'cohostFee',
+    'totalPayout',
+    'netEarnings',
+    'rentCollected',
+    'taxesCollected',
+  ],
+  text: ['guestName', 'platform', 'reservationCode', 'listingName'],
+  date: ['checkInDate', 'checkOutDate'],
+} as const
+
+// Column display names for the UI
+export const BOOKING_COLUMN_LABELS: Record<string, string> = {
+  nightlyRate: 'Nightly Rate',
+  extraGuestFees: 'Extra Guest Fees',
+  cleaningFee: 'Cleaning Fee',
+  bedLinenFee: 'Bed Linen Fee',
+  numNights: 'Number of Nights',
+  gst: 'GST',
+  qst: 'QST',
+  lodgingTax: 'Lodging Tax',
+  salesTax: 'Sales Tax',
+  channelFee: 'Channel Fee',
+  stripeFee: 'Stripe Fee',
+  mgmtFee: 'Management Fee',
+  cohostFee: 'Co-host Fee',
+  totalPayout: 'Total Payout',
+  netEarnings: 'Net Earnings',
+  rentCollected: 'Rent Collected',
+  taxesCollected: 'Taxes Collected',
+  guestName: 'Guest Name',
+  platform: 'Platform',
+  reservationCode: 'Reservation Code',
+  listingName: 'Listing Name',
+  checkInDate: 'Check-In Date',
+  checkOutDate: 'Check-Out Date',
+}
+
 /**
  * Report template entity
  */
@@ -25,6 +101,8 @@ export interface ReportSection {
   name: string           // Display name: "Invoice Summary"
   logicalName: string    // Logical name for formulas: "invoice_summary"
   displayOrder: number
+  sectionMode: SectionMode  // 'field' (default), 'table', or 'header'
+  dataSource?: DataSource   // Only for table sections: 'booking' or 'expense'
   createdAt: string
   updatedAt: string
   fields?: ReportField[]
@@ -32,6 +110,7 @@ export interface ReportSection {
 
 /**
  * Report field within a section
+ * In table mode, each field represents a column in the table
  */
 export interface ReportField {
   id: string
@@ -41,6 +120,12 @@ export interface ReportField {
   formula: string
   displayOrder: number
   format: ReportFieldFormat
+  // Table mode properties (when parent section is in table mode)
+  fieldMode?: 'field' | 'table_column'  // Defaults to 'field'
+  columnType?: ColumnType               // text, numeric, date, calculated
+  sourceColumn?: string                 // Booking column to display (for non-calculated columns)
+  totalsFunction?: TotalsFunction       // SUM, AVG, COUNT, NONE, CUSTOM
+  totalsFormula?: string                // Custom formula for totals (when totalsFunction is CUSTOM)
   createdAt: string
   updatedAt: string
 }
@@ -94,6 +179,15 @@ export interface RelatedItem {
 }
 
 /**
+ * Table column type info (used in table-mode validation)
+ */
+export interface TableColumnTypeInfo {
+  name: string
+  dbColumn: string
+  description: string
+}
+
+/**
  * Categorized available columns response from API
  */
 export interface CategorizedAvailableColumns {
@@ -101,6 +195,14 @@ export interface CategorizedAvailableColumns {
   bookingColumns: AvailableColumn[]
   calculatedColumns: AvailableColumn[]
   relatedItems: RelatedItem[]
+  // Table-mode specific fields from backend
+  tableColumnTypes?: {
+    numeric: TableColumnTypeInfo[]
+    text: TableColumnTypeInfo[]
+    date: TableColumnTypeInfo[]
+  }
+  tableTotalsFunctions?: ('SUM' | 'AVG' | 'COUNT' | 'NONE')[]
+  syntaxExamples?: { example: string; description: string }[]
 }
 
 /**
@@ -196,6 +298,16 @@ export interface ValidateFormulaPayload {
 }
 
 /**
+ * Request payload for table column validation
+ * For table-mode sections: validates bare column names or calculated formulas
+ */
+export interface ValidateTableColumnPayload {
+  formula: string
+  columnType: ColumnType
+  sectionColumns?: string[]
+}
+
+/**
  * Batch update field payload (for batch save)
  */
 export interface BatchUpdateFieldPayload {
@@ -205,6 +317,12 @@ export interface BatchUpdateFieldPayload {
   formula: string
   format: ReportFieldFormat
   displayOrder: number
+  // Table mode properties
+  fieldMode?: 'field' | 'table_column'
+  columnType?: ColumnType
+  sourceColumn?: string
+  totalsFunction?: TotalsFunction
+  totalsFormula?: string
   _delete?: boolean        // Mark for deletion
 }
 
@@ -216,6 +334,8 @@ export interface BatchUpdateSectionPayload {
   name: string
   logicalName: string
   displayOrder: number
+  sectionMode?: SectionMode  // 'field' (default), 'table', or 'header'
+  dataSource?: DataSource    // Only for table sections: 'booking' or 'expense'
   _delete?: boolean        // Mark for deletion
   fields: BatchUpdateFieldPayload[]
 }
@@ -242,7 +362,7 @@ export interface BatchSaveTemplatePayload {
 export interface ReportTemplatesResponse {
   status: 'success' | 'failed'
   message?: string
-  data: ReportTemplate[]
+  data: FullReportTemplate[]
 }
 
 export interface ReportTemplateResponse {
@@ -275,6 +395,29 @@ export interface AvailableColumnsResponse {
   data: CategorizedAvailableColumns
 }
 
+/**
+ * Column info from the data source columns endpoint
+ */
+export interface DataSourceColumn {
+  name: string           // Display name: "Check In Date"
+  formula: string        // Column key: "checkInDate"
+  columnType: ColumnType // 'text' | 'numeric' | 'date' | 'calculated'
+  format: ReportFieldFormat
+  totalsFunction: TotalsFunction
+}
+
+/**
+ * Response from the data source columns endpoint
+ */
+export interface DataSourceColumnsResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    dataSource: DataSource
+    columns: DataSourceColumn[]
+  }
+}
+
 export interface AssignmentResponse {
   status: 'success' | 'failed'
   message?: string
@@ -287,7 +430,24 @@ export interface ValidateFormulaResponse {
   data: {
     valid: boolean
     error?: string
+    warnings?: string[]
     fieldReferences: string[]
+    suggestions?: string[]  // Suggested fixes for invalid formulas
+  }
+}
+
+/**
+ * Response type for table column validation
+ */
+export interface ValidateTableColumnResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    valid: boolean
+    error?: string
+    warnings?: string[]
+    dependencies?: string[]
+    suggestions?: string[]
   }
 }
 

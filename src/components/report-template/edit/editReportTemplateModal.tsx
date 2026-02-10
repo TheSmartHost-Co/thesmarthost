@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
 import {
-  getReportTemplateById,
   batchSaveTemplate,
+  getDataSourceColumns,
 } from '@/services/reportTemplateService'
 import type {
   FullReportTemplate,
@@ -13,11 +13,19 @@ import type {
   ReportFieldFormat,
   SectionFieldReference,
   BatchSaveTemplatePayload,
+  BatchUpdateSectionPayload,
+  SectionMode,
+  DataSource,
+  DataSourceColumn,
 } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import SectionList from '../shared/SectionList'
 import FieldList from '../shared/FieldList'
+import TableColumnList from '../shared/TableColumnList'
+import HeaderFieldList from '../shared/HeaderFieldList'
+import SectionTypeSelector from '../shared/SectionTypeSelector'
+import DataSourceSelector from '../shared/DataSourceSelector'
 import PropertyAssignmentSelector from '../shared/PropertyAssignmentSelector'
 import {
   XMarkIcon,
@@ -63,21 +71,21 @@ interface EditReportTemplateModalProps {
   isOpen: boolean
   onClose: () => void
   onUpdated: () => void
-  templateId: string
+  template: FullReportTemplate
 }
 
 const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   isOpen,
   onClose,
   onUpdated,
-  templateId,
+  template,
 }) => {
   // Original template from API (for comparison)
   const [originalTemplate, setOriginalTemplate] = useState<FullReportTemplate | null>(null)
 
   // Local state for all edits
   const [localTemplate, setLocalTemplate] = useState<FullReportTemplate | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
 
@@ -85,6 +93,12 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   const [assignedPropertyIds, setAssignedPropertyIds] = useState<string[]>([])
   const [assignedPropertyDetails, setAssignedPropertyDetails] = useState<{ propertyId: string; listingName: string }[]>([])
   const [originalPropertyIds, setOriginalPropertyIds] = useState<string[]>([])
+
+  // Cached columns from API for validation
+  const [availableColumnsCache, setAvailableColumnsCache] = useState<{
+    booking: DataSourceColumn[]
+    expense: DataSourceColumn[]
+  }>({ booking: [], expense: [] })
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -160,6 +174,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         const sectionChanges: string[] = []
         if (section.name !== original.name) sectionChanges.push('name')
         if ((section.logicalName || '') !== (original.logicalName || '')) sectionChanges.push('logicalName')
+        if ((section.sectionMode || 'field') !== (original.sectionMode || 'field')) sectionChanges.push('mode')
 
         // Build field maps for comparison
         const originalFields = new Map((original.fields || []).map(f => [f.id, f]))
@@ -181,6 +196,11 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
             if ((field.logicalName || '') !== (origField.logicalName || '')) changedFields.push('logicalName')
             if (field.formula !== origField.formula) changedFields.push('formula')
             if (field.format !== origField.format) changedFields.push('format')
+            // Table mode properties
+            if ((field.fieldMode || 'field') !== (origField.fieldMode || 'field')) changedFields.push('fieldMode')
+            if (field.columnType !== origField.columnType) changedFields.push('columnType')
+            if (field.totalsFunction !== origField.totalsFunction) changedFields.push('totalsFunction')
+            if (field.totalsFormula !== origField.totalsFormula) changedFields.push('totalsFormula')
 
             if (changedFields.length > 0) {
               fieldChanges[fieldId] = {
@@ -282,68 +302,81 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
     }))
   }, [localTemplate?.sections])
 
-  // Load template data when modal opens
+  // Build sections for aggregate field validation (table + field-mode sections)
+  // Used by FieldList to validate {sectionName.fieldName} references
+  const tableSectionsForValidation = useMemo(() => {
+    if (!localTemplate?.sections) return []
+    return localTemplate.sections
+      .filter(section => section.sectionMode === 'table' || section.sectionMode === 'field')
+      .map(section => ({
+        name: section.name,
+        logicalName: section.logicalName || toLogicalName(section.name),
+        columns: (section.fields || []).map(f => f.logicalName || toLogicalName(f.name)),
+      }))
+  }, [localTemplate?.sections])
+
+  // Fetch columns from API when modal opens
   useEffect(() => {
-    const loadTemplate = async () => {
-      if (!isOpen || !templateId) return
+    if (!isOpen) return
+    const loadColumns = async () => {
+      const [bookingRes, expenseRes] = await Promise.all([
+        getDataSourceColumns('booking'),
+        getDataSourceColumns('expense'),
+      ])
+      setAvailableColumnsCache({
+        booking: bookingRes.status === 'success' ? bookingRes.data.columns : [],
+        expense: expenseRes.status === 'success' ? expenseRes.data.columns : [],
+      })
+    }
+    loadColumns()
+  }, [isOpen])
 
-      setLoading(true)
-      try {
-        const res = await getReportTemplateById(templateId)
-        if (res.status === 'success') {
-          // Ensure all sections and fields have logicalName
-          const templateWithLogicalNames: FullReportTemplate = {
-            ...res.data,
-            sections: res.data.sections.map(section => ({
-              ...section,
-              logicalName: section.logicalName || toLogicalName(section.name),
-              fields: (section.fields || []).map(field => ({
-                ...field,
-                logicalName: field.logicalName || toLogicalName(field.name),
-              }))
-            }))
-          }
+  // Initialize local state when modal opens or template changes
+  useEffect(() => {
+    if (!isOpen || !template) return
 
-          setOriginalTemplate(JSON.parse(JSON.stringify(templateWithLogicalNames)))
-          setLocalTemplate(templateWithLogicalNames)
-
-          // Select first section by default
-          if (templateWithLogicalNames.sections && templateWithLogicalNames.sections.length > 0) {
-            setSelectedSectionId(templateWithLogicalNames.sections[0].id)
-          } else {
-            setSelectedSectionId(null)
-          }
-
-          // Load property assignments
-          if (res.data.assignedProperties && res.data.assignedProperties.length > 0) {
-            const propertyIds = res.data.assignedProperties.map(ap => ap.propertyId)
-            const details = res.data.assignedProperties.map(ap => ({
-              propertyId: ap.propertyId,
-              listingName: ap.listingName
-            }))
-            setAssignedPropertyIds(propertyIds)
-            setAssignedPropertyDetails(details)
-            setOriginalPropertyIds([...propertyIds])
-          } else {
-            setAssignedPropertyIds([])
-            setAssignedPropertyDetails([])
-            setOriginalPropertyIds([])
-          }
-        } else {
-          showNotification(res.message || 'Failed to load template', 'error')
-          onClose()
-        }
-      } catch (error) {
-        console.error('Error loading template:', error)
-        showNotification('Error loading template', 'error')
-        onClose()
-      } finally {
-        setLoading(false)
-      }
+    // Ensure all sections and fields have required properties
+    const templateWithLogicalNames: FullReportTemplate = {
+      ...template,
+      sections: template.sections.map(section => ({
+        ...section,
+        logicalName: section.logicalName || toLogicalName(section.name),
+        sectionMode: section.sectionMode || 'field',
+        fields: (section.fields || []).map(field => ({
+          ...field,
+          logicalName: field.logicalName || toLogicalName(field.name),
+          fieldMode: field.fieldMode || 'field',
+        }))
+      }))
     }
 
-    loadTemplate()
-  }, [isOpen, templateId])
+    setOriginalTemplate(JSON.parse(JSON.stringify(templateWithLogicalNames)))
+    setLocalTemplate(templateWithLogicalNames)
+
+    // Select first section by default
+    if (templateWithLogicalNames.sections?.length > 0) {
+      setSelectedSectionId(templateWithLogicalNames.sections[0].id)
+    } else {
+      setSelectedSectionId(null)
+    }
+
+    // Load property assignments from template
+    const assignments = template.assignedProperties
+    if (assignments && assignments.length > 0) {
+      const propertyIds = assignments.map(ap => ap.propertyId)
+      const details = assignments.map(ap => ({
+        propertyId: ap.propertyId,
+        listingName: ap.listingName
+      }))
+      setAssignedPropertyIds(propertyIds)
+      setAssignedPropertyDetails(details)
+      setOriginalPropertyIds([...propertyIds])
+    } else {
+      setAssignedPropertyIds([])
+      setAssignedPropertyDetails([])
+      setOriginalPropertyIds([])
+    }
+  }, [isOpen, template])
 
   // Handle close with unsaved changes check
   const handleClose = () => {
@@ -366,20 +399,33 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         id: localTemplate.id,
         name: localTemplate.name,
         description: localTemplate.description || undefined,
-        sections: localTemplate.sections.map((section, sIndex) => ({
-          id: section.id.startsWith('temp_') ? undefined : section.id,
-          name: section.name,
-          logicalName: section.logicalName || toLogicalName(section.name),
-          displayOrder: sIndex,
-          fields: (section.fields || []).map((field, fIndex) => ({
-            id: field.id.startsWith('temp_') ? undefined : field.id,
-            name: field.name,
-            logicalName: field.logicalName || toLogicalName(field.name),
-            formula: field.formula,
-            format: field.format,
-            displayOrder: fIndex,
-          }))
-        })),
+        sections: localTemplate.sections.map((section, sIndex) => {
+          const sectionPayload: BatchUpdateSectionPayload = {
+            name: section.name,
+            logicalName: section.logicalName || toLogicalName(section.name),
+            displayOrder: sIndex,
+            sectionMode: section.sectionMode || 'field',
+            // Only include id if it's a real UUID (not temp_)
+            id: section.id && !section.id.startsWith('temp_') ? section.id : undefined,
+            // Include dataSource for table sections
+            dataSource: section.sectionMode === 'table' ? section.dataSource : undefined,
+            fields: (section.fields || []).map((field, fIndex) => ({
+              name: field.name,
+              logicalName: field.logicalName || toLogicalName(field.name),
+              formula: field.formula,
+              format: field.format,
+              displayOrder: fIndex,
+              fieldMode: field.fieldMode,
+              columnType: field.columnType,
+              totalsFunction: field.totalsFunction,
+              totalsFormula: field.totalsFormula || undefined,
+              // Only include id if it's a real UUID (not temp_)
+              id: field.id && !field.id.startsWith('temp_') ? field.id : undefined,
+            })),
+          }
+
+          return sectionPayload
+        }),
         propertyIds: assignedPropertyIds,
       }
 
@@ -391,9 +437,11 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
           sections: res.data.sections.map(section => ({
             ...section,
             logicalName: section.logicalName || toLogicalName(section.name),
+            sectionMode: section.sectionMode || 'field',
             fields: (section.fields || []).map(field => ({
               ...field,
               logicalName: field.logicalName || toLogicalName(field.name),
+              fieldMode: field.fieldMode || 'field',
             }))
           }))
         }
@@ -444,6 +492,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
       name: `Section ${(localTemplate.sections?.length || 0) + 1}`,
       logicalName: toLogicalName(`Section ${(localTemplate.sections?.length || 0) + 1}`),
       displayOrder: (localTemplate.sections?.length || 0),
+      sectionMode: 'field',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       fields: [],
@@ -466,6 +515,80 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         ...prev,
         sections: prev.sections.map(s =>
           s.id === sectionId ? { ...s, name, logicalName } : s
+        )
+      }
+    })
+  }
+
+  const handleSectionModeChange = (sectionId: string, mode: SectionMode) => {
+    const section = localTemplate?.sections.find(s => s.id === sectionId)
+    if (!section) return
+
+    // Warn user if there are fields that will be cleared
+    const hasFields = section.fields && section.fields.length > 0
+    if (hasFields) {
+      const confirmMessage = mode === 'header'
+        ? 'Switching to Header mode will clear all existing fields. Continue?'
+        : mode === 'table'
+        ? 'Switching to Table mode will convert fields to table columns. Continue?'
+        : 'Switching to Field mode will clear table-specific properties. Continue?'
+
+      if (!window.confirm(confirmMessage)) {
+        return
+      }
+    }
+
+    setLocalTemplate(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        sections: prev.sections.map(s => {
+          if (s.id !== sectionId) return s
+
+          // Handle mode-specific field conversions
+          let convertedFields = s.fields || []
+
+          if (mode === 'header') {
+            // For header mode, clear all fields (header fields are simpler)
+            convertedFields = []
+          } else if (mode === 'table') {
+            // Convert to table columns
+            convertedFields = convertedFields.map(field => ({
+              ...field,
+              fieldMode: 'table_column' as const,
+              columnType: field.columnType || 'text',
+              totalsFunction: field.totalsFunction || 'NONE',
+            }))
+          } else {
+            // Convert to regular fields
+            convertedFields = convertedFields.map(field => ({
+              ...field,
+              fieldMode: 'field' as const,
+              columnType: undefined,
+              totalsFunction: undefined,
+              totalsFormula: undefined,
+            }))
+          }
+
+          return {
+            ...s,
+            sectionMode: mode,
+            // Set default dataSource for table sections
+            dataSource: mode === 'table' ? (s.dataSource || 'booking') : undefined,
+            fields: convertedFields,
+          }
+        })
+      }
+    })
+  }
+
+  const handleDataSourceChange = (sectionId: string, dataSource: DataSource) => {
+    setLocalTemplate(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        sections: prev.sections.map(s =>
+          s.id === sectionId ? { ...s, dataSource } : s
         )
       }
     })
@@ -495,17 +618,26 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   }
 
   // Field operations (all local)
-  const handleAddField = (data: { name: string; logicalName: string; formula: string; format: ReportFieldFormat }) => {
+  const handleAddField = (data: Partial<ReportField>) => {
     if (!selectedSectionId) return
+    if (!data.name || !data.logicalName) return
+
+    const section = localTemplate?.sections.find(s => s.id === selectedSectionId)
+    const isTableMode = section?.sectionMode === 'table'
 
     const newField: ReportField = {
       id: generateTempId(),
       sectionId: selectedSectionId,
       name: data.name,
       logicalName: data.logicalName,
-      formula: data.formula,
-      format: data.format,
-      displayOrder: localTemplate?.sections.find(s => s.id === selectedSectionId)?.fields?.length || 0,
+      formula: data.formula || '',
+      format: data.format || 'text',
+      displayOrder: section?.fields?.length || 0,
+      // Table mode properties
+      fieldMode: isTableMode ? 'table_column' : 'field',
+      columnType: data.columnType,
+      totalsFunction: data.totalsFunction,
+      totalsFormula: data.totalsFormula,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -525,7 +657,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
 
   const handleEditField = (
     fieldId: string,
-    updates: { name?: string; logicalName?: string; formula?: string; format?: ReportFieldFormat }
+    updates: Partial<ReportField>
   ) => {
     setLocalTemplate(prev => {
       if (!prev) return prev
@@ -665,7 +797,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
           <div className="flex-1 p-6 overflow-y-auto">
             {selectedSection ? (
               <div className="h-full">
-                <div className="mb-6">
+                <div className="mb-4">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-lg font-semibold text-gray-900 break-words">{selectedSection.name}</h3>
                     {selectedSection.logicalName && (
@@ -673,20 +805,62 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     )}
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
-                    Add fields with formulas to calculate values from booking data
+                    {selectedSection.sectionMode === 'header'
+                      ? 'Display metadata like property name, report period, and logo'
+                      : selectedSection.sectionMode === 'table'
+                        ? 'Configure table columns to display booking or expense data in rows'
+                        : 'Add fields with formulas to calculate aggregate values from table sections'}
                   </p>
                 </div>
 
-                <FieldList
-                  fields={selectedSection.fields || []}
-                  allSections={sectionReferences}
-                  currentSectionId={selectedSectionId!}
-                  onReorder={handleReorderFields}
-                  onEditField={handleEditField}
-                  onDeleteField={handleDeleteField}
-                  onAddField={handleAddField}
-                  changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
+                <SectionTypeSelector
+                  mode={selectedSection.sectionMode || 'field'}
+                  onChange={(mode) => handleSectionModeChange(selectedSection.id, mode)}
                 />
+
+                {selectedSection.sectionMode === 'table' && (
+                  <DataSourceSelector
+                    dataSource={selectedSection.dataSource || 'booking'}
+                    onChange={(ds) => handleDataSourceChange(selectedSection.id, ds)}
+                  />
+                )}
+
+                {selectedSection.sectionMode === 'header' ? (
+                  <HeaderFieldList
+                    fields={selectedSection.fields || []}
+                    onReorder={handleReorderFields}
+                    onEditField={handleEditField}
+                    onDeleteField={handleDeleteField}
+                    onAddField={handleAddField}
+                    changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
+                  />
+                ) : selectedSection.sectionMode === 'table' ? (
+                  <TableColumnList
+                    fields={selectedSection.fields || []}
+                    allSections={sectionReferences}
+                    currentSectionId={selectedSectionId!}
+                    onReorder={handleReorderFields}
+                    onEditField={handleEditField}
+                    onDeleteField={handleDeleteField}
+                    onAddField={handleAddField}
+                    changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
+                    dataSource={selectedSection.dataSource || 'booking'}
+                    dataSourceColumns={availableColumnsCache[selectedSection.dataSource || 'booking']}
+                  />
+                ) : (
+                  <FieldList
+                    fields={selectedSection.fields || []}
+                    allSections={sectionReferences}
+                    currentSectionId={selectedSectionId!}
+                    onReorder={handleReorderFields}
+                    onEditField={handleEditField}
+                    onDeleteField={handleDeleteField}
+                    onAddField={handleAddField}
+                    changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
+                    tableSections={tableSectionsForValidation}
+                    availableColumnsCache={availableColumnsCache}
+                  />
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-4">

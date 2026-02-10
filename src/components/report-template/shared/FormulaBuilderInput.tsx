@@ -1,8 +1,13 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { validateFormula, getAvailableColumns } from '@/services/reportTemplateService'
-import type { CategorizedAvailableColumns, SectionFieldReference, RelatedItem } from '@/services/types/reportTemplate'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { getAvailableColumns, getDataSourceColumns } from '@/services/reportTemplateService'
+import type { CategorizedAvailableColumns, SectionFieldReference, ColumnType, DataSource, DataSourceColumn } from '@/services/types/reportTemplate'
+import {
+  validateFormulaSyntax,
+  validateTableColumn as validateTableColumnLocal,
+  validateAggregateField,
+} from '@/utils/formulaValidator'
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -64,6 +69,16 @@ interface FormulaBuilderInputProps {
   currentSectionId?: string // To identify "same section" fields
   placeholder?: string
   disabled?: boolean
+  // Table-mode validation props
+  validationMode?: 'field' | 'table'  // Default: 'field'
+  columnType?: ColumnType             // For table mode
+  sectionColumns?: string[]           // Other columns in section for table mode
+  // Data source for table sections (booking or expense)
+  dataSource?: DataSource
+  // Table sections for aggregate field validation
+  tableSections?: { name: string; logicalName: string; columns: string[] }[]
+  // Data source columns from parent (cached from API) - if provided, skips internal fetch
+  externalDataSourceColumns?: DataSourceColumn[]
 }
 
 const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
@@ -73,30 +88,53 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   currentSectionId,
   placeholder = 'e.g. SUM(mgmtFee) or SUM(totalPayout) * 0.05',
   disabled = false,
+  validationMode = 'field',
+  columnType,
+  sectionColumns = [],
+  dataSource,
+  tableSections = [],
+  externalDataSourceColumns,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false)
   const [validationState, setValidationState] = useState<{
     valid: boolean | null
     error: string | null
     checking: boolean
+    suggestions?: string[]
   }>({ valid: null, error: null, checking: false })
   const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields' | 'related'>('functions')
 
   // API data state
   const [availableData, setAvailableData] = useState<CategorizedAvailableColumns | null>(null)
+  const [dataSourceColumns, setDataSourceColumns] = useState<DataSourceColumn[]>([])
   const [loadingColumns, setLoadingColumns] = useState(true)
 
   // Aggregate picker state for related items
   const [selectedRelatedItem, setSelectedRelatedItem] = useState<string | null>(null)
 
+  // Track cursor position for accurate search term extraction
+  const [cursorPosition, setCursorPosition] = useState<number>(0)
+
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch available columns from API on mount
+  // Memoize sectionColumns to prevent infinite re-renders
+  const sectionColumnsKey = useMemo(() => sectionColumns.join(','), [sectionColumns])
+
+  // Fetch available columns from API on mount or when dataSource changes
   useEffect(() => {
     const loadAvailableColumns = async () => {
+      setLoadingColumns(true)
       try {
+        // If dataSource is provided, use the new endpoint
+        if (dataSource) {
+          const res = await getDataSourceColumns(dataSource)
+          if (res.status === 'success') {
+            setDataSourceColumns(res.data.columns || [])
+          }
+        }
+        // Also load the general available columns for functions and related items
         const res = await getAvailableColumns()
         if (res.status === 'success') {
           setAvailableData(res.data)
@@ -108,10 +146,13 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
       }
     }
     loadAvailableColumns()
-  }, [])
+  }, [dataSource])
 
-  // Get the current search term from the input value
-  const searchTerm = useMemo(() => getSearchTerm(value), [value])
+  // Get the current search term from text before cursor (not full value)
+  const searchTerm = useMemo(() => {
+    const textBeforeCursor = value.substring(0, cursorPosition)
+    return getSearchTerm(textBeforeCursor)
+  }, [value, cursorPosition])
 
   // Filter suggestions based on search term for inline tags
   const filteredSuggestions = useMemo(() => {
@@ -193,6 +234,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
       newCursorPos = newCursorPos - 1
     }
 
+    setCursorPosition(newCursorPos)
     setTimeout(() => {
       inputRef.current?.setSelectionRange(newCursorPos, newCursorPos)
       inputRef.current?.focus()
@@ -213,6 +255,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     onChange(newValue)
 
     const newCursorPos = cursorPos + textToInsert.length
+    setCursorPosition(newCursorPos)
     setTimeout(() => {
       inputRef.current?.setSelectionRange(newCursorPos, newCursorPos)
       inputRef.current?.focus()
@@ -241,7 +284,29 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }
   }, [showDropdown, selectedRelatedItem])
 
-  // Validate formula with debounce
+  // Determine which columns to use for validation
+  // Prefer external prop (from parent) over internal state (from API fetch)
+  const effectiveDataSourceColumns = useMemo(() => {
+    if (externalDataSourceColumns && externalDataSourceColumns.length > 0) {
+      return externalDataSourceColumns
+    }
+    return dataSourceColumns
+  }, [externalDataSourceColumns, dataSourceColumns])
+
+  // Get available column formulas for validation
+  const availableColumnFormulas = useMemo(() => {
+    // If we have data source columns (external or internal), use them
+    if (effectiveDataSourceColumns && effectiveDataSourceColumns.length > 0) {
+      return effectiveDataSourceColumns.map(c => c.formula)
+    }
+    // Fallback to availableData for legacy usage
+    if (availableData?.bookingColumns) {
+      return availableData.bookingColumns.map(c => c.name)
+    }
+    return []
+  }, [effectiveDataSourceColumns, availableData])
+
+  // Validate formula with debounce - using local validation
   useEffect(() => {
     if (validationTimeoutRef.current) {
       clearTimeout(validationTimeoutRef.current)
@@ -254,21 +319,37 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
 
     setValidationState((prev) => ({ ...prev, checking: true }))
 
-    validationTimeoutRef.current = setTimeout(async () => {
+    validationTimeoutRef.current = setTimeout(() => {
       try {
-        const res = await validateFormula(value)
-        if (res.status === 'success') {
+        if (validationMode === 'table') {
+          // Table mode: validate column formula against available columns (use formula field)
+          const result = validateTableColumnLocal(value, availableColumnFormulas)
           setValidationState({
-            valid: res.data.valid,
-            error: res.data.error || null,
+            valid: result.valid,
+            error: result.error || null,
             checking: false,
+            suggestions: undefined,
           })
         } else {
-          setValidationState({
-            valid: false,
-            error: res.message || 'Validation failed',
-            checking: false,
-          })
+          // Field mode: validate aggregate formula that references table sections
+          if (tableSections.length > 0) {
+            const result = validateAggregateField(value, tableSections)
+            setValidationState({
+              valid: result.valid,
+              error: result.error || null,
+              checking: false,
+              suggestions: undefined,
+            })
+          } else {
+            // Basic syntax validation only
+            const result = validateFormulaSyntax(value)
+            setValidationState({
+              valid: result.valid,
+              error: result.error || null,
+              checking: false,
+              suggestions: undefined,
+            })
+          }
         }
       } catch (err) {
         console.error('Formula validation error:', err)
@@ -278,14 +359,14 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
           checking: false,
         })
       }
-    }, 500)
+    }, 300)
 
     return () => {
       if (validationTimeoutRef.current) {
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [value])
+  }, [value, validationMode, availableColumnFormulas, tableSections])
 
   // Auto-resize textarea when value changes (handles programmatic changes)
   useEffect(() => {
@@ -300,8 +381,16 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     // Auto-resize: reset height then set to scrollHeight
     e.target.style.height = 'auto'
     e.target.style.height = `${e.target.scrollHeight}px`
+    setCursorPosition(e.target.selectionStart ?? 0)
     onChange(e.target.value)
   }
+
+  // Track cursor position on click, arrow keys, and selection changes
+  const handleSelect = useCallback(() => {
+    if (inputRef.current) {
+      setCursorPosition(inputRef.current.selectionStart ?? 0)
+    }
+  }, [])
 
   const insertAtCursor = (text: string) => {
     if (!inputRef.current) {
@@ -315,9 +404,10 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     onChange(newValue)
 
     // Set cursor position after inserted text
+    const newPosition = start + text.length
+    setCursorPosition(newPosition)
     setTimeout(() => {
       if (inputRef.current) {
-        const newPosition = start + text.length
         inputRef.current.setSelectionRange(newPosition, newPosition)
         inputRef.current.focus()
       }
@@ -334,7 +424,9 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
         if (inputRef.current) {
           const pos = inputRef.current.selectionStart
           if (pos) {
-            inputRef.current.setSelectionRange(pos - 1, pos - 1)
+            const newPos = pos - 1
+            inputRef.current.setSelectionRange(newPos, newPos)
+            setCursorPosition(newPos)
           }
         }
       }, 10)
@@ -363,6 +455,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
           rows={1}
           value={value}
           onChange={handleInputChange}
+          onSelect={handleSelect}
           placeholder={placeholder}
           disabled={disabled}
           className={`w-full border rounded-lg px-3 py-2 pr-20 text-gray-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden ${
@@ -398,6 +491,23 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
       {/* Validation error message */}
       {validationState.error && (
         <p className="text-xs text-red-600 mt-1">{validationState.error}</p>
+      )}
+
+      {/* Suggestions for fixing invalid formula */}
+      {validationState.suggestions && validationState.suggestions.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <span className="text-xs text-gray-500">Try:</span>
+          {validationState.suggestions.map((suggestion, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onChange(suggestion)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-mono underline"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Inline Suggestions - Always visible when not disabled */}

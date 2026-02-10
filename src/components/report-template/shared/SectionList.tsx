@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ReportSection } from '@/services/types/reportTemplate'
+import type { ReportSection, SectionMode, DataSource } from '@/services/types/reportTemplate'
 import {
   Bars3Icon,
   PencilIcon,
@@ -27,7 +27,17 @@ import {
   CheckIcon,
   XMarkIcon,
   ChevronRightIcon,
+  DocumentIcon,
+  TableCellsIcon,
+  CalculatorIcon,
 } from '@heroicons/react/24/outline'
+
+// Section type badge config
+const SECTION_TYPE_BADGES: Record<SectionMode, { label: string; icon: typeof DocumentIcon; color: string }> = {
+  header: { label: 'H', icon: DocumentIcon, color: 'bg-purple-100 text-purple-700' },
+  table: { label: 'T', icon: TableCellsIcon, color: 'bg-blue-100 text-blue-700' },
+  field: { label: 'F', icon: CalculatorIcon, color: 'bg-green-100 text-green-700' },
+}
 
 // Change info types (imported from parent for type safety)
 interface ChangeInfo {
@@ -220,6 +230,16 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
         ) : (
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
+              {/* Section type badge */}
+              {(() => {
+                const badge = SECTION_TYPE_BADGES[section.sectionMode || 'field']
+                const BadgeIcon = badge.icon
+                return (
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-medium flex-shrink-0 ${badge.color}`} title={section.sectionMode || 'field'}>
+                    <BadgeIcon className="w-3 h-3" />
+                  </span>
+                )
+              })()}
               {showChangeIndicator && (
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                   isNew ? 'bg-green-500' : 'bg-amber-500'
@@ -228,9 +248,9 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
               <span className="font-medium text-gray-900 break-words leading-snug">{section.name}</span>
             </div>
             {section.logicalName && (
-              <span className="text-xs text-gray-400 font-mono truncate">{section.logicalName}</span>
+              <span className="text-xs text-gray-400 font-mono truncate ml-6">{section.logicalName}</span>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-6">
               <span className="text-xs text-gray-500">
                 {section.fields?.length || 0} field{section.fields?.length !== 1 ? 's' : ''}
               </span>

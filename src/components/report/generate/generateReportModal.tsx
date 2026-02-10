@@ -8,7 +8,7 @@ import {
   getLogos,
   uploadLogo
 } from '@/services/reportService'
-import { getTemplatesByProperty, getReportTemplates, getReportTemplateById } from '@/services/reportTemplateService'
+import { getReportTemplateById } from '@/services/reportTemplateService'
 import type { Property } from '@/services/types/property'
 import type {
   ReportFormat,
@@ -16,7 +16,7 @@ import type {
   Logo,
   DateFilterMode,
 } from '@/services/types/report'
-import type { ReportTemplate } from '@/services/types/reportTemplate'
+import type { ReportTemplate, FullReportTemplate } from '@/services/types/reportTemplate'
 import { useUserStore } from '@/store/useUserStore'
 import {
   XMarkIcon,
@@ -58,6 +58,7 @@ interface GenerateReportModalProps {
   onReportGenerated: () => Promise<void>
   properties: Property[]
   initialPropertyIds?: string[]
+  templates?: FullReportTemplate[]
 }
 
 const DATE_PRESETS = [
@@ -157,7 +158,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   onClose,
   onReportGenerated,
   properties,
-  initialPropertyIds = []
+  initialPropertyIds = [],
+  templates: prefetchedTemplates
 }) => {
   const { showNotification } = useNotificationStore()
   const { profile } = useUserStore()
@@ -181,10 +183,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [loadingLogos, setLoadingLogos] = useState<boolean>(false)
 
   // Template state
+  const [hydratedTemplates, setHydratedTemplates] = useState<FullReportTemplate[]>([])
+  const [hydrating, setHydrating] = useState<boolean>(false)
   const [availableTemplates, setAvailableTemplates] = useState<ReportTemplate[]>([])
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
-  const [loadingTemplates, setLoadingTemplates] = useState<boolean>(false)
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState<boolean>(false)
+  const loadingTemplates = hydrating
 
   // Modal step state (form or preview)
   const [step, setStep] = useState<ModalStep>('form')
@@ -247,93 +251,103 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     }
   }, [isOpen, initialPropertyIds])
 
-  // Load templates when properties are selected
+  // Hydrate prefetched templates once (fetch assignedProperties if missing)
   useEffect(() => {
-    const loadTemplates = async () => {
-      if (!isOpen || !profile?.id) return
+    if (!isOpen || !prefetchedTemplates || prefetchedTemplates.length === 0) {
+      setHydratedTemplates([])
+      return
+    }
 
-      // PDF format: single property, single template selection
-      if (format === 'pdf' && selectedPropertyIds.length === 1) {
-        setLoadingTemplates(true)
-        try {
-          const res = await getTemplatesByProperty(selectedPropertyIds[0])
-          if (res.status === 'success') {
-            setAvailableTemplates(res.data || [])
-            // Auto-select system default or first template assigned to property
-            const systemDefault = res.data?.find(t => t.isSystemDefault)
-            if (systemDefault) {
-              setSelectedTemplateIds([systemDefault.id])
-            } else if (res.data && res.data.length > 0) {
-              setSelectedTemplateIds([res.data[0].id])
-            } else {
-              setSelectedTemplateIds([])
+    const needsHydration = prefetchedTemplates.some(t => t.assignedProperties === undefined)
+
+    if (!needsHydration) {
+      setHydratedTemplates(prefetchedTemplates)
+      return
+    }
+
+    // Hydrate templates that are missing assignedProperties
+    let cancelled = false
+    const hydrate = async () => {
+      setHydrating(true)
+      try {
+        const hydrated = await Promise.all(
+          prefetchedTemplates.map(async (template) => {
+            if (template.assignedProperties !== undefined) return template
+            try {
+              const res = await getReportTemplateById(template.id)
+              return res.status === 'success' ? res.data : template
+            } catch {
+              return template
             }
-          }
-        } catch (error) {
-          console.error('Error loading templates:', error)
-          // Fall back to all user templates
-          try {
-            const allTemplatesRes = await getReportTemplates(profile.id)
-            if (allTemplatesRes.status === 'success') {
-              setAvailableTemplates(allTemplatesRes.data || [])
-              const systemDefault = allTemplatesRes.data?.find(t => t.isSystemDefault)
-              if (systemDefault) {
-                setSelectedTemplateIds([systemDefault.id])
-              } else {
-                setSelectedTemplateIds([])
-              }
-            }
-          } catch (e) {
-            console.error('Error loading all templates:', e)
-          }
-        } finally {
-          setLoadingTemplates(false)
+          })
+        )
+        if (!cancelled) {
+          setHydratedTemplates(hydrated)
         }
-      } else if ((format === 'excel' || format === 'csv') && selectedPropertyIds.length >= 1) {
-        // Excel/CSV format: support multi-select templates
-        setLoadingTemplates(true)
-        try {
-          // Get all templates for user
-          const res = await getReportTemplates(profile.id)
-          if (res.status === 'success' && res.data) {
-            setAvailableTemplates(res.data)
-
-            // Fetch full details for each template to get assigned properties
-            const templatesWithDetails = await Promise.all(
-              res.data.map(async (template) => {
-                try {
-                  const fullRes = await getReportTemplateById(template.id)
-                  return fullRes.status === 'success' ? fullRes.data : null
-                } catch {
-                  return null
-                }
-              })
-            )
-
-            // Find templates assigned to any of the selected properties
-            const matchingTemplateIds = templatesWithDetails
-              .filter(t => t !== null)
-              .filter(t => t.assignedProperties?.some(
-                ap => selectedPropertyIds.includes(ap.propertyId)
-              ))
-              .map(t => t.id)
-
-            setSelectedTemplateIds(matchingTemplateIds)
-          }
-        } catch (error) {
-          console.error('Error loading templates:', error)
-        } finally {
-          setLoadingTemplates(false)
+      } catch (error) {
+        console.error('Error hydrating templates:', error)
+        if (!cancelled) {
+          setHydratedTemplates(prefetchedTemplates)
         }
-      } else if (selectedPropertyIds.length === 0) {
-        // No properties selected, clear templates
-        setAvailableTemplates([])
-        setSelectedTemplateIds([])
+      } finally {
+        if (!cancelled) {
+          setHydrating(false)
+        }
       }
     }
 
-    loadTemplates()
-  }, [isOpen, selectedPropertyIds, profile?.id, format])
+    hydrate()
+    return () => { cancelled = true }
+  }, [isOpen, prefetchedTemplates])
+
+  // Client-side template matching when properties or format change
+  useEffect(() => {
+    if (!isOpen || hydratedTemplates.length === 0) {
+      if (selectedPropertyIds.length === 0) {
+        setAvailableTemplates([])
+        setSelectedTemplateIds([])
+      }
+      return
+    }
+
+    if (selectedPropertyIds.length === 0) {
+      setAvailableTemplates([])
+      setSelectedTemplateIds([])
+      return
+    }
+
+    if (format === 'pdf' && selectedPropertyIds.length === 1) {
+      // Filter to templates assigned to the selected property
+      const propertyId = selectedPropertyIds[0]
+      const assigned = hydratedTemplates.filter(t =>
+        t.assignedProperties?.some(ap => ap.propertyId === propertyId)
+      )
+      // If none match, show all templates as fallback
+      const templatesForPdf = assigned.length > 0 ? assigned : hydratedTemplates
+      setAvailableTemplates(templatesForPdf)
+
+      // Auto-select system default or first template
+      const systemDefault = templatesForPdf.find(t => t.isSystemDefault)
+      if (systemDefault) {
+        setSelectedTemplateIds([systemDefault.id])
+      } else if (templatesForPdf.length > 0) {
+        setSelectedTemplateIds([templatesForPdf[0].id])
+      } else {
+        setSelectedTemplateIds([])
+      }
+    } else if ((format === 'csv' || format === 'excel') && selectedPropertyIds.length >= 1) {
+      // Show all templates
+      setAvailableTemplates(hydratedTemplates)
+
+      // Auto-select templates assigned to any selected property
+      const matchingIds = hydratedTemplates
+        .filter(t => t.assignedProperties?.some(
+          ap => selectedPropertyIds.includes(ap.propertyId)
+        ))
+        .map(t => t.id)
+      setSelectedTemplateIds(matchingIds)
+    }
+  }, [isOpen, selectedPropertyIds, format, hydratedTemplates])
 
   // Reset form when modal closes
   useEffect(() => {
@@ -376,6 +390,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setSelectedTemplateIds([])
     setAvailableTemplates([])
     setIsTemplateDropdownOpen(false)
+    setHydrating(false)
     // Reset preview state
     setStep('form')
     setGeneratedReport(null)

@@ -6,8 +6,10 @@ import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getProperties } from '@/services/propertyService'
 import { getReports, deleteReport } from '@/services/reportService'
+import { getReportTemplates } from '@/services/reportTemplateService'
 import type { Property } from '@/services/types/property'
 import type { Report } from '@/services/types/report'
+import type { FullReportTemplate } from '@/services/types/reportTemplate'
 import {
   PlusIcon,
   TrashIcon,
@@ -32,6 +34,7 @@ export default function ReportsPage() {
   // Data state
   const [reports, setReports] = useState<Report[]>([])
   const [properties, setProperties] = useState<Property[]>([])
+  const [templates, setTemplates] = useState<FullReportTemplate[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -86,9 +89,10 @@ export default function ReportsPage() {
       setLoading(true)
       setError(null)
 
-      const [propertiesRes, reportsRes] = await Promise.all([
+      const [propertiesRes, reportsRes, templatesRes] = await Promise.all([
         getProperties(profile!.id),
-        getReports({})
+        getReports({}),
+        getReportTemplates(profile!.id)
       ])
 
       if (propertiesRes.status === 'success') {
@@ -99,6 +103,10 @@ export default function ReportsPage() {
         setReports(reportsRes.data || [])
       } else {
         setError(reportsRes.message || 'Failed to load reports')
+      }
+
+      if (templatesRes.status === 'success') {
+        setTemplates(templatesRes.data || [])
       }
     } catch (err) {
       console.error('Error loading data:', err)
@@ -729,6 +737,7 @@ export default function ReportsPage() {
         onClose={() => setShowGenerateModal(false)}
         onReportGenerated={handleReportGenerated}
         properties={properties}
+        templates={templates}
       />
 
       {/* View Report Modal */}
