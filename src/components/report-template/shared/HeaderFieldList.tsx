@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -18,8 +18,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ReportField, ReportFieldFormat } from '@/services/types/reportTemplate'
-import { HEADER_VARIABLES } from '@/services/types/reportTemplate'
+import type { ReportField, ReportFieldFormat, HeaderVariableCategory } from '@/services/types/reportTemplate'
+import { LOGO_VARIABLE } from '@/services/types/reportTemplate'
 import { validateHeaderField } from '@/utils/formulaValidator'
 import {
   Bars3Icon,
@@ -48,17 +48,79 @@ const toLogicalName = (displayName: string): string => {
     .replace(/^_|_$/g, '')
 }
 
-// Variable display labels
-const VARIABLE_LABELS: Record<string, string> = {
-  propertyName: 'Property Name',
-  ownerNames: 'Owner Names',
-  reportPeriod: 'Report Period',
-  generatedDate: 'Generated Date',
-  propertyAddress: 'Property Address',
-  hostName: 'Host Name',
-  hostEmail: 'Host Email',
-  logo: 'Logo',
+// Category color mapping for variable picker groups
+const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string; chipBg: string; chipText: string; chipBorder: string; chipHover: string }> = {
+  Host: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100', chipBg: 'bg-blue-100', chipText: 'text-blue-700', chipBorder: 'border-blue-200', chipHover: 'hover:bg-blue-200' },
+  Property: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', chipBg: 'bg-emerald-100', chipText: 'text-emerald-700', chipBorder: 'border-emerald-200', chipHover: 'hover:bg-emerald-200' },
+  Owner: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', chipBg: 'bg-amber-100', chipText: 'text-amber-700', chipBorder: 'border-amber-200', chipHover: 'hover:bg-amber-200' },
+  Date: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', chipBg: 'bg-rose-100', chipText: 'text-rose-700', chipBorder: 'border-rose-200', chipHover: 'hover:bg-rose-200' },
 }
+
+const DEFAULT_COLORS = { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-100', chipBg: 'bg-gray-100', chipText: 'text-gray-700', chipBorder: 'border-gray-200', chipHover: 'hover:bg-gray-200' }
+
+// Grouped variable picker shared between edit form and new field form
+const VariablePicker: React.FC<{
+  headerVariables: HeaderVariableCategory[]
+  headerVariablesLoading?: boolean
+  headerVariablesError?: string | null
+  onInsert: (variable: string) => void
+}> = ({ headerVariables, headerVariablesLoading, headerVariablesError, onInsert }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">Insert Variable</label>
+    {headerVariablesLoading ? (
+      <div className="flex items-center gap-2 py-3">
+        <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs text-gray-500">Loading variables...</span>
+      </div>
+    ) : headerVariablesError ? (
+      <div className="space-y-2">
+        <p className="text-xs text-amber-600 flex items-center gap-1">
+          <ExclamationCircleIcon className="w-3.5 h-3.5" />
+          {headerVariablesError}
+        </p>
+        {/* Always show logo even when backend fails */}
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onInsert(LOGO_VARIABLE.key)}
+            title={LOGO_VARIABLE.description}
+            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
+          >
+            {`{${LOGO_VARIABLE.key}}`}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="flex flex-wrap gap-1.5">
+        {headerVariables.map((category) => {
+          const colors = CATEGORY_COLORS[category.category] || DEFAULT_COLORS
+          return category.variables.map((variable) => (
+            <button
+              key={variable.key}
+              type="button"
+              onClick={() => onInsert(variable.key)}
+              title={variable.description}
+              className={`px-2 py-1 text-xs ${colors.chipBg} ${colors.chipText} ${colors.chipHover} rounded border ${colors.chipBorder} font-mono transition-colors`}
+            >
+              {`{${variable.key}}`}
+            </button>
+          ))
+        })}
+        <button
+          type="button"
+          onClick={() => onInsert(LOGO_VARIABLE.key)}
+          title={LOGO_VARIABLE.description}
+          className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
+        >
+          {`{${LOGO_VARIABLE.key}}`}
+        </button>
+      </div>
+    )}
+    <p className="text-xs text-gray-500 mt-2">
+      Click to insert at end. Mix variables with plain text like &quot;Report for {'{propertyName}'}&quot;
+    </p>
+  </div>
+)
 
 interface SortableHeaderFieldProps {
   field: ReportField
@@ -68,6 +130,10 @@ interface SortableHeaderFieldProps {
   onDelete: () => void
   disabled?: boolean
   changeInfo?: ChangeInfo
+  allValidKeys: string[]
+  headerVariables: HeaderVariableCategory[]
+  headerVariablesLoading?: boolean
+  headerVariablesError?: string | null
 }
 
 const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
@@ -78,6 +144,10 @@ const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
   onDelete,
   disabled = false,
   changeInfo,
+  allValidKeys,
+  headerVariables,
+  headerVariablesLoading,
+  headerVariablesError,
 }) => {
   const [editName, setEditName] = useState(field.name)
   const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
@@ -112,12 +182,12 @@ const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
 
   const handleValueChange = (value: string) => {
     setEditValue(value)
-    const result = validateHeaderField(value)
+    const result = validateHeaderField(value, allValidKeys)
     setValidationError(result.valid ? null : result.error || null)
   }
 
   const handleSave = () => {
-    const result = validateHeaderField(editValue)
+    const result = validateHeaderField(editValue, allValidKeys)
     if (!result.valid) {
       setValidationError(result.error || 'Invalid value')
       return
@@ -269,25 +339,13 @@ const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
             )}
           </div>
 
-          {/* Variable chips */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Insert Variable</label>
-            <div className="flex flex-wrap gap-1.5">
-              {HEADER_VARIABLES.map((variable) => (
-                <button
-                  key={variable}
-                  type="button"
-                  onClick={() => insertVariable(variable)}
-                  className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
-                >
-                  {`{${variable}}`}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Click to insert at end. Mix variables with plain text like &quot;Report for {'{propertyName}'}&quot;
-            </p>
-          </div>
+          {/* Variable picker */}
+          <VariablePicker
+            headerVariables={headerVariables}
+            headerVariablesLoading={headerVariablesLoading}
+            headerVariablesError={headerVariablesError}
+            onInsert={insertVariable}
+          />
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
             <button
@@ -321,6 +379,9 @@ interface HeaderFieldListProps {
   onAddField: (data: { name: string; logicalName: string; formula: string; format: ReportFieldFormat }) => void
   disabled?: boolean
   changeStatus?: { [fieldId: string]: ChangeInfo }
+  headerVariables: HeaderVariableCategory[]
+  headerVariablesLoading?: boolean
+  headerVariablesError?: string | null
 }
 
 const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
@@ -331,6 +392,9 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
   onAddField,
   disabled = false,
   changeStatus,
+  headerVariables,
+  headerVariablesLoading,
+  headerVariablesError,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingField, setIsAddingField] = useState(false)
@@ -339,6 +403,13 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
   const [newLogicalNameManuallyEdited, setNewLogicalNameManuallyEdited] = useState(false)
   const [newFieldValue, setNewFieldValue] = useState('')
   const [newFieldError, setNewFieldError] = useState<string | null>(null)
+
+  // Compute valid variable keys from backend data + logo
+  const allValidKeys = useMemo(() => {
+    const keys = headerVariables.flatMap(cat => cat.variables.map(v => v.key))
+    keys.push(LOGO_VARIABLE.key)
+    return keys
+  }, [headerVariables])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -361,14 +432,14 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
 
   const handleNewValueChange = (value: string) => {
     setNewFieldValue(value)
-    const result = validateHeaderField(value)
+    const result = validateHeaderField(value, allValidKeys)
     setNewFieldError(result.valid ? null : result.error || null)
   }
 
   const handleSaveNewField = () => {
     if (!newFieldName.trim() || !newFieldValue.trim()) return
 
-    const result = validateHeaderField(newFieldValue)
+    const result = validateHeaderField(newFieldValue, allValidKeys)
     if (!result.valid) {
       setNewFieldError(result.error || 'Invalid value')
       return
@@ -465,21 +536,12 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
         )}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Insert Variable</label>
-        <div className="flex flex-wrap gap-1.5">
-          {HEADER_VARIABLES.map((variable) => (
-            <button
-              key={variable}
-              type="button"
-              onClick={() => insertNewVariable(variable)}
-              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
-            >
-              {`{${variable}}`}
-            </button>
-          ))}
-        </div>
-      </div>
+      <VariablePicker
+        headerVariables={headerVariables}
+        headerVariablesLoading={headerVariablesLoading}
+        headerVariablesError={headerVariablesError}
+        onInsert={insertNewVariable}
+      />
 
       <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
         <button
@@ -561,6 +623,10 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
                   onDelete={() => onDeleteField(field.id)}
                   disabled={disabled}
                   changeInfo={changeStatus?.[field.id]}
+                  allValidKeys={allValidKeys}
+                  headerVariables={headerVariables}
+                  headerVariablesLoading={headerVariablesLoading}
+                  headerVariablesError={headerVariablesError}
                 />
               ))}
 

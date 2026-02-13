@@ -8,19 +8,30 @@ export type SectionMode = 'field' | 'table' | 'header'
 // Data source for table sections
 export type DataSource = 'booking' | 'expense'
 
-// Header metadata variables that can be used in header sections
-export const HEADER_VARIABLES = [
-  'propertyName',
-  'ownerNames',
-  'reportPeriod',
-  'generatedDate',
-  'propertyAddress',
-  'hostName',
-  'hostEmail',
-  'logo',
-] as const
+// Header variable types from backend API
+export interface HeaderVariableInfo {
+  key: string
+  label: string
+  description: string
+}
 
-export type HeaderVariable = (typeof HEADER_VARIABLES)[number]
+export interface HeaderVariableCategory {
+  category: string
+  variables: HeaderVariableInfo[]
+}
+
+export interface HeaderVariablesResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: HeaderVariableCategory[]
+}
+
+// Logo is frontend-only, not returned by backend
+export const LOGO_VARIABLE: HeaderVariableInfo = {
+  key: 'logo',
+  label: 'Logo',
+  description: 'Display the uploaded company logo',
+}
 
 // Table column types for table mode sections
 export type ColumnType = 'text' | 'numeric' | 'date' | 'calculated'

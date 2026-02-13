@@ -30,6 +30,7 @@ import type {
   ValidateFormulaPayload,
   ValidateTableColumnPayload,
   BatchSaveTemplatePayload,
+  HeaderVariablesResponse,
 } from './types/reportTemplate'
 
 // ============================================
@@ -84,6 +85,14 @@ export async function getDataSourceColumns(
   return apiClient<DataSourceColumnsResponse>(
     `/report-templates/columns?dataSource=${dataSource}`
   )
+}
+
+/**
+ * Get available header variables grouped by category
+ * @returns Promise with categorized header variables
+ */
+export async function getHeaderVariables(): Promise<HeaderVariablesResponse> {
+  return apiClient<HeaderVariablesResponse>('/report-templates/header-variables')
 }
 
 /**

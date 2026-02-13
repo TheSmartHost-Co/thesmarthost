@@ -5,6 +5,7 @@ import Modal from '../../shared/modal'
 import {
   batchSaveTemplate,
   getDataSourceColumns,
+  getHeaderVariables,
 } from '@/services/reportTemplateService'
 import type {
   FullReportTemplate,
@@ -17,6 +18,7 @@ import type {
   SectionMode,
   DataSource,
   DataSourceColumn,
+  HeaderVariableCategory,
 } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
@@ -99,6 +101,11 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
     booking: DataSourceColumn[]
     expense: DataSourceColumn[]
   }>({ booking: [], expense: [] })
+
+  // Header variables from API
+  const [headerVariables, setHeaderVariables] = useState<HeaderVariableCategory[]>([])
+  const [headerVariablesLoading, setHeaderVariablesLoading] = useState(false)
+  const [headerVariablesError, setHeaderVariablesError] = useState<string | null>(null)
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -315,18 +322,27 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
       }))
   }, [localTemplate?.sections])
 
-  // Fetch columns from API when modal opens
+  // Fetch columns and header variables from API when modal opens
   useEffect(() => {
     if (!isOpen) return
     const loadColumns = async () => {
-      const [bookingRes, expenseRes] = await Promise.all([
+      setHeaderVariablesLoading(true)
+      setHeaderVariablesError(null)
+      const [bookingRes, expenseRes, headerVarsRes] = await Promise.all([
         getDataSourceColumns('booking'),
         getDataSourceColumns('expense'),
+        getHeaderVariables(),
       ])
       setAvailableColumnsCache({
         booking: bookingRes.status === 'success' ? bookingRes.data.columns : [],
         expense: expenseRes.status === 'success' ? expenseRes.data.columns : [],
       })
+      if (headerVarsRes.status === 'success') {
+        setHeaderVariables(headerVarsRes.data)
+      } else {
+        setHeaderVariablesError(headerVarsRes.message || 'Failed to load header variables')
+      }
+      setHeaderVariablesLoading(false)
     }
     loadColumns()
   }, [isOpen])
@@ -833,6 +849,9 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     onDeleteField={handleDeleteField}
                     onAddField={handleAddField}
                     changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
+                    headerVariables={headerVariables}
+                    headerVariablesLoading={headerVariablesLoading}
+                    headerVariablesError={headerVariablesError}
                   />
                 ) : selectedSection.sectionMode === 'table' ? (
                   <TableColumnList

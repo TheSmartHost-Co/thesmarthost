@@ -3,8 +3,6 @@
  * Validates header fields, table columns, and aggregate field formulas
  */
 
-import { HEADER_VARIABLES } from '@/services/types/reportTemplate'
-import type { HeaderVariable } from '@/services/types/reportTemplate'
 
 export interface ValidationResult {
   valid: boolean
@@ -22,7 +20,7 @@ const BALANCED_PARENS_PATTERN = /\([^()]*\)/g
  * Variables can be standalone like {propertyName} or embedded in text
  * {logo} is only valid alone (not mixed with text)
  */
-export function validateHeaderField(value: string): ValidationResult {
+export function validateHeaderField(value: string, validVariableKeys: string[] = []): ValidationResult {
   if (!value.trim()) {
     return { valid: false, error: 'Header field cannot be empty' }
   }
@@ -44,7 +42,7 @@ export function validateHeaderField(value: string): ValidationResult {
   let hasLogo = false
 
   for (const variable of variables) {
-    if (!HEADER_VARIABLES.includes(variable as HeaderVariable)) {
+    if (validVariableKeys.length > 0 && !validVariableKeys.includes(variable)) {
       invalidVariables.push(variable)
     }
     if (variable === 'logo') {
@@ -55,7 +53,7 @@ export function validateHeaderField(value: string): ValidationResult {
   if (invalidVariables.length > 0) {
     return {
       valid: false,
-      error: `Invalid variable(s): ${invalidVariables.join(', ')}. Valid options: ${HEADER_VARIABLES.join(', ')}`,
+      error: `Invalid variable(s): ${invalidVariables.join(', ')}. Valid options: ${validVariableKeys.join(', ')}`,
     }
   }
 
