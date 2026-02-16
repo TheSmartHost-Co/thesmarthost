@@ -9,6 +9,9 @@
     email?: string
     phoneNumber?: string | null
     companyName?: string | null
+    smsNotificationsEnabled?: boolean
+    emailNotificationsEnabled?: boolean
+    autoImport?: boolean | null
   }
 
   interface UserStore {

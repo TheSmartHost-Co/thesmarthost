@@ -22,14 +22,18 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {
     const checkSession = async () => {
+      // Session was already established by /api/auth/callback (server-side PKCE code exchange)
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         notify("Invalid or expired reset link", "error")
         router.push('/forgot-password')
+        return
       }
+      setSessionReady(true)
     }
 
     checkSession()
@@ -179,7 +183,7 @@ function ResetPasswordForm() {
             <motion.button
               type="button"
               onClick={updatePassword}
-              disabled={isLoading}
+              disabled={isLoading || !sessionReady}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               className="w-full flex justify-center py-3.5 px-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

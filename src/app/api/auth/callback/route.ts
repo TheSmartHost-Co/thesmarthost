@@ -44,6 +44,36 @@ export async function GET(request: NextRequest) {
     }
   )
 
+  // Handle PKCE code exchange (used by password recovery email links)
+  const code = searchParams.get('code')
+  const next = searchParams.get('next')
+
+  if (code) {
+    console.log('[auth/callback] PKCE code exchange, next:', next)
+    try {
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) {
+        console.error('[auth/callback] Code exchange failed:', error.message)
+        redirectTo.pathname = '/login'
+        redirectTo.search = '?message=auth-error'
+        return NextResponse.redirect(redirectTo)
+      }
+
+      redirectTo.pathname = next || '/auth/callback'
+      redirectTo.search = ''
+      const response = NextResponse.redirect(redirectTo)
+      cookiesToSet.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, options)
+      })
+      return response
+    } catch (err) {
+      console.error('[auth/callback] Code exchange error:', err)
+      redirectTo.pathname = '/login'
+      redirectTo.search = '?message=auth-error'
+      return NextResponse.redirect(redirectTo)
+    }
+  }
+
   // Must have token_hash and type for invite verification
   if (!token_hash || !type) {
     console.error('[auth/callback] Missing token_hash or type')
@@ -77,7 +107,11 @@ export async function GET(request: NextRequest) {
     const role = data?.user?.user_metadata?.role
 
     // Determine redirect destination
-    if (role === 'CLEANER') {
+    if (type === 'recovery') {
+      console.log('[auth/callback] Password recovery, redirecting to reset-password')
+      redirectTo.pathname = '/reset-password'
+      redirectTo.search = ''
+    } else if (role === 'CLEANER') {
       console.log('[auth/callback] Cleaner detected, redirecting to set-password')
       redirectTo.pathname = '/auth/set-password'
       redirectTo.search = ''

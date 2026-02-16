@@ -12,7 +12,9 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   BellIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  EnvelopeIcon,
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { updateUserProfile } from '@/services/profileService'
@@ -56,6 +58,9 @@ export default function PropertyManagerSettingsPage() {
   const [hospitableConnection, setHospitableConnection] = useState<HospitableConnection | null>(null)
   const [loadingHospitableConnection, setLoadingHospitableConnection] = useState(false)
 
+  // Notification preferences state
+  const [savingNotifications, setSavingNotifications] = useState(false)
+
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -70,6 +75,83 @@ export default function PropertyManagerSettingsPage() {
       })
     }
   }, [profile])
+
+  const handleNotificationToggle = async (field: 'smsNotificationsEnabled' | 'emailNotificationsEnabled', enabled: boolean) => {
+    if (!profile?.id) return
+
+    // Validate phone number for SMS
+    if (field === 'smsNotificationsEnabled' && enabled && !profile.phoneNumber) {
+      showNotification('Please add a phone number in your profile before enabling SMS notifications', 'error')
+      return
+    }
+
+    try {
+      setSavingNotifications(true)
+      const response = await updateUserProfile(profile.id, {
+        fullName: profile.fullName,
+        role: profile.role!,
+        phoneNumber: profile.phoneNumber || null,
+        companyName: profile.companyName || null,
+        smsNotificationsEnabled: field === 'smsNotificationsEnabled' ? enabled : (profile.smsNotificationsEnabled ?? true),
+        emailNotificationsEnabled: field === 'emailNotificationsEnabled' ? enabled : (profile.emailNotificationsEnabled ?? true),
+      })
+
+      if (response.status === 'success' && response.data) {
+        setProfile({
+          ...profile,
+          ...response.data,
+          email: profile.email,
+        })
+        const label = field === 'smsNotificationsEnabled' ? 'SMS' : 'Email'
+        showNotification(`${label} notifications ${enabled ? 'enabled' : 'disabled'}`, 'success')
+      } else {
+        showNotification(response.message || 'Failed to update notification preferences', 'error')
+      }
+    } catch (err) {
+      console.error('Error updating notification preferences:', err)
+      showNotification('Failed to update notification preferences', 'error')
+    } finally {
+      setSavingNotifications(false)
+    }
+  }
+
+  const handleAutoImportToggle = async (enabled: boolean) => {
+    if (!profile?.id) return
+
+    try {
+      setSavingNotifications(true)
+      const response = await updateUserProfile(profile.id, {
+        fullName: profile.fullName,
+        role: profile.role!,
+        phoneNumber: profile.phoneNumber || null,
+        companyName: profile.companyName || null,
+        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
+        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
+        autoImport: enabled,
+      })
+
+      if (response.status === 'success' && response.data) {
+        setProfile({
+          ...profile,
+          ...response.data,
+          email: profile.email,
+        })
+        showNotification(
+          enabled
+            ? 'Auto-import enabled — new bookings with matched properties will be imported automatically'
+            : 'Auto-import disabled — all new bookings will require manual review',
+          'success'
+        )
+      } else {
+        showNotification(response.message || 'Failed to update auto-import setting', 'error')
+      }
+    } catch (err) {
+      console.error('Error updating auto-import setting:', err)
+      showNotification('Failed to update auto-import setting', 'error')
+    } finally {
+      setSavingNotifications(false)
+    }
+  }
 
   const handleProfileSave = async () => {
     if (!profile?.id) return
@@ -86,7 +168,10 @@ export default function PropertyManagerSettingsPage() {
         fullName: profileData.fullName,
         role: profileData.role,
         phoneNumber: profileData.phone || null,
-        companyName: profileData.company || null
+        companyName: profileData.company || null,
+        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
+        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
+        autoImport: profile.autoImport ?? false,
       })
 
       if (response.status === 'success' && response.data) {
@@ -471,6 +556,140 @@ export default function PropertyManagerSettingsPage() {
           </div>
         </motion.div>
 
+        {/* Notification Preferences Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+        >
+          <div className="px-6 py-5 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <BellIcon className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
+                <p className="text-sm text-gray-500">Choose how you want to receive notifications for turnovers, cleaners, and more</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="space-y-4">
+              {/* Email Notifications Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <EnvelopeIcon className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
+                    <p className="text-sm text-gray-500">Receive email alerts for turnover projects, cleaner assignments, and updates</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.emailNotificationsEnabled ?? true}
+                  disabled={savingNotifications}
+                  onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    (profile?.emailNotificationsEnabled ?? true) ? 'bg-blue-600' : 'bg-gray-200'
+                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* SMS Notifications Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">SMS Notifications</h4>
+                    <p className="text-sm text-gray-500">
+                      Receive text message alerts for turnover projects, cleaner assignments, and updates
+                      {!profile?.phoneNumber && (
+                        <span className="block text-amber-600 text-xs mt-1">
+                          Add a phone number in your profile to enable SMS notifications
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.smsNotificationsEnabled ?? true}
+                  disabled={savingNotifications}
+                  onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                    (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
+                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Auto-Import Bookings Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <ArrowPathIcon className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">Auto-Import Bookings</h4>
+                    <p className="text-sm text-gray-500">
+                      Automatically import new bookings when properties are matched (exact or fuzzy)
+                    </p>
+                    {(profile?.autoImport) && (
+                      <span className="text-xs text-green-600 mt-1 block">
+                        Bookings with matched properties will be imported automatically
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.autoImport ?? false}
+                  disabled={savingNotifications}
+                  onClick={() => handleAutoImportToggle(!(profile?.autoImport ?? false))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                    (profile?.autoImport ?? false) ? 'bg-green-600' : 'bg-gray-200'
+                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.autoImport ?? false) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Info note */}
+              <div className="mt-2 p-3 bg-blue-50 rounded-xl">
+                <p className="text-xs text-blue-700">
+                  These settings control notifications for turnover projects, cleaner assignments, issue reports, and other operational updates.
+                  Auto-import will automatically create bookings and cleaning projects when new webhook bookings match your properties.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
         {/* PMS Connections Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -788,65 +1007,6 @@ export default function PropertyManagerSettingsPage() {
             </div>
           </div>
         </motion.div>
-
-        {/* Account Settings Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-        >
-          <div className="px-6 py-5 border-b border-gray-100">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <Cog6ToothIcon className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Account Settings</h3>
-                <p className="text-sm text-gray-500">Manage your account preferences</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-6">
-              {/* Notification preferences */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <BellIcon className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
-                    <p className="text-sm text-gray-500">Receive emails about new bookings and updates</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 after:shadow-sm"></div>
-                </label>
-              </div>
-
-              {/* Auto-sync preferences */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <ArrowPathIcon className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">Auto-Sync Bookings</h4>
-                    <p className="text-sm text-gray-500">Automatically import new bookings without approval</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 after:shadow-sm"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
 
       {/* Hostaway Connection Modal */}
       <HostawayConnectionModal

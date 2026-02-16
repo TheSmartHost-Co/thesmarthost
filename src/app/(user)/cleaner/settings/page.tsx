@@ -9,6 +9,8 @@ import {
   XMarkIcon,
   BellIcon,
   ExclamationCircleIcon,
+  EnvelopeIcon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -32,8 +34,50 @@ export default function CleanerSettingsPage() {
     phone: '',
   })
 
+  // Notification preferences state
+  const [savingNotifications, setSavingNotifications] = useState(false)
+
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
+
+  const handleNotificationToggle = async (field: 'smsNotificationsEnabled' | 'emailNotificationsEnabled', enabled: boolean) => {
+    if (!profile?.id) return
+
+    // Validate phone number for SMS
+    const phone = cleaner?.phone || profile.phoneNumber
+    if (field === 'smsNotificationsEnabled' && enabled && !phone) {
+      showNotification('Please add a phone number in your profile before enabling SMS notifications', 'error')
+      return
+    }
+
+    try {
+      setSavingNotifications(true)
+      const response = await updateUserProfile(profile.id, {
+        fullName: profile.fullName,
+        role: 'CLEANER',
+        phoneNumber: profile.phoneNumber || null,
+        smsNotificationsEnabled: field === 'smsNotificationsEnabled' ? enabled : (profile.smsNotificationsEnabled ?? true),
+        emailNotificationsEnabled: field === 'emailNotificationsEnabled' ? enabled : (profile.emailNotificationsEnabled ?? true),
+      })
+
+      if (response.status === 'success' && response.data) {
+        setProfile({
+          ...profile,
+          ...response.data,
+          email: profile.email,
+        })
+        const label = field === 'smsNotificationsEnabled' ? 'SMS' : 'Email'
+        showNotification(`${label} notifications ${enabled ? 'enabled' : 'disabled'}`, 'success')
+      } else {
+        showNotification(response.message || 'Failed to update notification preferences', 'error')
+      }
+    } catch (err) {
+      console.error('Error updating notification preferences:', err)
+      showNotification('Failed to update notification preferences', 'error')
+    } finally {
+      setSavingNotifications(false)
+    }
+  }
 
   // Fetch cleaner data on mount
   useEffect(() => {
@@ -89,6 +133,8 @@ export default function CleanerSettingsPage() {
         fullName: profileData.fullName,
         role: 'CLEANER',
         phoneNumber: profileData.phone || null,
+        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
+        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
       })
 
       if (profileResponse.status !== 'success') {
@@ -321,7 +367,7 @@ export default function CleanerSettingsPage() {
           </div>
         </motion.div>
 
-        {/* Preferences Section */}
+        {/* Notification Preferences Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -331,51 +377,87 @@ export default function CleanerSettingsPage() {
           <div className="px-6 py-5 border-b border-gray-100">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <Cog6ToothIcon className="h-6 w-6 text-white" />
+                <BellIcon className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Preferences</h3>
-                <p className="text-sm text-gray-500">Manage your notification and work preferences</p>
+                <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
+                <p className="text-sm text-gray-500">Choose how you want to receive notifications for task assignments and updates</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
             <div className="space-y-4">
-              {/* Email notifications */}
+              {/* Email Notifications Toggle */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <BellIcon className="h-5 w-5 text-purple-600" />
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <EnvelopeIcon className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
-                    <p className="text-sm text-gray-500">Receive emails about new task assignments</p>
+                    <p className="text-sm text-gray-500">Receive email alerts for new task assignments, schedule changes, and issue updates</p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 after:shadow-sm"></div>
-                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.emailNotificationsEnabled ?? true}
+                  disabled={savingNotifications}
+                  onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    (profile?.emailNotificationsEnabled ?? true) ? 'bg-purple-600' : 'bg-gray-200'
+                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
-              {/* SMS notifications placeholder */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl opacity-60">
+              {/* SMS Notifications Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900">SMS Notifications</h4>
-                    <p className="text-sm text-gray-500">Coming soon - Get text alerts for urgent tasks</p>
+                    <p className="text-sm text-gray-500">
+                      Receive text message alerts for new task assignments, schedule changes, and urgent updates
+                      {!(cleaner?.phone || profile?.phoneNumber) && (
+                        <span className="block text-amber-600 text-xs mt-1">
+                          Add a phone number in your profile to enable SMS notifications
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center">
-                  <input type="checkbox" className="sr-only peer" disabled />
-                  <div className="w-11 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:shadow-sm cursor-not-allowed"></div>
-                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile?.smsNotificationsEnabled ?? true}
+                  disabled={savingNotifications}
+                  onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                    (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
+                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Info note */}
+              <div className="mt-2 p-3 bg-purple-50 rounded-xl">
+                <p className="text-xs text-purple-700">
+                  These settings control notifications for task assignments, schedule changes, issue reports, and other cleaning project updates.
+                </p>
               </div>
             </div>
           </div>

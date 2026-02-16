@@ -22,6 +22,7 @@ import CleanerRowView from './CleanerRowView'
 import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
+import DuplicateChecklistModal from '@/components/checklist/duplicate/DuplicateChecklistModal'
 
 export type ViewMode = 'property' | 'cleaner'
 
@@ -57,6 +58,7 @@ export default function TurnoverCalendar({
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCreateChecklistModal, setShowCreateChecklistModal] = useState(false)
+  const [showDuplicateChecklistModal, setShowDuplicateChecklistModal] = useState(false)
 
   // Format date as YYYY-MM-DD in local time (avoid timezone issues)
   const formatLocalDate = (date: Date) => {
@@ -289,6 +291,7 @@ export default function TurnoverCalendar({
           onToday={handleToday}
           onCreateProject={() => setShowCreateModal(true)}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
+          onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
         />
 
         {/* Calendar View */}
@@ -355,6 +358,17 @@ export default function TurnoverCalendar({
         onAdd={() => {
           setShowCreateChecklistModal(false)
           showNotification('Checklist created successfully', 'success')
+        }}
+        properties={properties}
+      />
+
+      {/* Duplicate Checklist Modal */}
+      <DuplicateChecklistModal
+        isOpen={showDuplicateChecklistModal}
+        onClose={() => setShowDuplicateChecklistModal(false)}
+        onDuplicate={() => {
+          setShowDuplicateChecklistModal(false)
+          showNotification('Checklist duplicated successfully', 'success')
         }}
         properties={properties}
       />

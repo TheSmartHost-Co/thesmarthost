@@ -1,6 +1,7 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -9,7 +10,12 @@ import {
   CalendarIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
+  ChevronDownIcon,
+  DocumentDuplicateIcon,
+  EnvelopeIcon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/react/24/outline'
+import { useUserStore } from '@/store/useUserStore'
 import type { ViewMode } from './TurnoverCalendar'
 
 interface CalendarHeaderProps {
@@ -22,6 +28,7 @@ interface CalendarHeaderProps {
   onToday: () => void
   onCreateProject?: () => void
   onCreateChecklist?: () => void
+  onDuplicateChecklist?: () => void
 }
 
 export default function CalendarHeader({
@@ -34,7 +41,24 @@ export default function CalendarHeader({
   onToday,
   onCreateProject,
   onCreateChecklist,
+  onDuplicateChecklist,
 }: CalendarHeaderProps) {
+  const [showChecklistMenu, setShowChecklistMenu] = useState(false)
+  const checklistMenuRef = useRef<HTMLDivElement>(null)
+  const { profile } = useUserStore()
+  const smsEnabled = profile?.smsNotificationsEnabled ?? true
+  const emailEnabled = profile?.emailNotificationsEnabled ?? true
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (checklistMenuRef.current && !checklistMenuRef.current.contains(event.target as Node)) {
+        setShowChecklistMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
   // Parse date string as local time (not UTC)
   const parseLocalDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-').map(Number)
@@ -117,18 +141,74 @@ export default function CalendarHeader({
           </div>
         </div>
 
-        {/* Right: Create Buttons + View Mode Toggle */}
+        {/* Right: Notification Status + Create Buttons + View Mode Toggle */}
         <div className="flex items-center gap-3 self-start lg:self-auto">
-          {onCreateChecklist && (
-            <motion.button
-              onClick={onCreateChecklist}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-sm font-semibold hover:bg-emerald-50 transition-colors cursor-pointer"
-            >
-              <ClipboardDocumentListIcon className="w-4 h-4" />
-              New Checklist
-            </motion.button>
+          {/* Notification Status Indicator */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100" title="Notification preferences (manage in Settings)">
+            <span className="text-xs text-gray-400 mr-0.5">Alerts:</span>
+            <div className={`flex items-center gap-0.5 ${emailEnabled ? 'text-blue-500' : 'text-gray-300'}`} title={emailEnabled ? 'Email notifications enabled' : 'Email notifications disabled'}>
+              <EnvelopeIcon className="w-3.5 h-3.5" />
+            </div>
+            <div className={`flex items-center gap-0.5 ${smsEnabled ? 'text-amber-500' : 'text-gray-300'}`} title={smsEnabled ? 'SMS notifications enabled' : 'SMS notifications disabled'}>
+              <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          {(onCreateChecklist || onDuplicateChecklist) && (
+            <div ref={checklistMenuRef} className="relative">
+              <motion.button
+                onClick={() => setShowChecklistMenu((prev) => !prev)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-sm font-semibold hover:bg-emerald-50 transition-colors cursor-pointer"
+              >
+                <ClipboardDocumentListIcon className="w-4 h-4" />
+                New Checklist
+                <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showChecklistMenu ? 'rotate-180' : ''}`} />
+              </motion.button>
+
+              <AnimatePresence>
+                {showChecklistMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
+                  >
+                    {onCreateChecklist && (
+                      <button
+                        onClick={() => {
+                          setShowChecklistMenu(false)
+                          onCreateChecklist()
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        <div className="text-left">
+                          <div className="font-medium">Create from Scratch</div>
+                          <div className="text-xs text-gray-400">Build a new checklist</div>
+                        </div>
+                      </button>
+                    )}
+                    {onDuplicateChecklist && (
+                      <button
+                        onClick={() => {
+                          setShowChecklistMenu(false)
+                          onDuplicateChecklist()
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-gray-100 cursor-pointer"
+                      >
+                        <DocumentDuplicateIcon className="w-4 h-4" />
+                        <div className="text-left">
+                          <div className="font-medium">Copy from Existing</div>
+                          <div className="text-xs text-gray-400">Duplicate a checklist</div>
+                        </div>
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
           {onCreateProject && (
             <motion.button

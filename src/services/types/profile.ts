@@ -4,6 +4,11 @@ export interface UserProfile {
   role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER';
   phoneNumber?: string | null;
   companyName?: string | null;
+  smsNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
+  additionalNotificationEmails?: string[];
+  additionalNotificationPhones?: string[];
+  autoImport?: boolean | null;
   createdAt: string;
 }
 
@@ -12,6 +17,11 @@ export interface UpdateProfilePayload {
   role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER';
   phoneNumber?: string | null;
   companyName?: string | null;
+  smsNotificationsEnabled?: boolean;
+  emailNotificationsEnabled?: boolean;
+  additionalNotificationEmails?: string[];
+  additionalNotificationPhones?: string[];
+  autoImport?: boolean;
 }
 
 export interface ProfileResponse {
