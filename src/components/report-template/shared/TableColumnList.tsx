@@ -231,8 +231,8 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
     }
   }
 
-  // New column form component
-  const NewColumnForm = () => (
+  // New column form JSX
+  const newColumnFormJSX = isAddingColumn ? (
     <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
@@ -250,7 +250,6 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
           onChange={handleNewNameChange}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="e.g. Guest Name"
-          autoFocus
         />
       </div>
 
@@ -389,7 +388,7 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
         </button>
       </div>
     </div>
-  )
+  ) : null
 
   return (
     <div className="space-y-3">
@@ -423,7 +422,7 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
           )}
         </div>
       ) : fields.length === 0 && isAddingColumn ? (
-        <NewColumnForm />
+        newColumnFormJSX
       ) : (
         <DndContext
           sensors={sensors}
@@ -454,7 +453,7 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
                 />
               ))}
 
-              {isAddingColumn && <NewColumnForm />}
+              {newColumnFormJSX}
             </div>
           </SortableContext>
         </DndContext>

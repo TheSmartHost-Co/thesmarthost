@@ -240,6 +240,13 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
     }
   }
 
+  // Memoize sectionColumns to avoid creating a new array on every render
+  const currentSectionColumnNames = useMemo(() =>
+    allSections.find(s => s.sectionId === currentSectionId)
+      ?.fields.map(f => f.logicalName) || [],
+    [allSections, currentSectionId]
+  )
+
   const TypeIcon = COLUMN_TYPE_OPTIONS.find((t) => t.value === (field.columnType || 'text'))?.icon || DocumentTextIcon
 
   // Get display text for source column or formula
@@ -440,9 +447,7 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
                 placeholder="e.g. nightlyRate + cleaningFee"
                 validationMode="table"
                 columnType="calculated"
-                sectionColumns={allSections
-                  .find(s => s.sectionId === currentSectionId)
-                  ?.fields.map(f => f.logicalName) || []}
+                sectionColumns={currentSectionColumnNames}
                 dataSource={dataSource}
                 externalDataSourceColumns={dataSourceColumns}
               />

@@ -443,8 +443,8 @@ const FieldList: React.FC<FieldListProps> = ({
     }
   }
 
-  // New field form component (used in both empty and non-empty states)
-  const NewFieldForm = () => (
+  // New field form JSX (used in both empty and non-empty states)
+  const newFieldFormJSX = isAddingField ? (
     <div className="border rounded-lg bg-white border-blue-300 shadow-sm p-4 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
@@ -462,7 +462,6 @@ const FieldList: React.FC<FieldListProps> = ({
           onChange={handleNewNameChange}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="e.g. Total Revenue"
-          autoFocus
         />
       </div>
 
@@ -535,7 +534,7 @@ const FieldList: React.FC<FieldListProps> = ({
         </button>
       </div>
     </div>
-  )
+  ) : null
 
   return (
     <div className="space-y-3">
@@ -569,7 +568,7 @@ const FieldList: React.FC<FieldListProps> = ({
           )}
         </div>
       ) : fields.length === 0 && isAddingField ? (
-        <NewFieldForm />
+        newFieldFormJSX
       ) : (
         <DndContext
           sensors={sensors}
@@ -601,7 +600,7 @@ const FieldList: React.FC<FieldListProps> = ({
               ))}
 
               {/* Add New Field Form (when there are existing fields) */}
-              {isAddingField && <NewFieldForm />}
+              {newFieldFormJSX}
             </div>
           </SortableContext>
         </DndContext>

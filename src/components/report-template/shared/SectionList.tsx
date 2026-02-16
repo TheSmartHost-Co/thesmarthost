@@ -190,7 +190,6 @@ const SortableSectionItem: React.FC<SortableSectionItemProps> = ({
                 value={editName}
                 onChange={handleNameChange}
                 onKeyDown={handleKeyDown}
-                autoFocus
                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g. Invoice Summary"
               />

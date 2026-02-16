@@ -76,7 +76,8 @@ export function validateHeaderField(value: string, validVariableKeys: string[] =
  */
 export function validateTableColumn(
   formula: string,
-  availableColumns: string[]
+  availableColumns: string[],
+  sectionColumns: string[] = []
 ): ValidationResult {
   if (!formula.trim()) {
     return { valid: false, error: 'Formula cannot be empty' }
@@ -90,16 +91,34 @@ export function validateTableColumn(
     return syntaxResult
   }
 
-  // Extract column references from the formula
-  // Column references are bare identifiers (not in braces or functions)
-  const columnRefs = extractColumnReferences(formula, availableColumns)
+  // Check for {braced} variable references first (backend syntax)
+  const bracedRefs: string[] = []
+  let bracedMatch
+  const bracedPattern = new RegExp(VARIABLE_PATTERN.source, 'g')
+  while ((bracedMatch = bracedPattern.exec(formula)) !== null) {
+    bracedRefs.push(bracedMatch[1])
+  }
 
-  // Check for unknown columns
-  const unknownColumns = columnRefs.filter(col => !availableColumns.includes(col))
-  if (unknownColumns.length > 0) {
-    return {
-      valid: false,
-      error: `Unknown column(s): ${unknownColumns.join(', ')}`,
+  if (bracedRefs.length > 0) {
+    // Validate braced references against available columns and same-section columns
+    const allValidRefs = new Set([...availableColumns, ...sectionColumns])
+    const unknownColumns = bracedRefs.filter(col => !allValidRefs.has(col))
+    if (unknownColumns.length > 0) {
+      return {
+        valid: false,
+        error: `Unknown column(s): ${unknownColumns.join(', ')}`,
+      }
+    }
+  } else {
+    // Fall back to bare-identifier extraction for formulas without braces
+    const columnRefs = extractColumnReferences(formula, availableColumns)
+
+    const unknownColumns = columnRefs.filter(col => !availableColumns.includes(col))
+    if (unknownColumns.length > 0) {
+      return {
+        valid: false,
+        error: `Unknown column(s): ${unknownColumns.join(', ')}`,
+      }
     }
   }
 

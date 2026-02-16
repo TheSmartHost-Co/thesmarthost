@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { getAvailableColumns, getDataSourceColumns } from '@/services/reportTemplateService'
-import type { CategorizedAvailableColumns, SectionFieldReference, ColumnType, DataSource, DataSourceColumn } from '@/services/types/reportTemplate'
+import { getDataSourceColumns } from '@/services/reportTemplateService'
+import type { SectionFieldReference, ColumnType, DataSource, DataSourceColumn } from '@/services/types/reportTemplate'
 import {
   validateFormulaSyntax,
   validateTableColumn as validateTableColumnLocal,
@@ -46,6 +46,14 @@ const FUNCTION_DESCRIPTIONS: Record<string, string> = {
   MAXIF: 'Maximum where condition is met',
 }
 
+// Stable empty array defaults to prevent re-render loops from new references
+const EMPTY_SECTIONS: SectionFieldReference[] = []
+const EMPTY_COLUMNS: string[] = []
+const EMPTY_TABLE_SECTIONS: { name: string; logicalName: string; columns: string[] }[] = []
+
+// All supported functions (hardcoded, no API dependency)
+const FUNCTIONS = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'SUMIF', 'AVGIF', 'COUNTIF', 'MINIF', 'MAXIF']
+
 // Get the search term (text after the last operator)
 const getSearchTerm = (text: string): string => {
   let lastOperatorIndex = -1
@@ -84,15 +92,15 @@ interface FormulaBuilderInputProps {
 const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   value,
   onChange,
-  allSections = [],
+  allSections = EMPTY_SECTIONS,
   currentSectionId,
   placeholder = 'e.g. SUM(mgmtFee) or SUM(totalPayout) * 0.05',
   disabled = false,
   validationMode = 'field',
   columnType,
-  sectionColumns = [],
+  sectionColumns = EMPTY_COLUMNS,
   dataSource,
-  tableSections = [],
+  tableSections = EMPTY_TABLE_SECTIONS,
   externalDataSourceColumns,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -102,15 +110,11 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     checking: boolean
     suggestions?: string[]
   }>({ valid: null, error: null, checking: false })
-  const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields' | 'related'>('functions')
+  const [activeTab, setActiveTab] = useState<'functions' | 'columns' | 'fields'>('functions')
 
   // API data state
-  const [availableData, setAvailableData] = useState<CategorizedAvailableColumns | null>(null)
   const [dataSourceColumns, setDataSourceColumns] = useState<DataSourceColumn[]>([])
-  const [loadingColumns, setLoadingColumns] = useState(true)
-
-  // Aggregate picker state for related items
-  const [selectedRelatedItem, setSelectedRelatedItem] = useState<string | null>(null)
+  const [loadingColumns, setLoadingColumns] = useState(false)
 
   // Track cursor position for accurate search term extraction
   const [cursorPosition, setCursorPosition] = useState<number>(0)
@@ -119,34 +123,48 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Memoize sectionColumns to prevent infinite re-renders
-  const sectionColumnsKey = useMemo(() => sectionColumns.join(','), [sectionColumns])
-
-  // Fetch available columns from API on mount or when dataSource changes
+  // Fetch data source columns only if parent doesn't provide them
   useEffect(() => {
-    const loadAvailableColumns = async () => {
+    if (externalDataSourceColumns && externalDataSourceColumns.length > 0) {
+      setLoadingColumns(false)
+      return
+    }
+    if (!dataSource) {
+      setLoadingColumns(false)
+      return
+    }
+    const loadColumns = async () => {
       setLoadingColumns(true)
       try {
-        // If dataSource is provided, use the new endpoint
-        if (dataSource) {
-          const res = await getDataSourceColumns(dataSource)
-          if (res.status === 'success') {
-            setDataSourceColumns(res.data.columns || [])
-          }
-        }
-        // Also load the general available columns for functions and related items
-        const res = await getAvailableColumns()
+        const res = await getDataSourceColumns(dataSource)
         if (res.status === 'success') {
-          setAvailableData(res.data)
+          setDataSourceColumns(res.data.columns || [])
         }
       } catch (error) {
-        console.error('Error loading available columns:', error)
+        console.error('Error loading columns:', error)
       } finally {
         setLoadingColumns(false)
       }
     }
-    loadAvailableColumns()
-  }, [dataSource])
+    loadColumns()
+  }, [dataSource, externalDataSourceColumns])
+
+  // Determine which columns to use for validation
+  // Prefer external prop (from parent) over internal state (from API fetch)
+  const effectiveDataSourceColumns = useMemo(() => {
+    if (externalDataSourceColumns && externalDataSourceColumns.length > 0) {
+      return externalDataSourceColumns
+    }
+    return dataSourceColumns
+  }, [externalDataSourceColumns, dataSourceColumns])
+
+  // Get available column formulas for validation
+  const availableColumnFormulas = useMemo(() => {
+    if (effectiveDataSourceColumns && effectiveDataSourceColumns.length > 0) {
+      return effectiveDataSourceColumns.map(c => c.formula)
+    }
+    return []
+  }, [effectiveDataSourceColumns])
 
   // Get the current search term from text before cursor (not full value)
   const searchTerm = useMemo(() => {
@@ -158,15 +176,14 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   const filteredSuggestions = useMemo(() => {
     const term = searchTerm.toLowerCase()
 
-    // Functions from API (fallback to basic set if not loaded)
-    const functionNames = availableData?.functions || ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX']
-    const functions = functionNames
+    // Functions (hardcoded)
+    const functions = FUNCTIONS
       .filter((f) => f.toLowerCase().includes(term))
       .slice(0, 4)
 
-    // Booking columns from API
-    const columns = (availableData?.bookingColumns || [])
-      .filter((c) => c.name.toLowerCase().includes(term))
+    // Columns from data source
+    const columns = effectiveDataSourceColumns
+      .filter((c) => c.name.toLowerCase().includes(term) || c.formula.toLowerCase().includes(term))
       .slice(0, 4)
 
     // Fields from allSections
@@ -187,13 +204,8 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
       })
     })
 
-    // Related items from API
-    const relatedItems = (availableData?.relatedItems || [])
-      .filter((r) => r.name.toLowerCase().includes(term))
-      .slice(0, 4)
-
-    return { functions, columns, fields: fields.slice(0, 4), relatedItems }
-  }, [searchTerm, availableData, allSections, currentSectionId])
+    return { functions, columns, fields: fields.slice(0, 4) }
+  }, [searchTerm, effectiveDataSourceColumns, allSections, currentSectionId])
 
   // Handle tag click - insert at cursor position, replacing any partial text
   const handleTagClick = (insertText: string, isFunctionWithParens: boolean = false) => {
@@ -262,49 +274,19 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }, 0)
   }
 
-  // Handle related item insertion with aggregate function
-  const handleRelatedItemInsert = (aggregate: string, itemName: string) => {
-    const formula = `${aggregate}(${itemName})`
-    handleTagClick(formula, false)
-    setSelectedRelatedItem(null)
-  }
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false)
-        setSelectedRelatedItem(null)
       }
     }
 
-    if (showDropdown || selectedRelatedItem) {
+    if (showDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showDropdown, selectedRelatedItem])
-
-  // Determine which columns to use for validation
-  // Prefer external prop (from parent) over internal state (from API fetch)
-  const effectiveDataSourceColumns = useMemo(() => {
-    if (externalDataSourceColumns && externalDataSourceColumns.length > 0) {
-      return externalDataSourceColumns
-    }
-    return dataSourceColumns
-  }, [externalDataSourceColumns, dataSourceColumns])
-
-  // Get available column formulas for validation
-  const availableColumnFormulas = useMemo(() => {
-    // If we have data source columns (external or internal), use them
-    if (effectiveDataSourceColumns && effectiveDataSourceColumns.length > 0) {
-      return effectiveDataSourceColumns.map(c => c.formula)
-    }
-    // Fallback to availableData for legacy usage
-    if (availableData?.bookingColumns) {
-      return availableData.bookingColumns.map(c => c.name)
-    }
-    return []
-  }, [effectiveDataSourceColumns, availableData])
+  }, [showDropdown])
 
   // Validate formula with debounce - using local validation
   useEffect(() => {
@@ -317,13 +299,13 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
       return
     }
 
-    setValidationState((prev) => ({ ...prev, checking: true }))
+    setValidationState((prev) => prev.checking ? prev : { ...prev, checking: true })
 
     validationTimeoutRef.current = setTimeout(() => {
       try {
         if (validationMode === 'table') {
           // Table mode: validate column formula against available columns (use formula field)
-          const result = validateTableColumnLocal(value, availableColumnFormulas)
+          const result = validateTableColumnLocal(value, availableColumnFormulas, sectionColumns)
           setValidationState({
             valid: result.valid,
             error: result.error || null,
@@ -529,13 +511,13 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
           {/* Columns - Gray */}
           {filteredSuggestions.columns.map((col) => (
             <button
-              key={col.name}
+              key={col.formula}
               type="button"
-              onClick={() => handleTagClick(col.name)}
+              onClick={() => handleTagClick(col.formula)}
               className="px-2 py-1 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 rounded border border-gray-200 font-mono transition-colors"
-              title={col.description}
+              title={col.name}
             >
-              {col.name}
+              {col.formula}
             </button>
           ))}
 
@@ -552,41 +534,10 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
             </button>
           ))}
 
-          {/* Related Items - Amber with aggregate picker */}
-          {filteredSuggestions.relatedItems.map((item) => (
-            <div key={item.name} className="relative inline-block">
-              <button
-                type="button"
-                onClick={() => setSelectedRelatedItem(selectedRelatedItem === item.name ? null : item.name)}
-                className="px-2 py-1 text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 rounded border border-amber-200 font-mono transition-colors"
-                title={item.description}
-              >
-                {item.name}
-              </button>
-              {selectedRelatedItem === item.name && (
-                <div className="absolute z-50 mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
-                  <div className="p-1">
-                    {item.supportedAggregates.map((agg) => (
-                      <button
-                        key={agg}
-                        type="button"
-                        onClick={() => handleRelatedItemInsert(agg, item.name)}
-                        className="w-full text-left px-3 py-1.5 text-xs font-mono text-amber-800 hover:bg-amber-50 rounded transition-colors"
-                      >
-                        {agg}({item.name})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
           {/* Divider and operator shortcuts */}
           {(filteredSuggestions.functions.length > 0 ||
             filteredSuggestions.columns.length > 0 ||
-            filteredSuggestions.fields.length > 0 ||
-            filteredSuggestions.relatedItems.length > 0) && (
+            filteredSuggestions.fields.length > 0) && (
             <span className="text-xs text-gray-400 mx-1">|</span>
           )}
           {['+', '-', '*', '/'].map((op) => (
@@ -642,19 +593,6 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                 Fields
               </button>
             )}
-            {(availableData?.relatedItems?.length ?? 0) > 0 && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('related')}
-                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                  activeTab === 'related'
-                    ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Related
-              </button>
-            )}
           </div>
 
           {/* Content */}
@@ -669,7 +607,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                   </div>
                 ) : (
                   <>
-                    {(availableData?.functions || ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX']).map((funcName) => (
+                    {FUNCTIONS.map((funcName) => (
                       <button
                         key={funcName}
                         type="button"
@@ -711,18 +649,18 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                     <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                     <span className="ml-2 text-xs text-gray-500">Loading...</span>
                   </div>
-                ) : (availableData?.bookingColumns?.length ?? 0) === 0 ? (
+                ) : effectiveDataSourceColumns.length === 0 ? (
                   <p className="text-xs text-gray-500 px-3 py-2">No columns available</p>
                 ) : (
-                  availableData?.bookingColumns.map((column) => (
+                  effectiveDataSourceColumns.map((column) => (
                     <button
-                      key={column.name}
+                      key={column.formula}
                       type="button"
-                      onClick={() => handleColumnClick(column.name)}
+                      onClick={() => handleColumnClick(column.formula)}
                       className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                     >
-                      <div className="font-mono text-sm text-gray-900">{column.name}</div>
-                      <div className="text-xs text-gray-500">{column.description}</div>
+                      <div className="font-mono text-sm text-gray-900">{column.formula}</div>
+                      <div className="text-xs text-gray-500">{column.name}</div>
                     </button>
                   ))
                 )}
@@ -785,41 +723,6 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
               </div>
             )}
 
-            {/* Related Items Tab */}
-            {activeTab === 'related' && (
-              <div className="p-2 space-y-1">
-                {loadingColumns ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="ml-2 text-xs text-gray-500">Loading...</span>
-                  </div>
-                ) : (availableData?.relatedItems?.length ?? 0) === 0 ? (
-                  <p className="text-xs text-gray-500 px-3 py-2">No related items available</p>
-                ) : (
-                  availableData?.relatedItems.map((item) => (
-                    <div key={item.name} className="px-3 py-2 border border-amber-100 rounded-lg bg-amber-50/50">
-                      <div className="font-mono text-sm text-amber-800 font-medium">{item.name}</div>
-                      <div className="text-xs text-gray-600 mt-0.5 mb-2">{item.description}</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.supportedAggregates.map((agg) => (
-                          <button
-                            key={agg}
-                            type="button"
-                            onClick={() => {
-                              handleRelatedItemInsert(agg, item.name)
-                              setShowDropdown(false)
-                            }}
-                            className="px-2 py-1 text-xs font-mono bg-amber-100 text-amber-700 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
-                          >
-                            {agg}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
