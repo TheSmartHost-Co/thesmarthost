@@ -45,6 +45,9 @@ export default function ChecklistModal({
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
 
+  // Read-only mode: only allow modifications when project is in_progress
+  const readOnly = project.status !== 'in_progress'
+
   // State
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
   const [progress, setProgress] = useState<ChecklistProgress | null>(null)
@@ -64,8 +67,8 @@ export default function ChecklistModal({
     try {
       const res = await getProjectChecklist(project.id)
       if (res.status === 'success') {
-        // If no items but project has a checklist assigned, auto-initialize
-        if (res.data.items.length === 0 && project.checklistId) {
+        // If no items but project has a checklist assigned, auto-initialize (only for active projects)
+        if (res.data.items.length === 0 && project.checklistId && project.status === 'in_progress') {
           console.log('No checklist items found, auto-initializing from template...')
           const initRes = await initializeProjectChecklist(project.id)
           if (initRes.status === 'success' && initRes.data.initialized > 0) {
@@ -351,6 +354,18 @@ export default function ChecklistModal({
               )}
             </div>
           )}
+
+          {/* Read-only banner */}
+          {readOnly && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-white/15 rounded-lg text-sm text-purple-100">
+              <ClockIcon className="w-4 h-4 flex-shrink-0" />
+              <span>
+                {project.status === 'completed'
+                  ? 'This project is completed. Checklist is view-only.'
+                  : 'Press "Start Cleaning" on the project to begin checking off items.'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Content - Scrollable */}
@@ -377,6 +392,7 @@ export default function ChecklistModal({
                 onViewPhoto={setViewingImage}
                 uploadingItems={uploadingItems}
                 togglingItems={togglingItems}
+                readOnly={readOnly}
               />
             ))
           )}
@@ -384,33 +400,42 @@ export default function ChecklistModal({
 
         {/* Footer */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
-          <div className="flex gap-3">
+          {readOnly ? (
             <button
-              onClick={() => setShowReportIssueModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+              onClick={onClose}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors cursor-pointer"
             >
-              <FlagIcon className="w-4 h-4" />
-              Report Issue
+              Close
             </button>
-            <button
-              onClick={handleComplete}
-              disabled={!canComplete || completing}
-              className={`
-                flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer
-                ${canComplete
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }
-              `}
-            >
-              {completing ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <CheckCircleIcon className="w-5 h-5" />
-              )}
-              {completing ? 'Completing...' : 'Complete Project'}
-            </button>
-          </div>
+          ) : (
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReportIssueModal(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+              >
+                <FlagIcon className="w-4 h-4" />
+                Report Issue
+              </button>
+              <button
+                onClick={handleComplete}
+                disabled={!canComplete || completing}
+                className={`
+                  flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer
+                  ${canComplete
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  }
+                `}
+              >
+                {completing ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <CheckCircleIcon className="w-5 h-5" />
+                )}
+                {completing ? 'Completing...' : 'Complete Project'}
+              </button>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -488,6 +513,7 @@ interface RoomSectionProps {
   onViewPhoto: (url: string) => void
   uploadingItems: Set<string>
   togglingItems: Set<string>
+  readOnly?: boolean
 }
 
 function RoomSection({
@@ -501,6 +527,7 @@ function RoomSection({
   onViewPhoto,
   uploadingItems,
   togglingItems,
+  readOnly,
 }: RoomSectionProps) {
   const completedCount = items.filter(i => i.isCompleted).length
 
@@ -547,6 +574,7 @@ function RoomSection({
                   onViewPhoto={onViewPhoto}
                   isUploading={uploadingItems.has(item.id)}
                   isToggling={togglingItems.has(item.id)}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
@@ -566,6 +594,7 @@ interface ChecklistItemRowProps {
   onViewPhoto: (url: string) => void
   isUploading: boolean
   isToggling: boolean
+  readOnly?: boolean
 }
 
 function ChecklistItemRow({
@@ -576,6 +605,7 @@ function ChecklistItemRow({
   onViewPhoto,
   isUploading,
   isToggling,
+  readOnly,
 }: ChecklistItemRowProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -591,17 +621,18 @@ function ChecklistItemRow({
     `}>
       {/* Checkbox */}
       <button
-        onClick={onToggle}
-        disabled={isToggling}
-        className="flex-shrink-0 mt-0.5 cursor-pointer"
+        onClick={readOnly ? undefined : onToggle}
+        disabled={isToggling || readOnly}
+        className={`flex-shrink-0 mt-0.5 ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
       >
         <div className={`
           w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
           ${item.isCompleted
             ? 'bg-green-500 border-green-500 text-white'
-            : 'border-gray-300 hover:border-purple-400'
+            : readOnly ? 'border-gray-200' : 'border-gray-300 hover:border-purple-400'
           }
           ${isToggling ? 'opacity-50' : ''}
+          ${readOnly && !item.isCompleted ? 'opacity-50' : ''}
         `}>
           {isToggling ? (
             <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -643,15 +674,22 @@ function ChecklistItemRow({
                     <MagnifyingGlassPlusIcon className="w-6 h-6 text-white" />
                   </div>
                 </div>
-                <button
-                  onClick={onDeletePhoto}
-                  disabled={isUploading}
-                  className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                  title="Delete photo"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={onDeletePhoto}
+                    disabled={isUploading}
+                    className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
+                    title="Delete photo"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                )}
               </div>
+            ) : readOnly ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-400">
+                <CameraIcon className="w-3.5 h-3.5" />
+                Photo Required
+              </span>
             ) : (
               <label className={`
                 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer transition-colors

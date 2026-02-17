@@ -66,7 +66,7 @@ export default function ProjectCard({
   const showAcceptDecline = project.status === 'assigned' && project.cleanerAccepted === null
   const showStart = project.status === 'confirmed'
   const showComplete = project.status === 'in_progress'
-  const showChecklist = project.status === 'confirmed' || project.status === 'in_progress'
+  const showChecklist = project.status === 'confirmed' || project.status === 'in_progress' || project.status === 'completed'
 
   return (
     <motion.div

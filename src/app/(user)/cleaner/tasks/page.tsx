@@ -442,7 +442,7 @@ export default function CleanerTasksPage() {
 
         {/* Completed (collapsed by default) */}
         {groupedProjects.completed.length > 0 && (
-          <CompletedSection projects={groupedProjects.completed} />
+          <CompletedSection projects={groupedProjects.completed} onViewChecklist={handleViewChecklist} />
         )}
       </div>
 
@@ -546,7 +546,7 @@ function TaskGroup({
 }
 
 // Completed Section (collapsible)
-function CompletedSection({ projects }: { projects: CleaningProject[] }) {
+function CompletedSection({ projects, onViewChecklist }: { projects: CleaningProject[], onViewChecklist?: (project: CleaningProject) => void }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
@@ -572,6 +572,7 @@ function CompletedSection({ projects }: { projects: CleaningProject[] }) {
             <ProjectCard
               key={project.id}
               project={project}
+              onViewChecklist={onViewChecklist}
             />
           ))}
           {projects.length > 5 && (
