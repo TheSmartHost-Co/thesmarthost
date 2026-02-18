@@ -29,6 +29,7 @@ import {
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import { ReportIssueModal } from '@/components/turnover/issues'
+import PropertyMapEmbed from '@/components/shared/PropertyMapEmbed'
 
 interface ChecklistModalProps {
   isOpen: boolean
@@ -367,6 +368,19 @@ export default function ChecklistModal({
             </div>
           )}
         </div>
+
+        {/* Property Map - collapsible, after header, before scrollable content */}
+        {project.propertyAddress && (
+          <div className="flex-shrink-0 px-4 pt-3">
+            <PropertyMapEmbed
+              address={project.propertyAddress}
+              googleMapsUrl={project.googleMapsUrl}
+              height="h-40"
+              collapsible={true}
+              defaultExpanded={false}
+            />
+          </div>
+        )}
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">

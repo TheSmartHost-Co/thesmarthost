@@ -33,6 +33,7 @@ export interface CleaningProject {
   // Joined data from related tables
   propertyName?: string
   propertyAddress?: string
+  googleMapsUrl?: string | null  // Google Maps link from backend
   cleanerName?: string
   cleanerEmail?: string
   cleanerPhone?: string
