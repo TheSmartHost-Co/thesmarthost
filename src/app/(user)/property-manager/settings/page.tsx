@@ -25,9 +25,12 @@ import { getConnectionByUserId as getHospitableConnection, disconnectHospitable 
 import HostawayConnectionModal from '@/components/connection/hostaway/HostawayConnectionModal'
 import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnectionModal'
 import HospitableConnectionModal from '@/components/connection/hospitable/HospitableConnectionModal'
+import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscriptionsSection'
+import { getProperties } from '@/services/propertyService'
 import type { HostawayConnection } from '@/services/types/hostawayConnection'
 import type { GuestyConnection } from '@/services/types/guestyConnection'
 import type { HospitableConnection } from '@/services/types/hospitableConnection'
+import type { Property } from '@/services/types/property'
 
 export default function PropertyManagerSettingsPage() {
   const [loading, setLoading] = useState(false)
@@ -57,6 +60,10 @@ export default function PropertyManagerSettingsPage() {
   const [showHospitableModal, setShowHospitableModal] = useState(false)
   const [hospitableConnection, setHospitableConnection] = useState<HospitableConnection | null>(null)
   const [loadingHospitableConnection, setLoadingHospitableConnection] = useState(false)
+
+  // Properties state (for iCal section)
+  const [properties, setProperties] = useState<Property[]>([])
+  const [loadingProperties, setLoadingProperties] = useState(false)
 
   // Notification preferences state
   const [savingNotifications, setSavingNotifications] = useState(false)
@@ -255,10 +262,27 @@ export default function PropertyManagerSettingsPage() {
     }
   }
 
+  const fetchProperties = async () => {
+    if (!profile?.id) return
+
+    setLoadingProperties(true)
+    try {
+      const response = await getProperties(profile.id)
+      if (response.status === 'success' && response.data) {
+        setProperties(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error)
+    } finally {
+      setLoadingProperties(false)
+    }
+  }
+
   useEffect(() => {
     fetchHostawayConnection()
     fetchGuestyConnection()
     fetchHospitableConnection()
+    fetchProperties()
   }, [profile?.id])
 
   const handleHostawayConnect = async (accountId: string, apiKey: string) => {
@@ -1007,6 +1031,13 @@ export default function PropertyManagerSettingsPage() {
             </div>
           </div>
         </motion.div>
+
+      {/* iCal Calendar Feeds Section */}
+      <ICalSubscriptionsSection
+        userId={profile?.id!}
+        properties={properties}
+        loadingProperties={loadingProperties}
+      />
 
       {/* Hostaway Connection Modal */}
       <HostawayConnectionModal
