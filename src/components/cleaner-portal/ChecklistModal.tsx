@@ -14,6 +14,11 @@ import {
   FlagIcon,
   PlusIcon,
   MagnifyingGlassPlusIcon,
+  WifiIcon,
+  KeyIcon,
+  ClipboardDocumentIcon,
+  UserGroupIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -382,6 +387,11 @@ export default function ChecklistModal({
           </div>
         )}
 
+        {/* Property Details Section - WiFi, Access Codes, Bed/Bath info */}
+        {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms || project.propertyWifiSsid || project.propertyAccessCodes) && (
+          <PropertyDetailsSection project={project} />
+        )}
+
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {loading ? (
@@ -734,6 +744,160 @@ function ChecklistItemRow({
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Property Details Section Component
+interface PropertyDetailsSectionProps {
+  project: CleaningProject
+}
+
+function PropertyDetailsSection({ project }: PropertyDetailsSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const showNotification = useNotificationStore((state) => state.showNotification)
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text)
+    showNotification(`${label} copied to clipboard`, 'success')
+  }
+
+  const hasSpecs = project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms
+  const hasWifi = project.propertyWifiSsid || project.propertyWifiPassword
+  const hasAccessCodes = project.propertyAccessCodes
+
+  return (
+    <div className="flex-shrink-0 px-4 pt-3">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <KeyIcon className="w-4 h-4 text-orange-500" />
+            <span className="font-medium text-gray-900 text-sm">Property Details</span>
+            <span className="text-xs text-gray-500">
+              (WiFi, Access Codes{hasSpecs ? ', Beds/Baths' : ''})
+            </span>
+          </div>
+          {isExpanded ? (
+            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="border-t border-gray-100 p-4 space-y-4">
+                {/* Beds/Bedrooms/Bathrooms */}
+                {hasSpecs && (
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {project.propertyNumBeds !== null && project.propertyNumBeds !== undefined && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg">
+                        <UserGroupIcon className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-medium text-indigo-700">
+                          {project.propertyNumBeds} bed{project.propertyNumBeds !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    )}
+                    {project.propertyNumBedrooms !== null && project.propertyNumBedrooms !== undefined && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 rounded-lg">
+                        <HomeIcon className="w-4 h-4 text-violet-600" />
+                        <span className="text-sm font-medium text-violet-700">
+                          {project.propertyNumBedrooms} bedroom{project.propertyNumBedrooms !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    )}
+                    {project.propertyNumBathrooms !== null && project.propertyNumBathrooms !== undefined && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
+                        <span className="text-sm font-bold text-teal-600">B</span>
+                        <span className="text-sm font-medium text-teal-700">
+                          {project.propertyNumBathrooms} bath{project.propertyNumBathrooms !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* WiFi Credentials */}
+                {hasWifi && (
+                  <div className="bg-sky-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <WifiIcon className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">WiFi</span>
+                    </div>
+                    <div className="space-y-2">
+                      {project.propertyWifiSsid && (
+                        <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
+                          <div>
+                            <span className="text-xs text-gray-500 block">Network</span>
+                            <span className="text-sm font-mono font-medium text-gray-900">{project.propertyWifiSsid}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(project.propertyWifiSsid || '', 'Network name')}
+                            className="p-2 text-sky-600 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer"
+                            title="Copy network name"
+                          >
+                            <ClipboardDocumentIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                      {project.propertyWifiPassword && (
+                        <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
+                          <div>
+                            <span className="text-xs text-gray-500 block">Password</span>
+                            <span className="text-sm font-mono font-medium text-gray-900">{project.propertyWifiPassword}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(project.propertyWifiPassword || '', 'Password')}
+                            className="p-2 text-sky-600 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer"
+                            title="Copy password"
+                          >
+                            <ClipboardDocumentIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Access Codes */}
+                {hasAccessCodes && (
+                  <div className="bg-orange-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <KeyIcon className="w-4 h-4 text-orange-600" />
+                        <span className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Access Codes</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(project.propertyAccessCodes || '', 'Access codes')}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-orange-700 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                        title="Copy all codes"
+                      >
+                        <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                        Copy All
+                      </button>
+                    </div>
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap font-mono bg-white/80 p-3 rounded-lg">
+                      {project.propertyAccessCodes}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

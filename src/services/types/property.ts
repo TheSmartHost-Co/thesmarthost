@@ -36,6 +36,14 @@ export interface Property {
   owners: PropertyOwner[]
   channels: PropertyChannel[]
   licenses: PropertyLicense[]
+  // Property specifications
+  numBeds?: number | null
+  numBedrooms?: number | null
+  numBathrooms?: number | null
+  // WiFi & Access
+  wifiSsid?: string | null
+  wifiPassword?: string | null
+  accessCodes?: string | null
 }
 
 /**
@@ -87,6 +95,14 @@ export interface CreatePropertyPayload {
   commissionRate?: number // Optional commission rate
   registrationNumber?: string // Quebec CITQ registration number
   commissionRateOverride?: number // Optional override for first owner
+  // Property specifications
+  numBeds?: number
+  numBedrooms?: number
+  numBathrooms?: number
+  // WiFi & Access
+  wifiSsid?: string
+  wifiPassword?: string
+  accessCodes?: string
 }
 
 /**
@@ -106,6 +122,14 @@ export interface UpdatePropertyPayload {
   commissionRate?: number | null
   registrationNumber?: string | null // Quebec CITQ registration number
   owners?: UpdatePropertyOwner[]
+  // Property specifications
+  numBeds?: number | null
+  numBedrooms?: number | null
+  numBathrooms?: number | null
+  // WiFi & Access
+  wifiSsid?: string | null
+  wifiPassword?: string | null
+  accessCodes?: string | null
 }
 
 /**
@@ -212,6 +236,14 @@ export interface BulkImportPropertyPayload {
   commissionRate?: number
   registrationNumber?: string // Quebec CITQ registration number
   description?: string
+  // Property specifications
+  numBeds?: number
+  numBedrooms?: number
+  numBathrooms?: number
+  // WiFi & Access
+  wifiSsid?: string
+  wifiPassword?: string
+  accessCodes?: string
 }
 
 /**

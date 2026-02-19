@@ -17,6 +17,10 @@ import {
   ClipboardDocumentCheckIcon,
   CameraIcon,
   CheckIcon,
+  WifiIcon,
+  KeyIcon,
+  ClipboardDocumentIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -269,6 +273,98 @@ export default function ProjectDetailModal({
               </div>
             </div>
           </div>
+
+          {/* Property Details (Beds, Baths, WiFi, Access Codes) */}
+          {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms || project.propertyWifiSsid || project.propertyAccessCodes) && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Property Details</p>
+
+              {/* Beds/Bedrooms/Bathrooms */}
+              {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms) && (
+                <div className="flex items-center gap-4 flex-wrap">
+                  {project.propertyNumBeds !== null && project.propertyNumBeds !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <UserGroupIcon className="w-4 h-4 text-indigo-500" />
+                      <span className="text-sm text-gray-700">{project.propertyNumBeds} bed{project.propertyNumBeds !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {project.propertyNumBedrooms !== null && project.propertyNumBedrooms !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <HomeIcon className="w-4 h-4 text-violet-500" />
+                      <span className="text-sm text-gray-700">{project.propertyNumBedrooms} bedroom{project.propertyNumBedrooms !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {project.propertyNumBathrooms !== null && project.propertyNumBathrooms !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-teal-500">B</span>
+                      <span className="text-sm text-gray-700">{project.propertyNumBathrooms} bath{project.propertyNumBathrooms !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* WiFi Credentials */}
+              {(project.propertyWifiSsid || project.propertyWifiPassword) && (
+                <div className="flex items-start gap-2">
+                  <WifiIcon className="w-4 h-4 text-sky-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {project.propertyWifiSsid && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">Network:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">{project.propertyWifiSsid}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(project.propertyWifiSsid || '')}
+                          className="p-0.5 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
+                          title="Copy network name"
+                        >
+                          <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    {project.propertyWifiPassword && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">Password:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">{project.propertyWifiPassword}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(project.propertyWifiPassword || '')}
+                          className="p-0.5 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
+                          title="Copy password"
+                        >
+                          <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Access Codes */}
+              {project.propertyAccessCodes && (
+                <div className="flex items-start gap-2">
+                  <KeyIcon className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-500">Access Codes</span>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(project.propertyAccessCodes || '')}
+                        className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+                        title="Copy all codes"
+                      >
+                        <ClipboardDocumentIcon className="w-3 h-3" />
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap font-mono bg-white/50 p-2 rounded-lg">
+                      {project.propertyAccessCodes}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cleaner Assignment */}
           <div className="bg-gray-50 rounded-xl p-4">

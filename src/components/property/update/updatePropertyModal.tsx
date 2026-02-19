@@ -8,6 +8,8 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   HomeIcon,
   BuildingOfficeIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline'
 
 interface UpdatePropertyModalProps {
@@ -35,6 +37,15 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [commissionRate, setCommissionRate] = useState(property.commissionRate?.toString() ?? '')
   const [registrationNumber, setRegistrationNumber] = useState(property.registrationNumber || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Property specifications
+  const [numBeds, setNumBeds] = useState(property.numBeds?.toString() ?? '')
+  const [numBedrooms, setNumBedrooms] = useState(property.numBedrooms?.toString() ?? '')
+  const [numBathrooms, setNumBathrooms] = useState(property.numBathrooms?.toString() ?? '')
+  // WiFi & Access
+  const [wifiSsid, setWifiSsid] = useState(property.wifiSsid || '')
+  const [wifiPassword, setWifiPassword] = useState(property.wifiPassword || '')
+  const [accessCodes, setAccessCodes] = useState(property.accessCodes || '')
+  const [showWifiPassword, setShowWifiPassword] = useState(false)
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -57,6 +68,14 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setPropertyType(property.propertyType)
       setCommissionRate(property.commissionRate?.toString() ?? '')
       setRegistrationNumber(property.registrationNumber || '')
+      // Reset new fields
+      setNumBeds(property.numBeds?.toString() ?? '')
+      setNumBedrooms(property.numBedrooms?.toString() ?? '')
+      setNumBathrooms(property.numBathrooms?.toString() ?? '')
+      setWifiSsid(property.wifiSsid || '')
+      setWifiPassword(property.wifiPassword || '')
+      setAccessCodes(property.accessCodes || '')
+      setShowWifiPassword(false)
     }
   }, [isOpen, property])
 
@@ -90,6 +109,11 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
     setIsSubmitting(true)
 
     try {
+      // Parse numeric fields
+      const parsedNumBeds = numBeds ? parseInt(numBeds, 10) : null
+      const parsedNumBedrooms = numBedrooms ? parseInt(numBedrooms, 10) : null
+      const parsedNumBathrooms = numBathrooms ? parseFloat(numBathrooms) : null
+
       const payload: UpdatePropertyPayload = {
         address: trimmedAddress,
         propertyType,
@@ -102,6 +126,14 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         externalName: trimmedExternalName || null,
         internalName: trimmedInternalName || null,
         registrationNumber: trimmedRegistrationNumber || null,
+        // Property specifications
+        numBeds: parsedNumBeds !== null && !isNaN(parsedNumBeds) ? parsedNumBeds : null,
+        numBedrooms: parsedNumBedrooms !== null && !isNaN(parsedNumBedrooms) ? parsedNumBedrooms : null,
+        numBathrooms: parsedNumBathrooms !== null && !isNaN(parsedNumBathrooms) ? parsedNumBathrooms : null,
+        // WiFi & Access
+        wifiSsid: wifiSsid.trim() || null,
+        wifiPassword: wifiPassword.trim() || null,
+        accessCodes: accessCodes.trim() || null,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -324,6 +356,104 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
               </p>
             </div>
           )}
+
+          {/* Property Specifications Section */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Property Specifications</label>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beds</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={numBeds}
+                  onChange={(e) => setNumBeds(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="e.g. 3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bedrooms</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={numBedrooms}
+                  onChange={(e) => setNumBedrooms(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="e.g. 2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bathrooms</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={numBathrooms}
+                  onChange={(e) => setNumBathrooms(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="e.g. 1.5"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* WiFi & Access Section */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">WiFi & Access</label>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">WiFi Network Name</label>
+                  <input
+                    type="text"
+                    value={wifiSsid}
+                    onChange={(e) => setWifiSsid(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                    placeholder="e.g. MyWiFi"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">WiFi Password</label>
+                  <div className="relative">
+                    <input
+                      type={showWifiPassword ? 'text' : 'password'}
+                      value={wifiPassword}
+                      onChange={(e) => setWifiPassword(e.target.value)}
+                      className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                      placeholder="WiFi password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowWifiPassword(!showWifiPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showWifiPassword ? (
+                        <EyeSlashIcon className="w-5 h-5" />
+                      ) : (
+                        <EyeIcon className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Access Codes</label>
+                <textarea
+                  value={accessCodes}
+                  onChange={(e) => setAccessCodes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow resize-none"
+                  placeholder="e.g. Door code: 1234&#10;Gate code: 5678&#10;Lockbox: ABC123"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter door codes, gate codes, lockbox combinations, etc. One per line.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Incomplete Property Notice */}
           {(!listingName.trim() || !listingId.trim() || property.owners.length === 0) && (

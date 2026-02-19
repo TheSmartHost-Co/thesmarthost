@@ -22,6 +22,9 @@ import {
   InformationCircleIcon,
   CalendarDaysIcon,
   DocumentChartBarIcon,
+  WifiIcon,
+  KeyIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline'
 
 interface PreviewPropertyModalProps {
@@ -315,6 +318,122 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-500">Internal Name (Private)</p>
                   <p className="text-sm font-medium text-gray-900 break-words">{property.internalName}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Property Specifications */}
+      {(property.numBeds || property.numBedrooms || property.numBathrooms) && (
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            Property Specifications
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            {property.numBeds !== null && property.numBeds !== undefined && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                  <UserGroupIcon className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Beds</p>
+                  <p className="text-sm font-medium text-gray-900">{property.numBeds}</p>
+                </div>
+              </div>
+            )}
+            {property.numBedrooms !== null && property.numBedrooms !== undefined && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-50 rounded-lg flex items-center justify-center">
+                  <HomeIcon className="h-5 w-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Bedrooms</p>
+                  <p className="text-sm font-medium text-gray-900">{property.numBedrooms}</p>
+                </div>
+              </div>
+            )}
+            {property.numBathrooms !== null && property.numBathrooms !== undefined && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
+                  <span className="text-sm font-bold text-teal-600">B</span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Bathrooms</p>
+                  <p className="text-sm font-medium text-gray-900">{property.numBathrooms}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* WiFi & Access */}
+      {(property.wifiSsid || property.wifiPassword || property.accessCodes) && (
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            WiFi & Access
+          </h3>
+          <div className="space-y-4">
+            {(property.wifiSsid || property.wifiPassword) && (
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <WifiIcon className="h-5 w-5 text-sky-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-500">WiFi Credentials</p>
+                  <div className="flex items-center gap-4 mt-1">
+                    {property.wifiSsid && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Network:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">{property.wifiSsid}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(property.wifiSsid || '')}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                          title="Copy network name"
+                        >
+                          <ClipboardDocumentIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {property.wifiPassword && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Password:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">{property.wifiPassword}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(property.wifiPassword || '')}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                          title="Copy password"
+                        >
+                          <ClipboardDocumentIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {property.accessCodes && (
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <KeyIcon className="h-5 w-5 text-orange-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-500">Access Codes</p>
+                  <pre className="text-sm font-medium text-gray-900 whitespace-pre-wrap mt-1 font-mono bg-gray-50 p-2 rounded-lg">
+                    {property.accessCodes}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(property.accessCodes || '')}
+                    className="mt-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                    Copy all codes
+                  </button>
                 </div>
               </div>
             )}

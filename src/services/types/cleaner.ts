@@ -25,6 +25,14 @@ export interface CleanerProperty {
   isDefault: boolean       // Primary cleaner for this property
   priority: number         // Backup order (1 = highest)
   createdAt: string
+  // Property specifications (joined from properties)
+  numBeds?: number | null
+  numBedrooms?: number | null
+  numBathrooms?: number | null
+  // Property WiFi & Access (joined from properties)
+  wifiSsid?: string | null
+  wifiPassword?: string | null
+  accessCodes?: string | null
 }
 
 // Create payload - email is required for auth invite

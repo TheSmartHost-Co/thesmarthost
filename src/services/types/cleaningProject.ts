@@ -34,6 +34,14 @@ export interface CleaningProject {
   propertyName?: string
   propertyAddress?: string
   googleMapsUrl?: string | null  // Google Maps link from backend
+  // Property specifications
+  propertyNumBeds?: number | null
+  propertyNumBedrooms?: number | null
+  propertyNumBathrooms?: number | null
+  // Property WiFi & Access
+  propertyWifiSsid?: string | null
+  propertyWifiPassword?: string | null
+  propertyAccessCodes?: string | null
   cleanerName?: string
   cleanerEmail?: string
   cleanerPhone?: string

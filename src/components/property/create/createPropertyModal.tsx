@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { PlusIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import DualModalContainer from '../../shared/DualModalContainer'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import QuickCreateClientModal from '@/components/client/quick-create/QuickCreateClientModal'
@@ -38,6 +38,15 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [loadingClients, setLoadingClients] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
+  // Property specifications
+  const [numBeds, setNumBeds] = useState('')
+  const [numBedrooms, setNumBedrooms] = useState('')
+  const [numBathrooms, setNumBathrooms] = useState('')
+  // WiFi & Access
+  const [wifiSsid, setWifiSsid] = useState('')
+  const [wifiPassword, setWifiPassword] = useState('')
+  const [accessCodes, setAccessCodes] = useState('')
+  const [showWifiPassword, setShowWifiPassword] = useState(false)
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -92,6 +101,14 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       setRegistrationNumber('')
       setClientId('')
       setIsQuickCreateOpen(false)
+      // Reset new fields
+      setNumBeds('')
+      setNumBedrooms('')
+      setNumBathrooms('')
+      setWifiSsid('')
+      setWifiPassword('')
+      setAccessCodes('')
+      setShowWifiPassword(false)
     }
   }, [isOpen])
 
@@ -132,6 +149,11 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     setIsSubmitting(true)
 
     try {
+      // Parse numeric fields
+      const parsedNumBeds = numBeds ? parseInt(numBeds, 10) : undefined
+      const parsedNumBedrooms = numBedrooms ? parseInt(numBedrooms, 10) : undefined
+      const parsedNumBathrooms = numBathrooms ? parseInt(numBathrooms, 10) : undefined
+
       const payload: CreatePropertyPayload = {
         address: trimmedAddress,
         propertyType,
@@ -144,6 +166,14 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
         ...(trimmedExternalName && { externalName: trimmedExternalName }),
         ...(trimmedInternalName && { internalName: trimmedInternalName }),
         ...(trimmedRegistrationNumber && { registrationNumber: trimmedRegistrationNumber }),
+        // Property specifications
+        ...(parsedNumBeds !== undefined && !isNaN(parsedNumBeds) && { numBeds: parsedNumBeds }),
+        ...(parsedNumBedrooms !== undefined && !isNaN(parsedNumBedrooms) && { numBedrooms: parsedNumBedrooms }),
+        ...(parsedNumBathrooms !== undefined && !isNaN(parsedNumBathrooms) && { numBathrooms: parsedNumBathrooms }),
+        // WiFi & Access
+        ...(wifiSsid.trim() && { wifiSsid: wifiSsid.trim() }),
+        ...(wifiPassword.trim() && { wifiPassword: wifiPassword.trim() }),
+        ...(accessCodes.trim() && { accessCodes: accessCodes.trim() }),
       }
 
       const res = await createProperty(payload)
@@ -297,6 +327,104 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="e.g. 15 (optional)"
           />
+        </div>
+
+        {/* Property Specifications Section */}
+        <div className="pt-4 border-t border-gray-200">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Property Specifications</label>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Beds</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={numBeds}
+                onChange={(e) => setNumBeds(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g. 3"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Bedrooms</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={numBedrooms}
+                onChange={(e) => setNumBedrooms(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g. 2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Bathrooms</label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={numBathrooms}
+                onChange={(e) => setNumBathrooms(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g. 1.5"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* WiFi & Access Section */}
+        <div className="pt-4 border-t border-gray-200">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">WiFi & Access</label>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">WiFi Network Name</label>
+                <input
+                  type="text"
+                  value={wifiSsid}
+                  onChange={(e) => setWifiSsid(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. MyWiFi"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">WiFi Password</label>
+                <div className="relative">
+                  <input
+                    type={showWifiPassword ? 'text' : 'password'}
+                    value={wifiPassword}
+                    onChange={(e) => setWifiPassword(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="WiFi password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowWifiPassword(!showWifiPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showWifiPassword ? (
+                      <EyeSlashIcon className="w-5 h-5" />
+                    ) : (
+                      <EyeIcon className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Access Codes</label>
+              <textarea
+                value={accessCodes}
+                onChange={(e) => setAccessCodes(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g. Door code: 1234&#10;Gate code: 5678&#10;Lockbox: ABC123"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Enter door codes, gate codes, lockbox combinations, etc. One per line.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Property Owner */}
