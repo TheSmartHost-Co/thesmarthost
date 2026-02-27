@@ -32,8 +32,7 @@ export interface UpdateICalSubscriptionPayload {
 export interface SyncEvent {
   reservationCode: string
   guestName: string
-  checkIn: string
-  checkOut: string
+  scheduledDate: string
   action: 'created' | 'updated' | 'skipped'
   reason?: string
 }
@@ -42,6 +41,7 @@ export interface SyncResults {
   created: number
   updated: number
   skipped: number
+  cancelled: number
   errors: string[]
   events: SyncEvent[]
 }

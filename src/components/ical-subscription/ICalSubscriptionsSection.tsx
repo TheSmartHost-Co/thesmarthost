@@ -253,8 +253,8 @@ export default function ICalSubscriptionsSection({
         setSyncResults(prev => ({ ...prev, [sub.id]: res.data!.syncResults }))
         setExpandedResults(prev => new Set(prev).add(sub.id))
 
-        const { created, updated, skipped } = res.data.syncResults
-        showNotification(`Sync complete: ${created} created, ${updated} updated, ${skipped} skipped`, 'success')
+        const { created, updated, skipped, cancelled } = res.data.syncResults
+        showNotification(`Sync complete: ${created} created, ${updated} updated, ${skipped} skipped, ${cancelled} cancelled`, 'success')
       } else {
         showNotification(res.message || 'Sync failed', 'error')
       }
@@ -718,6 +718,8 @@ export default function ICalSubscriptionsSection({
                                           <span className="text-amber-600">{results.updated} updated</span>
                                           <span className="text-gray-300">|</span>
                                           <span className="text-gray-500">{results.skipped} skipped</span>
+                                          <span className="text-gray-300">|</span>
+                                          <span className="text-red-600">{results.cancelled} cancelled</span>
                                           {results.events.length > 0 && (
                                             isResultsExpanded
                                               ? <ChevronUpIcon className="w-3.5 h-3.5 text-gray-400" />
@@ -741,8 +743,7 @@ export default function ICalSubscriptionsSection({
                                                     <tr className="text-gray-500 border-b border-gray-200">
                                                       <th className="text-left py-1.5 pr-3 font-medium">Reservation</th>
                                                       <th className="text-left py-1.5 pr-3 font-medium">Guest</th>
-                                                      <th className="text-left py-1.5 pr-3 font-medium">Check-in</th>
-                                                      <th className="text-left py-1.5 pr-3 font-medium">Check-out</th>
+                                                      <th className="text-left py-1.5 pr-3 font-medium">Scheduled Date</th>
                                                       <th className="text-left py-1.5 font-medium">Action</th>
                                                     </tr>
                                                   </thead>
@@ -751,8 +752,7 @@ export default function ICalSubscriptionsSection({
                                                       <tr key={idx} className="border-b border-gray-100 last:border-0">
                                                         <td className="py-1.5 pr-3 font-mono text-gray-700">{event.reservationCode}</td>
                                                         <td className="py-1.5 pr-3 text-gray-900">{event.guestName}</td>
-                                                        <td className="py-1.5 pr-3 text-gray-600">{event.checkIn}</td>
-                                                        <td className="py-1.5 pr-3 text-gray-600">{event.checkOut}</td>
+                                                        <td className="py-1.5 pr-3 text-gray-600">{event.scheduledDate}</td>
                                                         <td className="py-1.5">
                                                           <ActionBadge action={event.action} />
                                                           {event.reason && (
@@ -918,7 +918,7 @@ export default function ICalSubscriptionsSection({
         {activeProperties.length > 0 && (
           <div className="mt-4 p-3 bg-cyan-50 rounded-xl">
             <p className="text-xs text-cyan-700">
-              iCal feeds import bookings into the incoming bookings queue for review. After syncing, go to Incoming Bookings to review and fill in financial details before importing.
+              iCal feeds create cleaning projects directly on the turnover calendar. After syncing, projects are auto-assigned to the default cleaner and checklist.
             </p>
           </div>
         )}

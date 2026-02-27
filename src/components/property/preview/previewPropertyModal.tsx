@@ -35,6 +35,7 @@ interface PreviewPropertyModalProps {
   onManageLicenses?: () => void
   onManageChannels?: () => void
   onManageOwners?: () => void
+  onManageICal?: () => void
 }
 
 type TabType = 'details' | 'bookings' | 'reports'
@@ -47,6 +48,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   onManageLicenses,
   onManageChannels,
   onManageOwners,
+  onManageICal,
 }) => {
   // Zustand store
   const { profile } = useUserStore()
@@ -446,7 +448,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
           Quick Actions
         </h3>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <button
             onClick={onManageLicenses}
             className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all"
@@ -476,6 +478,15 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
             </div>
             <span className="text-sm font-medium text-gray-700">Owners</span>
             <span className="text-xs text-gray-500">{property.owners.length} owner{property.owners.length !== 1 ? 's' : ''}</span>
+          </button>
+          <button
+            onClick={onManageICal}
+            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-cyan-300 hover:bg-cyan-50 transition-all"
+          >
+            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+              <CalendarDaysIcon className="h-5 w-5 text-cyan-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-700">iCal Feeds</span>
           </button>
         </div>
       </div>

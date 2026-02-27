@@ -22,6 +22,7 @@ import {
   AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
   NoSymbolIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { getProperties, calculatePropertyStats, formatOwnerDisplay } from '@/services/propertyService'
@@ -38,6 +39,7 @@ import BulkImportPropertyModal from '@/components/property/import/bulkImportProp
 import PropertyLicenseModal from '@/components/property-license/propertyLicenseModal'
 import PropertyChannelModal from '@/components/property-channel/propertyChannelModal'
 import PropertyOwnersModal from '@/components/property-owners/propertyOwnersModal'
+import PropertyICalModal from '@/components/property-ical/propertyICalModal'
 import { getChannelIcon } from '@/services/channelUtils'
 import { exportToCsv } from '@/utils/csvExport'
 
@@ -79,6 +81,7 @@ export default function PropertyManagerPropertiesPage() {
   const [showLicenseModal, setShowLicenseModal] = useState(false)
   const [showChannelModal, setShowChannelModal] = useState(false)
   const [showOwnersModal, setShowOwnersModal] = useState(false)
+  const [showICalModal, setShowICalModal] = useState(false)
 
   // Data state - properties store all aggregated data
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
@@ -230,6 +233,12 @@ export default function PropertyManagerPropertiesPage() {
     setShowOwnersModal(true)
   }
 
+  const handleManageICal = () => {
+    setOpenedFromPreview(true)
+    setShowPreviewModal(false)
+    setShowICalModal(true)
+  }
+
   // Direct handlers for opening modals from card actions
   const handleOpenLicenses = (property: Property) => {
     setOpenedFromPreview(false)
@@ -247,6 +256,12 @@ export default function PropertyManagerPropertiesPage() {
     setOpenedFromPreview(false)
     setSelectedProperty(property)
     setShowOwnersModal(true)
+  }
+
+  const handleOpenICal = (property: Property) => {
+    setOpenedFromPreview(false)
+    setSelectedProperty(property)
+    setShowICalModal(true)
   }
 
   // Unified close handlers
@@ -280,6 +295,16 @@ export default function PropertyManagerPropertiesPage() {
     setOpenedFromPreview(false)
   }
 
+  const handleICalModalClose = () => {
+    setShowICalModal(false)
+    if (openedFromPreview) {
+      setShowPreviewModal(true)
+    } else {
+      setSelectedProperty(null)
+    }
+    setOpenedFromPreview(false)
+  }
+
   // Generate actions for table dropdown
   const getPropertyActions = (property: Property): ActionItem[] => {
     const actions: ActionItem[] = [
@@ -305,6 +330,12 @@ export default function PropertyManagerPropertiesPage() {
         label: 'Property Owners',
         icon: UserGroupIcon,
         onClick: () => handleOpenOwners(property),
+        variant: 'default'
+      },
+      {
+        label: 'iCal Feeds',
+        icon: CalendarDaysIcon,
+        onClick: () => handleOpenICal(property),
         variant: 'default'
       },
       {
@@ -692,6 +723,7 @@ export default function PropertyManagerPropertiesPage() {
               onManageLicenses={() => handleOpenLicenses(property)}
               onManageChannels={() => handleOpenChannels(property)}
               onManageOwners={() => handleOpenOwners(property)}
+              onManageICal={() => handleOpenICal(property)}
             />
           ))}
         </motion.div>
@@ -933,6 +965,7 @@ export default function PropertyManagerPropertiesPage() {
             onManageLicenses={handleManageLicenses}
             onManageChannels={handleManageChannels}
             onManageOwners={handleManageOwners}
+            onManageICal={handleManageICal}
           />
 
           <PropertyLicenseModal
@@ -959,6 +992,14 @@ export default function PropertyManagerPropertiesPage() {
             property={selectedProperty}
             onRefreshProperties={refreshProperties}
           />
+
+          <PropertyICalModal
+            isOpen={showICalModal}
+            onClose={handleICalModalClose}
+            propertyId={selectedProperty.id}
+            propertyName={selectedProperty.listingName ?? ''}
+            onRefreshProperties={refreshProperties}
+          />
         </>
       )}
 
@@ -983,6 +1024,7 @@ interface PropertyCardProps {
   onManageLicenses: () => void
   onManageChannels: () => void
   onManageOwners: () => void
+  onManageICal: () => void
 }
 
 function PropertyCard({
@@ -993,7 +1035,8 @@ function PropertyCard({
   onDelete,
   onManageLicenses,
   onManageChannels,
-  onManageOwners
+  onManageOwners,
+  onManageICal,
 }: PropertyCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const primaryOwner = property.owners.find(o => o.isPrimary)
@@ -1128,7 +1171,7 @@ function PropertyCard({
         </div>
 
         {/* Quick Info Grid */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-4 gap-2 mb-4">
           <button
             onClick={(e) => { e.stopPropagation(); onManageChannels(); }}
             className="flex flex-col items-center p-3 rounded-xl bg-slate-50 hover:bg-blue-50 transition-colors group/btn"
@@ -1152,6 +1195,14 @@ function PropertyCard({
             <UserGroupIcon className="w-5 h-5 text-slate-400 group-hover/btn:text-purple-600 mb-1" />
             <span className="text-xs font-semibold text-slate-900">{property.owners.length}</span>
             <span className="text-xs text-slate-500">Owners</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onManageICal(); }}
+            className="flex flex-col items-center p-3 rounded-xl bg-slate-50 hover:bg-cyan-50 transition-colors group/btn"
+          >
+            <CalendarDaysIcon className="w-5 h-5 text-slate-400 group-hover/btn:text-cyan-600 mb-1" />
+            <span className="text-xs font-semibold text-slate-900">iCal</span>
+            <span className="text-xs text-slate-500">Feeds</span>
           </button>
         </div>
 

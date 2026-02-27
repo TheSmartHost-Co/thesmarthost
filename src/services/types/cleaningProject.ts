@@ -28,6 +28,8 @@ export interface CleaningProject {
   pmNotes?: string | null
   cleanerNotes?: string | null
   source: 'manual' | 'hostaway' | 'ical'
+  icalEventUid?: string | null
+  icalSubscriptionId?: string | null
   createdAt: string
   updatedAt?: string | null
   // Joined data from related tables

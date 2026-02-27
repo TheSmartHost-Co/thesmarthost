@@ -101,6 +101,13 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
           {statusConfig.label}
         </span>
 
+        {/* iCal source badge */}
+        {project.source === 'ical' && (
+          <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-cyan-100 text-cyan-700 rounded">
+            iCal
+          </span>
+        )}
+
         {/* Guest count if available */}
         {project.guestCount && project.guestCount > 0 && (
           <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-100 rounded">
