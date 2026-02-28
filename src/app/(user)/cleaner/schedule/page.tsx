@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDaysIcon,
@@ -49,9 +49,6 @@ export default function CleanerSchedulePage() {
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
-
-  // Swipe gesture ref
-  const touchStartX = useRef<number | null>(null)
 
   // Calculate date range for the current week view
   const dateRange = useMemo(() => {
@@ -384,17 +381,7 @@ export default function CleanerSchedulePage() {
       </div>
 
       {/* Calendar Container */}
-      <div
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
-        onTouchEnd={(e) => {
-          if (touchStartX.current === null) return
-          const delta = e.changedTouches[0].clientX - touchStartX.current
-          touchStartX.current = null
-          if (delta < -50) handleNextWeek()
-          else if (delta > 50) handlePrevWeek()
-        }}
-      >
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {/* Calendar Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50">
           {/* Left: Nav arrows */}
@@ -465,8 +452,8 @@ export default function CleanerSchedulePage() {
         {/* Day View */}
         {viewMode === 'day' && (
           <div>
-            {/* Day Pill Row */}
-            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 overflow-x-auto">
+            {/* Day Header Row (matches week grid style) */}
+            <div className="grid grid-cols-7 border-b border-gray-100">
               {weekDays.map(day => {
                 const { dayName, dayNum } = formatDayHeader(day)
                 const dateKey = day.toISOString().split('T')[0]
@@ -479,24 +466,35 @@ export default function CleanerSchedulePage() {
                     key={dateKey}
                     onClick={() => setSelectedDay(new Date(day))}
                     className={`
-                      flex flex-col items-center px-3.5 py-2 rounded-xl transition-all cursor-pointer min-w-[52px]
+                      px-2 py-3 text-center border-r border-gray-100 last:border-r-0
+                      cursor-pointer transition-colors
                       ${selected
-                        ? 'bg-purple-600 text-white shadow-sm'
+                        ? 'bg-amber-50 hover:bg-amber-100/70'
                         : today
-                          ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                          ? 'bg-purple-50 hover:bg-purple-100/70'
+                          : 'bg-white hover:bg-gray-50'
                       }
                     `}
                   >
-                    <span className={`text-[10px] font-medium uppercase ${selected ? 'text-purple-200' : ''}`}>
+                    <p className={`text-xs font-medium uppercase ${
+                      selected ? 'text-amber-700' : today ? 'text-purple-600' : 'text-gray-500'
+                    }`}>
                       {dayName}
-                    </span>
-                    <span className={`text-lg font-bold leading-tight ${selected ? 'text-white' : ''}`}>
+                    </p>
+                    <p className={`
+                      text-lg font-bold mt-0.5
+                      ${selected
+                        ? 'w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center mx-auto'
+                        : today
+                          ? 'w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto'
+                          : 'text-gray-900'
+                      }
+                    `}>
                       {dayNum}
-                    </span>
+                    </p>
                     {hasTasks && (
-                      <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                        selected ? 'bg-white' : 'bg-purple-400'
+                      <div className={`w-1.5 h-1.5 rounded-full mt-1 mx-auto ${
+                        selected ? 'bg-amber-400' : 'bg-purple-400'
                       }`} />
                     )}
                   </button>
@@ -506,16 +504,6 @@ export default function CleanerSchedulePage() {
 
             {/* Project List for Selected Day */}
             <div className="p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  {selectedDay.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </h3>
-                {selectedDayProjects.length > 0 && (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded-full">
-                    {selectedDayProjects.length}
-                  </span>
-                )}
-              </div>
 
               <AnimatePresence mode="wait">
                 <motion.div
@@ -566,7 +554,7 @@ export default function CleanerSchedulePage() {
             {weekDays.map((day, idx) => {
               const dateKey = day.toISOString().split('T')[0]
               const dayProjects = projectsByDate[dateKey] || []
-              const { dayName, dayNum, monthName } = formatDayHeader(day)
+              const { dayName, dayNum } = formatDayHeader(day)
               const today = isToday(day)
 
               return (
@@ -598,9 +586,6 @@ export default function CleanerSchedulePage() {
                     `}>
                       {dayNum}
                     </p>
-                    {idx === 0 && (
-                      <p className="text-xs text-gray-400 mt-0.5">{monthName}</p>
-                    )}
                   </div>
 
                   {/* Day Content */}
