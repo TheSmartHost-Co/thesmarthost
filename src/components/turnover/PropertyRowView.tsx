@@ -7,14 +7,18 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventContentArg, EventClickArg } from '@fullcalendar/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
+import type { Booking } from '@/services/types/booking'
 import ProjectEvent from './ProjectEvent'
+import BookingEvent from './BookingEvent'
 
 interface PropertyRowViewProps {
   projects: CleaningProject[]
   properties: Property[]
   dateRange: { start: string; end: string }
   onProjectClick: (project: CleaningProject) => void
-  issueCountsMap?: Record<string, number> // projectId -> open issue count
+  onBookingClick?: (booking: Booking) => void
+  issueCountsMap?: Record<string, number>
+  bookings?: Booking[]
 }
 
 export default function PropertyRowView({
@@ -22,7 +26,9 @@ export default function PropertyRowView({
   properties,
   dateRange,
   onProjectClick,
+  onBookingClick,
   issueCountsMap = {},
+  bookings = [],
 }: PropertyRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
 
@@ -39,7 +45,7 @@ export default function PropertyRowView({
   }, [properties])
 
   // Transform projects to FullCalendar events
-  const events = useMemo(() => {
+  const projectEvents = useMemo(() => {
     return projects.map(project => ({
       id: project.id,
       resourceId: project.propertyId,
@@ -54,8 +60,42 @@ export default function PropertyRowView({
     }))
   }, [projects])
 
+  // Transform bookings to foreground events
+  const bookingEvents = useMemo(() => {
+    return bookings.map(booking => {
+      // Normalize ISO timestamps to YYYY-MM-DD before creating Date objects
+      const checkOut = booking.checkOutDate?.slice(0, 10) || booking.checkInDate.slice(0, 10)
+      // FullCalendar uses exclusive end for allDay events, so add 1 day to checkOutDate
+      const endDate = new Date(checkOut + 'T00:00:00')
+      endDate.setDate(endDate.getDate() + 1)
+      const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+
+      return {
+        id: `booking-${booking.id}`,
+        resourceId: booking.propertyId,
+        title: booking.guestName,
+        start: booking.checkInDate.slice(0, 10),
+        end: endStr,
+        allDay: true,
+        extendedProps: {
+          isBooking: true,
+          booking,
+        },
+        classNames: ['fc-booking-event'],
+      }
+    })
+  }, [bookings])
+
+  // Merge project + booking events
+  const events = useMemo(() => [...projectEvents, ...bookingEvents], [projectEvents, bookingEvents])
+
   // Handle event click
   const handleEventClick = (info: EventClickArg) => {
+    if (info.event.extendedProps.isBooking) {
+      const booking = info.event.extendedProps.booking as Booking
+      onBookingClick?.(booking)
+      return
+    }
     const project = info.event.extendedProps.project as CleaningProject | undefined
     if (project) {
       onProjectClick(project)
@@ -64,6 +104,10 @@ export default function PropertyRowView({
 
   // Custom event content render
   const renderEventContent = (eventInfo: EventContentArg) => {
+    if (eventInfo.event.extendedProps.isBooking) {
+      const booking = eventInfo.event.extendedProps.booking as Booking
+      return <BookingEvent booking={booking} />
+    }
     const project = eventInfo.event.extendedProps.project as CleaningProject
     const openIssueCount = issueCountsMap[project.id] || 0
     return <ProjectEvent project={project} openIssueCount={openIssueCount} />

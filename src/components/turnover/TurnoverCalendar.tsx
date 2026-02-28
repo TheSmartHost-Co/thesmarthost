@@ -13,9 +13,11 @@ import { getCleaningProjects, getCleaningProjectStats } from '@/services/cleanin
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
 import { getOpenIssues } from '@/services/projectIssueService'
+import { getBookings } from '@/services/bookingService'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
+import type { Booking } from '@/services/types/booking'
 import CalendarHeader from './CalendarHeader'
 import PropertyRowView from './PropertyRowView'
 import CleanerRowView from './CleanerRowView'
@@ -23,6 +25,8 @@ import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
 import DuplicateChecklistModal from '@/components/checklist/duplicate/DuplicateChecklistModal'
+import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
+import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 
 export type ViewMode = 'property' | 'cleaner'
 
@@ -49,6 +53,12 @@ export default function TurnoverCalendar({
   const [stats, setStats] = useState<CleaningProjectStats | null>(null)
   const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
 
+  // Bookings overlay state
+  const [showBookings, setShowBookings] = useState(false)
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(false)
+  const [bookingsFetched, setBookingsFetched] = useState(false)
+
   // Loading state
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +69,9 @@ export default function TurnoverCalendar({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCreateChecklistModal, setShowCreateChecklistModal] = useState(false)
   const [showDuplicateChecklistModal, setShowDuplicateChecklistModal] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showBookingPreview, setShowBookingPreview] = useState(false)
+  const [showBookingUpdate, setShowBookingUpdate] = useState(false)
 
   // Format date as YYYY-MM-DD in local time (avoid timezone issues)
   const formatLocalDate = (date: Date) => {
@@ -166,10 +179,50 @@ export default function TurnoverCalendar({
     }
   }
 
+  // Handle bookings toggle
+  const handleToggleBookings = async (enabled: boolean) => {
+    setShowBookings(enabled)
+    if (enabled && !bookingsFetched && profile?.id) {
+      setBookingsLoading(true)
+      try {
+        const res = await getBookings({ userId: profile.id })
+        if (res.status === 'success') {
+          setBookings(res.data)
+          setBookingsFetched(true)
+        } else {
+          showNotification(res.message || 'Failed to fetch bookings', 'error')
+          setShowBookings(false)
+        }
+      } catch (err) {
+        console.error('Error fetching bookings:', err)
+        showNotification('Failed to fetch bookings', 'error')
+        setShowBookings(false)
+      } finally {
+        setBookingsLoading(false)
+      }
+    }
+  }
+
+  // Filter bookings to those visible in the current week
+  const visibleBookings = useMemo(() => {
+    if (!showBookings || bookings.length === 0) return []
+    return bookings.filter(b =>
+      b.checkOutDate &&
+      b.checkInDate <= dateRange.end &&
+      b.checkOutDate >= dateRange.start
+    )
+  }, [showBookings, bookings, dateRange.start, dateRange.end])
+
   // Handle project click
   const handleProjectClick = (project: CleaningProject) => {
     setSelectedProject(project)
     setShowDetailModal(true)
+  }
+
+  // Handle booking click
+  const handleBookingClick = (booking: Booking) => {
+    setSelectedBooking(booking)
+    setShowBookingPreview(true)
   }
 
   // Handle project update (after editing in modal)
@@ -292,6 +345,9 @@ export default function TurnoverCalendar({
           onCreateProject={() => setShowCreateModal(true)}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
+          showBookings={showBookings}
+          onToggleBookings={handleToggleBookings}
+          bookingsLoading={bookingsLoading}
         />
 
         {/* Calendar View */}
@@ -309,7 +365,9 @@ export default function TurnoverCalendar({
                 properties={properties}
                 dateRange={dateRange}
                 onProjectClick={handleProjectClick}
+                onBookingClick={handleBookingClick}
                 issueCountsMap={issueCountsMap}
+                bookings={showBookings ? visibleBookings : []}
               />
             ) : (
               <CleanerRowView
@@ -372,6 +430,39 @@ export default function TurnoverCalendar({
         }}
         properties={properties}
       />
+
+      {/* Booking Preview Modal */}
+      {selectedBooking && (
+        <PreviewBookingModal
+          isOpen={showBookingPreview}
+          onClose={() => {
+            setShowBookingPreview(false)
+            setSelectedBooking(null)
+          }}
+          booking={selectedBooking}
+          onEditBooking={() => {
+            setShowBookingPreview(false)
+            setShowBookingUpdate(true)
+          }}
+        />
+      )}
+
+      {/* Booking Update Modal */}
+      {selectedBooking && (
+        <UpdateBookingModal
+          isOpen={showBookingUpdate}
+          onClose={() => {
+            setShowBookingUpdate(false)
+            setSelectedBooking(null)
+          }}
+          booking={selectedBooking}
+          onUpdate={(updatedBooking) => {
+            setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b))
+            setShowBookingUpdate(false)
+            setSelectedBooking(null)
+          }}
+        />
+      )}
     </motion.div>
   )
 }

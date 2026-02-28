@@ -73,7 +73,7 @@ export const managerSidebarItems: SidebarItem[] = [
     icon: BanknotesIcon,
   },
   {
-    name: 'Turnover',
+    name: 'Calendar',
     href: '/property-manager/turnover',
     icon: ClipboardDocumentListIcon,
   },

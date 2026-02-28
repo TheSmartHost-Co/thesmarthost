@@ -8,6 +8,7 @@ import {
   HomeModernIcon,
   UserCircleIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
   ChevronDownIcon,
@@ -29,6 +30,9 @@ interface CalendarHeaderProps {
   onCreateProject?: () => void
   onCreateChecklist?: () => void
   onDuplicateChecklist?: () => void
+  showBookings?: boolean
+  onToggleBookings?: (enabled: boolean) => void
+  bookingsLoading?: boolean
 }
 
 export default function CalendarHeader({
@@ -42,6 +46,9 @@ export default function CalendarHeader({
   onCreateProject,
   onCreateChecklist,
   onDuplicateChecklist,
+  showBookings,
+  onToggleBookings,
+  bookingsLoading,
 }: CalendarHeaderProps) {
   const [showChecklistMenu, setShowChecklistMenu] = useState(false)
   const checklistMenuRef = useRef<HTMLDivElement>(null)
@@ -220,6 +227,32 @@ export default function CalendarHeader({
               <PlusIcon className="w-4 h-4" />
               New Project
             </motion.button>
+          )}
+
+          {viewMode === 'property' && onToggleBookings && (
+            <button
+              onClick={() => onToggleBookings(!showBookings)}
+              disabled={bookingsLoading}
+              className={`
+                inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+                transition-all duration-200 cursor-pointer border
+                ${showBookings
+                  ? 'bg-blue-100 text-blue-700 border-blue-200'
+                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+                }
+                ${bookingsLoading ? 'opacity-70 cursor-wait' : ''}
+              `}
+            >
+              {bookingsLoading ? (
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <CalendarDaysIcon className="w-4 h-4" />
+              )}
+              Bookings
+            </button>
           )}
 
           <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">

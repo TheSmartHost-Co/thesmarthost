@@ -13,7 +13,7 @@ interface PreviewBookingModalProps {
   isOpen: boolean
   onClose: () => void
   booking: Booking
-  onEditBooking: () => void
+  onEditBooking?: () => void
 }
 
 const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
@@ -335,14 +335,16 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
         >
           Close
         </button>
-        <button
-          type="button"
-          onClick={onEditBooking}
-          className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PencilIcon className="h-4 w-4" />
-          Edit Booking
-        </button>
+        {onEditBooking && (
+          <button
+            type="button"
+            onClick={onEditBooking}
+            className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PencilIcon className="h-4 w-4" />
+            Edit Booking
+          </button>
+        )}
       </div>
     </Modal>
   )
