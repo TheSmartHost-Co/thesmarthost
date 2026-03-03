@@ -13,6 +13,7 @@ import {
   RectangleStackIcon,
   ClipboardDocumentListIcon,
   UserCircleIcon,
+  ShoppingCartIcon,
 } from '@heroicons/react/24/outline'
 
 export interface SidebarItem {
@@ -78,6 +79,11 @@ export const managerSidebarItems: SidebarItem[] = [
     icon: ClipboardDocumentListIcon,
   },
   {
+    name: 'Supply Lists',
+    href: '/property-manager/supply-lists',
+    icon: ShoppingCartIcon,
+  },
+  {
     name: 'Cleaners',
     href: '/property-manager/cleaners',
     icon: UserCircleIcon,
@@ -109,6 +115,11 @@ export const cleanerSidebarItems: SidebarItem[] = [
     name: 'Tasks',
     href: '/cleaner/tasks',
     icon: ClipboardDocumentListIcon,
+  },
+  {
+    name: 'My Supplies',
+    href: '/cleaner/supplies',
+    icon: ShoppingCartIcon,
   },
   {
     name: 'Schedule',

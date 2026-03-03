@@ -15,6 +15,7 @@ interface CleanerRowViewProps {
   dateRange: { start: string; end: string }
   onProjectClick: (project: CleaningProject) => void
   issueCountsMap?: Record<string, number> // projectId -> open issue count
+  supplyListCountsMap?: Record<string, number> // projectId -> pending supply list count
 }
 
 export default function CleanerRowView({
@@ -23,6 +24,7 @@ export default function CleanerRowView({
   dateRange,
   onProjectClick,
   issueCountsMap = {},
+  supplyListCountsMap = {},
 }: CleanerRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
 
@@ -84,7 +86,8 @@ export default function CleanerRowView({
   const renderEventContent = (eventInfo: EventContentArg) => {
     const project = eventInfo.event.extendedProps.project as CleaningProject
     const openIssueCount = issueCountsMap[project.id] || 0
-    return <ProjectEvent project={project} showProperty openIssueCount={openIssueCount} />
+    const pendingSupplyListCount = supplyListCountsMap[project.id] || 0
+    return <ProjectEvent project={project} showProperty openIssueCount={openIssueCount} pendingSupplyListCount={pendingSupplyListCount} />
   }
 
   // Custom resource label render

@@ -20,6 +20,7 @@ import {
   completeProject,
 } from '@/services/cleaningProjectService'
 import { getOpenIssues } from '@/services/projectIssueService'
+import { getPendingSupplyLists } from '@/services/supplyListService'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import ProjectCard from '@/components/cleaner-portal/ProjectCard'
@@ -97,6 +98,7 @@ export default function CleanerTasksPage() {
   const [cleaner, setCleaner] = useState<Cleaner | null>(null)
   const [projects, setProjects] = useState<CleaningProject[]>([])
   const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
+  const [supplyListCountsMap, setSupplyListCountsMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -151,6 +153,18 @@ export default function CleanerTasksPage() {
             }
           })
           setIssueCountsMap(countsMap)
+        }
+
+        // 4. Fetch pending supply lists for badge display
+        const supplyRes = await getPendingSupplyLists(cleanerData.userId)
+        if (supplyRes.status === 'success') {
+          const slCountsMap: Record<string, number> = {}
+          supplyRes.data.forEach(sl => {
+            if (myProjects.some(p => p.id === sl.projectId)) {
+              slCountsMap[sl.projectId] = (slCountsMap[sl.projectId] || 0) + 1
+            }
+          })
+          setSupplyListCountsMap(slCountsMap)
         }
       } else {
         throw new Error(projectsRes.message || 'Failed to fetch tasks')
@@ -384,6 +398,7 @@ export default function CleanerTasksPage() {
             bgColor="bg-purple-50"
             projects={groupedProjects.today}
             issueCountsMap={issueCountsMap}
+            supplyListCountsMap={supplyListCountsMap}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
@@ -400,6 +415,7 @@ export default function CleanerTasksPage() {
             bgColor="bg-blue-50"
             projects={groupedProjects.tomorrow}
             issueCountsMap={issueCountsMap}
+            supplyListCountsMap={supplyListCountsMap}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
@@ -416,6 +432,7 @@ export default function CleanerTasksPage() {
             bgColor="bg-indigo-50"
             projects={groupedProjects.thisWeek}
             issueCountsMap={issueCountsMap}
+            supplyListCountsMap={supplyListCountsMap}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
@@ -432,6 +449,7 @@ export default function CleanerTasksPage() {
             bgColor="bg-gray-50"
             projects={groupedProjects.later}
             issueCountsMap={issueCountsMap}
+            supplyListCountsMap={supplyListCountsMap}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
@@ -500,6 +518,7 @@ interface TaskGroupProps {
   bgColor: string
   projects: CleaningProject[]
   issueCountsMap: Record<string, number>
+  supplyListCountsMap: Record<string, number>
   onAccept: (id: string) => Promise<void>
   onDecline: (id: string) => Promise<void>
   onStart: (id: string) => Promise<void>
@@ -513,6 +532,7 @@ function TaskGroup({
   bgColor,
   projects,
   issueCountsMap,
+  supplyListCountsMap,
   onAccept,
   onDecline,
   onStart,
@@ -533,6 +553,7 @@ function TaskGroup({
             key={project.id}
             project={project}
             openIssueCount={issueCountsMap[project.id] || 0}
+            pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
             onAccept={onAccept}
             onDecline={onDecline}
             onStart={onStart}

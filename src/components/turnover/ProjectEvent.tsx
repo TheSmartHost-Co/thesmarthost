@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   PlayCircleIcon,
   FlagIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 
@@ -15,9 +16,10 @@ interface ProjectEventProps {
   project: CleaningProject
   showProperty?: boolean // When in cleaner view, show property name instead of cleaner
   openIssueCount?: number // Number of open/acknowledged issues
+  pendingSupplyListCount?: number // Number of pending supply lists
 }
 
-export default function ProjectEvent({ project, showProperty = false, openIssueCount = 0 }: ProjectEventProps) {
+export default function ProjectEvent({ project, showProperty = false, openIssueCount = 0, pendingSupplyListCount = 0 }: ProjectEventProps) {
   const statusConfig = getStatusConfig(project.status)
   const isUnassigned = !project.cleanerId
 
@@ -93,6 +95,14 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">
             <FlagIcon className="w-2.5 h-2.5" />
             {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
+          </span>
+        )}
+
+        {/* Supply list badge */}
+        {pendingSupplyListCount > 0 && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-teal-100 text-teal-700 rounded">
+            <ClipboardDocumentListIcon className="w-2.5 h-2.5" />
+            {pendingSupplyListCount} supply
           </span>
         )}
 

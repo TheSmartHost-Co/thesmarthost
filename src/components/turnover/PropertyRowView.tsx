@@ -18,6 +18,7 @@ interface PropertyRowViewProps {
   onProjectClick: (project: CleaningProject) => void
   onBookingClick?: (booking: Booking) => void
   issueCountsMap?: Record<string, number>
+  supplyListCountsMap?: Record<string, number>
   bookings?: Booking[]
 }
 
@@ -28,6 +29,7 @@ export default function PropertyRowView({
   onProjectClick,
   onBookingClick,
   issueCountsMap = {},
+  supplyListCountsMap = {},
   bookings = [],
 }: PropertyRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
@@ -110,7 +112,8 @@ export default function PropertyRowView({
     }
     const project = eventInfo.event.extendedProps.project as CleaningProject
     const openIssueCount = issueCountsMap[project.id] || 0
-    return <ProjectEvent project={project} openIssueCount={openIssueCount} />
+    const pendingSupplyListCount = supplyListCountsMap[project.id] || 0
+    return <ProjectEvent project={project} openIssueCount={openIssueCount} pendingSupplyListCount={pendingSupplyListCount} />
   }
 
   // Custom resource label render

@@ -13,6 +13,7 @@ import { getCleaningProjects, getCleaningProjectStats } from '@/services/cleanin
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
 import { getOpenIssues } from '@/services/projectIssueService'
+import { getPendingSupplyLists } from '@/services/supplyListService'
 import { getBookings } from '@/services/bookingService'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
@@ -52,6 +53,7 @@ export default function TurnoverCalendar({
   const [cleaners, setCleaners] = useState<Cleaner[]>(initialCleaners || [])
   const [stats, setStats] = useState<CleaningProjectStats | null>(null)
   const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
+  const [supplyListCountsMap, setSupplyListCountsMap] = useState<Record<string, number>>({})
 
   // Bookings overlay state
   const [showBookings, setShowBookings] = useState(false)
@@ -140,15 +142,24 @@ export default function TurnoverCalendar({
           setStats(statsRes.data)
         }
 
-        // Fetch open issues to show on calendar badges
-        const issuesRes = await getOpenIssues(profile.id)
+        // Fetch open issues and pending supply lists to show on calendar badges
+        const [issuesRes, supplyRes] = await Promise.all([
+          getOpenIssues(profile.id),
+          getPendingSupplyLists(profile.id),
+        ])
         if (issuesRes.status === 'success') {
-          // Build a map of projectId -> open issue count
           const countsMap: Record<string, number> = {}
           issuesRes.data.forEach(issue => {
             countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
           })
           setIssueCountsMap(countsMap)
+        }
+        if (supplyRes.status === 'success') {
+          const countsMap: Record<string, number> = {}
+          supplyRes.data.forEach(list => {
+            countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
+          })
+          setSupplyListCountsMap(countsMap)
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load calendar data'
@@ -176,6 +187,23 @@ export default function TurnoverCalendar({
       }
     } catch (err) {
       console.error('Error refreshing issue counts:', err)
+    }
+  }
+
+  // Refresh supply list counts (call after supply lists are modified)
+  const refreshSupplyListCounts = async () => {
+    if (!profile?.id) return
+    try {
+      const supplyRes = await getPendingSupplyLists(profile.id)
+      if (supplyRes.status === 'success') {
+        const countsMap: Record<string, number> = {}
+        supplyRes.data.forEach(list => {
+          countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
+        })
+        setSupplyListCountsMap(countsMap)
+      }
+    } catch (err) {
+      console.error('Error refreshing supply list counts:', err)
     }
   }
 
@@ -367,6 +395,7 @@ export default function TurnoverCalendar({
                 onProjectClick={handleProjectClick}
                 onBookingClick={handleBookingClick}
                 issueCountsMap={issueCountsMap}
+                supplyListCountsMap={supplyListCountsMap}
                 bookings={showBookings ? visibleBookings : []}
               />
             ) : (
@@ -376,6 +405,7 @@ export default function TurnoverCalendar({
                 dateRange={dateRange}
                 onProjectClick={handleProjectClick}
                 issueCountsMap={issueCountsMap}
+                supplyListCountsMap={supplyListCountsMap}
               />
             )}
           </motion.div>
@@ -389,8 +419,9 @@ export default function TurnoverCalendar({
           onClose={() => {
             setShowDetailModal(false)
             setSelectedProject(null)
-            // Refresh issue counts when modal closes (in case issues were modified)
+            // Refresh counts when modal closes (in case issues/supply lists were modified)
             refreshIssueCounts()
+            refreshSupplyListCounts()
           }}
           project={selectedProject}
           cleaners={cleaners}

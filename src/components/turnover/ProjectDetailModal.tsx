@@ -36,10 +36,12 @@ import {
   getCompletionPercentage,
 } from '@/services/cleaningProjectService'
 import { getIssueCounts } from '@/services/projectIssueService'
+import { getSupplyListsByProject } from '@/services/supplyListService'
 import type { IssueCounts } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
+import { SubmitSupplyListModal, ViewSupplyListsModal } from './supply-lists'
 import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
@@ -72,6 +74,11 @@ export default function ProjectDetailModal({
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
 
+  // Supply lists state
+  const [supplyListCount, setSupplyListCount] = useState(0)
+  const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
+  const [showViewSupplyListsModal, setShowViewSupplyListsModal] = useState(false)
+
   // Checklist state
   const [checklistItems, setChecklistItems] = useState<ProjectChecklistItem[]>([])
   const [checklistProgress, setChecklistProgress] = useState<ChecklistProgress | null>(null)
@@ -90,6 +97,19 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error fetching issue counts:', err)
+    }
+  }, [project.id])
+
+  // Fetch supply list count when modal opens
+  const fetchSupplyListCount = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getSupplyListsByProject(project.id)
+      if (res.status === 'success') {
+        setSupplyListCount(res.data.length)
+      }
+    } catch (err) {
+      console.error('Error fetching supply list count:', err)
     }
   }, [project.id])
 
@@ -159,8 +179,9 @@ export default function ProjectDetailModal({
     if (isOpen) {
       fetchIssueCounts()
       fetchChecklist()
+      fetchSupplyListCount()
     }
-  }, [isOpen, fetchIssueCounts, fetchChecklist])
+  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -574,6 +595,49 @@ export default function ProjectDetailModal({
             )}
           </div>
 
+          {/* Supply Lists Section */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-gray-500">
+                <ClipboardDocumentCheckIcon className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">Supply Lists</span>
+              </div>
+              <button
+                onClick={() => setShowSubmitSupplyListModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Request Supplies
+              </button>
+            </div>
+
+            {supplyListCount > 0 ? (
+              <button
+                onClick={() => setShowViewSupplyListsModal(true)}
+                className="w-full text-left bg-gray-50 hover:bg-gray-100 rounded-xl p-4 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-teal-100">
+                      <ClipboardDocumentCheckIcon className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {supplyListCount} supply list{supplyListCount !== 1 ? 's' : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">Tap to review</p>
+                    </div>
+                  </div>
+                  <span className="text-sm text-purple-600 font-medium">View →</span>
+                </div>
+              </button>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">No supply requests</p>
+              </div>
+            )}
+          </div>
+
           {/* Issues Section */}
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-3">
@@ -687,6 +751,27 @@ export default function ProjectDetailModal({
           setShowReportIssueModal(true)
         }}
         onIssuesChanged={fetchIssueCounts}
+      />
+
+      {/* Submit Supply List Modal */}
+      <SubmitSupplyListModal
+        isOpen={showSubmitSupplyListModal}
+        onClose={() => setShowSubmitSupplyListModal(false)}
+        projectId={project.id}
+        cleanerId={project.cleanerId}
+        onSubmitted={() => {
+          setShowSubmitSupplyListModal(false)
+          fetchSupplyListCount()
+        }}
+      />
+
+      {/* View Supply Lists Modal */}
+      <ViewSupplyListsModal
+        isOpen={showViewSupplyListsModal}
+        onClose={() => setShowViewSupplyListsModal(false)}
+        projectId={project.id}
+        projectName={project.propertyName}
+        onSupplyListsChanged={fetchSupplyListCount}
       />
 
       {/* Image Preview Modal */}

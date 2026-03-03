@@ -17,6 +17,7 @@ import {
   WifiIcon,
   KeyIcon,
   ClipboardDocumentIcon,
+  ClipboardDocumentListIcon,
   UserGroupIcon,
   HomeIcon,
 } from '@heroicons/react/24/outline'
@@ -34,6 +35,8 @@ import {
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import { ReportIssueModal } from '@/components/turnover/issues'
+import { SubmitSupplyListModal, ViewSupplyListsModal } from '@/components/turnover/supply-lists'
+import { getSupplyListsByProject } from '@/services/supplyListService'
 import PropertyMapEmbed from '@/components/shared/PropertyMapEmbed'
 
 interface ChecklistModalProps {
@@ -63,6 +66,9 @@ export default function ChecklistModal({
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
+  const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
+  const [showViewSupplyListsModal, setShowViewSupplyListsModal] = useState(false)
+  const [supplyListCount, setSupplyListCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
 
   // Fetch checklist data
@@ -106,11 +112,25 @@ export default function ChecklistModal({
     }
   }, [project.id, project.checklistId, showNotification])
 
+  // Fetch supply list count
+  const fetchSupplyListCount = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getSupplyListsByProject(project.id)
+      if (res.status === 'success') {
+        setSupplyListCount(res.data.length)
+      }
+    } catch (err) {
+      console.error('Error fetching supply list count:', err)
+    }
+  }, [project.id])
+
   useEffect(() => {
     if (isOpen) {
       fetchChecklist()
+      fetchSupplyListCount()
     }
-  }, [isOpen, fetchChecklist])
+  }, [isOpen, fetchChecklist, fetchSupplyListCount])
 
   // Group items by room
   const itemsByRoom = groupChecklistItemsByRoom(items)
@@ -422,6 +442,19 @@ export default function ChecklistModal({
           )}
         </div>
 
+        {/* Supply List Count Indicator */}
+        {supplyListCount > 0 && (
+          <div className="flex-shrink-0 px-6 py-2 border-t border-gray-100 bg-teal-50/50">
+            <button
+              onClick={() => setShowViewSupplyListsModal(true)}
+              className="w-full flex items-center justify-center gap-2 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors cursor-pointer"
+            >
+              <ClipboardDocumentListIcon className="w-4 h-4" />
+              {supplyListCount} supply list{supplyListCount !== 1 ? 's' : ''} submitted
+            </button>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
           {readOnly ? (
@@ -432,19 +465,28 @@ export default function ChecklistModal({
               Close
             </button>
           ) : (
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowReportIssueModal(true)}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-              >
-                <FlagIcon className="w-4 h-4" />
-                Report Issue
-              </button>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowReportIssueModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <FlagIcon className="w-4 h-4" />
+                  Report Issue
+                </button>
+                <button
+                  onClick={() => setShowSubmitSupplyListModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <ClipboardDocumentListIcon className="w-4 h-4" />
+                  Request Supplies
+                </button>
+              </div>
               <button
                 onClick={handleComplete}
                 disabled={!canComplete || completing}
                 className={`
-                  flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer
+                  w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer
                   ${canComplete
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-gray-200 text-gray-500 cursor-not-allowed'
@@ -473,6 +515,28 @@ export default function ChecklistModal({
           setShowReportIssueModal(false)
           showNotification('Issue reported successfully', 'success')
         }}
+      />
+
+      {/* Submit Supply List Modal */}
+      <SubmitSupplyListModal
+        isOpen={showSubmitSupplyListModal}
+        onClose={() => setShowSubmitSupplyListModal(false)}
+        projectId={project.id}
+        cleanerId={project.cleanerId}
+        onSubmitted={() => {
+          setShowSubmitSupplyListModal(false)
+          fetchSupplyListCount()
+          showNotification('Supply list submitted successfully', 'success')
+        }}
+      />
+
+      {/* View Supply Lists Modal */}
+      <ViewSupplyListsModal
+        isOpen={showViewSupplyListsModal}
+        onClose={() => setShowViewSupplyListsModal(false)}
+        projectId={project.id}
+        projectName={project.propertyName}
+        onSupplyListsChanged={fetchSupplyListCount}
       />
 
       {/* Image Viewer Lightbox */}

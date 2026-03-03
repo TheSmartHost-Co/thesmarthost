@@ -10,6 +10,7 @@ import {
   PlayCircleIcon,
   XMarkIcon,
   ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
   ExclamationTriangleIcon,
   FlagIcon,
 } from '@heroicons/react/24/outline'
@@ -24,6 +25,7 @@ interface ProjectCardProps {
   onComplete?: (projectId: string) => Promise<void>
   onViewChecklist?: (project: CleaningProject) => void
   openIssueCount?: number
+  pendingSupplyListCount?: number
 }
 
 export default function ProjectCard({
@@ -34,6 +36,7 @@ export default function ProjectCard({
   onComplete,
   onViewChecklist,
   openIssueCount = 0,
+  pendingSupplyListCount = 0,
 }: ProjectCardProps) {
   const [isLoading, setIsLoading] = useState<string | null>(null)
 
@@ -144,6 +147,14 @@ export default function ProjectCard({
             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
               <FlagIcon className="w-3.5 h-3.5" />
               {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
+            </span>
+          )}
+
+          {/* Pending Supply Lists */}
+          {pendingSupplyListCount > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded">
+              <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
+              {pendingSupplyListCount} supply
             </span>
           )}
         </div>
