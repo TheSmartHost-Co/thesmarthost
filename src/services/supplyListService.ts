@@ -24,7 +24,7 @@ export function getSupplyListsByProject(projectId: string): Promise<SupplyListsR
  * Get all pending supply lists for a PM (dashboard view)
  */
 export function getPendingSupplyLists(userId: string): Promise<SupplyListsResponse> {
-  return apiClient<SupplyListsResponse>(`/supply-lists/pending?userId=${userId}`)
+  return apiClient<SupplyListsResponse>(`/supply-lists?userId=${userId}&status=pending`)
 }
 
 /**
