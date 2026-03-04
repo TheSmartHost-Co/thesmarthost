@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -20,6 +20,7 @@ interface PropertyRowViewProps {
   issueCountsMap?: Record<string, number>
   supplyListCountsMap?: Record<string, number>
   bookings?: Booking[]
+  zoomLevel?: 7 | 14
 }
 
 export default function PropertyRowView({
@@ -31,6 +32,7 @@ export default function PropertyRowView({
   issueCountsMap = {},
   supplyListCountsMap = {},
   bookings = [],
+  zoomLevel = 7,
 }: PropertyRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
 
@@ -91,6 +93,34 @@ export default function PropertyRowView({
   // Merge project + booking events
   const events = useMemo(() => [...projectEvents, ...bookingEvents], [projectEvents, bookingEvents])
 
+  // Compute visible range for FullCalendar based on zoom level
+  const fcVisibleRange = useMemo(() => {
+    const start = new Date(dateRange.start + 'T00:00:00')
+    const end = new Date(start)
+    end.setDate(end.getDate() + zoomLevel)
+    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+    return { start: dateRange.start, end: endStr }
+  }, [dateRange.start, zoomLevel])
+
+  // Compute wide loaded range for constraining navigation (±17 days buffer)
+  const fcLoadedRange = useMemo(() => {
+    const center = new Date(dateRange.start + 'T00:00:00')
+    const rangeStart = new Date(center)
+    rangeStart.setDate(rangeStart.getDate() - 17)
+    const rangeEnd = new Date(center)
+    rangeEnd.setDate(rangeEnd.getDate() + zoomLevel + 17)
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { start: fmt(rangeStart), end: fmt(rangeEnd) }
+  }, [dateRange.start, zoomLevel])
+
+  // Navigate FullCalendar smoothly when dateRange changes (instead of relying on initialDate remount)
+  useEffect(() => {
+    const api = calendarRef.current?.getApi()
+    if (api) {
+      api.gotoDate(dateRange.start)
+    }
+  }, [dateRange.start])
+
   // Handle event click
   const handleEventClick = (info: EventClickArg) => {
     if (info.event.extendedProps.isBooking) {
@@ -108,7 +138,7 @@ export default function PropertyRowView({
   const renderEventContent = (eventInfo: EventContentArg) => {
     if (eventInfo.event.extendedProps.isBooking) {
       const booking = eventInfo.event.extendedProps.booking as Booking
-      return <BookingEvent booking={booking} />
+      return <BookingEvent booking={booking} isFirstDay={eventInfo.isStart} isLastDay={eventInfo.isEnd} />
     }
     const project = eventInfo.event.extendedProps.project as CleaningProject
     const openIssueCount = issueCountsMap[project.id] || 0
@@ -135,7 +165,9 @@ export default function PropertyRowView({
       <FullCalendar
         ref={calendarRef}
         plugins={[resourceTimelinePlugin, interactionPlugin]}
-        initialView="resourceTimelineWeek"
+        initialView="resourceTimeline"
+        visibleRange={fcVisibleRange}
+        validRange={fcLoadedRange}
         initialDate={dateRange.start}
         resources={resources}
         events={events}
@@ -224,6 +256,9 @@ export default function PropertyRowView({
         }
         .fc-property-view .fc-col-header-cell {
           border-color: #e5e7eb;
+        }
+        .fc-property-view .fc-scroller {
+          overflow-x: hidden !important;
         }
       `}</style>
     </div>

@@ -42,6 +42,12 @@ export async function getBookings(
   if (filters.platform) {
     params.append('platform', filters.platform)
   }
+  if (filters.startDate) {
+    params.append('startDate', filters.startDate)
+  }
+  if (filters.endDate) {
+    params.append('endDate', filters.endDate)
+  }
 
   return apiClient<BookingsResponse>(`/bookings?${params.toString()}`)
 }
@@ -380,4 +386,23 @@ export async function bulkImportBookings(
     method: 'POST',
     body: { userId, bookings },
   })
+}
+
+/**
+ * Get a month key from a Date (e.g. "2026-03")
+ */
+export function getMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * Get the start and end dates for a month key (e.g. "2026-03" → { startDate: "2026-03-01", endDate: "2026-03-31" })
+ */
+export function getMonthBounds(monthKey: string): { startDate: string; endDate: string } {
+  const [year, month] = monthKey.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  return {
+    startDate: `${year}-${String(month).padStart(2, '0')}-01`,
+    endDate: `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+  }
 }

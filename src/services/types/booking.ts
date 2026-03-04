@@ -40,6 +40,8 @@ export interface Booking {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  defaultCheckinTime?: string   // e.g. "15:00" — from property defaults
+  defaultCheckoutTime?: string  // e.g. "11:00" — from property defaults
   createdAt: string
 }
 
@@ -267,6 +269,8 @@ export interface BookingFilters {
   propertyId?: string
   csvUploadId?: string
   platform?: Platform
+  startDate?: string  // YYYY-MM-DD
+  endDate?: string    // YYYY-MM-DD
 }
 
 /**

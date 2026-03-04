@@ -1,10 +1,23 @@
 'use client'
 
-import { UserIcon } from '@heroicons/react/24/outline'
+import { UserIcon, ArrowRightStartOnRectangleIcon, ArrowLeftEndOnRectangleIcon } from '@heroicons/react/24/outline'
 import type { Booking } from '@/services/types/booking'
 
 interface BookingEventProps {
   booking: Booking
+  isFirstDay?: boolean
+  isLastDay?: boolean
+}
+
+const DEFAULT_CHECKIN = '15:00'
+const DEFAULT_CHECKOUT = '11:00'
+
+// Convert "15:00" → "3:00 PM"
+function formatTime(timeStr: string): string {
+  const [h, m] = timeStr.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`
 }
 
 // Platform color mapping
@@ -36,8 +49,10 @@ function formatShortDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function BookingEvent({ booking }: BookingEventProps) {
+export default function BookingEvent({ booking, isFirstDay, isLastDay }: BookingEventProps) {
   const config = getPlatformConfig(booking.platform)
+  const checkinTime = booking.defaultCheckinTime || DEFAULT_CHECKIN
+  const checkoutTime = booking.defaultCheckoutTime || DEFAULT_CHECKOUT
 
   return (
     <div
@@ -54,6 +69,24 @@ export default function BookingEvent({ booking }: BookingEventProps) {
           {booking.guestName}
         </span>
       </div>
+
+      {/* Time indicators */}
+      {(isFirstDay || isLastDay) && (
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {isFirstDay && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-600">
+              <ArrowRightStartOnRectangleIcon className="w-3 h-3" />
+              {formatTime(checkinTime)}
+            </span>
+          )}
+          {isLastDay && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+              <ArrowLeftEndOnRectangleIcon className="w-3 h-3" />
+              {formatTime(checkoutTime)}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Date range */}
       <div className="flex items-center gap-1 mt-0.5">

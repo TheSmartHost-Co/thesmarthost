@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -16,6 +16,7 @@ interface CleanerRowViewProps {
   onProjectClick: (project: CleaningProject) => void
   issueCountsMap?: Record<string, number> // projectId -> open issue count
   supplyListCountsMap?: Record<string, number> // projectId -> pending supply list count
+  zoomLevel?: 7 | 14
 }
 
 export default function CleanerRowView({
@@ -25,6 +26,7 @@ export default function CleanerRowView({
   onProjectClick,
   issueCountsMap = {},
   supplyListCountsMap = {},
+  zoomLevel = 7,
 }: CleanerRowViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
 
@@ -73,6 +75,34 @@ export default function CleanerRowView({
       classNames: getEventClassNames(project),
     }))
   }, [projects])
+
+  // Compute visible range for FullCalendar based on zoom level
+  const fcVisibleRange = useMemo(() => {
+    const start = new Date(dateRange.start + 'T00:00:00')
+    const end = new Date(start)
+    end.setDate(end.getDate() + zoomLevel)
+    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+    return { start: dateRange.start, end: endStr }
+  }, [dateRange.start, zoomLevel])
+
+  // Compute wide loaded range for constraining navigation (±17 days buffer)
+  const fcLoadedRange = useMemo(() => {
+    const center = new Date(dateRange.start + 'T00:00:00')
+    const rangeStart = new Date(center)
+    rangeStart.setDate(rangeStart.getDate() - 17)
+    const rangeEnd = new Date(center)
+    rangeEnd.setDate(rangeEnd.getDate() + zoomLevel + 17)
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { start: fmt(rangeStart), end: fmt(rangeEnd) }
+  }, [dateRange.start, zoomLevel])
+
+  // Navigate FullCalendar smoothly when dateRange changes
+  useEffect(() => {
+    const api = calendarRef.current?.getApi()
+    if (api) {
+      api.gotoDate(dateRange.start)
+    }
+  }, [dateRange.start])
 
   // Handle event click
   const handleEventClick = (info: EventClickArg) => {
@@ -134,7 +164,9 @@ export default function CleanerRowView({
       <FullCalendar
         ref={calendarRef}
         plugins={[resourceTimelinePlugin, interactionPlugin]}
-        initialView="resourceTimelineWeek"
+        initialView="resourceTimeline"
+        visibleRange={fcVisibleRange}
+        validRange={fcLoadedRange}
         initialDate={dateRange.start}
         resources={resources}
         events={events}
@@ -222,6 +254,9 @@ export default function CleanerRowView({
         }
         .fc-cleaner-view .fc-col-header-cell {
           border-color: #e5e7eb;
+        }
+        .fc-cleaner-view .fc-scroller {
+          overflow-x: hidden !important;
         }
         /* Special styling for unassigned row */
         .fc-cleaner-view .fc-datagrid-body tr:first-child .fc-datagrid-cell {
