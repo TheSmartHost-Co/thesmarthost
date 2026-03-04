@@ -113,7 +113,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
       }
     } catch (err) {
       console.error('Error creating cleaner:', err)
-      showNotification('Error creating cleaner', 'error')
+      showNotification(err instanceof Error ? err.message : 'Error creating cleaner', 'error')
     } finally {
       setIsSubmitting(false)
     }

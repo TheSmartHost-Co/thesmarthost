@@ -23,6 +23,8 @@ import { createCleaningProject } from '@/services/cleaningProjectService'
 import { getChecklists, getChecklistById } from '@/services/checklistService'
 import { getBookings } from '@/services/bookingService'
 import SearchableSelect from '@/components/shared/SearchableSelect'
+import TimeSelect, { roundToNearest15 } from '@/components/shared/TimeSelect'
+import DurationSelect from '@/components/shared/DurationSelect'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
 import type { CreateCleaningProjectPayload, CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
@@ -137,6 +139,24 @@ export default function CreateProjectModal({
       setShowChecklistPreview(false)
     }
   }, [isOpen, initialDate, initialPropertyId])
+
+  // Auto-fill default times from property when property changes
+  useEffect(() => {
+    if (propertyId) {
+      const prop = properties.find((p) => p.id === propertyId)
+      if (prop) {
+        if (!checkoutTime) {
+          const time = roundToNearest15(prop.defaultCheckoutTime?.slice(0, 5) || '11:00')
+          setCheckoutTime(time)
+        }
+        if (!checkinTime) {
+          const time = roundToNearest15(prop.defaultCheckinTime?.slice(0, 5) || '15:00')
+          setCheckinTime(time)
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId])
 
   // Fetch checklists when property changes
   useEffect(() => {
@@ -532,11 +552,10 @@ export default function CreateProjectModal({
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
                       Check-out Time
                     </label>
-                    <input
-                      type="time"
+                    <TimeSelect
                       value={checkoutTime}
-                      onChange={(e) => setCheckoutTime(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      onChange={setCheckoutTime}
+                      placeholder="Check-out"
                     />
                   </div>
                   <div>
@@ -544,11 +563,10 @@ export default function CreateProjectModal({
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
                       Check-in Time
                     </label>
-                    <input
-                      type="time"
+                    <TimeSelect
                       value={checkinTime}
-                      onChange={(e) => setCheckinTime(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      onChange={setCheckinTime}
+                      placeholder="Check-in"
                     />
                   </div>
                   <div>
@@ -556,19 +574,11 @@ export default function CreateProjectModal({
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
                       Est. Duration
                     </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={estimatedDuration}
-                        onChange={(e) => setEstimatedDuration(e.target.value)}
-                        placeholder="Minutes"
-                        min="0"
-                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                        min
-                      </span>
-                    </div>
+                    <DurationSelect
+                      value={estimatedDuration}
+                      onChange={setEstimatedDuration}
+                      placeholder="Duration"
+                    />
                   </div>
                 </div>
 

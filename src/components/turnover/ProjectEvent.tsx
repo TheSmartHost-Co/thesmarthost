@@ -22,6 +22,7 @@ interface ProjectEventProps {
 export default function ProjectEvent({ project, showProperty = false, openIssueCount = 0, pendingSupplyListCount = 0 }: ProjectEventProps) {
   const statusConfig = getStatusConfig(project.status)
   const isUnassigned = !project.cleanerId
+  const isAwaitingResponse = project.status === 'assigned' && project.cleanerAccepted === null
 
   // Format time display
   const formatTime = (time: string | null | undefined) => {
@@ -39,8 +40,7 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
       className={`
         group relative w-full rounded-lg border-l-4 px-2.5 py-1.5 cursor-pointer
         transition-all hover:shadow-md hover:scale-[1.02]
-        ${isUnassigned ? 'bg-amber-50 border-amber-400' : statusConfig.bg}
-        ${statusConfig.border}
+        ${isUnassigned || isAwaitingResponse ? 'bg-amber-50 border-amber-400' : `${statusConfig.bg} ${statusConfig.border}`}
       `}
     >
       {/* Main content */}
@@ -53,7 +53,7 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
             ) : (
               <UserCircleIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
             )}
-            <span className={`text-xs font-semibold truncate ${isUnassigned ? 'text-amber-700' : statusConfig.text}`}>
+            <span className={`text-xs font-semibold truncate ${isUnassigned || isAwaitingResponse ? 'text-amber-700' : statusConfig.text}`}>
               {showProperty
                 ? (project.propertyName || 'Unknown Property')
                 : (project.cleanerName || 'Unassigned')
@@ -75,8 +75,8 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
         </div>
 
         {/* Status icon */}
-        <div className={`flex-shrink-0 ${statusConfig.iconColor}`}>
-          {statusConfig.icon}
+        <div className={`flex-shrink-0 ${isAwaitingResponse ? 'text-amber-500' : statusConfig.iconColor}`}>
+          {isAwaitingResponse ? <ClockIcon className="w-4 h-4" /> : statusConfig.icon}
         </div>
       </div>
 
@@ -107,8 +107,8 @@ export default function ProjectEvent({ project, showProperty = false, openIssueC
         )}
 
         {/* Status badge */}
-        <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded ${statusConfig.badge}`}>
-          {statusConfig.label}
+        <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded ${isAwaitingResponse ? 'bg-amber-100 text-amber-700' : statusConfig.badge}`}>
+          {isAwaitingResponse ? 'Awaiting Response' : statusConfig.label}
         </span>
 
         {/* iCal source badge */}

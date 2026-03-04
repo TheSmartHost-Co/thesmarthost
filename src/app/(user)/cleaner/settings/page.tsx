@@ -510,11 +510,13 @@ export default function CleanerSettingsPage() {
                     Status
                   </label>
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                    cleaner.isActive
+                    cleaner.status === 'active'
                       ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
+                      : cleaner.status === 'invited'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-gray-100 text-gray-500'
                   }`}>
-                    {cleaner.isActive ? 'Active' : 'Inactive'}
+                    {cleaner.status === 'active' ? 'Active' : cleaner.status === 'invited' ? 'Invited' : 'Inactive'}
                   </span>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">

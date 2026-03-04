@@ -50,20 +50,29 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
   }
 
   const getStatusBadge = () => {
-    if (cleaner.isActive) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-          Active
-        </span>
-      )
+    switch (cleaner.status) {
+      case 'active':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            Active
+          </span>
+        )
+      case 'invited':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            Invited
+          </span>
+        )
+      case 'inactive':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+            Inactive
+          </span>
+        )
     }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-        Inactive
-      </span>
-    )
   }
 
   const assignedCount = cleaner.assignedProperties?.length || 0

@@ -423,7 +423,7 @@ export default function ProjectDetailModal({
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
                       <option value="">Select a cleaner...</option>
-                      {cleaners.filter(c => c.isActive).map(cleaner => (
+                      {cleaners.filter(c => c.status !== 'inactive').map(cleaner => (
                         <option key={cleaner.id} value={cleaner.id}>
                           {cleaner.name}
                         </option>

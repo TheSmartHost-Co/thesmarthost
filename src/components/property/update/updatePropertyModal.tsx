@@ -46,6 +46,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [wifiPassword, setWifiPassword] = useState(property.wifiPassword || '')
   const [accessCodes, setAccessCodes] = useState(property.accessCodes || '')
   const [showWifiPassword, setShowWifiPassword] = useState(false)
+  // Default times
+  const [defaultCheckoutTime, setDefaultCheckoutTime] = useState(property.defaultCheckoutTime || '')
+  const [defaultCheckinTime, setDefaultCheckinTime] = useState(property.defaultCheckinTime || '')
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -76,6 +79,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setWifiPassword(property.wifiPassword || '')
       setAccessCodes(property.accessCodes || '')
       setShowWifiPassword(false)
+      setDefaultCheckoutTime(property.defaultCheckoutTime || '')
+      setDefaultCheckinTime(property.defaultCheckinTime || '')
     }
   }, [isOpen, property])
 
@@ -134,6 +139,9 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         wifiSsid: wifiSsid.trim() || null,
         wifiPassword: wifiPassword.trim() || null,
         accessCodes: accessCodes.trim() || null,
+        // Default times
+        defaultCheckoutTime: defaultCheckoutTime || null,
+        defaultCheckinTime: defaultCheckinTime || null,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -451,6 +459,33 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                 <p className="text-xs text-gray-500 mt-1">
                   Enter door codes, gate codes, lockbox combinations, etc. One per line.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Default Times Section */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Default Times</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Time</label>
+                <input
+                  type="time"
+                  value={defaultCheckoutTime}
+                  onChange={(e) => setDefaultCheckoutTime(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                />
+                <p className="text-xs text-gray-500 mt-1">When guests check out (default: 11:00 AM)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Time</label>
+                <input
+                  type="time"
+                  value={defaultCheckinTime}
+                  onChange={(e) => setDefaultCheckinTime(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                />
+                <p className="text-xs text-gray-500 mt-1">When guests check in (default: 3:00 PM)</p>
               </div>
             </div>
           </div>

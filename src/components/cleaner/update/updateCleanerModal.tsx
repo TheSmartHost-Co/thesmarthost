@@ -33,7 +33,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
   const [phone, setPhone] = useState('')
   const [hourlyRate, setHourlyRate] = useState('')
   const [turnaroundMinutes, setTurnaroundMinutes] = useState(120)
-  const [isActive, setIsActive] = useState(true)
+  const [status, setStatus] = useState<'active' | 'inactive'>('active')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -46,7 +46,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
       setPhone(cleaner.phone || '')
       setHourlyRate(cleaner.hourlyRate?.toString() || '')
       setTurnaroundMinutes(cleaner.defaultTurnaroundMinutes)
-      setIsActive(cleaner.isActive)
+      setStatus(cleaner.status === 'inactive' ? 'inactive' : 'active')
     }
   }, [isOpen, cleaner])
 
@@ -87,7 +87,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
         phone: trimmedPhone || null,
         hourlyRate: rate,
         defaultTurnaroundMinutes: turnaroundMinutes,
-        isActive,
+        status,
       }
 
       const res = await updateCleaner(cleaner.id, payload)
@@ -187,8 +187,8 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
             <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
-                checked={isActive}
-                onChange={() => setIsActive(true)}
+                checked={status === 'active'}
+                onChange={() => setStatus('active')}
                 className="mr-2"
               />
               <span className="text-sm">Active</span>
@@ -196,8 +196,8 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
             <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
-                checked={!isActive}
-                onChange={() => setIsActive(false)}
+                checked={status === 'inactive'}
+                onChange={() => setStatus('inactive')}
                 className="mr-2"
               />
               <span className="text-sm">Inactive</span>

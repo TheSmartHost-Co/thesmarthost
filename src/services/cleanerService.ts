@@ -80,8 +80,9 @@ export function resendCleanerInvite(cleanerId: string): Promise<{ status: 'succe
 export function calculateCleanerStats(cleaners: Cleaner[]): CleanerStats {
   return {
     total: cleaners.length,
-    active: cleaners.filter(c => c.isActive).length,
-    inactive: cleaners.filter(c => !c.isActive).length,
+    active: cleaners.filter(c => c.status === 'active').length,
+    inactive: cleaners.filter(c => c.status === 'inactive').length,
+    invited: cleaners.filter(c => c.status === 'invited').length,
     withAssignments: cleaners.filter(c => (c.assignedProperties?.length ?? 0) > 0).length,
   }
 }

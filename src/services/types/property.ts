@@ -44,6 +44,9 @@ export interface Property {
   wifiSsid?: string | null
   wifiPassword?: string | null
   accessCodes?: string | null
+  // Default times
+  defaultCheckoutTime?: string | null
+  defaultCheckinTime?: string | null
 }
 
 /**
@@ -103,6 +106,9 @@ export interface CreatePropertyPayload {
   wifiSsid?: string
   wifiPassword?: string
   accessCodes?: string
+  // Default times
+  defaultCheckoutTime?: string
+  defaultCheckinTime?: string
 }
 
 /**
@@ -130,6 +136,9 @@ export interface UpdatePropertyPayload {
   wifiSsid?: string | null
   wifiPassword?: string | null
   accessCodes?: string | null
+  // Default times
+  defaultCheckoutTime?: string | null
+  defaultCheckinTime?: string | null
 }
 
 /**

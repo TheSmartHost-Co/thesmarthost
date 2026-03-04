@@ -8,7 +8,7 @@ export interface Cleaner {
   phone?: string
   hourlyRate?: number
   defaultTurnaroundMinutes: number
-  isActive: boolean
+  status: 'invited' | 'active' | 'inactive'
   createdAt: string
   updatedAt?: string
   // Joined data
@@ -52,7 +52,7 @@ export interface UpdateCleanerPayload {
   phone?: string | null
   hourlyRate?: number | null
   defaultTurnaroundMinutes?: number
-  isActive?: boolean
+  status?: 'active' | 'inactive'
 }
 
 // Assign properties payload
@@ -87,6 +87,7 @@ export interface CleanerStats {
   total: number
   active: number
   inactive: number
+  invited: number
   withAssignments: number
 }
 

@@ -348,7 +348,7 @@ export default function TurnoverCalendar({
     >
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           <StatCard label="Total" value={stats.total} color="blue" />
           <StatCard label="Pending" value={stats.pending} color="yellow" />
           <StatCard label="Assigned" value={stats.assigned} color="blue" />
@@ -356,6 +356,12 @@ export default function TurnoverCalendar({
           <StatCard label="In Progress" value={stats.inProgress} color="purple" />
           <StatCard label="Completed" value={stats.completed} color="green" />
           <StatCard label="Unassigned" value={stats.unassigned} color="amber" highlight />
+          <StatCard
+            label="Awaiting"
+            value={projects.filter(p => p.status === 'assigned' && p.cleanerAccepted === null).length}
+            color="amber"
+            highlight
+          />
         </div>
       )}
 

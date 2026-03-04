@@ -29,7 +29,7 @@ import AssignPropertiesModal from '@/components/cleaner/AssignPropertiesModal'
 
 export default function PropertyManagerCleanersPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'invited'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -37,7 +37,7 @@ export default function PropertyManagerCleanersPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null)
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
-  const [stats, setStats] = useState<CleanerStats>({ total: 0, active: 0, inactive: 0, withAssignments: 0 })
+  const [stats, setStats] = useState<CleanerStats>({ total: 0, active: 0, inactive: 0, invited: 0, withAssignments: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -210,35 +210,43 @@ export default function PropertyManagerCleanersPage() {
         (cleaner.phone && cleaner.phone.includes(searchTerm))
 
       const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && cleaner.isActive) ||
-        (statusFilter === 'inactive' && !cleaner.isActive)
+        statusFilter === 'all' || cleaner.status === statusFilter
 
       return matchesSearch && matchesStatus
     })
     .sort((a, b) => {
-      // Active cleaners first
-      if (a.isActive && !b.isActive) return -1
-      if (!a.isActive && b.isActive) return 1
+      // Active first, then invited, then inactive
+      const statusOrder = { active: 0, invited: 1, inactive: 2 }
+      const orderDiff = statusOrder[a.status] - statusOrder[b.status]
+      if (orderDiff !== 0) return orderDiff
       // Then by name
       return a.name.localeCompare(b.name)
     })
 
-  const getStatusBadge = (isActive: boolean) => {
-    if (isActive) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-          Active
-        </span>
-      )
+  const getStatusBadge = (status: 'invited' | 'active' | 'inactive') => {
+    switch (status) {
+      case 'active':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            Active
+          </span>
+        )
+      case 'invited':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            Invited
+          </span>
+        )
+      case 'inactive':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+            Inactive
+          </span>
+        )
     }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-        Inactive
-      </span>
-    )
   }
 
   const statCards = [
@@ -270,9 +278,9 @@ export default function PropertyManagerCleanersPage() {
       borderColor: 'border-purple-100'
     },
     {
-      label: 'Inactive Cleaners',
-      value: stats.inactive,
-      icon: XCircleIcon,
+      label: 'Invited',
+      value: stats.invited,
+      icon: EnvelopeIcon,
       bgColor: 'bg-amber-50',
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
@@ -399,11 +407,12 @@ export default function PropertyManagerCleanersPage() {
               </div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive' | 'invited')}
                 className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
+                <option value="invited">Invited</option>
                 <option value="inactive">Inactive</option>
               </select>
             </div>
@@ -480,7 +489,7 @@ export default function PropertyManagerCleanersPage() {
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(cleaner.isActive)}
+                    {getStatusBadge(cleaner.status)}
                   </td>
                   <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]" onClick={(e) => e.stopPropagation()}>
                     <TableActionsDropdown
