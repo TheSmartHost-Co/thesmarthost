@@ -13,6 +13,7 @@ import {
   ClipboardDocumentListIcon,
   ExclamationTriangleIcon,
   FlagIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import { formatTime } from '@/services/cleaningProjectService'
@@ -24,8 +25,12 @@ interface ProjectCardProps {
   onStart?: (projectId: string) => Promise<void>
   onComplete?: (projectId: string) => Promise<void>
   onViewChecklist?: (project: CleaningProject) => void
+  onViewIssues?: (project: CleaningProject) => void
+  onRequestTimeChange?: (project: CleaningProject) => void
+  onViewPendingTimeChange?: (project: CleaningProject) => void
   openIssueCount?: number
   pendingSupplyListCount?: number
+  hasPendingTimeChange?: boolean
 }
 
 export default function ProjectCard({
@@ -35,8 +40,12 @@ export default function ProjectCard({
   onStart,
   onComplete,
   onViewChecklist,
+  onViewIssues,
+  onRequestTimeChange,
+  onViewPendingTimeChange,
   openIssueCount = 0,
   pendingSupplyListCount = 0,
+  hasPendingTimeChange = false,
 }: ProjectCardProps) {
   const [isLoading, setIsLoading] = useState<string | null>(null)
 
@@ -157,6 +166,17 @@ export default function ProjectCard({
               {pendingSupplyListCount} supply
             </span>
           )}
+
+          {/* Time Change Pending */}
+          {hasPendingTimeChange && (
+            <button
+              onClick={() => onViewPendingTimeChange?.(project)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors cursor-pointer"
+            >
+              <ArrowPathIcon className="w-3.5 h-3.5" />
+              Time Change Pending
+            </button>
+          )}
         </div>
 
         {/* Checklist Progress */}
@@ -242,6 +262,29 @@ export default function ProjectCard({
             >
               <ClipboardDocumentCheckIcon className="w-4 h-4" />
               View Checklist
+            </button>
+          )}
+
+          {/* Request Time Change button */}
+          {onRequestTimeChange && !hasPendingTimeChange &&
+            (project.status === 'assigned' || project.status === 'confirmed' || project.status === 'in_progress') && (
+            <button
+              onClick={() => onRequestTimeChange(project)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Request Time Change
+            </button>
+          )}
+
+          {/* View Issues button - only when issues exist */}
+          {openIssueCount > 0 && onViewIssues && (
+            <button
+              onClick={() => onViewIssues(project)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <FlagIcon className="w-4 h-4" />
+              View Issues ({openIssueCount})
             </button>
           )}
 

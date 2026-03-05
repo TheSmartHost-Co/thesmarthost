@@ -5,8 +5,6 @@ import type {
   ProjectIssuesResponse,
   CreateIssuePayload,
   UpdateIssuePayload,
-  AcknowledgeIssuePayload,
-  ResolveIssuePayload,
   IssueCountsResponse,
   DeleteIssueResponse,
   IssueType,
@@ -80,14 +78,12 @@ export function deleteIssue(issueId: string): Promise<DeleteIssueResponse> {
  * PM acknowledges an issue
  */
 export function acknowledgeIssue(
-  issueId: string,
-  data?: AcknowledgeIssuePayload
+  issueId: string
 ): Promise<ProjectIssueResponse> {
-  return apiClient<ProjectIssueResponse, AcknowledgeIssuePayload | undefined>(
+  return apiClient<ProjectIssueResponse>(
     `/project-issues/${issueId}/acknowledge`,
     {
-      method: 'POST',
-      body: data
+      method: 'POST'
     }
   )
 }
@@ -96,14 +92,12 @@ export function acknowledgeIssue(
  * Mark an issue as resolved
  */
 export function resolveIssue(
-  issueId: string,
-  data?: ResolveIssuePayload
+  issueId: string
 ): Promise<ProjectIssueResponse> {
-  return apiClient<ProjectIssueResponse, ResolveIssuePayload | undefined>(
+  return apiClient<ProjectIssueResponse>(
     `/project-issues/${issueId}/resolve`,
     {
-      method: 'POST',
-      body: data
+      method: 'POST'
     }
   )
 }

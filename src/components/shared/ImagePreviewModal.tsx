@@ -9,6 +9,8 @@ interface ImagePreviewModalProps {
   onClose: () => void
   imageUrl: string
   title?: string
+  photoTakenAt?: string | null
+  photoUploadedAt?: string | null
 }
 
 export default function ImagePreviewModal({
@@ -16,6 +18,8 @@ export default function ImagePreviewModal({
   onClose,
   imageUrl,
   title,
+  photoTakenAt,
+  photoUploadedAt,
 }: ImagePreviewModalProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -95,8 +99,20 @@ export default function ImagePreviewModal({
           )}
         </div>
 
+        {/* Timestamps */}
+        {(photoTakenAt || photoUploadedAt) && (
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+            {photoTakenAt && (
+              <span>Photo taken: {new Date(photoTakenAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            )}
+            {photoUploadedAt && (
+              <span>Uploaded: {new Date(photoUploadedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            )}
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+        <div className={`px-4 py-3 ${!(photoTakenAt || photoUploadedAt) ? 'border-t border-gray-100' : ''} flex items-center justify-between bg-gray-50`}>
           <button
             onClick={handleClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"

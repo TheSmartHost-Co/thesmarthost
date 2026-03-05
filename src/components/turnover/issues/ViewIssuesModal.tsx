@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import {
   getIssuesByProject,
@@ -12,8 +12,11 @@ import {
   getIssueTypeDisplay,
   getIssueStatusDisplay
 } from '@/services/projectIssueService'
+import { getNotesByIssue, createIssueNote } from '@/services/projectIssueNoteService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
+import type { IssueNote } from '@/services/types/projectIssueNote'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import {
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
@@ -30,6 +33,7 @@ import {
   ChatBubbleLeftIcon,
   PlusIcon
 } from '@heroicons/react/24/outline'
+import { ArrowUpIcon } from '@heroicons/react/24/solid'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ViewIssuesModalProps {
@@ -69,12 +73,19 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const [pmNotes, setPmNotes] = useState('')
   const [showPhotoViewer, setShowPhotoViewer] = useState(false)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
 
+  // Notes state
+  const [notes, setNotes] = useState<IssueNote[]>([])
+  const [noteText, setNoteText] = useState('')
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [publishLoading, setPublishLoading] = useState(false)
+  const notesEndRef = useRef<HTMLDivElement>(null)
+
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const userId = useUserStore((state) => state.profile?.id)
 
   const fetchIssues = useCallback(async () => {
     if (!projectId) return
@@ -95,6 +106,20 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
     }
   }, [projectId, showNotification])
 
+  const fetchNotes = useCallback(async (issueId: string) => {
+    setNotesLoading(true)
+    try {
+      const res = await getNotesByIssue(issueId)
+      if (res.status === 'success') {
+        setNotes(res.data)
+      }
+    } catch (err) {
+      console.error('Error fetching notes:', err)
+    } finally {
+      setNotesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen && projectId) {
       fetchIssues()
@@ -105,22 +130,65 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setSelectedIssue(null)
-      setPmNotes('')
+      setNotes([])
+      setNoteText('')
       setShowPhotoViewer(false)
       setFilterStatus('all')
     }
   }, [isOpen])
 
+  // Fetch notes when selecting an issue
+  useEffect(() => {
+    if (selectedIssue) {
+      fetchNotes(selectedIssue.id)
+    } else {
+      setNotes([])
+      setNoteText('')
+    }
+  }, [selectedIssue, fetchNotes])
+
+  // Auto-scroll notes to bottom
+  useEffect(() => {
+    notesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [notes])
+
+  const handlePublish = async () => {
+    if (!selectedIssue || !userId || !noteText.trim()) return
+
+    setPublishLoading(true)
+    try {
+      const res = await createIssueNote(selectedIssue.id, {
+        authorId: userId,
+        body: noteText.trim()
+      })
+      if (res.status === 'success') {
+        setNotes(prev => [...prev, res.data])
+        setNoteText('')
+      } else {
+        showNotification(res.message || 'Failed to post note', 'error')
+      }
+    } catch (err) {
+      showNotification('Failed to post note', 'error')
+    } finally {
+      setPublishLoading(false)
+    }
+  }
+
+  const handleNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handlePublish()
+    }
+  }
+
   const handleAcknowledge = async (issue: ProjectIssue) => {
     setActionLoading(true)
     try {
-      const res = await acknowledgeIssue(issue.id, pmNotes ? { pmNotes } : undefined)
+      const res = await acknowledgeIssue(issue.id)
       if (res.status === 'success') {
         showNotification('Issue acknowledged', 'success')
-        // Update local state
         setIssues(prev => prev.map(i => i.id === issue.id ? res.data : i))
         setSelectedIssue(res.data)
-        setPmNotes('')
         onIssuesChanged?.()
       } else {
         showNotification(res.message || 'Failed to acknowledge', 'error')
@@ -135,12 +203,11 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const handleResolve = async (issue: ProjectIssue) => {
     setActionLoading(true)
     try {
-      const res = await resolveIssue(issue.id, pmNotes ? { pmNotes } : undefined)
+      const res = await resolveIssue(issue.id)
       if (res.status === 'success') {
         showNotification('Issue resolved', 'success')
         setIssues(prev => prev.map(i => i.id === issue.id ? res.data : i))
         setSelectedIssue(res.data)
-        setPmNotes('')
         onIssuesChanged?.()
       } else {
         showNotification(res.message || 'Failed to resolve', 'error')
@@ -184,9 +251,22 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
     resolved: issues.filter(i => i.status === 'resolved').length
   }
 
+  const formatNoteTime = (createdAt: string) => {
+    const d = new Date(createdAt)
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return `${diffHours}h ago`
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} closable>
-      <div className="p-6 max-w-2xl mx-auto">
+    <Modal isOpen={isOpen} onClose={onClose} closable style="w-11/12 max-w-2xl">
+      <div className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -300,32 +380,91 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                 </div>
               )}
 
-              {/* PM Notes */}
-              {selectedIssue.pmNotes && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-blue-700 mb-1">
-                    <ChatBubbleLeftIcon className="w-4 h-4" />
-                    <span className="text-sm font-medium">Manager Notes</span>
-                  </div>
-                  <p className="text-gray-800 text-sm">{selectedIssue.pmNotes}</p>
+              {/* Notes Thread */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <ChatBubbleLeftIcon className="w-4 h-4 text-gray-500" />
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Notes {notes.length > 0 && `(${notes.length})`}
+                  </h4>
                 </div>
-              )}
+
+                {/* Notes list — scrollable chat bubbles */}
+                <div className="max-h-[220px] overflow-y-auto space-y-2 mb-3 px-1">
+                  {notesLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+                    </div>
+                  ) : notes.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      No notes yet. Start the conversation below.
+                    </p>
+                  ) : (
+                    notes.map((note) => {
+                      const isFromPM = note.authorType === 'pm'
+                      return (
+                        <div
+                          key={note.id}
+                          className={`flex ${isFromPM ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`
+                              max-w-[80%] rounded-xl px-3.5 py-2.5
+                              ${isFromPM
+                                ? 'bg-amber-50 border border-amber-200'
+                                : 'bg-gray-100 border border-gray-200'
+                              }
+                            `}
+                          >
+                            <div className={`flex items-center gap-2 mb-0.5 ${isFromPM ? 'justify-end' : ''}`}>
+                              <span className={`text-xs font-medium ${isFromPM ? 'text-amber-700' : 'text-gray-600'}`}>
+                                {note.authorName}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                {formatNoteTime(note.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                              {note.body}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                  <div ref={notesEndRef} />
+                </div>
+
+                {/* Compose row */}
+                {userId && (
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      onKeyDown={handleNoteKeyDown}
+                      placeholder="Type a note..."
+                      rows={1}
+                      className="flex-1 px-3.5 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm min-h-[38px] max-h-[80px]"
+                      style={{ fieldSizing: 'content' } as React.CSSProperties}
+                    />
+                    <button
+                      onClick={handlePublish}
+                      disabled={publishLoading || !noteText.trim()}
+                      className="p-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      {publishLoading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <ArrowUpIcon className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* PM Actions */}
               {isPM && selectedIssue.status !== 'resolved' && (
-                <div className="border-t pt-4 space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Add Notes (optional)
-                    </label>
-                    <textarea
-                      value={pmNotes}
-                      onChange={(e) => setPmNotes(e.target.value)}
-                      placeholder="Add a note about this issue..."
-                      rows={2}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm"
-                    />
-                  </div>
+                <div className="border-t pt-4">
                   <div className="flex gap-3">
                     {selectedIssue.status === 'open' && (
                       <button

@@ -37,6 +37,8 @@ import {
 } from '@/services/cleaningProjectService'
 import { getIssueCounts } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
+import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
+import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
@@ -85,7 +87,12 @@ export default function ProjectDetailModal({
   const [isLoadingChecklist, setIsLoadingChecklist] = useState(false)
   const [isInitializingChecklist, setIsInitializingChecklist] = useState(false)
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<{ url: string; task: string } | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; task: string; photoTakenAt?: string | null; photoUploadedAt?: string | null } | null>(null)
+
+  // Time change request state
+  const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
+  const [isResolvingRequest, setIsResolvingRequest] = useState(false)
+  const [rejectionNotes, setRejectionNotes] = useState('')
 
   // Fetch issue counts when modal opens
   const fetchIssueCounts = useCallback(async () => {
@@ -129,6 +136,65 @@ export default function ProjectDetailModal({
       setIsLoadingChecklist(false)
     }
   }, [project.id])
+
+  // Fetch pending time change request
+  const fetchPendingRequest = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getPendingTimeChangeRequest(project.id)
+      if (res.status === 'success') {
+        setPendingRequest(res.data)
+        setRejectionNotes('')
+      }
+    } catch (err) {
+      console.error('Error fetching pending time change request:', err)
+    }
+  }, [project.id])
+
+  // Approve time change request
+  const handleApproveRequest = async () => {
+    if (!pendingRequest || isResolvingRequest) return
+    setIsResolvingRequest(true)
+    try {
+      const res = await approveTimeChangeRequest(project.id, pendingRequest.id)
+      if (res.status === 'success') {
+        showNotification('Time change request approved', 'success')
+        setPendingRequest(null)
+        // Merge updated fields into existing project to preserve joined data (cleaner name, property name, etc.)
+        onUpdate({ ...project, ...res.data.project })
+      } else {
+        showNotification(res.message || 'Failed to approve request', 'error')
+      }
+    } catch (err) {
+      console.error('Error approving time change request:', err)
+      showNotification('Error approving request', 'error')
+    } finally {
+      setIsResolvingRequest(false)
+    }
+  }
+
+  // Reject time change request
+  const handleRejectRequest = async () => {
+    if (!pendingRequest || isResolvingRequest) return
+    setIsResolvingRequest(true)
+    try {
+      const res = await rejectTimeChangeRequest(project.id, pendingRequest.id, {
+        pmNotes: rejectionNotes.trim() || undefined,
+      })
+      if (res.status === 'success') {
+        showNotification('Time change request rejected', 'success')
+        setPendingRequest(null)
+        setRejectionNotes('')
+      } else {
+        showNotification(res.message || 'Failed to reject request', 'error')
+      }
+    } catch (err) {
+      console.error('Error rejecting time change request:', err)
+      showNotification('Error rejecting request', 'error')
+    } finally {
+      setIsResolvingRequest(false)
+    }
+  }
 
   // Initialize checklist from template
   const handleInitializeChecklist = async () => {
@@ -180,8 +246,9 @@ export default function ProjectDetailModal({
       fetchIssueCounts()
       fetchChecklist()
       fetchSupplyListCount()
+      fetchPendingRequest()
     }
-  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount])
+  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -278,6 +345,81 @@ export default function ProjectDetailModal({
               </span>
             )}
           </div>
+
+          {/* Time Change Request Banner */}
+          {pendingRequest && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ClockIcon className="w-5 h-5 text-amber-600" />
+                <h3 className="font-semibold text-amber-800">Time Change Requested</h3>
+                {pendingRequest.cleanerName && (
+                  <span className="text-sm text-amber-600">by {pendingRequest.cleanerName}</span>
+                )}
+              </div>
+
+              {/* Current vs Requested side-by-side */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-white/60 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Current</p>
+                  <p className="text-sm font-medium text-gray-900">{formatDate(pendingRequest.currentScheduledDate)}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatTime(pendingRequest.currentCheckoutTime)} – {formatTime(pendingRequest.currentCheckinTime)}
+                  </p>
+                </div>
+                <div className="bg-amber-100/50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-amber-700 uppercase mb-1">Requested</p>
+                  <p className="text-sm font-medium text-amber-900">{formatDate(pendingRequest.requestedScheduledDate)}</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {formatTime(pendingRequest.requestedCheckoutTime)} – {formatTime(pendingRequest.requestedCheckinTime)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Reason */}
+              {pendingRequest.reason && (
+                <p className="text-sm text-amber-800 mb-3">
+                  <span className="font-medium">Reason:</span> {pendingRequest.reason}
+                </p>
+              )}
+
+              {/* Rejection notes input */}
+              <textarea
+                value={rejectionNotes}
+                onChange={(e) => setRejectionNotes(e.target.value)}
+                placeholder="Notes (optional, shown to cleaner if rejected)"
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-3"
+              />
+
+              {/* Approve / Reject buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleApproveRequest}
+                  disabled={isResolvingRequest}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isResolvingRequest ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircleIcon className="w-4 h-4" />
+                  )}
+                  Approve
+                </button>
+                <button
+                  onClick={handleRejectRequest}
+                  disabled={isResolvingRequest}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isResolvingRequest ? (
+                    <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+                  ) : (
+                    <XMarkIcon className="w-4 h-4" />
+                  )}
+                  Reject
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Property Info */}
           <div className="bg-gray-50 rounded-xl p-4">
@@ -561,16 +703,26 @@ export default function ProjectDetailModal({
                               <p className="text-xs text-gray-500 mt-0.5">{item.notes}</p>
                             )}
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                             {item.photoUrl ? (
-                              <button
-                                onClick={() => setPreviewImage({ url: item.photoUrl!, task: item.taskDescription })}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors cursor-pointer"
-                                title="View photo"
-                              >
-                                <CameraIcon className="w-3.5 h-3.5" />
-                                View
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => setPreviewImage({ url: item.photoUrl!, task: item.taskDescription, photoTakenAt: item.photoTakenAt, photoUploadedAt: item.photoUploadedAt })}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors cursor-pointer"
+                                  title="View photo"
+                                >
+                                  <CameraIcon className="w-3.5 h-3.5" />
+                                  View
+                                </button>
+                                {(item.photoTakenAt || item.photoUploadedAt) && (
+                                  <span className="text-[10px] text-gray-400">
+                                    {item.photoTakenAt
+                                      ? `Taken ${new Date(item.photoTakenAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`
+                                      : `Uploaded ${new Date(item.photoUploadedAt!).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`
+                                    }
+                                  </span>
+                                )}
+                              </>
                             ) : item.requiresPhoto ? (
                               <span className="inline-flex items-center gap-0.5 px-2 py-1 text-xs text-amber-600 bg-amber-50 rounded-lg">
                                 <CameraIcon className="w-3.5 h-3.5" />
@@ -780,6 +932,8 @@ export default function ProjectDetailModal({
         onClose={() => setPreviewImage(null)}
         imageUrl={previewImage?.url || ''}
         title={previewImage?.task}
+        photoTakenAt={previewImage?.photoTakenAt}
+        photoUploadedAt={previewImage?.photoUploadedAt}
       />
     </Modal>
   )

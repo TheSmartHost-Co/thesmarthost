@@ -27,10 +27,13 @@ import {
   completeProject,
 } from '@/services/cleaningProjectService'
 import { getOpenIssues } from '@/services/projectIssueService'
+import { getPendingTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import ProjectCard from '@/components/cleaner-portal/ProjectCard'
 import ChecklistModal from '@/components/cleaner-portal/ChecklistModal'
+import RequestTimeChangeModal from '@/components/cleaner-portal/RequestTimeChangeModal'
+import ViewPendingTimeChangeModal from '@/components/cleaner-portal/ViewPendingTimeChangeModal'
 
 export default function CleanerSchedulePage() {
   const { profile } = useUserStore()
@@ -49,6 +52,13 @@ export default function CleanerSchedulePage() {
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
+
+  // Time change request state
+  const [showTimeChangeModal, setShowTimeChangeModal] = useState(false)
+  const [selectedProjectForTimeChange, setSelectedProjectForTimeChange] = useState<CleaningProject | null>(null)
+  const [pendingTimeChangeProjectIds, setPendingTimeChangeProjectIds] = useState<Set<string>>(new Set())
+  const [showViewPendingTimeChangeModal, setShowViewPendingTimeChangeModal] = useState(false)
+  const [viewPendingProject, setViewPendingProject] = useState<CleaningProject | null>(null)
 
   // Calculate date range for the current week view
   const dateRange = useMemo(() => {
@@ -123,6 +133,21 @@ export default function CleanerSchedulePage() {
           })
           setIssueCountsMap(countsMap)
         }
+
+        // 4. Fetch pending time change requests for active projects
+        const activeProjects = myProjects.filter(p =>
+          ['assigned', 'confirmed', 'in_progress'].includes(p.status)
+        )
+        const tcResults = await Promise.all(
+          activeProjects.map(p => getPendingTimeChangeRequest(p.id).catch(() => null))
+        )
+        const tcIds = new Set<string>()
+        tcResults.forEach((res, idx) => {
+          if (res?.status === 'success' && res.data) {
+            tcIds.add(activeProjects[idx].id)
+          }
+        })
+        setPendingTimeChangeProjectIds(tcIds)
       } else {
         throw new Error(projectsRes.message || 'Failed to fetch schedule')
       }
@@ -323,6 +348,22 @@ export default function CleanerSchedulePage() {
     ))
   }
 
+  const handleViewPendingTimeChange = (project: CleaningProject) => {
+    setViewPendingProject(project)
+    setShowViewPendingTimeChangeModal(true)
+  }
+
+  const handleRequestTimeChange = (project: CleaningProject) => {
+    setSelectedProjectForTimeChange(project)
+    setShowTimeChangeModal(true)
+  }
+
+  const handleTimeChangeSubmitted = () => {
+    if (selectedProjectForTimeChange) {
+      setPendingTimeChangeProjectIds(prev => new Set(prev).add(selectedProjectForTimeChange.id))
+    }
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -520,11 +561,14 @@ export default function CleanerSchedulePage() {
                         key={project.id}
                         project={project}
                         openIssueCount={issueCountsMap[project.id] || 0}
+                        hasPendingTimeChange={pendingTimeChangeProjectIds.has(project.id)}
                         onAccept={handleAccept}
                         onDecline={handleDecline}
                         onStart={handleStart}
                         onComplete={handleComplete}
                         onViewChecklist={handleViewChecklist}
+                        onRequestTimeChange={handleRequestTimeChange}
+                        onViewPendingTimeChange={handleViewPendingTimeChange}
                       />
                     ))
                   ) : (
@@ -649,6 +693,36 @@ export default function CleanerSchedulePage() {
           }}
           project={selectedProject}
           onProjectComplete={handleProjectComplete}
+          onRequestTimeChange={() => {
+            setShowChecklistModal(false)
+            if (selectedProject) handleRequestTimeChange(selectedProject)
+          }}
+        />
+      )}
+
+      {/* Request Time Change Modal */}
+      {selectedProjectForTimeChange && cleaner && (
+        <RequestTimeChangeModal
+          isOpen={showTimeChangeModal}
+          onClose={() => {
+            setShowTimeChangeModal(false)
+            setSelectedProjectForTimeChange(null)
+          }}
+          project={selectedProjectForTimeChange}
+          cleanerId={cleaner.id}
+          onSubmitted={handleTimeChangeSubmitted}
+        />
+      )}
+
+      {/* View Pending Time Change Modal */}
+      {viewPendingProject && (
+        <ViewPendingTimeChangeModal
+          isOpen={showViewPendingTimeChangeModal}
+          onClose={() => {
+            setShowViewPendingTimeChangeModal(false)
+            setViewPendingProject(null)
+          }}
+          project={viewPendingProject}
         />
       )}
     </div>

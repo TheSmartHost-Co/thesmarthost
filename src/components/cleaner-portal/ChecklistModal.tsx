@@ -20,6 +20,7 @@ import {
   ClipboardDocumentListIcon,
   UserGroupIcon,
   HomeIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -34,9 +35,10 @@ import {
   formatTime,
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
-import { ReportIssueModal } from '@/components/turnover/issues'
+import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
 import { SubmitSupplyListModal, ViewSupplyListsModal } from '@/components/turnover/supply-lists'
 import { getSupplyListsByProject } from '@/services/supplyListService'
+import { getIssueCounts } from '@/services/projectIssueService'
 import PropertyMapEmbed from '@/components/shared/PropertyMapEmbed'
 
 interface ChecklistModalProps {
@@ -44,6 +46,7 @@ interface ChecklistModalProps {
   onClose: () => void
   project: CleaningProject
   onProjectComplete?: (project: CleaningProject) => void
+  onRequestTimeChange?: () => void
 }
 
 export default function ChecklistModal({
@@ -51,6 +54,7 @@ export default function ChecklistModal({
   onClose,
   project,
   onProjectComplete,
+  onRequestTimeChange,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -66,9 +70,11 @@ export default function ChecklistModal({
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
+  const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
   const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
   const [showViewSupplyListsModal, setShowViewSupplyListsModal] = useState(false)
   const [supplyListCount, setSupplyListCount] = useState(0)
+  const [issueCount, setIssueCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
 
   // Fetch checklist data
@@ -125,12 +131,26 @@ export default function ChecklistModal({
     }
   }, [project.id])
 
+  // Fetch issue count
+  const fetchIssueCount = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getIssueCounts(project.id)
+      if (res.status === 'success') {
+        setIssueCount(res.data.total)
+      }
+    } catch (err) {
+      console.error('Error fetching issue count:', err)
+    }
+  }, [project.id])
+
   useEffect(() => {
     if (isOpen) {
       fetchChecklist()
       fetchSupplyListCount()
+      fetchIssueCount()
     }
-  }, [isOpen, fetchChecklist, fetchSupplyListCount])
+  }, [isOpen, fetchChecklist, fetchSupplyListCount, fetchIssueCount])
 
   // Group items by room
   const itemsByRoom = groupChecklistItemsByRoom(items)
@@ -261,7 +281,7 @@ export default function ChecklistModal({
       const res = await deleteProjectChecklistItemPhoto(project.id, itemId)
       if (res.status === 'success') {
         setItems(prev => prev.map(i =>
-          i.id === itemId ? { ...i, photoUrl: null } : i
+          i.id === itemId ? { ...i, photoUrl: null, photoTakenAt: null, photoUploadedAt: null } : i
         ))
         // Only decrement if item requires a photo (counts toward required photos)
         if (item.requiresPhoto) {
@@ -344,6 +364,15 @@ export default function ChecklistModal({
                     {project.checkoutTime && project.checkinTime && ' - '}
                     {formatTime(project.checkinTime)}
                   </span>
+                  {onRequestTimeChange && project.status !== 'completed' && (
+                    <button
+                      onClick={onRequestTimeChange}
+                      className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-md transition-colors cursor-pointer"
+                    >
+                      <ArrowPathIcon className="w-3 h-3" />
+                      Change
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -442,6 +471,19 @@ export default function ChecklistModal({
           )}
         </div>
 
+        {/* Issue Count Indicator */}
+        {issueCount > 0 && (
+          <div className="flex-shrink-0 px-6 py-2 border-t border-gray-100 bg-amber-50/50">
+            <button
+              onClick={() => setShowViewIssuesModal(true)}
+              className="w-full flex items-center justify-center gap-2 text-sm font-medium text-amber-700 hover:text-amber-800 transition-colors cursor-pointer"
+            >
+              <FlagIcon className="w-4 h-4" />
+              {issueCount} issue{issueCount !== 1 ? 's' : ''} reported
+            </button>
+          </div>
+        )}
+
         {/* Supply List Count Indicator */}
         {supplyListCount > 0 && (
           <div className="flex-shrink-0 px-6 py-2 border-t border-gray-100 bg-teal-50/50">
@@ -458,12 +500,23 @@ export default function ChecklistModal({
         {/* Footer */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
           {readOnly ? (
-            <button
-              onClick={onClose}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors cursor-pointer"
-            >
-              Close
-            </button>
+            <div className="space-y-2">
+              {issueCount > 0 && (
+                <button
+                  onClick={() => setShowViewIssuesModal(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <FlagIcon className="w-4 h-4" />
+                  View Issues ({issueCount})
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
               <div className="flex gap-2">
@@ -513,8 +566,23 @@ export default function ChecklistModal({
         cleanerId={project.cleanerId}
         onIssueCreated={() => {
           setShowReportIssueModal(false)
+          fetchIssueCount()
           showNotification('Issue reported successfully', 'success')
         }}
+      />
+
+      {/* View Issues Modal (cleaner view) */}
+      <ViewIssuesModal
+        isOpen={showViewIssuesModal}
+        onClose={() => setShowViewIssuesModal(false)}
+        projectId={project.id}
+        projectName={project.propertyName}
+        isPM={false}
+        onReportIssue={readOnly ? undefined : () => {
+          setShowViewIssuesModal(false)
+          setShowReportIssueModal(true)
+        }}
+        onIssuesChanged={fetchIssueCount}
       />
 
       {/* Submit Supply List Modal */}
@@ -740,37 +808,47 @@ function ChecklistItemRow({
         {item.requiresPhoto && (
           <div className="mt-2">
             {item.photoUrl ? (
-              <div className="relative inline-flex items-end gap-2">
-                <div className="relative group">
-                  <img
-                    src={item.photoUrl}
-                    alt="Uploaded photo"
-                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => onViewPhoto(item.photoUrl!)}
-                    onError={(e) => {
-                      // Handle broken image - show placeholder
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      target.parentElement?.classList.add('bg-gray-100')
-                    }}
-                  />
-                  {/* View overlay on hover */}
-                  <div
-                    className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                    onClick={() => onViewPhoto(item.photoUrl!)}
-                  >
-                    <MagnifyingGlassPlusIcon className="w-6 h-6 text-white" />
+              <div className="inline-flex flex-col gap-1">
+                <div className="relative inline-flex items-end gap-2">
+                  <div className="relative group">
+                    <img
+                      src={item.photoUrl}
+                      alt="Uploaded photo"
+                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => onViewPhoto(item.photoUrl!)}
+                      onError={(e) => {
+                        // Handle broken image - show placeholder
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        target.parentElement?.classList.add('bg-gray-100')
+                      }}
+                    />
+                    {/* View overlay on hover */}
+                    <div
+                      className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                      onClick={() => onViewPhoto(item.photoUrl!)}
+                    >
+                      <MagnifyingGlassPlusIcon className="w-6 h-6 text-white" />
+                    </div>
                   </div>
+                  {!readOnly && (
+                    <button
+                      onClick={onDeletePhoto}
+                      disabled={isUploading}
+                      className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
+                      title="Delete photo"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-                {!readOnly && (
-                  <button
-                    onClick={onDeletePhoto}
-                    disabled={isUploading}
-                    className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                    title="Delete photo"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                {(item.photoTakenAt || item.photoUploadedAt) && (
+                  <span className="text-[10px] text-gray-400">
+                    {item.photoTakenAt
+                      ? `Taken ${new Date(item.photoTakenAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+                      : `Uploaded ${new Date(item.photoUploadedAt!).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+                    }
+                  </span>
                 )}
               </div>
             ) : readOnly ? (

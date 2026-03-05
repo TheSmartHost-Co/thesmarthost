@@ -21,10 +21,14 @@ import {
 } from '@/services/cleaningProjectService'
 import { getOpenIssues } from '@/services/projectIssueService'
 import { getPendingSupplyLists } from '@/services/supplyListService'
+import { getPendingTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import ProjectCard from '@/components/cleaner-portal/ProjectCard'
 import ChecklistModal from '@/components/cleaner-portal/ChecklistModal'
+import RequestTimeChangeModal from '@/components/cleaner-portal/RequestTimeChangeModal'
+import ViewPendingTimeChangeModal from '@/components/cleaner-portal/ViewPendingTimeChangeModal'
+import ViewIssuesModal from '@/components/turnover/issues/ViewIssuesModal'
 
 // Date grouping helper
 function groupProjectsByDate(projects: CleaningProject[]) {
@@ -105,6 +109,15 @@ export default function CleanerTasksPage() {
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
+  const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
+  const [issuesProject, setIssuesProject] = useState<CleaningProject | null>(null)
+
+  // Time change request state
+  const [showTimeChangeModal, setShowTimeChangeModal] = useState(false)
+  const [selectedProjectForTimeChange, setSelectedProjectForTimeChange] = useState<CleaningProject | null>(null)
+  const [pendingTimeChangeProjectIds, setPendingTimeChangeProjectIds] = useState<Set<string>>(new Set())
+  const [showViewPendingTimeChangeModal, setShowViewPendingTimeChangeModal] = useState(false)
+  const [viewPendingProject, setViewPendingProject] = useState<CleaningProject | null>(null)
 
   // Fetch cleaner data and projects
   const fetchData = useCallback(async () => {
@@ -166,6 +179,21 @@ export default function CleanerTasksPage() {
           })
           setSupplyListCountsMap(slCountsMap)
         }
+
+        // 5. Fetch pending time change requests for active projects
+        const activeProjects = myProjects.filter(p =>
+          ['assigned', 'confirmed', 'in_progress'].includes(p.status)
+        )
+        const tcResults = await Promise.all(
+          activeProjects.map(p => getPendingTimeChangeRequest(p.id).catch(() => null))
+        )
+        const tcIds = new Set<string>()
+        tcResults.forEach((res, idx) => {
+          if (res?.status === 'success' && res.data) {
+            tcIds.add(activeProjects[idx].id)
+          }
+        })
+        setPendingTimeChangeProjectIds(tcIds)
       } else {
         throw new Error(projectsRes.message || 'Failed to fetch tasks')
       }
@@ -261,10 +289,32 @@ export default function CleanerTasksPage() {
     setShowChecklistModal(true)
   }
 
+  const handleViewIssues = (project: CleaningProject) => {
+    setIssuesProject(project)
+    setShowViewIssuesModal(true)
+  }
+
   const handleProjectComplete = (completedProject: CleaningProject) => {
     setProjects(prev => prev.map(p =>
       p.id === completedProject.id ? completedProject : p
     ))
+  }
+
+  const handleRequestTimeChange = (project: CleaningProject) => {
+    setSelectedProjectForTimeChange(project)
+    setShowTimeChangeModal(true)
+  }
+
+  const handleViewPendingTimeChange = (project: CleaningProject) => {
+    setViewPendingProject(project)
+    setShowViewPendingTimeChangeModal(true)
+  }
+
+  const handleTimeChangeSubmitted = () => {
+    // Add project to pending set so badge shows immediately
+    if (selectedProjectForTimeChange) {
+      setPendingTimeChangeProjectIds(prev => new Set(prev).add(selectedProjectForTimeChange.id))
+    }
   }
 
   // Loading state
@@ -399,11 +449,15 @@ export default function CleanerTasksPage() {
             projects={groupedProjects.today}
             issueCountsMap={issueCountsMap}
             supplyListCountsMap={supplyListCountsMap}
+            pendingTimeChangeProjectIds={pendingTimeChangeProjectIds}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
             onViewChecklist={handleViewChecklist}
+            onViewIssues={handleViewIssues}
+            onRequestTimeChange={handleRequestTimeChange}
+            onViewPendingTimeChange={handleViewPendingTimeChange}
           />
         )}
 
@@ -416,11 +470,15 @@ export default function CleanerTasksPage() {
             projects={groupedProjects.tomorrow}
             issueCountsMap={issueCountsMap}
             supplyListCountsMap={supplyListCountsMap}
+            pendingTimeChangeProjectIds={pendingTimeChangeProjectIds}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
             onViewChecklist={handleViewChecklist}
+            onViewIssues={handleViewIssues}
+            onRequestTimeChange={handleRequestTimeChange}
+            onViewPendingTimeChange={handleViewPendingTimeChange}
           />
         )}
 
@@ -433,11 +491,15 @@ export default function CleanerTasksPage() {
             projects={groupedProjects.thisWeek}
             issueCountsMap={issueCountsMap}
             supplyListCountsMap={supplyListCountsMap}
+            pendingTimeChangeProjectIds={pendingTimeChangeProjectIds}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
             onViewChecklist={handleViewChecklist}
+            onViewIssues={handleViewIssues}
+            onRequestTimeChange={handleRequestTimeChange}
+            onViewPendingTimeChange={handleViewPendingTimeChange}
           />
         )}
 
@@ -450,17 +512,21 @@ export default function CleanerTasksPage() {
             projects={groupedProjects.later}
             issueCountsMap={issueCountsMap}
             supplyListCountsMap={supplyListCountsMap}
+            pendingTimeChangeProjectIds={pendingTimeChangeProjectIds}
             onAccept={handleAccept}
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
             onViewChecklist={handleViewChecklist}
+            onViewIssues={handleViewIssues}
+            onRequestTimeChange={handleRequestTimeChange}
+            onViewPendingTimeChange={handleViewPendingTimeChange}
           />
         )}
 
         {/* Completed (collapsed by default) */}
         {groupedProjects.completed.length > 0 && (
-          <CompletedSection projects={groupedProjects.completed} onViewChecklist={handleViewChecklist} />
+          <CompletedSection projects={groupedProjects.completed} onViewChecklist={handleViewChecklist} onViewIssues={handleViewIssues} issueCountsMap={issueCountsMap} />
         )}
       </div>
 
@@ -474,6 +540,54 @@ export default function CleanerTasksPage() {
           }}
           project={selectedProject}
           onProjectComplete={handleProjectComplete}
+          onRequestTimeChange={() => {
+            setShowChecklistModal(false)
+            if (selectedProject) handleRequestTimeChange(selectedProject)
+          }}
+        />
+      )}
+
+      {/* View Issues Modal (direct from card) */}
+      {issuesProject && (
+        <ViewIssuesModal
+          isOpen={showViewIssuesModal}
+          onClose={() => {
+            setShowViewIssuesModal(false)
+            setIssuesProject(null)
+          }}
+          projectId={issuesProject.id}
+          projectName={issuesProject.propertyName}
+          isPM={false}
+          onIssuesChanged={() => {
+            // Refresh issue counts
+            fetchData()
+          }}
+        />
+      )}
+
+      {/* Request Time Change Modal */}
+      {selectedProjectForTimeChange && cleaner && (
+        <RequestTimeChangeModal
+          isOpen={showTimeChangeModal}
+          onClose={() => {
+            setShowTimeChangeModal(false)
+            setSelectedProjectForTimeChange(null)
+          }}
+          project={selectedProjectForTimeChange}
+          cleanerId={cleaner.id}
+          onSubmitted={handleTimeChangeSubmitted}
+        />
+      )}
+
+      {/* View Pending Time Change Modal */}
+      {viewPendingProject && (
+        <ViewPendingTimeChangeModal
+          isOpen={showViewPendingTimeChangeModal}
+          onClose={() => {
+            setShowViewPendingTimeChangeModal(false)
+            setViewPendingProject(null)
+          }}
+          project={viewPendingProject}
         />
       )}
     </div>
@@ -519,11 +633,15 @@ interface TaskGroupProps {
   projects: CleaningProject[]
   issueCountsMap: Record<string, number>
   supplyListCountsMap: Record<string, number>
+  pendingTimeChangeProjectIds: Set<string>
   onAccept: (id: string) => Promise<void>
   onDecline: (id: string) => Promise<void>
   onStart: (id: string) => Promise<void>
   onComplete: (id: string) => Promise<void>
   onViewChecklist: (project: CleaningProject) => void
+  onViewIssues: (project: CleaningProject) => void
+  onRequestTimeChange: (project: CleaningProject) => void
+  onViewPendingTimeChange: (project: CleaningProject) => void
 }
 
 function TaskGroup({
@@ -533,11 +651,15 @@ function TaskGroup({
   projects,
   issueCountsMap,
   supplyListCountsMap,
+  pendingTimeChangeProjectIds,
   onAccept,
   onDecline,
   onStart,
   onComplete,
   onViewChecklist,
+  onViewIssues,
+  onRequestTimeChange,
+  onViewPendingTimeChange,
 }: TaskGroupProps) {
   return (
     <div>
@@ -554,11 +676,15 @@ function TaskGroup({
             project={project}
             openIssueCount={issueCountsMap[project.id] || 0}
             pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
+            hasPendingTimeChange={pendingTimeChangeProjectIds.has(project.id)}
             onAccept={onAccept}
             onDecline={onDecline}
             onStart={onStart}
             onComplete={onComplete}
             onViewChecklist={onViewChecklist}
+            onViewIssues={onViewIssues}
+            onRequestTimeChange={onRequestTimeChange}
+            onViewPendingTimeChange={onViewPendingTimeChange}
           />
         ))}
       </div>
@@ -567,7 +693,7 @@ function TaskGroup({
 }
 
 // Completed Section (collapsible)
-function CompletedSection({ projects, onViewChecklist }: { projects: CleaningProject[], onViewChecklist?: (project: CleaningProject) => void }) {
+function CompletedSection({ projects, onViewChecklist, onViewIssues, issueCountsMap = {} }: { projects: CleaningProject[], onViewChecklist?: (project: CleaningProject) => void, onViewIssues?: (project: CleaningProject) => void, issueCountsMap?: Record<string, number> }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
@@ -593,7 +719,9 @@ function CompletedSection({ projects, onViewChecklist }: { projects: CleaningPro
             <ProjectCard
               key={project.id}
               project={project}
+              openIssueCount={issueCountsMap[project.id] || 0}
               onViewChecklist={onViewChecklist}
+              onViewIssues={onViewIssues}
             />
           ))}
           {projects.length > 5 && (

@@ -34,15 +34,6 @@ export interface UpdateIssuePayload {
   issueType?: IssueType
   description?: string
   status?: IssueStatus
-  pmNotes?: string
-}
-
-export interface AcknowledgeIssuePayload {
-  pmNotes?: string
-}
-
-export interface ResolveIssuePayload {
-  pmNotes?: string
 }
 
 export interface IssueCounts {

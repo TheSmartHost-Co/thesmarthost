@@ -169,6 +169,8 @@ export interface ProjectChecklistItem {
   isCompleted: boolean
   completedAt?: string | null     // ISO timestamp when completed
   photoUrl?: string | null        // URL to uploaded photo
+  photoTakenAt?: string | null    // ISO timestamp from EXIF DateTimeOriginal
+  photoUploadedAt?: string | null // ISO timestamp when uploaded to server
   notes?: string | null           // Cleaner notes for this item
   // Joined from checklist_items template
   roomName?: string | null
