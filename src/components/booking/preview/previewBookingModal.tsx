@@ -129,9 +129,32 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {booking.source && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              {booking.source === 'ical' ? 'iCal' : booking.source === 'csv' ? 'CSV' : booking.source === 'webhook' ? 'Webhook' : 'Manual'}
+            </span>
+          )}
+          {booking.financialReadiness === 'scheduling_only' ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+              Scheduling Only
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+              Report Ready
+            </span>
+          )}
           {getPlatformBadge(booking.platform)}
         </div>
       </div>
+
+      {/* Scheduling-only callout */}
+      {booking.financialReadiness === 'scheduling_only' && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <p className="text-sm text-amber-800">
+            This booking has no financial data. Upload a CSV or edit the booking to add financial details and include it in reports.
+          </p>
+        </div>
+      )}
 
       {/* Booking Overview Grid */}
       <div className="grid grid-cols-2 gap-6 mb-6 pb-6 border-b border-gray-200">

@@ -56,6 +56,7 @@ export default function BookingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [platformFilter, setPlatformFilter] = useState('All Platforms')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
+  const [readinessFilter, setReadinessFilter] = useState('All')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [showSortPopover, setShowSortPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -248,7 +249,11 @@ export default function BookingsPage() {
       const matchesProperty = propertyFilter === 'All Properties' ||
         booking.propertyName === propertyFilter
 
-      return matchesSearch && matchesPlatform && matchesProperty
+      const matchesReadiness = readinessFilter === 'All' ||
+        (readinessFilter === 'Report Ready' && booking.financialReadiness !== 'scheduling_only') ||
+        (readinessFilter === 'Scheduling Only' && booking.financialReadiness === 'scheduling_only')
+
+      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness
     })
     .sort((a, b) => {
       const { field, direction } = sortConfig
@@ -303,13 +308,15 @@ export default function BookingsPage() {
   // Count active filters
   const activeFiltersCount = [
     platformFilter !== 'All Platforms',
-    propertyFilter !== 'All Properties'
+    propertyFilter !== 'All Properties',
+    readinessFilter !== 'All'
   ].filter(Boolean).length
 
   // Clear all filters
   const clearAllFilters = () => {
     setPlatformFilter('All Platforms')
     setPropertyFilter('All Properties')
+    setReadinessFilter('All')
   }
 
   const formatDate = (dateString: string) => {
@@ -652,6 +659,22 @@ export default function BookingsPage() {
                           ))}
                         </select>
                       </div>
+
+                      {/* Financial Status Filter */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Financial Status
+                        </label>
+                        <select
+                          value={readinessFilter}
+                          onChange={(e) => setReadinessFilter(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        >
+                          <option value="All">All</option>
+                          <option value="Report Ready">Report Ready</option>
+                          <option value="Scheduling Only">Scheduling Only</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Filter Actions */}
@@ -718,7 +741,14 @@ export default function BookingsPage() {
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-gray-900">{booking.guestName}</div>
+                        <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                          {booking.guestName}
+                          {booking.financialReadiness === 'scheduling_only' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                              Scheduling
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm font-mono text-gray-500">{booking.reservationCode}</div>
                         {booking.listingName && (
                           <div className="text-xs text-gray-400 truncate max-w-[150px]">{booking.listingName}</div>
@@ -751,13 +781,19 @@ export default function BookingsPage() {
                     <span className="text-sm font-semibold text-gray-900">{booking.numNights}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(booking.totalPayout)}
-                    </div>
-                    {booking.netEarnings && (
-                      <div className="text-xs text-gray-500">
-                        Net: {formatCurrency(booking.netEarnings)}
-                      </div>
+                    {booking.financialReadiness === 'scheduling_only' ? (
+                      <span className="text-sm text-gray-400">—</span>
+                    ) : (
+                      <>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {formatCurrency(booking.totalPayout)}
+                        </div>
+                        {booking.netEarnings && (
+                          <div className="text-xs text-gray-500">
+                            Net: {formatCurrency(booking.netEarnings)}
+                          </div>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]" onClick={(e) => e.stopPropagation()}>
@@ -779,11 +815,11 @@ export default function BookingsPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">No bookings found</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties'
+                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties' || readinessFilter !== 'All'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Get started by creating your first booking or uploading booking data.'}
               </p>
-              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && (
+              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && readinessFilter === 'All' && (
                 <div className="flex justify-center gap-3">
                   <motion.button
                     onClick={() => setShowCreateModal(true)}

@@ -5,6 +5,9 @@
  */
 export type Platform = 'ALL' | 'airbnb' | 'booking' | 'google' | 'direct' | 'wechalet' | 'monsieurchalets' | 'hostaway' | 'vrbo' | 'direct-etransfer'
 
+export type FinancialReadiness = 'scheduling_only' | 'report_ready'
+export type BookingSource = 'csv' | 'manual' | 'webhook' | 'ical'
+
 /**
  * Main Booking interface
  * Matches backend response structure
@@ -40,6 +43,9 @@ export interface Booking {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  financialReadiness?: FinancialReadiness
+  source?: BookingSource
+  icalEventUid?: string
   defaultCheckinTime?: string   // e.g. "15:00" — from property defaults
   defaultCheckoutTime?: string  // e.g. "11:00" — from property defaults
   createdAt: string
@@ -106,6 +112,7 @@ export interface UpdateBookingPayload {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  financialReadiness?: FinancialReadiness
 }
 
 /**
@@ -168,6 +175,8 @@ export interface BookingSearchResult {
   propertyName?: string
   totalPayout?: number
   netEarnings?: number
+  financialReadiness?: FinancialReadiness
+  source?: BookingSource
 }
 
 /**
@@ -230,7 +239,10 @@ export interface BookingSearchResponse {
 export interface BulkBookingResponse {
   status: 'success' | 'failed'
   data: {
-    count: number
+    inserted: number
+    enriched: number
+    duplicates: number
+    cleaningProjectsCreated: number
     bookings: Array<{
       id: string
       reservationCode: string
@@ -238,6 +250,8 @@ export interface BulkBookingResponse {
       checkInDate: string
       platform: Platform
     }>
+    enrichedBookings?: DuplicateBookingInfo[]
+    duplicateBookings?: DuplicateBookingInfo[]
   }
   message?: string
 }
@@ -271,6 +285,7 @@ export interface BookingFilters {
   platform?: Platform
   startDate?: string  // YYYY-MM-DD
   endDate?: string    // YYYY-MM-DD
+  financialReadiness?: FinancialReadiness
 }
 
 /**

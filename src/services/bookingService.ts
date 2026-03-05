@@ -48,6 +48,9 @@ export async function getBookings(
   if (filters.endDate) {
     params.append('endDate', filters.endDate)
   }
+  if (filters.financialReadiness) {
+    params.append('financialReadiness', filters.financialReadiness)
+  }
 
   return apiClient<BookingsResponse>(`/bookings?${params.toString()}`)
 }
@@ -244,7 +247,7 @@ export async function searchBookings(
  */
 export function calculateBookingStats(bookings: Booking[]): BookingStats {
   const totalBookings = bookings.length
-  
+
   if (totalBookings === 0) {
     return {
       totalBookings: 0,
@@ -257,15 +260,18 @@ export function calculateBookingStats(bookings: Booking[]): BookingStats {
     }
   }
 
+  // Only count report_ready bookings for financial stats
+  const reportReady = bookings.filter(b => b.financialReadiness !== 'scheduling_only')
+
   const platforms = new Set(bookings.map(b => b.platform))
   const properties = new Set(bookings.map(b => b.propertyId))
-  
-  const totalNights = bookings.reduce((sum, b) => sum + Number(b.numNights), 0)
-  const totalPayoutSum = bookings.reduce((sum, b) => sum + (b.totalPayout || 0), 0)
-  const totalNetEarnings = bookings.reduce((sum, b) => sum + (b.netEarnings || 0), 0)
-  
-  const nightlyRates = bookings.filter(b => b.nightlyRate && b.nightlyRate > 0).map(b => b.nightlyRate!)
-  const avgNightlyRate = nightlyRates.length > 0 
+
+  const totalNights = reportReady.reduce((sum, b) => sum + Number(b.numNights), 0)
+  const totalPayoutSum = reportReady.reduce((sum, b) => sum + (b.totalPayout || 0), 0)
+  const totalNetEarnings = reportReady.reduce((sum, b) => sum + (b.netEarnings || 0), 0)
+
+  const nightlyRates = reportReady.filter(b => b.nightlyRate && b.nightlyRate > 0).map(b => b.nightlyRate!)
+  const avgNightlyRate = nightlyRates.length > 0
     ? nightlyRates.reduce((sum, rate) => sum + rate, 0) / nightlyRates.length
     : 0
 
@@ -278,7 +284,7 @@ export function calculateBookingStats(bookings: Booking[]): BookingStats {
     platformsCount: platforms.size,
     propertiesCount: properties.size,
     totalNights,
-    avgNightlyRate: Math.round(avgNightlyRate * 100) / 100, // Round to 2 decimals
+    avgNightlyRate: Math.round(avgNightlyRate * 100) / 100,
     totalPayoutSum: Math.round(totalPayoutSum * 100) / 100,
     totalNetEarnings: Math.round(totalNetEarnings * 100) / 100,
     earliestCheckin,
