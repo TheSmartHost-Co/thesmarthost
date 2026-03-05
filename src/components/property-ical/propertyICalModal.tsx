@@ -625,7 +625,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
                                           <tr className="text-gray-500 border-b border-gray-200">
                                             <th className="text-left py-1.5 pr-3 font-medium">Reservation</th>
                                             <th className="text-left py-1.5 pr-3 font-medium">Guest</th>
-                                            <th className="text-left py-1.5 pr-3 font-medium">Scheduled Date</th>
+                                            <th className="text-left py-1.5 pr-3 font-medium">Dates</th>
                                             <th className="text-left py-1.5 font-medium">Action</th>
                                           </tr>
                                         </thead>
@@ -634,7 +634,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
                                             <tr key={idx} className="border-b border-gray-100 last:border-0">
                                               <td className="py-1.5 pr-3 font-mono text-gray-700">{event.reservationCode}</td>
                                               <td className="py-1.5 pr-3 text-gray-900">{event.guestName}</td>
-                                              <td className="py-1.5 pr-3 text-gray-600">{event.scheduledDate}</td>
+                                              <td className="py-1.5 pr-3 text-gray-600">{event.checkIn} → {event.checkOut}</td>
                                               <td className="py-1.5">
                                                 <ActionBadge action={event.action} />
                                                 {event.reason && (
@@ -652,7 +652,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
                                       <div className="mt-2 p-2 bg-red-50 rounded-lg">
                                         <p className="text-xs font-medium text-red-700 mb-1">Errors:</p>
                                         {results.errors.map((error, idx) => (
-                                          <p key={idx} className="text-xs text-red-600">{error}</p>
+                                          <p key={idx} className="text-xs text-red-600">{error.summary}: {error.error}</p>
                                         ))}
                                       </div>
                                     )}
@@ -779,7 +779,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
       {/* Info note */}
       <div className="mt-4 p-3 bg-cyan-50 rounded-xl">
         <p className="text-xs text-cyan-700">
-          iCal feeds create cleaning projects directly on the turnover calendar. After syncing, projects are auto-assigned to the default cleaner and checklist.
+          iCal feeds sync bookings from external calendars. Synced bookings automatically create cleaning projects on the turnover calendar.
         </p>
       </div>
 

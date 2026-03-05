@@ -32,9 +32,14 @@ export interface UpdateICalSubscriptionPayload {
 export interface SyncEvent {
   reservationCode: string
   guestName: string
-  scheduledDate: string
+  checkIn: string
+  checkOut: string
+  numNights: number
+  platform: string
+  bookingId: string | null
   action: 'created' | 'updated' | 'skipped'
   reason?: string
+  icalMetadata: { reservationUrl?: string; phoneNumberLast4Digits?: string; property?: string } | null
 }
 
 export interface SyncResults {
@@ -42,7 +47,7 @@ export interface SyncResults {
   updated: number
   skipped: number
   cancelled: number
-  errors: string[]
+  errors: { uid: string; summary: string; error: string }[]
   events: SyncEvent[]
 }
 

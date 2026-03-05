@@ -9,17 +9,16 @@ import {
   UserCircleIcon,
   CalendarIcon,
   CalendarDaysIcon,
+  ClockIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
   ChevronDownIcon,
   DocumentDuplicateIcon,
-  EnvelopeIcon,
-  DevicePhoneMobileIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
 } from '@heroicons/react/24/outline'
-import { useUserStore } from '@/store/useUserStore'
-import type { ViewMode } from './TurnoverCalendar'
+import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
+import type { ViewMode, ZoomLevel, SortOption } from './TurnoverCalendar'
 import type { Property } from '@/services/types/property'
 import type { Cleaner } from '@/services/types/cleaner'
 
@@ -43,8 +42,13 @@ interface CalendarHeaderProps {
   cleaners?: Cleaner[]
   selectedCleanerIds?: string[]
   onCleanerFilterChange?: (ids: string[]) => void
-  zoomLevel?: 7 | 14
-  onZoomChange?: (level: 7 | 14) => void
+  zoomLevel?: ZoomLevel
+  onZoomChange?: (level: ZoomLevel, isWeek?: boolean) => void
+  isWeekPreset?: boolean
+  showHourLabels?: boolean
+  onToggleHourLabels?: (show: boolean) => void
+  sortOption?: SortOption
+  onSortChange?: (sort: SortOption) => void
 }
 
 export default function CalendarHeader({
@@ -69,19 +73,21 @@ export default function CalendarHeader({
   onCleanerFilterChange,
   zoomLevel = 7,
   onZoomChange,
+  isWeekPreset = true,
+  showHourLabels = false,
+  onToggleHourLabels,
+  sortOption = 'alpha-asc',
+  onSortChange,
 }: CalendarHeaderProps) {
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
-  const [showPropertyFilter, setShowPropertyFilter] = useState(false)
+  const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
   const [propertySearch, setPropertySearch] = useState('')
-  const [showCleanerFilter, setShowCleanerFilter] = useState(false)
   const [cleanerSearch, setCleanerSearch] = useState('')
+  const [showZoomDropdown, setShowZoomDropdown] = useState(false)
   const newMenuRef = useRef<HTMLDivElement>(null)
-  const propertyFilterRef = useRef<HTMLDivElement>(null)
-  const cleanerFilterRef = useRef<HTMLDivElement>(null)
-  const { profile } = useUserStore()
-  const smsEnabled = profile?.smsNotificationsEnabled ?? true
-  const emailEnabled = profile?.emailNotificationsEnabled ?? true
+  const filtersRef = useRef<HTMLDivElement>(null)
+  const zoomDropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -90,13 +96,13 @@ export default function CalendarHeader({
         setShowNewMenu(false)
         setShowChecklistSub(false)
       }
-      if (propertyFilterRef.current && !propertyFilterRef.current.contains(event.target as Node)) {
-        setShowPropertyFilter(false)
+      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+        setShowFiltersDropdown(false)
         setPropertySearch('')
-      }
-      if (cleanerFilterRef.current && !cleanerFilterRef.current.contains(event.target as Node)) {
-        setShowCleanerFilter(false)
         setCleanerSearch('')
+      }
+      if (zoomDropdownRef.current && !zoomDropdownRef.current.contains(event.target as Node)) {
+        setShowZoomDropdown(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -113,6 +119,10 @@ export default function CalendarHeader({
   const formatDateRange = () => {
     const start = parseLocalDate(dateRange.start)
     const end = parseLocalDate(dateRange.end)
+
+    if (zoomLevel === 'month') {
+      return start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    }
 
     const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
     const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
@@ -144,14 +154,8 @@ export default function CalendarHeader({
     .sort((a, b) => getPropertyName(a).localeCompare(getPropertyName(b)))
     .filter(p => {
       if (!propertySearch) return true
-      const search = propertySearch.toLowerCase()
-      return getPropertyName(p).toLowerCase().includes(search)
+      return getPropertyName(p).toLowerCase().includes(propertySearch.toLowerCase())
     })
-
-  // Property filter label
-  const propertyFilterLabel = selectedPropertyIds.length === 0
-    ? 'All Properties'
-    : `${selectedPropertyIds.length} of ${properties.length} properties`
 
   const handleToggleProperty = (id: string) => {
     if (!onPropertyFilterChange) return
@@ -162,13 +166,8 @@ export default function CalendarHeader({
     }
   }
 
-  const handleSelectAll = () => {
-    onPropertyFilterChange?.([])
-  }
-
-  const handleClearAll = () => {
-    onPropertyFilterChange?.(properties.map(p => p.id))
-  }
+  const handleSelectAllProperties = () => onPropertyFilterChange?.(properties.map(p => p.id))
+  const handleClearAllProperties = () => onPropertyFilterChange?.([])
 
   // Cleaner display name helper
   const getCleanerName = (c: Cleaner) => c.name || c.email || 'Unnamed Cleaner'
@@ -179,14 +178,8 @@ export default function CalendarHeader({
     .sort((a, b) => getCleanerName(a).localeCompare(getCleanerName(b)))
     .filter(c => {
       if (!cleanerSearch) return true
-      const search = cleanerSearch.toLowerCase()
-      return getCleanerName(c).toLowerCase().includes(search)
+      return getCleanerName(c).toLowerCase().includes(cleanerSearch.toLowerCase())
     })
-
-  // Cleaner filter label
-  const cleanerFilterLabel = selectedCleanerIds.length === 0
-    ? 'All Cleaners'
-    : `${selectedCleanerIds.length} of ${cleaners.length} cleaners`
 
   const handleToggleCleaner = (id: string) => {
     if (!onCleanerFilterChange) return
@@ -197,501 +190,533 @@ export default function CalendarHeader({
     }
   }
 
-  const handleSelectAllCleaners = () => {
-    onCleanerFilterChange?.([])
-  }
+  const handleSelectAllCleaners = () => onCleanerFilterChange?.([UNASSIGNED_FILTER_ID, ...cleaners.map(c => c.id)])
+  const handleClearAllCleaners = () => onCleanerFilterChange?.([])
 
-  const handleClearAllCleaners = () => {
-    onCleanerFilterChange?.(cleaners.map(c => c.id))
+  // Active filter count for badge
+  const allCleanerCount = cleaners.length + 1 // +1 for unassigned
+  const activeFilterCount =
+    (selectedPropertyIds.length > 0 && selectedPropertyIds.length < properties.length ? 1 : 0) +
+    (selectedCleanerIds.length > 0 && selectedCleanerIds.length < allCleanerCount ? 1 : 0) +
+    (sortOption !== 'alpha-asc' ? 1 : 0)
+
+  // Zoom dropdown label
+  const zoomLabel = zoomLevel === 'month'
+    ? 'Month'
+    : zoomLevel === 7 && isWeekPreset
+      ? 'Week'
+      : `${zoomLevel}d`
+
+  // Whether hour labels are auto-shown (1-2 day zoom)
+  const hoursAutoShown = typeof zoomLevel === 'number' && zoomLevel <= 2
+
+  // Sort options
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: 'alpha-asc', label: 'Alphabetical (A-Z)' },
+    { value: 'alpha-desc', label: 'Alphabetical (Z-A)' },
+    { value: 'projects-desc', label: 'Most projects first' },
+    { value: 'next-project', label: 'Next project soonest' },
+  ]
+
+  // Build flat zoom list: 1-6, Week, 8-14, divider, Month
+  const zoomItems: { label: string; value: ZoomLevel; isWeek?: boolean; dividerBefore?: boolean }[] = []
+  for (let d = 1; d <= 14; d++) {
+    if (d === 7) {
+      zoomItems.push({ label: 'Week', value: 7, isWeek: true })
+    } else {
+      zoomItems.push({ label: `${d} ${d === 1 ? 'day' : 'days'}`, value: d })
+    }
   }
+  zoomItems.push({ label: 'Month', value: 'month', dividerBefore: true })
 
   return (
-    <div className="p-4 border-b border-gray-100">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        {/* Left: Date Navigation + Property Filter + Bookings Toggle */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Today Button */}
+    <div className="px-4 py-3 border-b border-gray-100">
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Today Button */}
+        <motion.button
+          onClick={onToday}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          disabled={isCurrentWeek()}
+          className={`
+            inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all
+            ${isCurrentWeek()
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer'
+            }
+          `}
+        >
+          <CalendarIcon className="w-3.5 h-3.5" />
+          Today
+        </motion.button>
+
+        {/* Date Navigation */}
+        <div className="flex items-center gap-0.5">
           <motion.button
-            onClick={onToday}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            disabled={isCurrentWeek()}
+            onClick={onPrevWeek}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+            aria-label="Previous"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+          </motion.button>
+
+          <span className="px-1.5 py-1 min-w-[150px] text-center font-semibold text-gray-900 text-sm">
+            {formatDateRange()}
+          </span>
+
+          <motion.button
+            onClick={onNextWeek}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+            aria-label="Next"
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+          </motion.button>
+        </div>
+
+        {/* Filters Dropdown */}
+        {(onPropertyFilterChange || onCleanerFilterChange) && (
+          <div ref={filtersRef} className="relative">
+            <button
+              onClick={() => {
+                setShowFiltersDropdown(prev => !prev)
+                setPropertySearch('')
+                setCleanerSearch('')
+              }}
+              className={`
+                inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
+                transition-all cursor-pointer border
+                ${activeFilterCount > 0
+                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                }
+              `}
+            >
+              <FunnelIcon className="w-3.5 h-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-600 text-white rounded-full leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${showFiltersDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {showFiltersDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 top-full mt-1.5 w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
+                >
+                  {/* Sort By */}
+                  {onSortChange && (
+                    <div>
+                      <div className="px-3 pt-2.5 pb-1.5">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sort By</span>
+                      </div>
+                      <div className="px-2 pb-2">
+                        {sortOptions.map(opt => (
+                          <label
+                            key={opt.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="radio"
+                              name="sort"
+                              checked={sortOption === opt.value}
+                              onChange={() => onSortChange(opt.value)}
+                              className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">{opt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Properties */}
+                  {onPropertyFilterChange && properties.length > 0 && (
+                    <div className="border-t border-gray-100">
+                      <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Properties</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={handleSelectAllProperties} className="text-[10px] font-medium text-purple-600 hover:text-purple-700 cursor-pointer">Select All</button>
+                          <span className="text-[10px] text-gray-300">&middot;</span>
+                          <button onClick={handleClearAllProperties} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
+                        </div>
+                      </div>
+                      <div className="px-2 pb-1">
+                        <div className="relative">
+                          <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={propertySearch}
+                            onChange={e => setPropertySearch(e.target.value)}
+                            className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto">
+                        {filteredProperties.length === 0 ? (
+                          <div className="px-3 py-3 text-center text-sm text-gray-400">No properties found</div>
+                        ) : (
+                          filteredProperties.map(p => {
+                            const isChecked = selectedPropertyIds.includes(p.id)
+                            return (
+                              <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleProperty(p.id)}
+                                  className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                                />
+                                <span className="text-sm text-gray-700 truncate">{getPropertyName(p)}</span>
+                              </label>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cleaners */}
+                  {onCleanerFilterChange && cleaners.length > 0 && (
+                    <div className="border-t border-gray-100">
+                      <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cleaners</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={handleSelectAllCleaners} className="text-[10px] font-medium text-teal-600 hover:text-teal-700 cursor-pointer">Select All</button>
+                          <span className="text-[10px] text-gray-300">&middot;</span>
+                          <button onClick={handleClearAllCleaners} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
+                        </div>
+                      </div>
+                      <div className="px-2 pb-1">
+                        <div className="relative">
+                          <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={cleanerSearch}
+                            onChange={e => setCleanerSearch(e.target.value)}
+                            className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-300"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto">
+                        {/* Unassigned checkbox */}
+                        <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)}
+                            onChange={() => {
+                              if (selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)) {
+                                onCleanerFilterChange?.(selectedCleanerIds.filter(id => id !== UNASSIGNED_FILTER_ID))
+                              } else {
+                                onCleanerFilterChange?.([...selectedCleanerIds, UNASSIGNED_FILTER_ID])
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500/20 cursor-pointer"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm text-amber-700 font-medium">Unassigned</span>
+                            <span className="text-[10px] text-amber-500">(no cleaner)</span>
+                          </div>
+                        </label>
+                        {filteredCleaners.length === 0 ? (
+                          <div className="px-3 py-3 text-center text-sm text-gray-400">No cleaners found</div>
+                        ) : (
+                          filteredCleaners.map(c => {
+                            const isChecked = selectedCleanerIds.includes(c.id)
+                            return (
+                              <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleCleaner(c.id)}
+                                  className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
+                                />
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-sm text-gray-700 truncate">{getCleanerName(c)}</span>
+                                  {c.status !== 'active' && (
+                                    <span className={`text-xs ${c.status === 'invited' ? 'text-amber-500' : 'text-gray-400'}`}>{c.status}</span>
+                                  )}
+                                </div>
+                              </label>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Global Clear All Filters */}
+                  {activeFilterCount > 0 && (
+                    <div className="border-t border-gray-100 px-3 py-2">
+                      <button
+                        onClick={() => {
+                          onPropertyFilterChange?.(properties.map(p => p.id))
+                          onCleanerFilterChange?.([UNASSIGNED_FILTER_ID, ...cleaners.map(c => c.id)])
+                          onSortChange?.('alpha-asc')
+                        }}
+                        className="w-full text-center text-xs font-medium text-red-500 hover:text-red-600 cursor-pointer"
+                      >
+                        Clear All Filters
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Bookings Toggle */}
+        {onToggleBookings && (
+          <button
+            onClick={() => onToggleBookings(!showBookings)}
+            disabled={bookingsLoading}
             className={`
-              inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
-              ${isCurrentWeek()
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer'
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
+              transition-all duration-200 cursor-pointer border
+              ${showBookings
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+              }
+              ${bookingsLoading ? 'opacity-70 cursor-wait' : ''}
+            `}
+          >
+            {bookingsLoading ? (
+              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <CalendarDaysIcon className="w-3.5 h-3.5" />
+            )}
+            Bookings
+          </button>
+        )}
+
+        {/* Hour Labels Toggle — hidden for month and auto-shown zoom<=2 */}
+        {onToggleHourLabels && zoomLevel !== 'month' && !hoursAutoShown && (
+          <button
+            onClick={() => onToggleHourLabels(!showHourLabels)}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
+              transition-all duration-200 cursor-pointer border
+              ${showHourLabels
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
               }
             `}
           >
-            <CalendarIcon className="w-4 h-4" />
-            Today
-          </motion.button>
+            <ClockIcon className="w-3.5 h-3.5" />
+            Hours
+          </button>
+        )}
 
-          {/* Week Navigation */}
-          <div className="flex items-center gap-1">
-            <motion.button
-              onClick={onPrevWeek}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
-              aria-label="Previous week"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </motion.button>
-
-            <span className="px-2 py-1.5 min-w-[170px] text-center font-semibold text-gray-900 text-sm">
-              {formatDateRange()}
-            </span>
-
-            <motion.button
-              onClick={onNextWeek}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
-              aria-label="Next week"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </motion.button>
-          </div>
-
-          {/* Property Filter */}
-          {properties.length > 0 && onPropertyFilterChange && (
-            <div ref={propertyFilterRef} className="relative">
-              <button
-                onClick={() => {
-                  setShowPropertyFilter(prev => !prev)
-                  setPropertySearch('')
-                }}
-                className={`
-                  inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
-                  transition-all cursor-pointer border
-                  ${selectedPropertyIds.length > 0
-                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                  }
-                `}
-              >
-                <FunnelIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">{propertyFilterLabel}</span>
-                <span className="sm:hidden">
-                  {selectedPropertyIds.length > 0 ? `${selectedPropertyIds.length}` : 'Filter'}
-                </span>
-                <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showPropertyFilter ? 'rotate-180' : ''}`} />
-              </button>
-
-              <AnimatePresence>
-                {showPropertyFilter && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-0 top-full mt-1.5 w-72 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
-                  >
-                    {/* Search */}
-                    <div className="p-2 border-b border-gray-100">
-                      <div className="relative">
-                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search properties..."
-                          value={propertySearch}
-                          onChange={e => setPropertySearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    {/* Select All / Clear */}
-                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50/50">
-                      <button
-                        onClick={handleSelectAll}
-                        className="text-xs font-medium text-purple-600 hover:text-purple-700 cursor-pointer"
-                      >
-                        Select All
-                      </button>
-                      <span className="text-xs text-gray-400">
-                        {selectedPropertyIds.length === 0 ? 'All' : selectedPropertyIds.length} selected
-                      </span>
-                      <button
-                        onClick={handleClearAll}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700 cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-
-                    {/* Property List */}
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredProperties.length === 0 ? (
-                        <div className="px-3 py-4 text-center text-sm text-gray-400">
-                          No properties found
-                        </div>
-                      ) : (
-                        filteredProperties.map(p => {
-                          const isSelected = selectedPropertyIds.length === 0 || !selectedPropertyIds.includes(p.id)
-                          // When selectedPropertyIds is empty, all are shown (= all selected)
-                          // When selectedPropertyIds has items, only those are shown
-                          const isChecked = selectedPropertyIds.length === 0
-                            ? true
-                            : selectedPropertyIds.includes(p.id)
-                          return (
-                            <label
-                              key={p.id}
-                              className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  if (selectedPropertyIds.length === 0) {
-                                    // Going from "all" to "all except this one"
-                                    onPropertyFilterChange?.(properties.filter(prop => prop.id !== p.id).map(prop => prop.id))
-                                  } else {
-                                    handleToggleProperty(p.id)
-                                  }
-                                }}
-                                className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
-                              />
-                              <span className="text-sm text-gray-700 truncate">
-                                {getPropertyName(p)}
-                              </span>
-                            </label>
-                          )
-                        })
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Cleaner Filter */}
-          {cleaners.length > 0 && onCleanerFilterChange && (
-            <div ref={cleanerFilterRef} className="relative">
-              <button
-                onClick={() => {
-                  setShowCleanerFilter(prev => !prev)
-                  setCleanerSearch('')
-                }}
-                className={`
-                  inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
-                  transition-all cursor-pointer border
-                  ${selectedCleanerIds.length > 0
-                    ? 'bg-teal-50 text-teal-700 border-teal-200'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                  }
-                `}
-              >
-                <UserCircleIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">{cleanerFilterLabel}</span>
-                <span className="sm:hidden">
-                  {selectedCleanerIds.length > 0 ? `${selectedCleanerIds.length}` : 'Cleaners'}
-                </span>
-                <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showCleanerFilter ? 'rotate-180' : ''}`} />
-              </button>
-
-              <AnimatePresence>
-                {showCleanerFilter && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-0 top-full mt-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
-                  >
-                    {/* Search */}
-                    <div className="p-2 border-b border-gray-100">
-                      <div className="relative">
-                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search cleaners..."
-                          value={cleanerSearch}
-                          onChange={e => setCleanerSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-300"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    {/* Select All / Clear */}
-                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50/50">
-                      <button
-                        onClick={handleSelectAllCleaners}
-                        className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
-                      >
-                        Select All
-                      </button>
-                      <span className="text-xs text-gray-400">
-                        {selectedCleanerIds.length === 0 ? 'All' : selectedCleanerIds.length} selected
-                      </span>
-                      <button
-                        onClick={handleClearAllCleaners}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700 cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-
-                    {/* Cleaner List */}
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredCleaners.length === 0 ? (
-                        <div className="px-3 py-4 text-center text-sm text-gray-400">
-                          No cleaners found
-                        </div>
-                      ) : (
-                        filteredCleaners.map(c => {
-                          const isChecked = selectedCleanerIds.length === 0
-                            ? true
-                            : selectedCleanerIds.includes(c.id)
-                          return (
-                            <label
-                              key={c.id}
-                              className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  if (selectedCleanerIds.length === 0) {
-                                    // Going from "all" to "all except this one"
-                                    onCleanerFilterChange?.(cleaners.filter(cl => cl.id !== c.id).map(cl => cl.id))
-                                  } else {
-                                    handleToggleCleaner(c.id)
-                                  }
-                                }}
-                                className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
-                              />
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-sm text-gray-700 truncate">
-                                  {getCleanerName(c)}
-                                </span>
-                                {c.status !== 'active' && (
-                                  <span className={`text-xs ${c.status === 'invited' ? 'text-amber-500' : 'text-gray-400'}`}>
-                                    {c.status}
-                                  </span>
-                                )}
-                              </div>
-                            </label>
-                          )
-                        })
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Bookings Toggle */}
-          {onToggleBookings && (
+        {/* Zoom Dropdown — flat list */}
+        {onZoomChange && (
+          <div ref={zoomDropdownRef} className="relative">
             <button
-              onClick={() => onToggleBookings(!showBookings)}
-              disabled={bookingsLoading}
-              className={`
-                inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
-                transition-all duration-200 cursor-pointer border
-                ${showBookings
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
-                }
-                ${bookingsLoading ? 'opacity-70 cursor-wait' : ''}
-              `}
+              onClick={() => setShowZoomDropdown(prev => !prev)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-all cursor-pointer"
             >
-              {bookingsLoading ? (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <CalendarDaysIcon className="w-4 h-4" />
-              )}
-              Bookings
+              <CalendarDaysIcon className="w-3.5 h-3.5 text-gray-500" />
+              {zoomLabel}
+              <ChevronDownIcon className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${showZoomDropdown ? 'rotate-180' : ''}`} />
             </button>
-          )}
 
-          {/* Notification Status */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-100" title="Notification preferences (manage in Settings)">
-            <span className="text-xs text-gray-400 mr-0.5">Alerts:</span>
-            <div className={`flex items-center ${emailEnabled ? 'text-blue-500' : 'text-gray-300'}`} title={emailEnabled ? 'Email enabled' : 'Email disabled'}>
-              <EnvelopeIcon className="w-3.5 h-3.5" />
-            </div>
-            <div className={`flex items-center ${smsEnabled ? 'text-amber-500' : 'text-gray-300'}`} title={smsEnabled ? 'SMS enabled' : 'SMS disabled'}>
-              <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
-            </div>
-          </div>
-        </div>
+            <AnimatePresence>
+              {showZoomDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1.5 w-40 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-80 overflow-y-auto"
+                >
+                  {zoomItems.map((item) => {
+                    const isActive = item.value === 'month'
+                      ? zoomLevel === 'month'
+                      : item.isWeek
+                        ? zoomLevel === 7 && isWeekPreset
+                        : zoomLevel === item.value && !(item.value === 7 && isWeekPreset)
 
-        {/* Right: New Dropdown + View Mode Toggle */}
-        <div className="flex items-center gap-3 self-start lg:self-auto">
-          {/* Consolidated New Dropdown */}
-          {(onCreateProject || onCreateChecklist || onDuplicateChecklist) && (
-            <div ref={newMenuRef} className="relative">
-              <motion.button
-                onClick={() => {
-                  setShowNewMenu(prev => !prev)
-                  setShowChecklistSub(false)
-                }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors shadow-lg shadow-purple-500/25 cursor-pointer"
-              >
-                <PlusIcon className="w-4 h-4" />
-                New
-                <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showNewMenu ? 'rotate-180' : ''}`} />
-              </motion.button>
-
-              <AnimatePresence>
-                {showNewMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
-                  >
-                    {onCreateProject && (
-                      <button
-                        onClick={() => {
-                          setShowNewMenu(false)
-                          onCreateProject()
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        <div className="text-left">
-                          <div className="font-medium">New Project</div>
-                          <div className="text-xs text-gray-400">Create a cleaning project</div>
-                        </div>
-                      </button>
-                    )}
-                    {(onCreateChecklist || onDuplicateChecklist) && (
-                      <div className="relative border-t border-gray-100">
+                    return (
+                      <div key={item.label}>
+                        {item.dividerBefore && <div className="border-t border-gray-100" />}
                         <button
-                          onClick={() => setShowChecklistSub(prev => !prev)}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (item.value === 'month') {
+                              onZoomChange('month')
+                            } else if (item.isWeek) {
+                              onZoomChange(7, true)
+                            } else {
+                              onZoomChange(item.value as number, false)
+                            }
+                            setShowZoomDropdown(false)
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                            isActive
+                              ? 'bg-purple-50 text-purple-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <ClipboardDocumentListIcon className="w-4 h-4" />
-                            <div className="text-left">
-                              <div className="font-medium">New Checklist</div>
-                              <div className="text-xs text-gray-400">Create or duplicate</div>
-                            </div>
-                          </div>
-                          <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showChecklistSub ? 'rotate-90' : ''}`} />
+                          {item.label}
                         </button>
-
-                        <AnimatePresence>
-                          {showChecklistSub && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.15 }}
-                              className="overflow-hidden bg-gray-50/50"
-                            >
-                              {onCreateChecklist && (
-                                <button
-                                  onClick={() => {
-                                    setShowNewMenu(false)
-                                    setShowChecklistSub(false)
-                                    onCreateChecklist()
-                                  }}
-                                  className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
-                                >
-                                  <PlusIcon className="w-3.5 h-3.5" />
-                                  <span className="font-medium">Create from Scratch</span>
-                                </button>
-                              )}
-                              {onDuplicateChecklist && (
-                                <button
-                                  onClick={() => {
-                                    setShowNewMenu(false)
-                                    setShowChecklistSub(false)
-                                    onDuplicateChecklist()
-                                  }}
-                                  className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
-                                >
-                                  <DocumentDuplicateIcon className="w-3.5 h-3.5" />
-                                  <span className="font-medium">Copy from Existing</span>
-                                </button>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                       </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Zoom Toggle */}
-          {onZoomChange && (
-            <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
-              <button
-                onClick={() => onZoomChange(7)}
-                className={`
-                  px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer
-                  ${zoomLevel === 7
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
-              >
-                7d
-              </button>
-              <button
-                onClick={() => onZoomChange(14)}
-                className={`
-                  px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer
-                  ${zoomLevel === 14
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
-              >
-                14d
-              </button>
-            </div>
-          )}
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
-            <button
-              onClick={() => onViewModeChange('property')}
-              className={`
-                inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
-                transition-all duration-200 cursor-pointer
-                ${viewMode === 'property'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <HomeModernIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">By Property</span>
-            </button>
-            <button
-              onClick={() => onViewModeChange('cleaner')}
-              className={`
-                inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
-                transition-all duration-200 cursor-pointer
-                ${viewMode === 'cleaner'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-                }
-              `}
-            >
-              <UserCircleIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">By Cleaner</span>
-            </button>
+                    )
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* New Dropdown */}
+        {(onCreateProject || onCreateChecklist || onDuplicateChecklist) && (
+          <div ref={newMenuRef} className="relative">
+            <motion.button
+              onClick={() => {
+                setShowNewMenu(prev => !prev)
+                setShowChecklistSub(false)
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm shadow-purple-500/25 cursor-pointer"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              New
+              <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${showNewMenu ? 'rotate-180' : ''}`} />
+            </motion.button>
+
+            <AnimatePresence>
+              {showNewMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
+                >
+                  {onCreateProject && (
+                    <button
+                      onClick={() => {
+                        setShowNewMenu(false)
+                        onCreateProject()
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      <div className="text-left">
+                        <div className="font-medium">New Project</div>
+                        <div className="text-xs text-gray-400">Create a cleaning project</div>
+                      </div>
+                    </button>
+                  )}
+                  {(onCreateChecklist || onDuplicateChecklist) && (
+                    <div className="relative border-t border-gray-100">
+                      <button
+                        onClick={() => setShowChecklistSub(prev => !prev)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <ClipboardDocumentListIcon className="w-4 h-4" />
+                          <div className="text-left">
+                            <div className="font-medium">New Checklist</div>
+                            <div className="text-xs text-gray-400">Create or duplicate</div>
+                          </div>
+                        </div>
+                        <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showChecklistSub ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showChecklistSub && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="overflow-hidden bg-gray-50/50"
+                          >
+                            {onCreateChecklist && (
+                              <button
+                                onClick={() => {
+                                  setShowNewMenu(false)
+                                  setShowChecklistSub(false)
+                                  onCreateChecklist()
+                                }}
+                                className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                              >
+                                <PlusIcon className="w-3.5 h-3.5" />
+                                <span className="font-medium">Create from Scratch</span>
+                              </button>
+                            )}
+                            {onDuplicateChecklist && (
+                              <button
+                                onClick={() => {
+                                  setShowNewMenu(false)
+                                  setShowChecklistSub(false)
+                                  onDuplicateChecklist()
+                                }}
+                                className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                              >
+                                <DocumentDuplicateIcon className="w-3.5 h-3.5" />
+                                <span className="font-medium">Copy from Existing</span>
+                              </button>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
+          <button
+            onClick={() => onViewModeChange('property')}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium
+              transition-all duration-200 cursor-pointer
+              ${viewMode === 'property'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+              }
+            `}
+          >
+            <HomeModernIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Property</span>
+          </button>
+          <button
+            onClick={() => onViewModeChange('cleaner')}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium
+              transition-all duration-200 cursor-pointer
+              ${viewMode === 'cleaner'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+              }
+            `}
+          >
+            <UserCircleIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cleaner</span>
+          </button>
         </div>
       </div>
     </div>

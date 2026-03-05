@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getCleaningProjects, getCleaningProjectStats } from '@/services/cleaningProjectService'
+import { getCleaningProjects, getCleaningProjectStats, updateCleaningProject } from '@/services/cleaningProjectService'
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
 import { getOpenIssues } from '@/services/projectIssueService'
@@ -21,6 +21,7 @@ import type { Booking } from '@/services/types/booking'
 import CalendarHeader from './CalendarHeader'
 import PropertyRowView from './PropertyRowView'
 import CleanerRowView from './CleanerRowView'
+import MonthGridView from './MonthGridView'
 import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
@@ -29,6 +30,11 @@ import PreviewBookingModal from '@/components/booking/preview/previewBookingModa
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 
 export type ViewMode = 'property' | 'cleaner'
+export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
+export type ZoomLevel = number | 'month'
+export type BarSize = 'sm' | 'md' | 'lg'
+export type SortOption = 'alpha-asc' | 'alpha-desc' | 'projects-desc' | 'next-project'
+export const UNASSIGNED_FILTER_ID = '__unassigned__'
 
 interface TurnoverCalendarProps {
   initialProperties?: Property[]
@@ -45,7 +51,10 @@ export default function TurnoverCalendar({
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('property')
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [zoomLevel, setZoomLevel] = useState<7 | 14>(7)
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(7)
+  const [barSize, setBarSize] = useState<BarSize>('lg')
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+  const [isWeekPreset, setIsWeekPreset] = useState(true) // default 7d = "Week"
 
   // Static data state (not date-range dependent)
   const [properties, setProperties] = useState<Property[]>(initialProperties || [])
@@ -69,11 +78,17 @@ export default function TurnoverCalendar({
   // Bookings overlay state
   const [showBookings, setShowBookings] = useState(true)
 
+  // Hour labels state
+  const [showHourLabels, setShowHourLabels] = useState(true)
+
   // Property filter state
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
 
   // Cleaner filter state
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>([])
+
+  // Sort state
+  const [sortOption, setSortOption] = useState<SortOption>('alpha-asc')
 
   // Loading state
   const [loading, setLoading] = useState(true)
@@ -113,6 +128,17 @@ export default function TurnoverCalendar({
 
   // Calculate date range for the current view (uses currentDate directly, no alignment)
   const dateRange = useMemo(() => {
+    if (zoomLevel === 'month') {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      const start = new Date(year, month, 1)
+      const end = new Date(year, month + 1, 0) // last day of month
+      return {
+        start: formatLocalDate(start),
+        end: formatLocalDate(end),
+      }
+    }
+
     const start = new Date(currentDate)
     start.setHours(0, 0, 0, 0)
 
@@ -132,7 +158,7 @@ export default function TurnoverCalendar({
     const bufferStart = new Date(centerDate)
     bufferStart.setDate(bufferStart.getDate() - 17)
     const bufferEnd = new Date(centerDate)
-    bufferEnd.setDate(bufferEnd.getDate() + zoomLevel + 17)
+    bufferEnd.setDate(bufferEnd.getDate() + (zoomLevel === 'month' ? 45 : zoomLevel + 17))
 
     const months: string[] = []
     const cursor = new Date(bufferStart.getFullYear(), bufferStart.getMonth(), 1)
@@ -314,6 +340,19 @@ export default function TurnoverCalendar({
     fetchInitialData()
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-populate filter IDs with all items on initial load
+  useEffect(() => {
+    if (properties.length > 0 && selectedPropertyIds.length === 0) {
+      setSelectedPropertyIds(properties.map(p => p.id))
+    }
+  }, [properties]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (cleaners.length > 0 && selectedCleanerIds.length === 0) {
+      setSelectedCleanerIds([UNASSIGNED_FILTER_ID, ...cleaners.map(c => c.id)])
+    }
+  }, [cleaners]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch months when navigating (after initial load)
   useEffect(() => {
     if (!profile?.id || !initialFetchDone.current) return
@@ -363,6 +402,33 @@ export default function TurnoverCalendar({
     }
   }
 
+  // Handle zoom level change — snap to 1st of month when switching to month view
+  const handleZoomChange = useCallback((level: ZoomLevel, isWeek?: boolean) => {
+    if (level === 'month') {
+      setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), 1))
+    }
+    setExpandedDate(null) // collapse any expanded day
+    setZoomLevel(level)
+    setIsWeekPreset(isWeek ?? false)
+  }, [])
+
+  // Handle day click from column header — switch to 1-day zoom on that date
+  const handleDayClick = useCallback((dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    setCurrentDate(new Date(y, m - 1, d))
+    setZoomLevel(1)
+    setIsWeekPreset(false)
+    setExpandedDate(null)
+  }, [])
+
+  // Handle day click from MonthGridView — switch to 7d (Week) view centered on that day
+  const handleMonthDayClick = useCallback((dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    setCurrentDate(new Date(y, m - 1, d))
+    setZoomLevel(7)
+    setIsWeekPreset(true)
+  }, [])
+
   // Handle bookings toggle — bookings are always in cache, just toggle visibility
   const handleToggleBookings = (enabled: boolean) => {
     setShowBookings(enabled)
@@ -385,20 +451,83 @@ export default function TurnoverCalendar({
       result = result.filter(p => selectedPropertyIds.includes(p.propertyId))
     }
     if (selectedCleanerIds.length > 0) {
-      result = result.filter(p => p.cleanerId && selectedCleanerIds.includes(p.cleanerId))
+      const showUnassigned = selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)
+      const cleanerIdsOnly = selectedCleanerIds.filter(id => id !== UNASSIGNED_FILTER_ID)
+      result = result.filter(p =>
+        (showUnassigned && !p.cleanerId) ||
+        (p.cleanerId && cleanerIdsOnly.includes(p.cleanerId))
+      )
     }
     return result
   }, [allCachedProjects, selectedPropertyIds, selectedCleanerIds])
 
   const filteredProperties = useMemo(() => {
-    if (selectedPropertyIds.length === 0) return properties
-    return properties.filter(p => selectedPropertyIds.includes(p.id))
-  }, [properties, selectedPropertyIds])
+    let result = selectedPropertyIds.length === 0 ? [...properties] : properties.filter(p => selectedPropertyIds.includes(p.id))
+    const getName = (p: Property) => p.listingName || p.internalName || p.externalName || p.address || ''
+    switch (sortOption) {
+      case 'alpha-asc':
+        result.sort((a, b) => getName(a).localeCompare(getName(b)))
+        break
+      case 'alpha-desc':
+        result.sort((a, b) => getName(b).localeCompare(getName(a)))
+        break
+      case 'projects-desc': {
+        const countMap = new Map<string, number>()
+        for (const p of allCachedProjects) {
+          countMap.set(p.propertyId, (countMap.get(p.propertyId) || 0) + 1)
+        }
+        result.sort((a, b) => (countMap.get(b.id) || 0) - (countMap.get(a.id) || 0))
+        break
+      }
+      case 'next-project': {
+        const now = new Date().toISOString().slice(0, 10)
+        const nextMap = new Map<string, string>()
+        for (const p of allCachedProjects) {
+          if (p.scheduledDate >= now) {
+            const cur = nextMap.get(p.propertyId)
+            if (!cur || p.scheduledDate < cur) nextMap.set(p.propertyId, p.scheduledDate)
+          }
+        }
+        result.sort((a, b) => (nextMap.get(a.id) || '9999-99-99').localeCompare(nextMap.get(b.id) || '9999-99-99'))
+        break
+      }
+    }
+    return result
+  }, [properties, selectedPropertyIds, sortOption, allCachedProjects])
 
   const filteredCleaners = useMemo(() => {
-    if (selectedCleanerIds.length === 0) return cleaners
-    return cleaners.filter(c => selectedCleanerIds.includes(c.id))
-  }, [cleaners, selectedCleanerIds])
+    let result = selectedCleanerIds.length === 0 ? [...cleaners] : cleaners.filter(c => selectedCleanerIds.includes(c.id))
+    const getName = (c: Cleaner) => c.name || c.email || ''
+    switch (sortOption) {
+      case 'alpha-asc':
+        result.sort((a, b) => getName(a).localeCompare(getName(b)))
+        break
+      case 'alpha-desc':
+        result.sort((a, b) => getName(b).localeCompare(getName(a)))
+        break
+      case 'projects-desc': {
+        const countMap = new Map<string, number>()
+        for (const p of allCachedProjects) {
+          if (p.cleanerId) countMap.set(p.cleanerId, (countMap.get(p.cleanerId) || 0) + 1)
+        }
+        result.sort((a, b) => (countMap.get(b.id) || 0) - (countMap.get(a.id) || 0))
+        break
+      }
+      case 'next-project': {
+        const now = new Date().toISOString().slice(0, 10)
+        const nextMap = new Map<string, string>()
+        for (const p of allCachedProjects) {
+          if (p.cleanerId && p.scheduledDate >= now) {
+            const cur = nextMap.get(p.cleanerId)
+            if (!cur || p.scheduledDate < cur) nextMap.set(p.cleanerId, p.scheduledDate)
+          }
+        }
+        result.sort((a, b) => (nextMap.get(a.id) || '9999-99-99').localeCompare(nextMap.get(b.id) || '9999-99-99'))
+        break
+      }
+    }
+    return result
+  }, [cleaners, selectedCleanerIds, sortOption, allCachedProjects])
 
   const filteredBookings = useMemo(() => {
     if (selectedPropertyIds.length === 0) return visibleBookings
@@ -457,167 +586,97 @@ export default function TurnoverCalendar({
     }
   }
 
-  // Ref for trackpad horizontal scroll
-  const calendarContainerRef = useRef<HTMLDivElement>(null)
+  // Handle project drag-and-drop (reschedule date and optionally reassign cleaner)
+  const handleProjectDrop = useCallback(async (projectId: string, newDate: string, newCleanerId?: string) => {
+    try {
+      const payload: { scheduledDate: string; cleanerId?: string | null } = { scheduledDate: newDate }
+      if (newCleanerId !== undefined) {
+        payload.cleanerId = newCleanerId || null
+      }
+      const res = await updateCleaningProject(projectId, payload)
+      if (res.status === 'success') {
+        // Update project in cache
+        setProjectCache(prev => {
+          const next = new Map(prev)
+          for (const [key, projects] of next) {
+            const idx = projects.findIndex(p => p.id === projectId)
+            if (idx !== -1) {
+              const updated = [...projects]
+              updated[idx] = res.data
+              next.set(key, updated)
+            }
+          }
+          return next
+        })
+        showNotification('Project rescheduled', 'success')
+      } else {
+        showNotification(res.message || 'Failed to reschedule', 'error')
+      }
+    } catch (err) {
+      console.error('Error rescheduling project:', err)
+      showNotification('Failed to reschedule project', 'error')
+    }
+  }, [showNotification])
 
-  // Arrow navigation handlers (snap to Saturday, shift by zoomLevel)
+  // Arrow navigation handlers
   const handlePrevWeek = useCallback(() => {
+    setExpandedDate(null)
     setCurrentDate(prev => {
+      if (zoomLevel === 'month') {
+        return new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+      }
       const d = new Date(prev)
-      const daysToSaturday = (d.getDay() + 1) % 7
-      d.setDate(d.getDate() - daysToSaturday) // snap to Saturday
-      d.setDate(d.getDate() - zoomLevel)       // then shift back
+      if (isWeekPreset && zoomLevel === 7) {
+        // Snap to Saturday then shift back by 7
+        const daysToSaturday = (d.getDay() + 1) % 7
+        d.setDate(d.getDate() - daysToSaturday)
+        d.setDate(d.getDate() - 7)
+      } else {
+        d.setDate(d.getDate() - (zoomLevel as number))
+        d.setHours(0, 0, 0, 0)
+      }
       return d
     })
-  }, [zoomLevel])
+  }, [zoomLevel, isWeekPreset])
 
   const handleNextWeek = useCallback(() => {
+    setExpandedDate(null)
     setCurrentDate(prev => {
+      if (zoomLevel === 'month') {
+        return new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+      }
       const d = new Date(prev)
-      const daysToSaturday = (d.getDay() + 1) % 7
-      d.setDate(d.getDate() - daysToSaturday) // snap to Saturday
-      d.setDate(d.getDate() + zoomLevel)       // then shift forward
+      if (isWeekPreset && zoomLevel === 7) {
+        // Snap to Saturday then shift forward by 7
+        const daysToSaturday = (d.getDay() + 1) % 7
+        d.setDate(d.getDate() - daysToSaturday)
+        d.setDate(d.getDate() + 7)
+      } else {
+        d.setDate(d.getDate() + (zoomLevel as number))
+        d.setHours(0, 0, 0, 0)
+      }
       return d
     })
-  }, [zoomLevel])
+  }, [zoomLevel, isWeekPreset])
 
-  // Trackpad scroll handlers (shift by 1 day, no snapping)
-  const handleScrollForward = useCallback(() => {
+  // Pixel-scroll date shift handler (called by view components when scroll crosses a column boundary)
+  const handleRequestDateShift = useCallback((days: number) => {
     setCurrentDate(prev => {
       const d = new Date(prev)
-      d.setDate(d.getDate() + 1)
+      d.setDate(d.getDate() + days)
       return d
     })
   }, [])
 
-  const handleScrollBackward = useCallback(() => {
-    setCurrentDate(prev => {
-      const d = new Date(prev)
-      d.setDate(d.getDate() - 1)
-      return d
-    })
-  }, [])
-
-  // Trackpad/mouse horizontal scroll to navigate calendar day-by-day
-  useEffect(() => {
-    const el = calendarContainerRef.current
-    if (!el) return
-
-    let accumulated = 0
-    let resetTimer: ReturnType<typeof setTimeout>
-    let cooldown = false
-
-    const handleWheel = (e: WheelEvent) => {
-      // Determine horizontal delta:
-      // - Trackpads send deltaX directly
-      // - On Windows, shift+scroll sends deltaY as horizontal intent
-      let horizontalDelta = e.deltaX
-      if (e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        horizontalDelta = e.deltaY
-      }
-
-      const absH = Math.abs(horizontalDelta)
-      const absV = Math.abs(e.shiftKey ? 0 : e.deltaY)
-
-      // Only handle predominantly horizontal gestures
-      if (absH < 2 || absH < absV) return
-
-      e.preventDefault()
-      e.stopPropagation()
-
-      accumulated += horizontalDelta
-
-      // Reset accumulator after inactivity
-      clearTimeout(resetTimer)
-      resetTimer = setTimeout(() => { accumulated = 0 }, 200)
-
-      // Only fire one day-shift per cooldown period (150ms) — max ~6/sec
-      const threshold = 40
-      if (!cooldown && Math.abs(accumulated) >= threshold) {
-        if (accumulated > 0) {
-          handleScrollForward()
-        } else {
-          handleScrollBackward()
-        }
-        accumulated = 0
-        cooldown = true
-        setTimeout(() => { cooldown = false }, 150)
-      }
+  const handleToday = useCallback(() => {
+    const today = new Date()
+    if (isWeekPreset && zoomLevel === 7) {
+      const daysToSaturday = (today.getDay() + 1) % 7
+      today.setDate(today.getDate() - daysToSaturday)
     }
-
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => {
-      el.removeEventListener('wheel', handleWheel)
-      clearTimeout(resetTimer)
-    }
-  }, [handleScrollForward, handleScrollBackward])
-
-  // Mouse drag / touch drag to navigate calendar day-by-day
-  useEffect(() => {
-    const el = calendarContainerRef.current
-    if (!el) return
-
-    let isDragging = false
-    let startX = 0
-    let dragAccumulated = 0
-
-    const handlePointerDown = (e: PointerEvent) => {
-      // Only left mouse button, ignore clicks on interactive elements
-      if (e.button !== 0) return
-      const target = e.target as HTMLElement
-      if (target.closest('button, a, [role="button"], .fc-event')) return
-
-      isDragging = true
-      startX = e.clientX
-      dragAccumulated = 0
-      el.setPointerCapture(e.pointerId)
-      el.style.cursor = 'grabbing'
-      el.style.userSelect = 'none'
-    }
-
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!isDragging) return
-      e.preventDefault()
-
-      const deltaX = startX - e.clientX  // inverted: drag left = move forward
-      startX = e.clientX
-      dragAccumulated += deltaX
-
-      const threshold = 60  // pixels per day-shift
-      while (dragAccumulated >= threshold) {
-        handleScrollForward()
-        dragAccumulated -= threshold
-      }
-      while (dragAccumulated <= -threshold) {
-        handleScrollBackward()
-        dragAccumulated += threshold
-      }
-    }
-
-    const handlePointerUp = (e: PointerEvent) => {
-      if (!isDragging) return
-      isDragging = false
-      el.releasePointerCapture(e.pointerId)
-      el.style.cursor = ''
-      el.style.userSelect = ''
-    }
-
-    el.addEventListener('pointerdown', handlePointerDown)
-    el.addEventListener('pointermove', handlePointerMove)
-    el.addEventListener('pointerup', handlePointerUp)
-    el.addEventListener('pointercancel', handlePointerUp)
-
-    return () => {
-      el.removeEventListener('pointerdown', handlePointerDown)
-      el.removeEventListener('pointermove', handlePointerMove)
-      el.removeEventListener('pointerup', handlePointerUp)
-      el.removeEventListener('pointercancel', handlePointerUp)
-    }
-  }, [handleScrollForward, handleScrollBackward])
-
-  const handleToday = () => {
-    setCurrentDate(new Date())
-  }
+    setCurrentDate(today)
+    setExpandedDate(null)
+  }, [isWeekPreset, zoomLevel])
 
   // Loading state
   if (loading) {
@@ -689,7 +748,7 @@ export default function TurnoverCalendar({
       )}
 
       {/* Calendar Container */}
-      <div ref={calendarContainerRef} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-grab">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         {/* Header with navigation and view toggle */}
         <CalendarHeader
           viewMode={viewMode}
@@ -712,19 +771,38 @@ export default function TurnoverCalendar({
           selectedCleanerIds={selectedCleanerIds}
           onCleanerFilterChange={setSelectedCleanerIds}
           zoomLevel={zoomLevel}
-          onZoomChange={setZoomLevel}
+          onZoomChange={handleZoomChange}
+          isWeekPreset={isWeekPreset}
+          showHourLabels={showHourLabels}
+          onToggleHourLabels={setShowHourLabels}
+          sortOption={sortOption}
+          onSortChange={setSortOption}
         />
 
         {/* Calendar View */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={viewMode}
+            key={zoomLevel === 'month' ? 'month' : viewMode}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
+            className="overflow-hidden rounded-b-2xl"
           >
-            {viewMode === 'property' ? (
+            {zoomLevel === 'month' ? (
+              <MonthGridView
+                projects={filteredProjects}
+                properties={filteredProperties}
+                bookings={showBookings ? filteredBookings : []}
+                dateRange={dateRange}
+                onProjectClick={handleProjectClick}
+                onBookingClick={handleBookingClick}
+                onDayClick={handleMonthDayClick}
+                issueCountsMap={issueCountsMap}
+                supplyListCountsMap={supplyListCountsMap}
+                barSize={barSize}
+              />
+            ) : viewMode === 'property' ? (
               <PropertyRowView
                 projects={filteredProjects}
                 properties={filteredProperties}
@@ -735,6 +813,13 @@ export default function TurnoverCalendar({
                 supplyListCountsMap={supplyListCountsMap}
                 bookings={showBookings ? filteredBookings : []}
                 zoomLevel={zoomLevel}
+                onRequestDateShift={handleRequestDateShift}
+                onProjectDrop={handleProjectDrop}
+                barSize={barSize}
+                showHourLabels={showHourLabels}
+                expandedDate={expandedDate}
+                onExpandDate={setExpandedDate}
+                onDayClick={handleDayClick}
               />
             ) : (
               <CleanerRowView
@@ -742,9 +827,18 @@ export default function TurnoverCalendar({
                 cleaners={filteredCleaners}
                 dateRange={dateRange}
                 onProjectClick={handleProjectClick}
+                onBookingClick={handleBookingClick}
                 issueCountsMap={issueCountsMap}
                 supplyListCountsMap={supplyListCountsMap}
+                bookings={showBookings ? filteredBookings : []}
                 zoomLevel={zoomLevel}
+                onRequestDateShift={handleRequestDateShift}
+                onProjectDrop={handleProjectDrop}
+                barSize={barSize}
+                showHourLabels={showHourLabels}
+                expandedDate={expandedDate}
+                onExpandDate={setExpandedDate}
+                onDayClick={handleDayClick}
               />
             )}
           </motion.div>
