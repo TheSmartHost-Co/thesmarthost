@@ -113,7 +113,7 @@ export default function RequestTimeChangeModal({
           {/* Checkout Time */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Checkout Time
+              Start Time
             </label>
             <TimeSelect
               value={checkoutTime}
@@ -128,7 +128,7 @@ export default function RequestTimeChangeModal({
           {/* Checkin Time */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Check-in Time
+              End Time
             </label>
             <TimeSelect
               value={checkinTime}

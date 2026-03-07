@@ -1,14 +1,16 @@
 import apiClient from './apiClient';
-import { 
-  IncomingBookingResponse, 
-  IncomingBookingsResponse, 
-  CreateIncomingBookingPayload, 
+import {
+  IncomingBookingResponse,
+  IncomingBookingsResponse,
+  CreateIncomingBookingPayload,
   UpdateIncomingBookingMappingPayload,
   UpdateIncomingBookingStatusPayload,
   UpdateIncomingBookingFinancialsPayload,
   DeleteIncomingBookingPayload,
   FieldMappingsResponse,
-  PendingBookingsCountResponse
+  PendingBookingsCountResponse,
+  SendToTurnoverPayload,
+  SendToTurnoverResponse
 } from './types/incomingBooking';
 
 export function getAllIncomingBookings(userId: string): Promise<IncomingBookingsResponse> {
@@ -78,5 +80,12 @@ export function updateIncomingBookingFinancials(
       method: 'PUT',
       body: data,
     }
+  );
+}
+
+export function sendToTurnover(data: SendToTurnoverPayload): Promise<SendToTurnoverResponse> {
+  return apiClient<SendToTurnoverResponse, SendToTurnoverPayload>(
+    '/incoming-bookings/send-to-turnover',
+    { method: 'POST', body: data }
   );
 }

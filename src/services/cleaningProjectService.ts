@@ -394,3 +394,29 @@ export function formatTime(time: string | null | undefined): string | null {
   const h12 = h % 12 || 12
   return `${h12}:${minutes} ${ampm}`
 }
+
+/**
+ * Get the URL for downloading a checklist item photo with a baked-in timestamp watermark
+ */
+export function getChecklistPhotoDownloadUrl(projectId: string, itemId: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
+  return `${baseUrl}/cleaning-projects/${projectId}/checklist/${itemId}/photo/download`
+}
+
+/**
+ * Download a watermarked checklist photo via fetch (handles cross-origin credentials)
+ */
+export async function downloadChecklistPhotoWatermarked(projectId: string, itemId: string, filename?: string): Promise<void> {
+  const url = getChecklistPhotoDownloadUrl(projectId, itemId)
+  const response = await fetch(url, { credentials: 'include' })
+  if (!response.ok) throw new Error('Failed to download photo')
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = filename || 'photo_watermarked.jpg'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(blobUrl)
+}

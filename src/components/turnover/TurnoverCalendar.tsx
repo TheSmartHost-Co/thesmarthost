@@ -11,7 +11,8 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleaningProjects, getCleaningProjectStats, updateCleaningProject } from '@/services/cleaningProjectService'
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
-import { getOpenIssues } from '@/services/projectIssueService'
+import { getAllIssues } from '@/services/projectIssueService'
+import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getPendingSupplyLists } from '@/services/supplyListService'
 import { getBookings, getMonthKey, getMonthBounds } from '@/services/bookingService'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
@@ -26,6 +27,7 @@ import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
 import DuplicateChecklistModal from '@/components/checklist/duplicate/DuplicateChecklistModal'
+import { AllIssuesModal } from '@/components/turnover/issues'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 
@@ -61,6 +63,7 @@ export default function TurnoverCalendar({
   const [cleaners, setCleaners] = useState<Cleaner[]>(initialCleaners || [])
   const [stats, setStats] = useState<CleaningProjectStats | null>(null)
   const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
+  const [allIssues, setAllIssues] = useState<ProjectIssue[]>([])
   const [supplyListCountsMap, setSupplyListCountsMap] = useState<Record<string, number>>({})
 
   // Month-based cache for bookings
@@ -104,6 +107,7 @@ export default function TurnoverCalendar({
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showBookingPreview, setShowBookingPreview] = useState(false)
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
+  const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -301,7 +305,7 @@ export default function TurnoverCalendar({
           initialProperties ? Promise.resolve({ status: 'success' as const, data: initialProperties }) : getProperties(profile.id),
           initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(profile.id),
           getCleaningProjectStats(profile.id, dateRange.start, dateRange.end),
-          getOpenIssues(profile.id),
+          getAllIssues(profile.id),
           getPendingSupplyLists(profile.id),
         ])
 
@@ -310,8 +314,10 @@ export default function TurnoverCalendar({
         if (statsRes.status === 'success') setStats(statsRes.data)
 
         if (issuesRes.status === 'success') {
+          setAllIssues(issuesRes.data)
+          // Build counts map from non-resolved issues only (for calendar badges)
           const countsMap: Record<string, number> = {}
-          issuesRes.data.forEach(issue => {
+          issuesRes.data.filter(i => i.status !== 'resolved').forEach(issue => {
             countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
           })
           setIssueCountsMap(countsMap)
@@ -372,10 +378,11 @@ export default function TurnoverCalendar({
   const refreshIssueCounts = async () => {
     if (!profile?.id) return
     try {
-      const issuesRes = await getOpenIssues(profile.id)
+      const issuesRes = await getAllIssues(profile.id)
       if (issuesRes.status === 'success') {
+        setAllIssues(issuesRes.data)
         const countsMap: Record<string, number> = {}
-        issuesRes.data.forEach(issue => {
+        issuesRes.data.filter(i => i.status !== 'resolved').forEach(issue => {
           countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
         })
         setIssueCountsMap(countsMap)
@@ -618,6 +625,12 @@ export default function TurnoverCalendar({
     }
   }, [showNotification])
 
+  // Computed: open issue count for CalendarHeader badge
+  const openIssueCount = useMemo(() =>
+    allIssues.filter(i => i.status !== 'resolved').length,
+    [allIssues]
+  )
+
   // Arrow navigation handlers
   const handlePrevWeek = useCallback(() => {
     setExpandedDate(null)
@@ -777,6 +790,8 @@ export default function TurnoverCalendar({
           onToggleHourLabels={setShowHourLabels}
           sortOption={sortOption}
           onSortChange={setSortOption}
+          openIssueCount={openIssueCount}
+          onOpenAllIssues={() => setShowAllIssuesModal(true)}
         />
 
         {/* Calendar View */}
@@ -939,6 +954,14 @@ export default function TurnoverCalendar({
           }}
         />
       )}
+
+      {/* All Issues Modal */}
+      <AllIssuesModal
+        isOpen={showAllIssuesModal}
+        onClose={() => setShowAllIssuesModal(false)}
+        issues={allIssues}
+        onIssuesChanged={() => { refreshIssueCounts(); refreshSupplyListCounts() }}
+      />
     </motion.div>
   )
 }

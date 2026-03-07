@@ -164,6 +164,20 @@ export function getOpenIssues(userId: string): Promise<ProjectIssuesResponse> {
 }
 
 /**
+ * Get ALL issues for a PM (global issues modal - includes resolved)
+ */
+export function getAllIssues(userId: string): Promise<ProjectIssuesResponse> {
+  return apiClient<ProjectIssuesResponse>(`/project-issues/all?userId=${userId}`)
+}
+
+/**
+ * Get all issues for a specific property
+ */
+export function getIssuesByProperty(propertyId: string, userId: string): Promise<ProjectIssuesResponse> {
+  return apiClient<ProjectIssuesResponse>(`/properties/${propertyId}/issues?userId=${userId}`)
+}
+
+/**
  * Get issue counts by status for a project
  */
 export function getIssueCounts(projectId: string): Promise<IssueCountsResponse> {
@@ -250,6 +264,32 @@ export function getPhotoPublicUrl(photoPath: string): string {
   }
 
   return `${supabaseUrl}/storage/v1/object/public/${bucketName}/${photoPath}`
+}
+
+/**
+ * Get the URL for downloading an issue photo with a baked-in timestamp watermark
+ */
+export function getIssuePhotoDownloadUrl(issueId: string, photoIndex: number): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
+  return `${baseUrl}/project-issues/${issueId}/photos/${photoIndex}/download`
+}
+
+/**
+ * Download a watermarked issue photo via fetch (handles cross-origin credentials)
+ */
+export async function downloadIssuePhotoWatermarked(issueId: string, photoIndex: number, filename?: string): Promise<void> {
+  const url = getIssuePhotoDownloadUrl(issueId, photoIndex)
+  const response = await fetch(url, { credentials: 'include' })
+  if (!response.ok) throw new Error('Failed to download photo')
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = filename || 'issue_photo_watermarked.jpg'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(blobUrl)
 }
 
 /**

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import Modal from './modal'
 
 interface ImagePreviewModalProps {
@@ -11,6 +11,7 @@ interface ImagePreviewModalProps {
   title?: string
   photoTakenAt?: string | null
   photoUploadedAt?: string | null
+  onDownloadWatermarked?: () => Promise<void>
 }
 
 export default function ImagePreviewModal({
@@ -20,9 +21,11 @@ export default function ImagePreviewModal({
   title,
   photoTakenAt,
   photoUploadedAt,
+  onDownloadWatermarked,
 }: ImagePreviewModalProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const handleImageLoad = () => {
     console.log('[ImagePreview] Image loaded successfully:', imageUrl)
@@ -41,10 +44,23 @@ export default function ImagePreviewModal({
     setImageError(true)
   }
 
+  const handleDownloadWatermarked = async () => {
+    if (!onDownloadWatermarked || isDownloading) return
+    setIsDownloading(true)
+    try {
+      await onDownloadWatermarked()
+    } catch (err) {
+      console.error('Download failed:', err)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   // Reset state when modal opens with new image
   const handleClose = () => {
     setImageError(false)
     setIsLoading(true)
+    setIsDownloading(false)
     onClose()
   }
 
@@ -119,15 +135,31 @@ export default function ImagePreviewModal({
           >
             Close
           </button>
-          <a
-            href={imageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-          >
-            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-            Open in new tab
-          </a>
+          <div className="flex items-center gap-2">
+            {onDownloadWatermarked && (
+              <button
+                onClick={handleDownloadWatermarked}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isDownloading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <ArrowDownTrayIcon className="w-4 h-4" />
+                )}
+                Download with Timestamp
+              </button>
+            )}
+            <a
+              href={imageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+              Open in new tab
+            </a>
+          </div>
         </div>
       </div>
     </Modal>

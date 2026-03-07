@@ -16,6 +16,7 @@ import {
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
 import type { ViewMode, ZoomLevel, SortOption } from './TurnoverCalendar'
@@ -49,6 +50,8 @@ interface CalendarHeaderProps {
   onToggleHourLabels?: (show: boolean) => void
   sortOption?: SortOption
   onSortChange?: (sort: SortOption) => void
+  openIssueCount?: number
+  onOpenAllIssues?: () => void
 }
 
 export default function CalendarHeader({
@@ -78,6 +81,8 @@ export default function CalendarHeader({
   onToggleHourLabels,
   sortOption = 'alpha-asc',
   onSortChange,
+  openIssueCount,
+  onOpenAllIssues,
 }: CalendarHeaderProps) {
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
@@ -583,6 +588,29 @@ export default function CalendarHeader({
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* Issues Button */}
+        {onOpenAllIssues && (
+          <button
+            onClick={onOpenAllIssues}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
+              transition-all duration-200 cursor-pointer border
+              ${openIssueCount && openIssueCount > 0
+                ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+              }
+            `}
+          >
+            <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+            Issues
+            {openIssueCount !== undefined && openIssueCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded-full leading-none">
+                {openIssueCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* New Dropdown */}
         {(onCreateProject || onCreateChecklist || onDuplicateChecklist) && (

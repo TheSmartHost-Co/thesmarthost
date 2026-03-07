@@ -1,39 +1,26 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Modal from '@/components/shared/modal'
 import {
   getIssuesByProject,
-  acknowledgeIssue,
-  resolveIssue,
-  deleteIssue,
-  getPhotoPublicUrl,
   formatIssueAge,
   getIssueTypeDisplay,
   getIssueStatusDisplay
 } from '@/services/projectIssueService'
-import { getNotesByIssue, createIssueNote } from '@/services/projectIssueNoteService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
-import type { IssueNote } from '@/services/types/projectIssueNote'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
 import {
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
   QuestionMarkCircleIcon,
   CubeIcon,
   DocumentTextIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  EyeIcon,
-  TrashIcon,
   ChevronLeftIcon,
   PhotoIcon,
-  XMarkIcon,
-  ChatBubbleLeftIcon,
   PlusIcon
 } from '@heroicons/react/24/outline'
-import { ArrowUpIcon } from '@heroicons/react/24/solid'
+import IssueDetailPanel from './IssueDetailPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ViewIssuesModalProps {
@@ -72,20 +59,9 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const [issues, setIssues] = useState<ProjectIssue[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
 
-  // Notes state
-  const [notes, setNotes] = useState<IssueNote[]>([])
-  const [noteText, setNoteText] = useState('')
-  const [notesLoading, setNotesLoading] = useState(false)
-  const [publishLoading, setPublishLoading] = useState(false)
-  const notesEndRef = useRef<HTMLDivElement>(null)
-
   const showNotification = useNotificationStore((state) => state.showNotification)
-  const userId = useUserStore((state) => state.profile?.id)
 
   const fetchIssues = useCallback(async () => {
     if (!projectId) return
@@ -106,20 +82,6 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
     }
   }, [projectId, showNotification])
 
-  const fetchNotes = useCallback(async (issueId: string) => {
-    setNotesLoading(true)
-    try {
-      const res = await getNotesByIssue(issueId)
-      if (res.status === 'success') {
-        setNotes(res.data)
-      }
-    } catch (err) {
-      console.error('Error fetching notes:', err)
-    } finally {
-      setNotesLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     if (isOpen && projectId) {
       fetchIssues()
@@ -130,115 +92,9 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setSelectedIssue(null)
-      setNotes([])
-      setNoteText('')
-      setShowPhotoViewer(false)
       setFilterStatus('all')
     }
   }, [isOpen])
-
-  // Fetch notes when selecting an issue
-  useEffect(() => {
-    if (selectedIssue) {
-      fetchNotes(selectedIssue.id)
-    } else {
-      setNotes([])
-      setNoteText('')
-    }
-  }, [selectedIssue, fetchNotes])
-
-  // Auto-scroll notes to bottom
-  useEffect(() => {
-    notesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [notes])
-
-  const handlePublish = async () => {
-    if (!selectedIssue || !userId || !noteText.trim()) return
-
-    setPublishLoading(true)
-    try {
-      const res = await createIssueNote(selectedIssue.id, {
-        authorId: userId,
-        body: noteText.trim()
-      })
-      if (res.status === 'success') {
-        setNotes(prev => [...prev, res.data])
-        setNoteText('')
-      } else {
-        showNotification(res.message || 'Failed to post note', 'error')
-      }
-    } catch (err) {
-      showNotification('Failed to post note', 'error')
-    } finally {
-      setPublishLoading(false)
-    }
-  }
-
-  const handleNoteKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handlePublish()
-    }
-  }
-
-  const handleAcknowledge = async (issue: ProjectIssue) => {
-    setActionLoading(true)
-    try {
-      const res = await acknowledgeIssue(issue.id)
-      if (res.status === 'success') {
-        showNotification('Issue acknowledged', 'success')
-        setIssues(prev => prev.map(i => i.id === issue.id ? res.data : i))
-        setSelectedIssue(res.data)
-        onIssuesChanged?.()
-      } else {
-        showNotification(res.message || 'Failed to acknowledge', 'error')
-      }
-    } catch (err) {
-      showNotification('Failed to acknowledge issue', 'error')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleResolve = async (issue: ProjectIssue) => {
-    setActionLoading(true)
-    try {
-      const res = await resolveIssue(issue.id)
-      if (res.status === 'success') {
-        showNotification('Issue resolved', 'success')
-        setIssues(prev => prev.map(i => i.id === issue.id ? res.data : i))
-        setSelectedIssue(res.data)
-        onIssuesChanged?.()
-      } else {
-        showNotification(res.message || 'Failed to resolve', 'error')
-      }
-    } catch (err) {
-      showNotification('Failed to resolve issue', 'error')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleDelete = async (issue: ProjectIssue) => {
-    if (!confirm('Are you sure you want to delete this issue?')) return
-
-    setActionLoading(true)
-    try {
-      const res = await deleteIssue(issue.id)
-      if (res.status === 'success') {
-        showNotification('Issue deleted', 'success')
-        setIssues(prev => prev.filter(i => i.id !== issue.id))
-        setSelectedIssue(null)
-        onIssuesChanged?.()
-      } else {
-        showNotification(res.message || 'Failed to delete', 'error')
-      }
-    } catch (err) {
-      showNotification('Failed to delete issue', 'error')
-    } finally {
-      setActionLoading(false)
-    }
-  }
 
   const filteredIssues = filterStatus === 'all'
     ? issues
@@ -251,17 +107,16 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
     resolved: issues.filter(i => i.status === 'resolved').length
   }
 
-  const formatNoteTime = (createdAt: string) => {
-    const d = new Date(createdAt)
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
-    const diffMins = Math.floor(diffMs / (1000 * 60))
+  const handleIssueUpdated = (updated: ProjectIssue) => {
+    setIssues(prev => prev.map(i => i.id === updated.id ? updated : i))
+    setSelectedIssue(updated)
+    onIssuesChanged?.()
+  }
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    const diffHours = Math.floor(diffMins / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const handleIssueDeleted = (issueId: string) => {
+    setIssues(prev => prev.filter(i => i.id !== issueId))
+    setSelectedIssue(null)
+    onIssuesChanged?.()
   }
 
   return (
@@ -314,199 +169,13 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-4"
             >
-              {/* Type & Status */}
-              <div className="flex items-center gap-3">
-                <span className={`
-                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-                  ${getIssueTypeDisplay(selectedIssue.issueType).color === 'red' ? 'bg-red-100 text-red-700' : ''}
-                  ${getIssueTypeDisplay(selectedIssue.issueType).color === 'amber' ? 'bg-amber-100 text-amber-700' : ''}
-                  ${getIssueTypeDisplay(selectedIssue.issueType).color === 'blue' ? 'bg-blue-100 text-blue-700' : ''}
-                  ${getIssueTypeDisplay(selectedIssue.issueType).color === 'purple' ? 'bg-purple-100 text-purple-700' : ''}
-                  ${getIssueTypeDisplay(selectedIssue.issueType).color === 'gray' ? 'bg-gray-100 text-gray-700' : ''}
-                `}>
-                  {React.createElement(ISSUE_TYPE_ICONS[selectedIssue.issueType], { className: 'w-4 h-4' })}
-                  {getIssueTypeDisplay(selectedIssue.issueType).label}
-                </span>
-                <span className={`
-                  px-3 py-1.5 rounded-lg text-sm font-medium
-                  ${STATUS_COLORS[selectedIssue.status].bg}
-                  ${STATUS_COLORS[selectedIssue.status].text}
-                `}>
-                  {getIssueStatusDisplay(selectedIssue.status).label}
-                </span>
-              </div>
-
-              {/* Reporter */}
-              {selectedIssue.reporterName && (
-                <div className="text-sm text-gray-600">
-                  Reported by <span className="font-medium">{selectedIssue.reporterName}</span>
-                </div>
-              )}
-
-              {/* Description */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-gray-800 whitespace-pre-wrap">{selectedIssue.description}</p>
-              </div>
-
-              {/* Photos */}
-              {selectedIssue.photoUrls.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Photos ({selectedIssue.photoUrls.length})
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedIssue.photoUrls.map((url, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setCurrentPhotoIndex(index)
-                          setShowPhotoViewer(true)
-                        }}
-                        className="relative group"
-                      >
-                        <img
-                          src={getPhotoPublicUrl(url)}
-                          alt={`Issue photo ${index + 1}`}
-                          className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <EyeIcon className="w-6 h-6 text-white" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes Thread */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <ChatBubbleLeftIcon className="w-4 h-4 text-gray-500" />
-                  <h4 className="text-sm font-medium text-gray-700">
-                    Notes {notes.length > 0 && `(${notes.length})`}
-                  </h4>
-                </div>
-
-                {/* Notes list — scrollable chat bubbles */}
-                <div className="max-h-[220px] overflow-y-auto space-y-2 mb-3 px-1">
-                  {notesLoading ? (
-                    <div className="flex items-center justify-center py-6">
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
-                    </div>
-                  ) : notes.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">
-                      No notes yet. Start the conversation below.
-                    </p>
-                  ) : (
-                    notes.map((note) => {
-                      const isFromPM = note.authorType === 'pm'
-                      return (
-                        <div
-                          key={note.id}
-                          className={`flex ${isFromPM ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`
-                              max-w-[80%] rounded-xl px-3.5 py-2.5
-                              ${isFromPM
-                                ? 'bg-amber-50 border border-amber-200'
-                                : 'bg-gray-100 border border-gray-200'
-                              }
-                            `}
-                          >
-                            <div className={`flex items-center gap-2 mb-0.5 ${isFromPM ? 'justify-end' : ''}`}>
-                              <span className={`text-xs font-medium ${isFromPM ? 'text-amber-700' : 'text-gray-600'}`}>
-                                {note.authorName}
-                              </span>
-                              <span className="text-[10px] text-gray-400">
-                                {formatNoteTime(note.createdAt)}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
-                              {note.body}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                  <div ref={notesEndRef} />
-                </div>
-
-                {/* Compose row */}
-                {userId && (
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      value={noteText}
-                      onChange={(e) => setNoteText(e.target.value)}
-                      onKeyDown={handleNoteKeyDown}
-                      placeholder="Type a note..."
-                      rows={1}
-                      className="flex-1 px-3.5 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm min-h-[38px] max-h-[80px]"
-                      style={{ fieldSizing: 'content' } as React.CSSProperties}
-                    />
-                    <button
-                      onClick={handlePublish}
-                      disabled={publishLoading || !noteText.trim()}
-                      className="p-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      {publishLoading ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <ArrowUpIcon className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* PM Actions */}
-              {isPM && selectedIssue.status !== 'resolved' && (
-                <div className="border-t pt-4">
-                  <div className="flex gap-3">
-                    {selectedIssue.status === 'open' && (
-                      <button
-                        onClick={() => handleAcknowledge(selectedIssue)}
-                        disabled={actionLoading}
-                        className="flex-1 py-2.5 px-4 bg-amber-100 text-amber-700 rounded-xl font-medium hover:bg-amber-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <ClockIcon className="w-5 h-5" />
-                        Acknowledge
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleResolve(selectedIssue)}
-                      disabled={actionLoading}
-                      className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <CheckCircleIcon className="w-5 h-5" />
-                      Mark Resolved
-                    </button>
-                    <button
-                      onClick={() => handleDelete(selectedIssue)}
-                      disabled={actionLoading}
-                      className="py-2.5 px-4 bg-red-100 text-red-700 rounded-xl font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
-                    >
-                      <TrashIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Resolved Info */}
-              {selectedIssue.status === 'resolved' && selectedIssue.resolvedAt && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                  <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                  <div>
-                    <p className="font-medium text-green-700">Resolved</p>
-                    <p className="text-sm text-green-600">
-                      {new Date(selectedIssue.resolvedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <IssueDetailPanel
+                issue={selectedIssue}
+                isPM={isPM}
+                onIssueUpdated={handleIssueUpdated}
+                onIssueDeleted={handleIssueDeleted}
+              />
             </motion.div>
           ) : (
             // Issues List View
@@ -620,42 +289,6 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Photo Viewer Modal */}
-        {showPhotoViewer && selectedIssue && selectedIssue.photoUrls.length > 0 && (
-          <div
-            className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
-            onClick={() => setShowPhotoViewer(false)}
-          >
-            <button
-              onClick={() => setShowPhotoViewer(false)}
-              className="absolute top-4 right-4 p-2 text-white/80 hover:text-white"
-            >
-              <XMarkIcon className="w-8 h-8" />
-            </button>
-            <img
-              src={getPhotoPublicUrl(selectedIssue.photoUrls[currentPhotoIndex])}
-              alt="Issue photo"
-              className="max-w-[90vw] max-h-[90vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            {selectedIssue.photoUrls.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                {selectedIssue.photoUrls.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setCurrentPhotoIndex(index)
-                    }}
-                    className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                      index === currentPhotoIndex ? 'bg-white' : 'bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </Modal>
   )

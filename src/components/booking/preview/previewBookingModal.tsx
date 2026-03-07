@@ -5,6 +5,7 @@ import Modal from '../../shared/modal'
 import { Booking } from '@/services/types/booking'
 import { formatCurrency, formatPlatformName } from '@/services/bookingService'
 import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon } from '@heroicons/react/24/outline'
+import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
 import { useUserStore } from '@/store/useUserStore'
@@ -130,8 +131,12 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {booking.source && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+              booking.isAutoImported ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {booking.isAutoImported && <ArrowDownOnSquareIcon className="w-3.5 h-3.5" />}
               {booking.source === 'ical' ? 'iCal' : booking.source === 'csv' ? 'CSV' : booking.source === 'webhook' ? 'Webhook' : 'Manual'}
+              {booking.isAutoImported && ' · Auto-Imported'}
             </span>
           )}
           {booking.financialReadiness === 'scheduling_only' ? (

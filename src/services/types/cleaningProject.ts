@@ -27,7 +27,7 @@ export interface CleaningProject {
   cleanerAccepted?: boolean | null  // null=awaiting, true=accepted, false=declined
   pmNotes?: string | null
   cleanerNotes?: string | null
-  source: 'manual' | 'hostaway' | 'ical'
+  source: 'manual' | 'hostaway' | 'ical' | 'incoming' | 'webhook'
   icalEventUid?: string | null
   icalSubscriptionId?: string | null
   createdAt: string
@@ -80,7 +80,7 @@ export interface CreateCleaningProjectPayload {
   guestCount?: number | null
   isSameDayTurnover?: boolean
   pmNotes?: string | null
-  source?: 'manual' | 'hostaway' | 'ical'
+  source?: 'manual' | 'hostaway' | 'ical' | 'incoming' | 'webhook'
 }
 
 // Update payload

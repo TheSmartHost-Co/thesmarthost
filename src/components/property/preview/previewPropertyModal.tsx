@@ -25,7 +25,13 @@ import {
   WifiIcon,
   KeyIcon,
   ClipboardDocumentIcon,
+  ExclamationTriangleIcon,
+  ChevronLeftIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
+import { getIssuesByProperty, formatIssueAge, getIssueTypeDisplay, getIssueStatusDisplay } from '@/services/projectIssueService'
+import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
+import IssueDetailPanel from '@/components/turnover/issues/IssueDetailPanel'
 
 interface PreviewPropertyModalProps {
   isOpen: boolean
@@ -38,7 +44,7 @@ interface PreviewPropertyModalProps {
   onManageICal?: () => void
 }
 
-type TabType = 'details' | 'bookings' | 'reports'
+type TabType = 'details' | 'bookings' | 'reports' | 'issues'
 
 const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   isOpen,
@@ -66,6 +72,13 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   const [loadingReports, setLoadingReports] = useState(false)
   const [reportsLoaded, setReportsLoaded] = useState(false)
 
+  // Issues state (lazy loaded + cached)
+  const [issues, setIssues] = useState<ProjectIssue[]>([])
+  const [loadingIssues, setLoadingIssues] = useState(false)
+  const [issuesLoaded, setIssuesLoaded] = useState(false)
+  const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
+  const [issueFilterStatus, setIssueFilterStatus] = useState<IssueStatus | 'all'>('all')
+
   // Use stored license count from property data
   const licenseCount = property.licenses?.length || 0
   const channelCount = property.channels?.length || 0
@@ -87,6 +100,10 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
       setBookingsLoaded(false)
       setReports([])
       setReportsLoaded(false)
+      setIssues([])
+      setIssuesLoaded(false)
+      setSelectedIssue(null)
+      setIssueFilterStatus('all')
     }
   }, [isOpen])
 
@@ -105,6 +122,13 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
       fetchReports()
     }
   }, [activeTab, reportsLoaded])
+
+  // Lazy load issues when tab is clicked
+  useEffect(() => {
+    if (activeTab === 'issues' && !issuesLoaded && profile?.id) {
+      fetchIssues()
+    }
+  }, [activeTab, issuesLoaded, profile?.id, property.id])
 
   const fetchBookings = async () => {
     console.log('fetchBookings called, profile:', profile?.id)
@@ -137,6 +161,22 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
       console.error('Error fetching reports:', err)
     } finally {
       setLoadingReports(false)
+    }
+  }
+
+  const fetchIssues = async () => {
+    if (!profile?.id) return
+    setLoadingIssues(true)
+    try {
+      const res = await getIssuesByProperty(property.id, profile.id)
+      if (res.status === 'success') {
+        setIssues(res.data)
+        setIssuesLoaded(true)
+      }
+    } catch (err) {
+      console.error('Error fetching issues:', err)
+    } finally {
+      setLoadingIssues(false)
     }
   }
 
@@ -198,6 +238,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   const TabButton = ({ tab, icon: Icon, label }: { tab: TabType; icon: React.ElementType; label: string }) => {
     const count = tab === 'bookings' && bookingsLoaded ? bookings.length
                 : tab === 'reports' && reportsLoaded ? reports.length
+                : tab === 'issues' && issuesLoaded ? issues.length
                 : null
 
     return (
@@ -628,6 +669,175 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
     )
   }
 
+  // Issue type icons for list rendering
+  const ISSUE_TYPE_ICONS: Record<IssueType, React.ElementType> = {
+    damage: ExclamationTriangleIcon,
+    missing_item: DocumentTextIcon,
+    maintenance: DocumentTextIcon,
+    supply: DocumentTextIcon,
+    other: DocumentTextIcon,
+  }
+
+  const ISSUE_STATUS_COLORS: Record<IssueStatus, { bg: string; text: string }> = {
+    open: { bg: 'bg-red-100', text: 'text-red-700' },
+    acknowledged: { bg: 'bg-amber-100', text: 'text-amber-700' },
+    resolved: { bg: 'bg-green-100', text: 'text-green-700' },
+  }
+
+  // Issues tab content
+  const IssuesTabContent = () => {
+    if (loadingIssues) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-500">Loading issues...</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (issues.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mb-3" />
+          <p className="text-gray-500 font-medium">No issues found</p>
+          <p className="text-sm text-gray-400 mt-1">No issues have been reported for this property</p>
+        </div>
+      )
+    }
+
+    // Selected issue detail view
+    if (selectedIssue) {
+      return (
+        <div>
+          <button
+            onClick={() => setSelectedIssue(null)}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+            Back to issues
+          </button>
+          <IssueDetailPanel
+            issue={selectedIssue}
+            isPM
+            onIssueUpdated={(updated) => {
+              setIssues(prev => prev.map(i => i.id === updated.id ? updated : i))
+              setSelectedIssue(updated)
+            }}
+            onIssueDeleted={(issueId) => {
+              setIssues(prev => prev.filter(i => i.id !== issueId))
+              setSelectedIssue(null)
+            }}
+          />
+        </div>
+      )
+    }
+
+    const filteredIssues = issueFilterStatus === 'all'
+      ? issues
+      : issues.filter(i => i.status === issueFilterStatus)
+
+    const statusCounts = {
+      all: issues.length,
+      open: issues.filter(i => i.status === 'open').length,
+      acknowledged: issues.filter(i => i.status === 'acknowledged').length,
+      resolved: issues.filter(i => i.status === 'resolved').length,
+    }
+
+    return (
+      <div>
+        {/* Filter tabs */}
+        <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
+          {(['all', 'open', 'acknowledged', 'resolved'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setIssueFilterStatus(status)}
+              className={`
+                px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                ${issueFilterStatus === status
+                  ? status === 'open' ? 'bg-red-100 text-red-700'
+                  : status === 'acknowledged' ? 'bg-amber-100 text-amber-700'
+                  : status === 'resolved' ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-900 text-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }
+              `}
+            >
+              {status === 'all' ? 'All' : getIssueStatusDisplay(status).label}
+              <span className="ml-1.5 text-xs opacity-60">
+                ({statusCounts[status]})
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {filteredIssues.length === 0 ? (
+          <div className="text-center py-8">
+            <ExclamationTriangleIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm">No {issueFilterStatus === 'all' ? '' : issueFilterStatus} issues</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {filteredIssues.map((issue, index) => {
+              const typeInfo = getIssueTypeDisplay(issue.issueType)
+              const statusColors = ISSUE_STATUS_COLORS[issue.status]
+              const Icon = ISSUE_TYPE_ICONS[issue.issueType]
+
+              return (
+                <motion.button
+                  key={issue.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                  onClick={() => setSelectedIssue(issue)}
+                  className="w-full text-left p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`
+                      p-1.5 rounded-lg
+                      ${typeInfo.color === 'red' ? 'bg-red-100 text-red-600' : ''}
+                      ${typeInfo.color === 'amber' ? 'bg-amber-100 text-amber-600' : ''}
+                      ${typeInfo.color === 'blue' ? 'bg-blue-100 text-blue-600' : ''}
+                      ${typeInfo.color === 'purple' ? 'bg-purple-100 text-purple-600' : ''}
+                      ${typeInfo.color === 'gray' ? 'bg-gray-100 text-gray-600' : ''}
+                    `}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900 text-sm">{typeInfo.label}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors.bg} ${statusColors.text}`}>
+                          {getIssueStatusDisplay(issue.status).label}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-1">{issue.description}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                        <span>{formatIssueAge(issue.createdAt)}</span>
+                        {issue.reporterName && <span>by {issue.reporterName}</span>}
+                        {issue.photoUrls.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <PhotoIcon className="w-3.5 h-3.5" />
+                            {issue.photoUrls.length}
+                          </span>
+                        )}
+                        {issue.scheduledDate && (
+                          <span className="text-gray-400">
+                            Project: {new Date(issue.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12">
       {/* Header */}
@@ -668,6 +878,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
         <TabButton tab="details" icon={InformationCircleIcon} label="Details" />
         <TabButton tab="bookings" icon={CalendarDaysIcon} label="Bookings" />
         <TabButton tab="reports" icon={DocumentChartBarIcon} label="Reports" />
+        <TabButton tab="issues" icon={ExclamationTriangleIcon} label="Issues" />
       </div>
 
       {/* Tab Content */}
@@ -683,6 +894,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
             {activeTab === 'details' && <DetailsTabContent />}
             {activeTab === 'bookings' && <BookingsTabContent />}
             {activeTab === 'reports' && <ReportsTabContent />}
+            {activeTab === 'issues' && <IssuesTabContent />}
           </motion.div>
         </AnimatePresence>
       </div>

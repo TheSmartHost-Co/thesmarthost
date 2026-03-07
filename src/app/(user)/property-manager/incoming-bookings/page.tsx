@@ -4,10 +4,13 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus } from '@/services/incomingBookingService'
-import type { IncomingBooking } from '@/services/types/incomingBooking'
+import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus, sendToTurnover } from '@/services/incomingBookingService'
+import { getProperties } from '@/services/propertyService'
+import type { IncomingBooking, SendToTurnoverItem } from '@/services/types/incomingBooking'
+import type { Property } from '@/services/types/property'
 import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
 import BulkApproveBookingsModal from '@/components/incoming-bookings/BulkApproveBookingsModal'
+import BulkSendToTurnoverModal from '@/components/incoming-bookings/BulkSendToTurnoverModal'
 import {
   InboxArrowDownIcon,
   CheckIcon,
@@ -22,7 +25,8 @@ import {
   ExclamationCircleIcon,
   MagnifyingGlassIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline'
 
 // Workflow status colors (pending, approved, rejected, imported, error)
@@ -31,7 +35,8 @@ const statusColors = {
   approved: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
   rejected: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   imported: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-  error: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' }
+  error: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  cleaning_only: { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500' }
 }
 
 const statusIcons = {
@@ -39,7 +44,8 @@ const statusIcons = {
   approved: CheckIcon,
   rejected: XMarkIcon,
   imported: CheckCircleIcon,
-  error: ExclamationCircleIcon
+  error: ExclamationCircleIcon,
+  cleaning_only: WrenchScrewdriverIcon
 }
 
 // PMS booking status colors (confirmed, cancelled, modified, new, etc.)
@@ -84,6 +90,11 @@ export default function IncomingBookingsPage() {
   const [isBulkApproving, setIsBulkApproving] = useState(false)
   const [bulkApproveModalOpen, setBulkApproveModalOpen] = useState(false)
 
+  // Send to Turnover state
+  const [bulkTurnoverModalOpen, setBulkTurnoverModalOpen] = useState(false)
+  const [isBulkSendingToTurnover, setIsBulkSendingToTurnover] = useState(false)
+  const [properties, setProperties] = useState<Property[]>([])
+
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -92,6 +103,17 @@ export default function IncomingBookingsPage() {
       fetchIncomingBookings()
     }
   }, [profile?.id, statusFilter])
+
+  // Fetch properties for send-to-turnover property selector
+  useEffect(() => {
+    if (profile?.id) {
+      getProperties(profile.id).then(res => {
+        if (res.status === 'success') {
+          setProperties(res.data)
+        }
+      }).catch(() => {})
+    }
+  }, [profile?.id])
 
   // Close filter popover when clicking outside
   useEffect(() => {
@@ -183,9 +205,14 @@ export default function IncomingBookingsPage() {
   }
 
   // Bulk selection helpers
-  // Only pending bookings WITH a propertyId can be bulk approved
+  // All pending bookings are selectable (for turnover or approval)
   const getEligibleBookings = () => {
-    return filteredBookings.filter(b => b.status === 'pending' && b.propertyId)
+    return filteredBookings.filter(b => b.status === 'pending')
+  }
+
+  // Only pending bookings WITH a propertyId can be bulk approved
+  const getEligibleForApproval = () => {
+    return filteredBookings.filter(b => b.status === 'pending' && b.propertyId && selectedBookingIds.has(b.id))
   }
 
   const toggleBookingSelection = (bookingId: string) => {
@@ -263,6 +290,36 @@ export default function IncomingBookingsPage() {
     setIsBulkApproving(false)
   }
 
+  // Handle bulk send to turnover calendar
+  const handleBulkSendToTurnover = async (items: SendToTurnoverItem[]) => {
+    if (!profile?.id || items.length === 0) return
+
+    setIsBulkSendingToTurnover(true)
+    try {
+      const response = await sendToTurnover({ userId: profile.id, items })
+      if (response.status === 'success') {
+        const { successCount, failCount } = response.data
+        if (failCount === 0) {
+          showNotification(`Sent ${successCount} booking${successCount > 1 ? 's' : ''} to turnover calendar`, 'success')
+        } else if (successCount === 0) {
+          showNotification(`Failed to send ${failCount} booking${failCount > 1 ? 's' : ''}`, 'error')
+        } else {
+          showNotification(`Sent ${successCount}, failed ${failCount}`, 'info')
+        }
+      } else {
+        showNotification(response.message || 'Failed to send to turnover calendar', 'error')
+      }
+    } catch (err) {
+      console.error('Error sending to turnover:', err)
+      showNotification(err instanceof Error ? err.message : 'Failed to send to turnover calendar', 'error')
+    } finally {
+      clearSelection()
+      setBulkTurnoverModalOpen(false)
+      fetchIncomingBookings()
+      setIsBulkSendingToTurnover(false)
+    }
+  }
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -314,10 +371,11 @@ export default function IncomingBookingsPage() {
       // Primary sort: status priority (actionable items first)
       const statusPriority: Record<string, number> = {
         pending: 0,
-        error: 1,
-        approved: 2,
-        rejected: 3,
-        imported: 4,
+        cleaning_only: 1,
+        error: 2,
+        approved: 3,
+        rejected: 4,
+        imported: 5,
       }
       const priorityA = a.status ? (statusPriority[a.status] ?? 5) : 5
       const priorityB = b.status ? (statusPriority[b.status] ?? 5) : 5
@@ -368,6 +426,7 @@ export default function IncomingBookingsPage() {
     pending: filteredBookings.filter(b => b.status === 'pending').length,
     approved: filteredBookings.filter(b => b.status === 'approved').length,
     imported: filteredBookings.filter(b => b.status === 'imported').length,
+    cleaningOnly: filteredBookings.filter(b => b.status === 'cleaning_only').length,
     total: filteredBookings.length
   }
 
@@ -382,13 +441,13 @@ export default function IncomingBookingsPage() {
       borderColor: 'border-yellow-100'
     },
     {
-      label: 'Approved',
-      value: stats.approved,
-      icon: CheckIcon,
-      bgColor: 'bg-blue-50',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      borderColor: 'border-blue-100'
+      label: 'Cleaning Only',
+      value: stats.cleaningOnly,
+      icon: WrenchScrewdriverIcon,
+      bgColor: 'bg-teal-50',
+      iconBg: 'bg-teal-100',
+      iconColor: 'text-teal-600',
+      borderColor: 'border-teal-100'
     },
     {
       label: 'Imported',
@@ -518,6 +577,7 @@ export default function IncomingBookingsPage() {
             >
               <option value="all">All Bookings</option>
               <option value="pending">Pending</option>
+              <option value="cleaning_only">Cleaning Only</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
               <option value="imported">Imported</option>
@@ -710,7 +770,7 @@ export default function IncomingBookingsPage() {
             {filteredBookings.map((booking, index) => {
               const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || ClockIcon
               const statusStyle = statusColors[booking.status as keyof typeof statusColors] || statusColors.pending
-              const isEligibleForBulk = booking.status === 'pending' && booking.propertyId
+              const isEligibleForBulk = booking.status === 'pending'
               const isSelected = selectedBookingIds.has(booking.id)
 
               return (
@@ -736,8 +796,8 @@ export default function IncomingBookingsPage() {
                         </div>
                       )}
                       {/* Placeholder for alignment when not eligible */}
-                      {!isEligibleForBulk && booking.status === 'pending' && (
-                        <div className="w-4" title="Assign a property to enable bulk approval" />
+                      {!isEligibleForBulk && (
+                        <div className="w-4" />
                       )}
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
                         <CalendarDaysIcon className="h-6 w-6 text-white" />
@@ -751,8 +811,17 @@ export default function IncomingBookingsPage() {
                           {/* Workflow status badge */}
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
-                            {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : 'Unknown'}
+                            {booking.status === 'cleaning_only'
+                              ? 'Cleaning Only'
+                              : booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : 'Unknown'}
                           </span>
+                          {/* Auto-imported badge */}
+                          {booking.status === 'imported' && booking.isAutoImported && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-100 text-teal-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                              Auto-Imported
+                            </span>
+                          )}
                           {/* PMS booking status badge */}
                           {booking.bookingStatus && (
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${getBookingStatusStyle(booking.bookingStatus).bg} ${getBookingStatusStyle(booking.bookingStatus).text}`}>
@@ -831,6 +900,13 @@ export default function IncomingBookingsPage() {
                         </span>
                       )}
 
+                      {booking.status === 'cleaning_only' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-teal-100 text-teal-700">
+                          <WrenchScrewdriverIcon className="h-4 w-4" />
+                          In Turnover Calendar
+                        </span>
+                      )}
+
                       <motion.button
                         onClick={() => handleReviewBooking(booking)}
                         whileHover={{ scale: 1.02 }}
@@ -872,9 +948,19 @@ export default function IncomingBookingsPage() {
       <BulkApproveBookingsModal
         isOpen={bulkApproveModalOpen}
         onClose={() => setBulkApproveModalOpen(false)}
-        selectedBookings={filteredBookings.filter(b => selectedBookingIds.has(b.id))}
+        selectedBookings={filteredBookings.filter(b => selectedBookingIds.has(b.id) && b.propertyId)}
         onApprove={handleBulkApprove}
         isApproving={isBulkApproving}
+      />
+
+      {/* Bulk Send to Turnover Modal */}
+      <BulkSendToTurnoverModal
+        isOpen={bulkTurnoverModalOpen}
+        onClose={() => setBulkTurnoverModalOpen(false)}
+        selectedBookings={filteredBookings.filter(b => selectedBookingIds.has(b.id) && b.status === 'pending')}
+        onSend={handleBulkSendToTurnover}
+        isSending={isBulkSendingToTurnover}
+        properties={properties.map(p => ({ id: p.id, listingName: p.listingName || '', address: p.address }))}
       />
 
       {/* Floating Bulk Action Bar */}
@@ -892,27 +978,41 @@ export default function IncomingBookingsPage() {
               </div>
               <div>
                 <p className="font-semibold">{selectedBookingIds.size} booking{selectedBookingIds.size > 1 ? 's' : ''} selected</p>
-                <p className="text-xs text-gray-400">Ready for bulk approval</p>
+                <p className="text-xs text-gray-400">Choose an action below</p>
               </div>
             </div>
 
             <div className="h-8 w-px bg-gray-700" />
 
             <div className="flex items-center gap-3">
+              {/* Show approve button only if some selected bookings have a property */}
+              {getEligibleForApproval().length > 0 && (
+                <motion.button
+                  onClick={() => setBulkApproveModalOpen(true)}
+                  disabled={isBulkApproving}
+                  whileHover={{ scale: isBulkApproving ? 1 : 1.02 }}
+                  whileTap={{ scale: isBulkApproving ? 1 : 0.98 }}
+                  className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/25"
+                >
+                  <CheckIcon className="h-4 w-4 mr-2" />
+                  Review & Approve
+                </motion.button>
+              )}
+
               <motion.button
-                onClick={() => setBulkApproveModalOpen(true)}
-                disabled={isBulkApproving}
-                whileHover={{ scale: isBulkApproving ? 1 : 1.02 }}
-                whileTap={{ scale: isBulkApproving ? 1 : 0.98 }}
-                className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-green-500/25"
+                onClick={() => setBulkTurnoverModalOpen(true)}
+                disabled={isBulkSendingToTurnover}
+                whileHover={{ scale: isBulkSendingToTurnover ? 1 : 1.02 }}
+                whileTap={{ scale: isBulkSendingToTurnover ? 1 : 0.98 }}
+                className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-teal-500/25"
               >
-                <CheckIcon className="h-4 w-4 mr-2" />
-                Review & Approve
+                <WrenchScrewdriverIcon className="h-4 w-4 mr-2" />
+                Send to Turnover
               </motion.button>
 
               <motion.button
                 onClick={clearSelection}
-                disabled={isBulkApproving}
+                disabled={isBulkApproving || isBulkSendingToTurnover}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"

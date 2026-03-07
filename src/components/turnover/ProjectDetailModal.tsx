@@ -21,6 +21,7 @@ import {
   KeyIcon,
   ClipboardDocumentIcon,
   HomeIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -34,12 +35,13 @@ import {
   initializeProjectChecklist,
   groupChecklistItemsByRoom,
   getCompletionPercentage,
+  downloadChecklistPhotoWatermarked,
 } from '@/services/cleaningProjectService'
-import { getIssueCounts } from '@/services/projectIssueService'
+import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
-import type { IssueCounts } from '@/services/types/projectIssue'
+import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -87,7 +89,16 @@ export default function ProjectDetailModal({
   const [isLoadingChecklist, setIsLoadingChecklist] = useState(false)
   const [isInitializingChecklist, setIsInitializingChecklist] = useState(false)
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<{ url: string; task: string; photoTakenAt?: string | null; photoUploadedAt?: string | null } | null>(null)
+  const [previewImage, setPreviewImage] = useState<{
+    url: string
+    task: string
+    photoTakenAt?: string | null
+    photoUploadedAt?: string | null
+    downloadFn?: () => Promise<void>
+  } | null>(null)
+
+  // Project issues (for photo gallery)
+  const [projectIssues, setProjectIssues] = useState<ProjectIssue[]>([])
 
   // Time change request state
   const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
@@ -117,6 +128,19 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error fetching supply list count:', err)
+    }
+  }, [project.id])
+
+  // Fetch project issues (for photo gallery)
+  const fetchProjectIssues = useCallback(async () => {
+    if (!project.id) return
+    try {
+      const res = await getIssuesByProject(project.id)
+      if (res.status === 'success') {
+        setProjectIssues(res.data)
+      }
+    } catch (err) {
+      console.error('Error fetching project issues:', err)
     }
   }, [project.id])
 
@@ -247,8 +271,9 @@ export default function ProjectDetailModal({
       fetchChecklist()
       fetchSupplyListCount()
       fetchPendingRequest()
+      fetchProjectIssues()
     }
-  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest])
+  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest, fetchProjectIssues])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -707,7 +732,13 @@ export default function ProjectDetailModal({
                             {item.photoUrl ? (
                               <>
                                 <button
-                                  onClick={() => setPreviewImage({ url: item.photoUrl!, task: item.taskDescription, photoTakenAt: item.photoTakenAt, photoUploadedAt: item.photoUploadedAt })}
+                                  onClick={() => setPreviewImage({
+                                    url: item.photoUrl!,
+                                    task: item.taskDescription,
+                                    photoTakenAt: item.photoTakenAt,
+                                    photoUploadedAt: item.photoUploadedAt,
+                                    downloadFn: () => downloadChecklistPhotoWatermarked(project.id, item.id),
+                                  })}
                                   className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors cursor-pointer"
                                   title="View photo"
                                 >
@@ -746,6 +777,94 @@ export default function ProjectDetailModal({
               </div>
             )}
           </div>
+
+          {/* Photos Gallery Section */}
+          {(() => {
+            const checklistPhotos = checklistItems.filter(item => item.photoUrl)
+            const issuePhotos: Array<{ url: string; issueId: string; issueType: string; photoIndex: number; createdAt: string }> = []
+            projectIssues.forEach(issue => {
+              issue.photoUrls.forEach((url, idx) => {
+                issuePhotos.push({
+                  url,
+                  issueId: issue.id,
+                  issueType: issue.issueType,
+                  photoIndex: idx,
+                  createdAt: issue.createdAt
+                })
+              })
+            })
+            const totalPhotoCount = checklistPhotos.length + issuePhotos.length
+
+            return (
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-center gap-2 text-gray-500 mb-3">
+                  <PhotoIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium uppercase tracking-wider">Photos</span>
+                  {totalPhotoCount > 0 && (
+                    <span className="text-xs font-semibold text-purple-600">{totalPhotoCount}</span>
+                  )}
+                </div>
+
+                {totalPhotoCount > 0 ? (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                    {checklistPhotos.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => setPreviewImage({
+                          url: item.photoUrl!,
+                          task: item.taskDescription,
+                          photoTakenAt: item.photoTakenAt,
+                          photoUploadedAt: item.photoUploadedAt,
+                          downloadFn: () => downloadChecklistPhotoWatermarked(project.id, item.id),
+                        })}
+                        className="relative group cursor-pointer"
+                      >
+                        <img
+                          src={item.photoUrl!}
+                          alt={item.taskDescription}
+                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <CameraIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
+                          {item.taskDescription}
+                        </div>
+                      </button>
+                    ))}
+                    {issuePhotos.map((photo, idx) => (
+                      <button
+                        key={`issue-${photo.issueId}-${photo.photoIndex}`}
+                        onClick={() => setPreviewImage({
+                          url: getPhotoPublicUrl(photo.url),
+                          task: `Issue: ${photo.issueType.replace('_', ' ')}`,
+                          photoTakenAt: photo.createdAt,
+                          downloadFn: () => downloadIssuePhotoWatermarked(photo.issueId, photo.photoIndex),
+                        })}
+                        className="relative group cursor-pointer"
+                      >
+                        <img
+                          src={getPhotoPublicUrl(photo.url)}
+                          alt={`Issue photo ${idx + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <CameraIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-amber-500/70 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
+                          Issue: {photo.issueType.replace('_', ' ')}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-4 text-center">
+                    <p className="text-sm text-gray-500">No photos uploaded</p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Supply Lists Section */}
           <div className="border-t border-gray-100 pt-4">
@@ -934,6 +1053,7 @@ export default function ProjectDetailModal({
         title={previewImage?.task}
         photoTakenAt={previewImage?.photoTakenAt}
         photoUploadedAt={previewImage?.photoUploadedAt}
+        onDownloadWatermarked={previewImage?.downloadFn}
       />
     </Modal>
   )

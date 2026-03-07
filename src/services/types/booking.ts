@@ -46,6 +46,7 @@ export interface Booking {
   financialReadiness?: FinancialReadiness
   source?: BookingSource
   icalEventUid?: string
+  isAutoImported?: boolean
   defaultCheckinTime?: string   // e.g. "15:00" — from property defaults
   defaultCheckoutTime?: string  // e.g. "11:00" — from property defaults
   createdAt: string
@@ -177,6 +178,7 @@ export interface BookingSearchResult {
   netEarnings?: number
   financialReadiness?: FinancialReadiness
   source?: BookingSource
+  isAutoImported?: boolean
 }
 
 /**

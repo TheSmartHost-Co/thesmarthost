@@ -18,6 +18,7 @@ import {
   BarsArrowDownIcon,
   BarsArrowUpIcon,
 } from '@heroicons/react/24/outline'
+import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName } from '@/services/bookingService'
 import { getConnectionByUserId } from '@/services/hostawayConnectionService'
 import { getProperties } from '@/services/propertyService'
@@ -57,6 +58,7 @@ export default function BookingsPage() {
   const [platformFilter, setPlatformFilter] = useState('All Platforms')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
   const [readinessFilter, setReadinessFilter] = useState('All')
+  const [sourceFilter, setSourceFilter] = useState('All Sources')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [showSortPopover, setShowSortPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -253,7 +255,14 @@ export default function BookingsPage() {
         (readinessFilter === 'Report Ready' && booking.financialReadiness !== 'scheduling_only') ||
         (readinessFilter === 'Scheduling Only' && booking.financialReadiness === 'scheduling_only')
 
-      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness
+      const matchesSource = sourceFilter === 'All Sources' ||
+        (sourceFilter === 'Auto-Imported' && booking.source === 'webhook' && booking.isAutoImported === true) ||
+        (sourceFilter === 'Webhook (Reviewed)' && booking.source === 'webhook' && !booking.isAutoImported) ||
+        (sourceFilter === 'CSV Upload' && booking.source === 'csv') ||
+        (sourceFilter === 'Manual' && booking.source === 'manual') ||
+        (sourceFilter === 'iCal' && booking.source === 'ical')
+
+      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness && matchesSource
     })
     .sort((a, b) => {
       const { field, direction } = sortConfig
@@ -309,7 +318,8 @@ export default function BookingsPage() {
   const activeFiltersCount = [
     platformFilter !== 'All Platforms',
     propertyFilter !== 'All Properties',
-    readinessFilter !== 'All'
+    readinessFilter !== 'All',
+    sourceFilter !== 'All Sources'
   ].filter(Boolean).length
 
   // Clear all filters
@@ -317,6 +327,7 @@ export default function BookingsPage() {
     setPlatformFilter('All Platforms')
     setPropertyFilter('All Properties')
     setReadinessFilter('All')
+    setSourceFilter('All Sources')
   }
 
   const formatDate = (dateString: string) => {
@@ -675,6 +686,25 @@ export default function BookingsPage() {
                           <option value="Scheduling Only">Scheduling Only</option>
                         </select>
                       </div>
+
+                      {/* Source Filter */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Source
+                        </label>
+                        <select
+                          value={sourceFilter}
+                          onChange={(e) => setSourceFilter(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        >
+                          <option value="All Sources">All Sources</option>
+                          <option value="CSV Upload">CSV Upload</option>
+                          <option value="Manual">Manual</option>
+                          <option value="Webhook (Reviewed)">Webhook (Reviewed)</option>
+                          <option value="Auto-Imported">Auto-Imported</option>
+                          <option value="iCal">iCal</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Filter Actions */}
@@ -735,10 +765,17 @@ export default function BookingsPage() {
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
-                        <span className="text-white font-semibold text-sm">
-                          {booking.guestName.charAt(0).toUpperCase()}
-                        </span>
+                      <div className="relative flex-shrink-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                          <span className="text-white font-semibold text-sm">
+                            {booking.guestName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        {booking.isAutoImported && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center ring-2 ring-white" title="Auto-Imported">
+                            <ArrowDownOnSquareIcon className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="font-medium text-gray-900 flex items-center gap-1.5">
@@ -815,11 +852,11 @@ export default function BookingsPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">No bookings found</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties' || readinessFilter !== 'All'
+                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties' || readinessFilter !== 'All' || sourceFilter !== 'All Sources'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Get started by creating your first booking or uploading booking data.'}
               </p>
-              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && readinessFilter === 'All' && (
+              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && readinessFilter === 'All' && sourceFilter === 'All Sources' && (
                 <div className="flex justify-center gap-3">
                   <motion.button
                     onClick={() => setShowCreateModal(true)}

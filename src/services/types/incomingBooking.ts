@@ -22,6 +22,7 @@ export interface IncomingBooking {
   reviewedAt: string | null;
   importedAt: string | null;
   importedBookingId: string | null;
+  cleaningProjectId: string | null;
   createdAt: string;
   updatedAt: string | null;
   
@@ -42,6 +43,9 @@ export interface IncomingBooking {
   netEarnings: number | null;
   salesTax: number | null;
   
+  // Auto-import indicator
+  isAutoImported?: boolean;
+
   // Joined data from queries
   propertyName?: string | null;
   propertyAddress?: string | null;
@@ -86,7 +90,7 @@ export interface UpdateIncomingBookingMappingPayload {
 }
 
 export interface UpdateIncomingBookingStatusPayload {
-  status: 'pending' | 'approved' | 'rejected' | 'imported' | 'error';
+  status: 'pending' | 'approved' | 'rejected' | 'imported' | 'error' | 'cleaning_only';
   importedBookingId?: string;
 }
 
@@ -146,4 +150,30 @@ export interface UpdateIncomingBookingFinancialsPayload {
     netEarnings?: number | null;
   };
   fieldChanges?: FieldChange[];
+}
+
+// Send to Turnover Calendar types
+export interface SendToTurnoverItem {
+  incomingBookingId: string;
+  propertyId: string;
+}
+
+export interface SendToTurnoverPayload {
+  userId: string;
+  items: SendToTurnoverItem[];
+}
+
+export interface SendToTurnoverResponse {
+  status: 'success' | 'failed';
+  message?: string;
+  data: {
+    successCount: number;
+    failCount: number;
+    results: Array<{
+      incomingBookingId: string;
+      success: boolean;
+      projectId?: string;
+      error?: string;
+    }>;
+  };
 }
