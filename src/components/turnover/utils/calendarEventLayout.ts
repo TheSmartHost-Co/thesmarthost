@@ -1,6 +1,12 @@
 import type { Booking } from '@/services/types/booking'
 import type { CleaningProject } from '@/services/types/cleaningProject'
-import { timeToFraction, minutesToDayFraction } from './calendarDateUtils'
+
+// Continuous fraction: hour/24 so 11AM = 11/24 ≈ 0.458
+export function timeToFraction(timeStr: string | null | undefined, fallback: number): number {
+  if (!timeStr) return fallback
+  const parts = timeStr.split(':').map(Number)
+  return (parts[0] + (parts[1] || 0) / 60) / 24
+}
 
 export interface PositionedBooking {
   booking: Booking
@@ -13,8 +19,9 @@ export interface PositionedBooking {
 export interface PositionedProject {
   project: CleaningProject
   colIndex: number         // index into allDates (-1 if not visible)
-  startOffset: number      // 0-1 fraction within day for checkout time (bar start)
-  endOffset: number        // 0-1 fraction within day for checkin time (bar end)
+  startOffset: number      // 0-1 fraction within day for bar start
+  endOffset: number        // 0-1 fraction within day for bar end
+  stackIndex: number       // vertical stack position (0-based)
 }
 
 // Compute positioned bookings relative to allDates columns
@@ -55,14 +62,15 @@ export function layoutBookings(
         booking,
         startColIndex: startIdx,
         endColIndex: endIdx + 1, // exclusive
-        checkinOffset: timeToFraction(booking.defaultCheckinTime, 15 / 24),
-        checkoutOffset: timeToFraction(booking.defaultCheckoutTime, 11 / 24),
+        checkinOffset: timeToFraction(booking.defaultCheckinTime, 0.625),  // 3PM default
+        checkoutOffset: timeToFraction(booking.defaultCheckoutTime, 0.458),  // 11AM default
       }
     })
     .filter((b): b is PositionedBooking => b !== null)
 }
 
 // Compute positioned projects relative to allDates columns
+// stackIndex is left at 0; use applyProjectStacking() to compute stacking by grouping key
 export function layoutProjects(
   projects: CleaningProject[],
   allDates: string[],
@@ -72,33 +80,57 @@ export function layoutProjects(
 
   return projects
     .map(project => {
-      // Bug fix: normalize date to YYYY-MM-DD (backend may return with time component)
       const colIndex = dateIndex.get(project.scheduledDate.slice(0, 10)) ?? -1
-      let startOffset = timeToFraction(project.checkoutTime, 11 / 24)
-      let endOffset = timeToFraction(project.checkinTime, 15 / 24)
-
-      // Duration-aware widening: if estimatedDurationMinutes gives a wider bar, use it
-      if (
-        project.estimatedDurationMinutes &&
-        !project.isSameDayTurnover
-      ) {
-        const durationFraction = minutesToDayFraction(project.estimatedDurationMinutes)
-        const naturalSpan = endOffset - startOffset
-        if (durationFraction > naturalSpan && naturalSpan > 0) {
-          const midpoint = (startOffset + endOffset) / 2
-          startOffset = Math.max(0, midpoint - durationFraction / 2)
-          endOffset = Math.min(1, midpoint + durationFraction / 2)
-        }
-      }
+      const startOffset = 0
+      const endOffset = 1  // span entire day column
 
       return {
         project,
         colIndex,
         startOffset,
         endOffset,
+        stackIndex: 0,
       }
     })
     .filter(p => p.colIndex !== -1)
+}
+
+// Apply vertical stacking to positioned projects.
+// getGroupKey extracts the grouping key (e.g. propertyId or cleanerId) from a project.
+// Projects on the same day within the same group get incremental stackIndex values.
+export function applyProjectStacking(
+  positioned: PositionedProject[],
+  getGroupKey: (project: CleaningProject) => string,
+): void {
+  const stacks = new Map<string, number>()
+  for (const pp of positioned) {
+    const key = `${getGroupKey(pp.project)}:${pp.colIndex}`
+    const idx = stacks.get(key) ?? 0
+    pp.stackIndex = idx
+    stacks.set(key, idx + 1)
+  }
+}
+
+// Compute max stack depth per group across all dates (for dynamic row heights)
+// getGroupKey extracts the grouping key from a project (e.g. propertyId or cleanerId)
+export function computeMaxStacks(
+  positionedProjects: PositionedProject[],
+  getGroupKey: (project: CleaningProject) => string,
+): Map<string, number> {
+  const maxByGroup = new Map<string, number>()
+  const countByKey = new Map<string, number>()
+
+  for (const pp of positionedProjects) {
+    const groupKey = getGroupKey(pp.project)
+    const key = `${groupKey}:${pp.colIndex}`
+    const count = (countByKey.get(key) ?? 0) + 1
+    countByKey.set(key, count)
+
+    const current = maxByGroup.get(groupKey) ?? 1
+    if (count > current) maxByGroup.set(groupKey, count)
+  }
+
+  return maxByGroup
 }
 
 // Helpers for variable-width columns (used by click-to-expand feature)

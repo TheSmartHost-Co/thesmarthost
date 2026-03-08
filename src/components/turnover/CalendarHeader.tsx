@@ -9,7 +9,6 @@ import {
   UserCircleIcon,
   CalendarIcon,
   CalendarDaysIcon,
-  ClockIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
   ChevronDownIcon,
@@ -46,8 +45,6 @@ interface CalendarHeaderProps {
   zoomLevel?: ZoomLevel
   onZoomChange?: (level: ZoomLevel, isWeek?: boolean) => void
   isWeekPreset?: boolean
-  showHourLabels?: boolean
-  onToggleHourLabels?: (show: boolean) => void
   sortOption?: SortOption
   onSortChange?: (sort: SortOption) => void
   openIssueCount?: number
@@ -77,8 +74,6 @@ export default function CalendarHeader({
   zoomLevel = 7,
   onZoomChange,
   isWeekPreset = true,
-  showHourLabels = false,
-  onToggleHourLabels,
   sortOption = 'alpha-asc',
   onSortChange,
   openIssueCount,
@@ -213,7 +208,6 @@ export default function CalendarHeader({
       : `${zoomLevel}d`
 
   // Whether hour labels are auto-shown (1-2 day zoom)
-  const hoursAutoShown = typeof zoomLevel === 'number' && zoomLevel <= 2
 
   // Sort options
   const sortOptions: { value: SortOption; label: string }[] = [
@@ -506,24 +500,6 @@ export default function CalendarHeader({
               <CalendarDaysIcon className="w-3.5 h-3.5" />
             )}
             Bookings
-          </button>
-        )}
-
-        {/* Hour Labels Toggle — hidden for month and auto-shown zoom<=2 */}
-        {onToggleHourLabels && zoomLevel !== 'month' && !hoursAutoShown && (
-          <button
-            onClick={() => onToggleHourLabels(!showHourLabels)}
-            className={`
-              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
-              transition-all duration-200 cursor-pointer border
-              ${showHourLabels
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
-              }
-            `}
-          >
-            <ClockIcon className="w-3.5 h-3.5" />
-            Hours
           </button>
         )}
 

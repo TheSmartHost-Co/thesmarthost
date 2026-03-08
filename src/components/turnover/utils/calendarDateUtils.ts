@@ -35,6 +35,20 @@ export function timeToFraction(timeStr: string | null | undefined, fallback: num
   return (h + m / 60) / 24
 }
 
+// 6am–midnight scale constants
+export const DAY_START_HOUR = 6
+export const DAY_END_HOUR = 24
+export const DAY_RANGE_HOURS = DAY_END_HOUR - DAY_START_HOUR // 18
+
+// Convert "HH:MM" to fraction within 6am-midnight window (0-1)
+// Times before 6am clip to 0
+export function timeToFraction6am(timeStr: string | null | undefined, fallback: number): number {
+  if (!timeStr) return fallback
+  const [h, m] = timeStr.split(':').map(Number)
+  const hoursSince6am = (h + m / 60) - DAY_START_HOUR
+  return Math.max(0, Math.min(1, hoursSince6am / DAY_RANGE_HOURS))
+}
+
 // Format YYYY-MM-DD for column header display
 export function formatColumnHeader(dateStr: string): { weekday: string; day: string; isWeekend: boolean } {
   const date = parseLocalDate(dateStr)
@@ -59,11 +73,11 @@ export function isToday(dateStr: string): boolean {
   return dateStr === formatLocalDate(now)
 }
 
-// Day subdivision hours (4 × 6hr blocks: midnight, 6AM, noon, 6PM)
-export const DAY_SUBDIVISION_HOURS = [0, 6, 12, 18] as const
+// Day subdivision hours (3 sections: 6AM-12PM, 12PM-6PM, 6PM-12AM)
+export const DAY_SUBDIVISION_HOURS = [6, 12, 18] as const
 
-// Full 24-hour labels for 1-2 day zoom
-export const DAY_FULL_HOURS = Array.from({ length: 24 }, (_, i) => i)
+// Full hour labels for 1-2 day zoom (6am-11pm)
+export const DAY_FULL_HOURS = Array.from({ length: 18 }, (_, i) => i + 6)
 
 // Format subdivision hour label (compact)
 export function formatSubdivisionLabel(hour: number): string {

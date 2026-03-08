@@ -1,14 +1,19 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
+import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
-import type { BarSize } from './TurnoverCalendar'
+import BookingBar from './BookingBar'
+import ProjectEvent from './ProjectEvent'
 import { parseLocalDate, formatLocalDate, isToday } from './utils/calendarDateUtils'
+import { timeToFraction } from './utils/calendarEventLayout'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const MAX_EVENTS_PER_CELL = 3
+const PROJECT_ZONE_TOP = 24 + MAX_EVENTS_PER_CELL * 26 + 8 // fixed offset below booking lanes (each lane = 24px bar + 2px gap)
+const BOOKING_BAR_HEIGHT = 24
+const PROJECT_BAR_HEIGHT = 24
 
 interface MonthGridViewProps {
   projects: CleaningProject[]
@@ -20,10 +25,9 @@ interface MonthGridViewProps {
   onDayClick: (dateStr: string) => void
   issueCountsMap: Record<string, number>
   supplyListCountsMap: Record<string, number>
-  barSize: BarSize
 }
 
-// ---- Color helpers ----
+// ---- Color helpers (for popover only) ----
 
 function getPlatformColor(platform: string): string {
   switch (platform) {
@@ -39,17 +43,13 @@ function getPlatformColor(platform: string): string {
   }
 }
 
-function getProjectColor(status: CleaningProjectStatus, isUnassigned: boolean, isAwaiting: boolean): { bg: string; text: string; border: string } {
-  if (isUnassigned || isAwaiting) return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' }
-  const styles: Record<CleaningProjectStatus, { bg: string; text: string; border: string }> = {
-    pending: { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' },
-    assigned: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-    confirmed: { bg: '#e0e7ff', text: '#3730a3', border: '#a5b4fc' },
-    in_progress: { bg: '#f3e8ff', text: '#6b21a8', border: '#c084fc' },
-    completed: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
-    cancelled: { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' },
+function getProjectBorderColor(status: string, isUnassigned: boolean, isAwaiting: boolean): string {
+  if (isUnassigned || isAwaiting) return '#fbbf24'
+  const borders: Record<string, string> = {
+    pending: '#d1d5db', assigned: '#93c5fd', confirmed: '#a5b4fc',
+    in_progress: '#c084fc', completed: '#86efac', cancelled: '#d1d5db',
   }
-  return styles[status] || styles.pending
+  return borders[status] || borders.pending
 }
 
 // ---- Types ----
@@ -57,22 +57,16 @@ function getProjectColor(status: CleaningProjectStatus, isUnassigned: boolean, i
 interface GridBooking {
   type: 'booking'
   booking: Booking
-  startCol: number  // 0-6 column within the week row
-  spanCols: number  // how many columns it spans in this week
+  startCol: number
+  spanCols: number
   isClippedLeft: boolean
   isClippedRight: boolean
+  checkoutFraction: number
 }
-
-interface GridProject {
-  type: 'project'
-  project: CleaningProject
-}
-
-type GridEvent = GridBooking | GridProject
 
 interface WeekRow {
-  weekStart: Date  // Sunday of this week row
-  dates: (string | null)[]  // 7 entries, null for padding cells
+  weekStart: Date
+  dates: (string | null)[]
 }
 
 // ---- Component ----
@@ -87,7 +81,6 @@ export default function MonthGridView({
   onDayClick,
   issueCountsMap,
   supplyListCountsMap,
-  barSize,
 }: MonthGridViewProps) {
   const [popover, setPopover] = useState<{ dateStr: string; x: number; y: number } | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -110,10 +103,10 @@ export default function MonthGridView({
     const year = firstDay.getFullYear()
     const month = firstDay.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const startDow = firstDay.getDay() // 0=Sun
+    const startDow = firstDay.getDay()
 
     const rows: WeekRow[] = []
-    let currentDay = 1 - startDow // may be negative for padding
+    let currentDay = 1 - startDow
 
     while (currentDay <= daysInMonth) {
       const dates: (string | null)[] = []
@@ -149,7 +142,6 @@ export default function MonthGridView({
 
     for (const week of weekRows) {
       const weekBookings: GridBooking[] = []
-      // Get the date range for this week
       const weekDates = week.dates.filter((d): d is string => d !== null)
       if (weekDates.length === 0) {
         result.push([])
@@ -162,16 +154,13 @@ export default function MonthGridView({
         const checkIn = booking.checkInDate.slice(0, 10)
         const checkOut = booking.checkOutDate?.slice(0, 10) || checkIn
 
-        // Skip if booking doesn't overlap this week
         if (checkOut < weekStart || checkIn > weekEnd) continue
 
-        // Find start and end columns within this week
         let startCol = 0
         let endCol = 6
         let isClippedLeft = false
         let isClippedRight = false
 
-        // Find the column for check-in
         const checkInIdx = week.dates.indexOf(checkIn)
         if (checkInIdx >= 0) {
           startCol = checkInIdx
@@ -180,7 +169,6 @@ export default function MonthGridView({
           isClippedLeft = true
         }
 
-        // Find the column for check-out
         const checkOutIdx = week.dates.indexOf(checkOut)
         if (checkOutIdx >= 0) {
           endCol = checkOutIdx
@@ -191,6 +179,11 @@ export default function MonthGridView({
 
         const spanCols = Math.max(endCol - startCol + 1, 1)
 
+        // Compute checkout fraction for partial-day rendering
+        const checkoutFraction = isClippedRight
+          ? 1
+          : timeToFraction(booking.defaultCheckoutTime, 0.458)
+
         weekBookings.push({
           type: 'booking',
           booking,
@@ -198,26 +191,16 @@ export default function MonthGridView({
           spanCols,
           isClippedLeft,
           isClippedRight,
+          checkoutFraction,
         })
       }
 
-      // Sort by span (wider first) then by start col
       weekBookings.sort((a, b) => b.spanCols - a.spanCols || a.startCol - b.startCol)
       result.push(weekBookings)
     }
 
     return result
   }, [bookings, weekRows])
-
-  // Get all events for a specific date cell
-  const getEventsForDate = useCallback((dateStr: string): GridEvent[] => {
-    const events: GridEvent[] = []
-    const dateProjects = projectsByDate.get(dateStr) || []
-    for (const p of dateProjects) {
-      events.push({ type: 'project', project: p })
-    }
-    return events
-  }, [projectsByDate])
 
   // Property name lookup
   const propertyNameMap = useMemo(() => {
@@ -244,56 +227,42 @@ export default function MonthGridView({
         const weekBookingItems = bookingsByWeek[weekIdx] || []
 
         return (
-          <div key={weekIdx} className="relative grid grid-cols-7 border-b border-gray-100" style={{ minHeight: 120 }}>
-            {/* Booking bars — absolute positioned spanning across cells */}
+          <div key={weekIdx} className="relative grid grid-cols-7 border-b border-gray-300" style={{ minHeight: 160 }}>
+            {/* Booking bars — absolute positioned spanning across cells using BookingBar component */}
             <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
               {weekBookingItems.slice(0, MAX_EVENTS_PER_CELL).map((gb, laneIdx) => {
-                const color = getPlatformColor(gb.booking.platform)
                 const leftPct = (gb.startCol / 7) * 100
-                const widthPct = (gb.spanCols / 7) * 100
+                const fullWidthPct = (gb.spanCols / 7) * 100
+                // Reduce width for partial checkout day
+                const reductionPct = gb.isClippedRight ? 0 : ((1 - gb.checkoutFraction) / 7) * 100
+                const widthPct = fullWidthPct - reductionPct
 
-                return (() => {
-                  const MONTH_NOTCH = 5
-                  const clipLeft = gb.isClippedLeft ? '0px' : `${MONTH_NOTCH}px`
-                  const clipRight = gb.isClippedRight ? '100%' : `calc(100% - ${MONTH_NOTCH}px)`
-                  const bookingClipPath = `polygon(${clipLeft} 0, 100% 0, ${clipRight} 100%, 0 100%)`
-
-                  return (
-                    <div
-                      key={`booking-${gb.booking.id}-w${weekIdx}`}
-                      className="absolute pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
-                      style={{
-                        left: `calc(${leftPct}% + 2px)`,
-                        width: `calc(${widthPct}% - 4px)`,
-                        top: 24 + laneIdx * 22,
-                        height: 20,
-                        backgroundColor: color,
-                        clipPath: bookingClipPath,
-                      }}
-                      onClick={() => onBookingClick(gb.booking)}
-                      title={`${gb.booking.guestName} · ${gb.booking.checkInDate.slice(0, 10)} → ${gb.booking.checkOutDate?.slice(0, 10) || '?'}`}
-                    >
-                      <div
-                        className="flex items-center h-full overflow-hidden"
-                        style={{
-                          paddingLeft: gb.isClippedLeft ? 4 : MONTH_NOTCH + 2,
-                          paddingRight: gb.isClippedRight ? 4 : MONTH_NOTCH + 2,
-                        }}
-                      >
-                        <span className="text-[10px] font-medium text-white truncate">
-                          {gb.booking.guestName}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })()
+                return (
+                  <div
+                    key={`booking-${gb.booking.id}-w${weekIdx}`}
+                    className="absolute pointer-events-auto cursor-pointer"
+                    style={{
+                      left: `calc(${leftPct}% + 2px)`,
+                      width: `calc(${widthPct}% - 4px)`,
+                      top: 24 + laneIdx * 26,
+                      height: BOOKING_BAR_HEIGHT,
+                    }}
+                    onClick={() => onBookingClick(gb.booking)}
+                  >
+                    <BookingBar
+                      booking={gb.booking}
+                      isClippedLeft={gb.isClippedLeft}
+                      isClippedRight={gb.isClippedRight}
+                    />
+                  </div>
+                )
               })}
             </div>
 
             {/* Day cells */}
             {week.dates.map((dateStr, colIdx) => {
               if (dateStr === null) {
-                return <div key={`pad-${colIdx}`} className="border-r border-gray-100 bg-gray-50/20" />
+                return <div key={`pad-${colIdx}`} className="border-r border-gray-200 bg-gray-50/20" />
               }
 
               const today = isToday(dateStr)
@@ -301,22 +270,20 @@ export default function MonthGridView({
               const isWeekend = date.getDay() === 0 || date.getDay() === 6
               const dayProjects = projectsByDate.get(dateStr) || []
 
-              // Count bookings touching this cell
               const bookingsInCell = weekBookingItems.filter(
                 gb => colIdx >= gb.startCol && colIdx < gb.startCol + gb.spanCols
               )
 
-              // Projects start after booking lanes
-              const projectStartLane = Math.min(bookingsInCell.length, MAX_EVENTS_PER_CELL)
-              const totalEvents = projectStartLane + dayProjects.length
-              const overflow = totalEvents > MAX_EVENTS_PER_CELL
-              const visibleProjectCount = Math.max(0, MAX_EVENTS_PER_CELL - projectStartLane)
+              const totalEvents = Math.min(bookingsInCell.length, MAX_EVENTS_PER_CELL) + dayProjects.length
+              const overflow = dayProjects.length > 3
+
+              const visibleProjectCount = 3
 
               return (
                 <div
                   key={dateStr}
-                  className={`relative border-r border-gray-100 ${today ? 'bg-blue-50/40' : isWeekend ? 'bg-gray-50/30' : ''}`}
-                  style={{ minHeight: 120 }}
+                  className={`relative border-r border-gray-200 ${today ? 'bg-blue-50/40' : isWeekend ? 'bg-gray-50/30' : ''}`}
+                  style={{ minHeight: 160 }}
                 >
                   {/* Day number */}
                   <div
@@ -331,36 +298,38 @@ export default function MonthGridView({
                     </span>
                   </div>
 
-                  {/* Project blocks (below booking lanes) */}
-                  <div className="px-0.5 relative" style={{ marginTop: Math.max(0, projectStartLane * 22) + 2, zIndex: 6 }}>
-                    {dayProjects.slice(0, visibleProjectCount).map(project => {
-                      const isUnassigned = !project.cleanerId
-                      const isAwaiting = project.status === 'assigned' && project.cleanerAccepted === null
-                      const colors = getProjectColor(project.status, isUnassigned, isAwaiting)
+                  {/* Separator between booking lanes and project zone */}
+                  {dayProjects.length > 0 && (
+                    <div
+                      className="absolute left-1 right-1 pointer-events-none"
+                      style={{
+                        top: PROJECT_ZONE_TOP - 4,
+                        height: 0,
+                        borderTop: '1px dashed rgba(0,0,0,0.08)',
+                      }}
+                    />
+                  )}
 
-                      return (
-                        <div
-                          key={project.id}
-                          className="mb-0.5 rounded cursor-pointer hover:opacity-80 transition-opacity truncate"
-                          style={{
-                            backgroundColor: colors.bg,
-                            border: `1px solid ${colors.border}`,
-                            height: 20,
-                            lineHeight: '18px',
-                            padding: '0 4px',
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onProjectClick(project)
-                          }}
-                          title={`${project.propertyName || 'Unknown'} · ${project.cleanerName || 'Unassigned'} · ${project.status}`}
-                        >
-                          <span className="text-[10px] font-medium truncate" style={{ color: colors.text }}>
-                            {project.cleanerName || project.propertyName || 'Unassigned'}
-                          </span>
-                        </div>
-                      )
-                    })}
+                  {/* Project blocks using ProjectEvent component */}
+                  <div className="px-0.5 absolute left-0 right-0" style={{ top: PROJECT_ZONE_TOP, zIndex: 6 }}>
+                    {dayProjects.slice(0, visibleProjectCount).map(project => (
+                      <div
+                        key={project.id}
+                        className="mb-0.5 cursor-pointer"
+                        style={{ height: PROJECT_BAR_HEIGHT }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onProjectClick(project)
+                        }}
+                      >
+                        <ProjectEvent
+                          project={project}
+                          openIssueCount={issueCountsMap[project.id] || 0}
+                          pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
+                          zoomLevel="month"
+                        />
+                      </div>
+                    ))}
                   </div>
 
                   {/* "+N more" overflow */}
@@ -428,7 +397,7 @@ export default function MonthGridView({
           {(projectsByDate.get(popover.dateStr) || []).map(project => {
             const isUnassigned = !project.cleanerId
             const isAwaiting = project.status === 'assigned' && project.cleanerAccepted === null
-            const colors = getProjectColor(project.status, isUnassigned, isAwaiting)
+            const borderColor = getProjectBorderColor(project.status, isUnassigned, isAwaiting)
 
             return (
               <div
@@ -439,8 +408,8 @@ export default function MonthGridView({
                   onProjectClick(project)
                 }}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors.border }} />
-                <span className="text-[11px] truncate" style={{ color: colors.text }}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: borderColor }} />
+                <span className="text-[11px] truncate text-gray-700">
                   {project.cleanerName || 'Unassigned'}
                 </span>
                 <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[80px] flex-shrink-0">

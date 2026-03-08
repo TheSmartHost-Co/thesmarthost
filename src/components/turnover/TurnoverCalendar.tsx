@@ -34,7 +34,6 @@ import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 export type ViewMode = 'property' | 'cleaner'
 export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
 export type ZoomLevel = number | 'month'
-export type BarSize = 'sm' | 'md' | 'lg'
 export type SortOption = 'alpha-asc' | 'alpha-desc' | 'projects-desc' | 'next-project'
 export const UNASSIGNED_FILTER_ID = '__unassigned__'
 
@@ -54,7 +53,6 @@ export default function TurnoverCalendar({
   const [viewMode, setViewMode] = useState<ViewMode>('property')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(7)
-  const [barSize, setBarSize] = useState<BarSize>('lg')
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [isWeekPreset, setIsWeekPreset] = useState(true) // default 7d = "Week"
 
@@ -80,9 +78,6 @@ export default function TurnoverCalendar({
 
   // Bookings overlay state
   const [showBookings, setShowBookings] = useState(true)
-
-  // Hour labels state
-  const [showHourLabels, setShowHourLabels] = useState(true)
 
   // Property filter state
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
@@ -786,8 +781,6 @@ export default function TurnoverCalendar({
           zoomLevel={zoomLevel}
           onZoomChange={handleZoomChange}
           isWeekPreset={isWeekPreset}
-          showHourLabels={showHourLabels}
-          onToggleHourLabels={setShowHourLabels}
           sortOption={sortOption}
           onSortChange={setSortOption}
           openIssueCount={openIssueCount}
@@ -815,7 +808,7 @@ export default function TurnoverCalendar({
                 onDayClick={handleMonthDayClick}
                 issueCountsMap={issueCountsMap}
                 supplyListCountsMap={supplyListCountsMap}
-                barSize={barSize}
+
               />
             ) : viewMode === 'property' ? (
               <PropertyRowView
@@ -830,8 +823,7 @@ export default function TurnoverCalendar({
                 zoomLevel={zoomLevel}
                 onRequestDateShift={handleRequestDateShift}
                 onProjectDrop={handleProjectDrop}
-                barSize={barSize}
-                showHourLabels={showHourLabels}
+
                 expandedDate={expandedDate}
                 onExpandDate={setExpandedDate}
                 onDayClick={handleDayClick}
@@ -849,8 +841,7 @@ export default function TurnoverCalendar({
                 zoomLevel={zoomLevel}
                 onRequestDateShift={handleRequestDateShift}
                 onProjectDrop={handleProjectDrop}
-                barSize={barSize}
-                showHourLabels={showHourLabels}
+
                 expandedDate={expandedDate}
                 onExpandDate={setExpandedDate}
                 onDayClick={handleDayClick}

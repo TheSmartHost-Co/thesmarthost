@@ -4,18 +4,23 @@ import { useMemo, useEffect, useCallback, useState } from 'react'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Booking } from '@/services/types/booking'
-import type { BarSize, ZoomLevel } from './TurnoverCalendar'
+import type { ZoomLevel } from './TurnoverCalendar'
 import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
 import { useCalendarScroll } from './hooks/useCalendarScroll'
 import { useNowIndicator } from './hooks/useNowIndicator'
-import { generateDateRange, addDays, formatColumnHeader, isToday, DAY_SUBDIVISION_HOURS, DAY_FULL_HOURS, formatSubdivisionLabel, getDaysInMonth, parseLocalDate } from './utils/calendarDateUtils'
-import { layoutProjects, layoutBookings, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
+import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate } from './utils/calendarDateUtils'
+import { layoutProjects, layoutBookings, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
 
 const SIDEBAR_WIDTH = 200
 const DAY_SLOT_WIDTH = 110
 const BUFFER_DAYS = 3
-const BAR_SIZES = { sm: { bar: 24, pad: 3 }, md: { bar: 34, pad: 4 }, lg: { bar: 48, pad: 6 } } as const
+const SUB_ROW_GAP = 2
+const STACK_GAP = 2
+const BAR_HEIGHT = 80
+const BOOKING_BAR_HEIGHT = 36
+const NOTCH_PX = 10
+const ROW_PADDING = 5
 
 interface CleanerRowViewProps {
   projects: CleaningProject[]
@@ -29,8 +34,6 @@ interface CleanerRowViewProps {
   zoomLevel?: ZoomLevel
   onRequestDateShift?: (days: number) => void
   onProjectDrop?: (projectId: string, newDate: string, newCleanerId?: string) => void
-  barSize?: BarSize
-  showHourLabels?: boolean
   expandedDate?: string | null
   onExpandDate?: (date: string | null) => void
   onDayClick?: (dateStr: string) => void
@@ -48,13 +51,10 @@ export default function CleanerRowView({
   zoomLevel = 7,
   onRequestDateShift,
   onProjectDrop,
-  barSize = 'lg',
-  showHourLabels = false,
   expandedDate = null,
   onExpandDate,
   onDayClick,
 }: CleanerRowViewProps) {
-  const { bar: BAR_HEIGHT, pad: ROW_PADDING } = BAR_SIZES[barSize]
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
     ? getDaysInMonth(parseLocalDate(dateRange.start))
@@ -92,9 +92,16 @@ export default function CleanerRowView({
     return generateDateRange(start, totalCols)
   }, [dateRange.start, bufferCols, visibleColumns])
 
-  const nowPos = useNowIndicator(allDates, 0, 24)
-  const positionedProjects = useMemo(() => layoutProjects(projects, allDates), [projects, allDates])
+  const nowPos = useNowIndicator(allDates, 6, 24)
+  const positionedProjects = useMemo(() => {
+    const pp = layoutProjects(projects, allDates)
+    applyProjectStacking(pp, p => p.cleanerId || 'unassigned')
+    return pp
+  }, [projects, allDates])
   const positionedBookings = useMemo(() => layoutBookings(bookings, allDates), [bookings, allDates])
+
+  // Compute max project stack depth per cleaner for dynamic row heights
+  const maxStackByCleaner = useMemo(() => computeMaxStacks(positionedProjects, p => p.cleanerId || 'unassigned'), [positionedProjects])
 
   // Map bookingId → cleanerId via projects
   const bookingToCleanerMap = useMemo(() => {
@@ -154,6 +161,29 @@ export default function CleanerRowView({
     return map
   }, [positionedProjects])
 
+  // For each project, find the next booking check-in date for the same property after the project's scheduled date
+  const nextCheckinByProject = useMemo(() => {
+    const map = new Map<string, string>()
+    const sortedByProp = new Map<string, string[]>()
+    for (const b of bookings) {
+      if (!b.checkInDate) continue
+      const dates = sortedByProp.get(b.propertyId) || []
+      dates.push(b.checkInDate.slice(0, 10))
+      sortedByProp.set(b.propertyId, dates)
+    }
+    for (const dates of sortedByProp.values()) {
+      dates.sort()
+    }
+    for (const project of projects) {
+      const propDates = sortedByProp.get(project.propertyId)
+      if (!propDates) continue
+      const projDate = project.scheduledDate.slice(0, 10)
+      const next = propDates.find(d => d > projDate)
+      if (next) map.set(project.id, next)
+    }
+    return map
+  }, [bookings, projects])
+
   const trackWidth = useMemo(() => {
     let w = 0
     for (const d of allDates) w += getColumnWidth(d, expandedDate, slotWidth)
@@ -161,7 +191,20 @@ export default function CleanerRowView({
   }, [allDates, expandedDate, slotWidth])
 
   const translateX = -(bufferCols * slotWidth) - scrollOffset
-  const rowMinHeight = BAR_HEIGHT + ROW_PADDING * 2
+
+  // Subdivision lines for day columns (3-14 day views only)
+  const subdivisions = useMemo(() => {
+    if (isMonthView || typeof zoomLevel !== 'number') return []
+    if (zoomLevel <= 14) return [0.25, 0.5, 0.75]
+    return []
+  }, [isMonthView, zoomLevel])
+
+  // Compute effective row height per cleaner
+  const getRowHeight = useCallback((cleanerId: string) => {
+    const stackCount = maxStackByCleaner.get(cleanerId) ?? 1
+    const projectSubRowHeight = stackCount * BAR_HEIGHT + (stackCount - 1) * STACK_GAP
+    return BOOKING_BAR_HEIGHT + SUB_ROW_GAP + Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PADDING * 2
+  }, [maxStackByCleaner])
 
   // Drag-and-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -190,31 +233,34 @@ export default function CleanerRowView({
   return (
     <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: 'grab' }}>
       {/* Sticky Sidebar */}
-      <div className="flex-shrink-0 border-r border-gray-100 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
-        <div className="flex items-center px-4 border-b border-gray-100 bg-gray-50/80 h-10">
+      <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
+        <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
           <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
         </div>
-        {resourceRows.map(row => (
-          <div
-            key={row.id}
-            className={`border-b transition-colors ${
-              row.isUnassigned ? 'border-b-2 border-amber-200 bg-amber-50/30' : 'border-gray-50 hover:bg-gray-50/30'
-            }`}
-            style={{ minHeight: rowMinHeight }}
-          >
-            <div className="py-2 px-3 flex flex-col justify-center" style={{ minHeight: rowMinHeight }}>
-              <div className={`font-medium text-[13px] flex items-center gap-1.5 leading-tight ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
-                {row.label}
-                {row.isUnassigned && row.count !== undefined && row.count > 0 && (
-                  <span className="px-1 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded">{row.count}</span>
-                )}
-              </div>
-              <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
-                {row.sublabel}
+        {resourceRows.map(row => {
+          const rowHeight = getRowHeight(row.id)
+          return (
+            <div
+              key={row.id}
+              className={`border-b-2 transition-colors ${
+                row.isUnassigned ? 'border-amber-200 bg-amber-50/30' : 'border-gray-300 hover:bg-gray-50/30'
+              }`}
+              style={{ height: rowHeight }}
+            >
+              <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
+                <div className={`font-medium text-[13px] flex items-center gap-1.5 leading-tight ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
+                  {row.label}
+                  {row.isUnassigned && row.count !== undefined && row.count > 0 && (
+                    <span className="px-1 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded">{row.count}</span>
+                  )}
+                </div>
+                <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
+                  {row.sublabel}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Scrollable Timeline */}
@@ -228,19 +274,18 @@ export default function CleanerRowView({
           }}
         >
           {/* Column Headers */}
-          <div className="flex border-b border-gray-100 bg-gray-50/80 h-10 sticky top-0 z-10">
+          <div className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 sticky top-0 z-10">
             {allDates.map(dateStr => {
               const header = formatColumnHeader(dateStr)
               const today = isToday(dateStr)
-              const isExpanded = dateStr === expandedDate
               const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
               const canClick = !isMonthView && onDayClick
 
               return (
                 <div
                   key={dateStr}
-                  className={`flex-shrink-0 flex items-center justify-center border-r border-gray-100 ${today ? 'bg-blue-50/60' : header.isWeekend && isMonthView ? 'bg-gray-50/40' : ''} ${canClick ? 'cursor-pointer hover:bg-gray-100/60' : ''}`}
-                  style={{ width: colWidth }}
+                  className={`flex-shrink-0 flex items-center justify-center ${today ? 'bg-blue-50/60' : header.isWeekend && isMonthView ? 'bg-gray-50/40' : ''} ${canClick ? 'cursor-pointer hover:bg-gray-100/60' : ''}`}
+                  style={{ width: colWidth, borderRight: '1px solid rgba(0,0,0,0.12)', position: 'relative' }}
                   onClick={canClick ? () => onDayClick(dateStr) : undefined}
                   data-no-drag={canClick ? true : undefined}
                 >
@@ -254,58 +299,26 @@ export default function CleanerRowView({
                       {header.day}
                     </span>
                   </div>
+                  {subdivisions.map(frac => (
+                    <div key={frac} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
+                  ))}
                 </div>
               )
             })}
           </div>
 
-          {/* Hour Labels Sub-Header */}
-          {(showHourLabels || (typeof zoomLevel === 'number' && zoomLevel <= 2)) && !isMonthView && !expandedDate && (() => {
-            const use24h = typeof zoomLevel === 'number' && zoomLevel <= 2
-            const hours = use24h ? DAY_FULL_HOURS : DAY_SUBDIVISION_HOURS
-            const count = hours.length
-            return (
-              <div className="flex border-b border-gray-100 bg-gray-50/40 h-5 sticky top-10 z-10">
-                {allDates.map(dateStr => (
-                  <div
-                    key={`hl-${dateStr}`}
-                    className="flex-shrink-0 relative border-r border-gray-100"
-                    style={{ width: slotWidth }}
-                  >
-                    {hours.map((hour, i) => {
-                      if (!use24h && typeof zoomLevel === 'number' && zoomLevel >= 10 && (hour === 0 || hour === 12)) return null
-                      return (
-                        <span
-                          key={hour}
-                          className="absolute text-[10px] text-gray-500 font-medium leading-none"
-                          style={{
-                            left: `${(i / count) * 100}%`,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            paddingLeft: 2,
-                          }}
-                        >
-                          {formatSubdivisionLabel(hour)}
-                        </span>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
-
           {/* Resource Rows */}
           {resourceRows.map(row => {
             const rowProjects = projectsByResource.get(row.id) || []
+            const rowHeight = getRowHeight(row.id)
 
             return (
               <div
                 key={row.id}
-                className={`relative border-b transition-colors ${
-                  row.isUnassigned ? 'border-b-2 border-amber-200 bg-amber-50/20' : 'border-gray-50 hover:bg-gray-50/20'
+                className={`relative border-b-2 transition-colors ${
+                  row.isUnassigned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-300 hover:bg-gray-50/20'
                 }`}
-                style={{ minHeight: rowMinHeight }}
+                style={{ height: rowHeight }}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, row.id)}
               >
@@ -315,24 +328,20 @@ export default function CleanerRowView({
                     const today = isToday(dateStr)
                     const headerInfo = formatColumnHeader(dateStr)
                     const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
-                    const isExpanded = dateStr === expandedDate
-                    const subdivisions = typeof zoomLevel === 'number' && zoomLevel <= 2 ? 24 : 4
-                    const gradientStep = `${100 / subdivisions}%`
+                    const isExp = dateStr === expandedDate
                     return (
                       <div
                         key={dateStr}
-                        className={`flex-shrink-0 ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExpanded ? 'bg-blue-50/20' : ''}`}
+                        className={`flex-shrink-0 relative ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExp ? 'bg-blue-50/20' : ''}`}
                         style={{
                           width: colWidth,
-                          borderRight: '1px solid rgba(0,0,0,0.15)',
-                          ...(!isMonthView && !isExpanded ? {
-                            backgroundImage: `repeating-linear-gradient(to right, transparent, transparent calc(${gradientStep} - 0.5px), rgba(0,0,0,0.04) calc(${gradientStep} - 0.5px), rgba(0,0,0,0.04) calc(${gradientStep} + 0.5px), transparent calc(${gradientStep} + 0.5px))`,
-                          } : {}),
-                          ...(isExpanded ? {
-                            backgroundImage: 'repeating-linear-gradient(to right, transparent, transparent calc(25% - 0.5px), rgba(0,0,0,0.08) calc(25% - 0.5px), rgba(0,0,0,0.08) calc(25% + 0.5px), transparent calc(25% + 0.5px))',
-                          } : {}),
+                          borderRight: '1px solid rgba(0,0,0,0.12)',
                         }}
-                      />
+                      >
+                        {subdivisions.map(frac => (
+                          <div key={frac} className="absolute top-0 bottom-0" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
+                        ))}
+                      </div>
                     )
                   })}
                 </div>
@@ -349,15 +358,31 @@ export default function CleanerRowView({
                   />
                 )}
 
-                {/* Booking bars — time-precise positioning */}
+                {/* Sub-row separator line */}
+                <div
+                  className="absolute left-0 right-0 pointer-events-none"
+                  style={{
+                    top: ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP / 2,
+                    height: 0,
+                    borderTop: '1px dashed rgba(0,0,0,0.15)',
+                  }}
+                />
+
+                {/* Booking bars — top sub-row */}
                 {(bookingsByResource.get(row.id) || []).map(pb => {
                   const startLeft = getColumnLeft(pb.startColIndex, allDates, expandedDate, slotWidth)
                   const startColW = getColumnWidth(allDates[pb.startColIndex] || '', expandedDate, slotWidth)
-                  const left = startLeft + pb.checkinOffset * startColW
+                  const barLeft = startLeft + pb.checkinOffset * startColW
                   const endLeft = getColumnLeft(pb.endColIndex - 1, allDates, expandedDate, slotWidth)
                   const endColW = getColumnWidth(allDates[pb.endColIndex - 1] || '', expandedDate, slotWidth)
                   const right = endLeft + pb.checkoutOffset * endColW
-                  const width = Math.max(right - left, 20)
+                  const barWidth = Math.max(right - barLeft, 20) + NOTCH_PX
+
+                  // Compute sticky offset
+                  const viewportLeft = bufferCols * slotWidth - scrollOffset
+                  const rawStickyOffset = Math.max(0, viewportLeft - barLeft)
+                  const maxOffset = Math.max(0, barWidth - 120)
+                  const stickyOffset = Math.min(rawStickyOffset, maxOffset)
 
                   return (
                     <div
@@ -365,10 +390,10 @@ export default function CleanerRowView({
                       className="absolute z-[5] hover:z-[100] cursor-pointer"
                       data-no-drag
                       style={{
-                        left,
-                        width,
+                        left: barLeft,
+                        width: barWidth,
                         top: ROW_PADDING,
-                        height: BAR_HEIGHT,
+                        height: BOOKING_BAR_HEIGHT,
                       }}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -379,14 +404,13 @@ export default function CleanerRowView({
                         booking={pb.booking}
                         isClippedLeft={pb.startColIndex < bufferCols}
                         isClippedRight={pb.endColIndex > allDates.length - bufferCols}
-                        barSize={barSize}
-                        isCompact={isMonthView}
+                        stickyOffset={stickyOffset}
                       />
                     </div>
                   )
                 })}
 
-                {/* Project bars — time-precise, single lane */}
+                {/* Project bars — bottom sub-row with stacking */}
                 {rowProjects.map(pp => {
                   const colLeft = getColumnLeft(pp.colIndex, allDates, expandedDate, slotWidth)
                   const colW = getColumnWidth(allDates[pp.colIndex] || '', expandedDate, slotWidth)
@@ -397,7 +421,8 @@ export default function CleanerRowView({
                     ? colLeft + colW
                     : colLeft + pp.endOffset * colW
                   const projWidth = Math.max(projRight - projLeft, 20)
-                  const isExpanded = allDates[pp.colIndex] === expandedDate
+                  const isExp = allDates[pp.colIndex] === expandedDate
+                  const stackTop = ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
 
                   return (
                     <div
@@ -407,7 +432,7 @@ export default function CleanerRowView({
                       style={{
                         left: projLeft,
                         width: projWidth,
-                        top: ROW_PADDING,
+                        top: stackTop,
                         height: BAR_HEIGHT,
                       }}
                       draggable
@@ -425,9 +450,9 @@ export default function CleanerRowView({
                         showProperty
                         openIssueCount={issueCountsMap[pp.project.id] || 0}
                         pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
-                        barSize={barSize}
-                        isCompact={isMonthView}
-                        isExpanded={isExpanded}
+                        zoomLevel={zoomLevel}
+                        isExpanded={isExp}
+                        nextCheckinDate={nextCheckinByProject.get(pp.project.id) || null}
                       />
                     </div>
                   )
