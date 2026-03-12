@@ -798,6 +798,7 @@ export default function TurnoverCalendar({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
             className="overflow-hidden rounded-b-2xl"
+            style={{ overscrollBehaviorX: 'none' }}
           >
             {zoomLevel === 'month' ? (
               <MonthGridView

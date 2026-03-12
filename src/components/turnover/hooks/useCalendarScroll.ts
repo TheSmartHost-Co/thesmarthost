@@ -57,10 +57,14 @@ export function useCalendarScroll({
       if (e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) h = e.deltaY
       const absH = Math.abs(h)
       const absV = Math.abs(e.shiftKey ? 0 : e.deltaY)
-      if (absH < 2 || absH < absV) return
+      // If there's any horizontal component, prevent browser back/forward navigation
+      if (absH > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
 
-      e.preventDefault()
-      e.stopPropagation()
+      // Skip tiny deltas or predominantly vertical scrolls for calendar movement
+      if (absH < 2 || absH < absV) return
 
       // Mouse wheel gives large discrete deltas — scale down for smoother movement
       const scale = Math.abs(h) > 50 ? 0.4 : 1.0

@@ -231,7 +231,7 @@ export default function CleanerRowView({
   }, [slotWidth, allDates, onProjectDrop, expandedDate])
 
   return (
-    <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: 'grab' }}>
+    <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: 'grab', overscrollBehaviorX: 'none' }}>
       {/* Sticky Sidebar */}
       <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
         <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
@@ -264,7 +264,7 @@ export default function CleanerRowView({
       </div>
 
       {/* Scrollable Timeline */}
-      <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative">
+      <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative" style={{ overscrollBehaviorX: 'none' }}>
         <div
           className="relative"
           style={{
