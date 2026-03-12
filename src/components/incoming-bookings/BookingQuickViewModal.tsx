@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
+import { parseLocalDate } from '@/utils/dateUtils'
 import {
   XMarkIcon,
   UserIcon,
@@ -47,7 +48,7 @@ const BookingQuickViewModal: React.FC<BookingQuickViewModalProps> = ({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return parseLocalDate(dateString).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',

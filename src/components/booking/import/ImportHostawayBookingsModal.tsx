@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import {
   XMarkIcon,
   CalendarDaysIcon,
@@ -689,7 +690,7 @@ const ImportHostawayBookingsModal: React.FC<ImportHostawayBookingsModalProps> = 
                               <td className="px-3 py-3 font-medium text-gray-900">{r.guestName}</td>
                               <td className="px-3 py-3 text-gray-600 font-mono text-xs">{r.reservationCode}</td>
                               <td className="px-3 py-3 text-gray-600 max-w-[150px] truncate">{r.listingName}</td>
-                              <td className="px-3 py-3 text-gray-600">{new Date(r.checkInDate).toLocaleDateString()}</td>
+                              <td className="px-3 py-3 text-gray-600">{parseLocalDate(r.checkInDate).toLocaleDateString()}</td>
                               <td className="px-3 py-3 text-gray-600">{r.numNights}</td>
                               <td className="px-3 py-3 text-right font-medium text-gray-900">
                                 ${r.totalPayout.toLocaleString()}
@@ -866,7 +867,7 @@ const ImportHostawayBookingsModal: React.FC<ImportHostawayBookingsModalProps> = 
                         <div className="space-y-1 text-sm text-amber-700 max-h-[150px] overflow-y-auto">
                           {importResults.duplicates.map((d, i) => (
                             <div key={i}>
-                              {d.guestName} - {d.reservationCode} ({new Date(d.checkInDate).toLocaleDateString()})
+                              {d.guestName} - {d.reservationCode} ({parseLocalDate(d.checkInDate).toLocaleDateString()})
                             </div>
                           ))}
                         </div>

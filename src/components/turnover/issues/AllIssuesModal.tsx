@@ -8,6 +8,7 @@ import {
   getIssueTypeDisplay,
   getIssueStatusDisplay
 } from '@/services/projectIssueService'
+import { parseLocalDate } from '@/utils/dateUtils'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
 import {
   ExclamationTriangleIcon,
@@ -288,7 +289,7 @@ export default function AllIssuesModal({
                                         {issue.scheduledDate && (
                                           <span className="flex items-center gap-1">
                                             <CalendarIcon className="w-3.5 h-3.5" />
-                                            {new Date(issue.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            {parseLocalDate(issue.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                           </span>
                                         )}
                                       </div>

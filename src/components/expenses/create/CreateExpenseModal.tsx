@@ -7,6 +7,7 @@ import { createExpense } from '@/services/expenseService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
+import { parseLocalDate } from '@/utils/dateUtils'
 import type { CreateExpensePayload, Expense, PaymentMethod, PaymentStatus } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
@@ -101,7 +102,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     return bookings.map(booking => ({
       value: booking.id,
       label: booking.guestName,
-      secondaryLabel: new Date(booking.checkInDate).toLocaleDateString(),
+      secondaryLabel: parseLocalDate(booking.checkInDate).toLocaleDateString(),
     }))
   }, [bookings])
 

@@ -22,6 +22,7 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { createCleaningProject } from '@/services/cleaningProjectService'
 import { getChecklists, getChecklistById } from '@/services/checklistService'
 import { getBookings } from '@/services/bookingService'
+import { parseLocalDate } from '@/utils/dateUtils'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import TimeSelect, { roundToNearest15 } from '@/components/shared/TimeSelect'
 import DurationSelect from '@/components/shared/DurationSelect'
@@ -202,7 +203,7 @@ export default function CreateProjectModal({
           const now = new Date()
           const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
           const relevantBookings = res.data.filter((b) => {
-            const checkIn = new Date(b.checkInDate)
+            const checkIn = parseLocalDate(b.checkInDate)
             return checkIn >= thirtyDaysAgo
           })
           setBookings(relevantBookings)

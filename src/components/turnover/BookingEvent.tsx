@@ -2,6 +2,7 @@
 
 import { UserIcon, ArrowRightStartOnRectangleIcon, ArrowLeftEndOnRectangleIcon } from '@heroicons/react/24/outline'
 import type { Booking } from '@/services/types/booking'
+import { parseLocalDate } from '@/utils/dateUtils'
 
 interface BookingEventProps {
   booking: Booking
@@ -45,7 +46,7 @@ function getPlatformConfig(platform: string): { bg: string; border: string; text
 
 // Format date as "Feb 23"
 function formatShortDate(dateStr: string): string {
-  const date = new Date(dateStr.slice(0, 10) + 'T00:00:00')
+  const date = parseLocalDate(dateStr)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 

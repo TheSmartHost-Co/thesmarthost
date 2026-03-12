@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
+import { parseLocalDate } from '@/utils/dateUtils'
 import {
   getExpenseById,
   updateExpense,
@@ -681,7 +682,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               <option value="">No booking</option>
               {bookings.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.guestName} - {new Date(b.checkInDate).toLocaleDateString()}
+                  {b.guestName} - {parseLocalDate(b.checkInDate).toLocaleDateString()}
                 </option>
               ))}
             </select>

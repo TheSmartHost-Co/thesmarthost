@@ -8,6 +8,7 @@ import { getProperties } from '@/services/propertyService'
 import { CreateBookingPayload, Platform } from '@/services/types/booking'
 import { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils'
 import { useUserStore } from '@/store/useUserStore'
 
 interface CreateBookingModalProps {
@@ -107,8 +108,8 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   // Auto-calculate number of nights when dates change
   useEffect(() => {
     if (checkInDate && checkOutDate) {
-      const checkIn = new Date(checkInDate)
-      const checkOut = new Date(checkOutDate)
+      const checkIn = parseLocalDate(checkInDate)
+      const checkOut = parseLocalDate(checkOutDate)
       const diffTime = checkOut.getTime() - checkIn.getTime()
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       
@@ -123,15 +124,15 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   // Auto-calculate check-out date when check-in date and number of nights change
   useEffect(() => {
     if (checkInDate && numNights && !isNaN(parseInt(numNights))) {
-      const checkIn = new Date(checkInDate)
+      const checkIn = parseLocalDate(checkInDate)
       const nights = parseInt(numNights)
-      
+
       if (nights > 0) {
         const checkOut = new Date(checkIn)
         checkOut.setDate(checkIn.getDate() + nights)
-        
+
         // Format date as YYYY-MM-DD for input field
-        const formattedDate = checkOut.toISOString().split('T')[0]
+        const formattedDate = formatLocalDate(checkOut)
         setCheckOutDate(formattedDate)
       }
     }

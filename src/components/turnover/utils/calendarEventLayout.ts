@@ -1,5 +1,6 @@
 import type { Booking } from '@/services/types/booking'
 import type { CleaningProject } from '@/services/types/cleaningProject'
+import { toLocalDateStr } from './calendarDateUtils'
 
 // Continuous fraction: hour/24 so 11AM = 11/24 ≈ 0.458
 export function timeToFraction(timeStr: string | null | undefined, fallback: number): number {
@@ -39,8 +40,8 @@ export function layoutBookings(
 
   return bookings
     .map(booking => {
-      const checkIn = booking.checkInDate.slice(0, 10)
-      const checkOut = booking.checkOutDate?.slice(0, 10) || checkIn
+      const checkIn = toLocalDateStr(booking.checkInDate)
+      const checkOut = booking.checkOutDate ? toLocalDateStr(booking.checkOutDate) : checkIn
 
       // Skip if booking doesn't overlap the rendered range at all
       if (checkOut < rangeStart || checkIn > rangeEnd) return null
@@ -80,7 +81,7 @@ export function layoutProjects(
 
   return projects
     .map(project => {
-      const colIndex = dateIndex.get(project.scheduledDate.slice(0, 10)) ?? -1
+      const colIndex = dateIndex.get(toLocalDateStr(project.scheduledDate)) ?? -1
       const startOffset = 0
       const endOffset = 1  // span entire day column
 

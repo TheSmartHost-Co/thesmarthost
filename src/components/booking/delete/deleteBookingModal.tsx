@@ -7,6 +7,7 @@ import { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { parseLocalDate } from '@/utils/dateUtils'
 
 interface DeleteBookingModalProps {
   isOpen: boolean
@@ -26,7 +27,7 @@ const DeleteBookingModal: React.FC<DeleteBookingModalProps> = ({
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    return parseLocalDate(dateString).toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'

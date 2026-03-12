@@ -9,6 +9,7 @@ import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
 import { useUserStore } from '@/store/useUserStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 
 interface PreviewBookingModalProps {
   isOpen: boolean
@@ -54,7 +55,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
     fetchFieldChanges()
   }, [isOpen, booking.id, profile?.id])
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    return parseLocalDate(dateString).toLocaleDateString('en-CA', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

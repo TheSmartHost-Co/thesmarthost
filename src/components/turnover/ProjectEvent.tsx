@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import type { ZoomLevel } from './TurnoverCalendar'
-import { formatDuration } from './utils/calendarDateUtils'
+import { formatDuration, toLocalDateStr } from './utils/calendarDateUtils'
 
 interface ProjectEventProps {
   project: CleaningProject
@@ -192,7 +192,7 @@ export default function ProjectEvent({
   const scheduledDateFormatted = project.scheduledDate
     ? (() => {
         const raw = project.scheduledDate
-        const dateOnly = raw.length === 10 ? raw : raw.slice(0, 10)
+        const dateOnly = toLocalDateStr(raw)
         const [y, m, d] = dateOnly.split('-').map(Number)
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
       })()
@@ -202,7 +202,7 @@ export default function ProjectEvent({
   const gapUntilCheckin = (() => {
     if (!project.scheduledDate || !nextCheckinDate) return null
     // Cleaning starts at checkoutTime on scheduledDate
-    const cleanDate = project.scheduledDate.length === 10 ? project.scheduledDate : project.scheduledDate.slice(0, 10)
+    const cleanDate = toLocalDateStr(project.scheduledDate)
     const [cy, cm, cd] = cleanDate.split('-').map(Number)
     const [ch, cmin] = project.checkoutTime
       ? project.checkoutTime.split(':').map(Number)
@@ -210,7 +210,7 @@ export default function ProjectEvent({
     const cleaningStart = new Date(cy, cm - 1, cd, ch, cmin)
 
     // Next guest checks in at checkinTime on nextCheckinDate
-    const ciDate = nextCheckinDate.length === 10 ? nextCheckinDate : nextCheckinDate.slice(0, 10)
+    const ciDate = toLocalDateStr(nextCheckinDate)
     const [iy, im, id] = ciDate.split('-').map(Number)
     const [ih, imin] = project.checkinTime
       ? project.checkinTime.split(':').map(Number)

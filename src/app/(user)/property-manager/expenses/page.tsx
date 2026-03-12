@@ -35,6 +35,7 @@ import {
   CameraIcon,
   DocumentArrowUpIcon
 } from '@heroicons/react/24/outline'
+import { parseLocalDate } from '@/utils/dateUtils'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
@@ -563,7 +564,7 @@ export default function ExpensesPage() {
                             <option value="">All Bookings</option>
                             {bookings.map((booking) => (
                               <option key={booking.id} value={booking.id}>
-                                {booking.guestName} - {new Date(booking.checkInDate).toLocaleDateString()}
+                                {booking.guestName} - {parseLocalDate(booking.checkInDate).toLocaleDateString()}
                               </option>
                             ))}
                           </select>

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import { updateIncomingBookingMapping, updateIncomingBookingStatus, updateIncomingBookingFinancials } from '@/services/incomingBookingService'
 import { getProperties } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
@@ -304,7 +305,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString()
+    return parseLocalDate(dateString).toLocaleDateString()
   }
   
   const handleSaveFinancialEdits = async () => {

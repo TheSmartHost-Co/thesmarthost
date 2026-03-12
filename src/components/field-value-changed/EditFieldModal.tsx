@@ -6,6 +6,7 @@ import { formatFieldName, isFinancialField } from '@/services/fieldValuesChanged
 import { formatCurrency } from '@/services/bookingService'
 import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 import { PencilSquareIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
+import { parseLocalDate } from '@/utils/dateUtils'
 
 interface EditFieldModalProps {
   isOpen: boolean
@@ -132,7 +133,7 @@ const EditFieldModal: React.FC<EditFieldModalProps> = ({
           <div className="space-y-1 text-sm text-gray-700">
             <div><span className="font-medium">Guest:</span> {bookingInfo.guestName}</div>
             <div><span className="font-medium">Reservation:</span> {bookingInfo.reservationCode}</div>
-            <div><span className="font-medium">Check-in:</span> {new Date(bookingInfo.checkInDate).toLocaleDateString()}</div>
+            <div><span className="font-medium">Check-in:</span> {parseLocalDate(bookingInfo.checkInDate).toLocaleDateString()}</div>
           </div>
         </div>
 

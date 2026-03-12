@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Modal from '../../shared/modal'
 import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import { getBookings } from '@/services/bookingService'
 import { getReports } from '@/services/reportService'
 import type { Booking } from '@/services/types/booking'
@@ -182,7 +183,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-'
-    const date = new Date(dateString)
+    const date = parseLocalDate(dateString)
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -192,7 +193,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
 
   const formatShortDate = (dateString: string) => {
     if (!dateString) return '-'
-    const date = new Date(dateString)
+    const date = parseLocalDate(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',

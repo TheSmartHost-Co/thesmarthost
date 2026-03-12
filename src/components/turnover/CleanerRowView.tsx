@@ -9,7 +9,7 @@ import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
 import { useCalendarScroll } from './hooks/useCalendarScroll'
 import { useNowIndicator } from './hooks/useNowIndicator'
-import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate } from './utils/calendarDateUtils'
+import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
 import { layoutProjects, layoutBookings, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
 
 const SIDEBAR_WIDTH = 200
@@ -168,7 +168,7 @@ export default function CleanerRowView({
     for (const b of bookings) {
       if (!b.checkInDate) continue
       const dates = sortedByProp.get(b.propertyId) || []
-      dates.push(b.checkInDate.slice(0, 10))
+      dates.push(toLocalDateStr(b.checkInDate))
       sortedByProp.set(b.propertyId, dates)
     }
     for (const dates of sortedByProp.values()) {
@@ -177,7 +177,7 @@ export default function CleanerRowView({
     for (const project of projects) {
       const propDates = sortedByProp.get(project.propertyId)
       if (!propDates) continue
-      const projDate = project.scheduledDate.slice(0, 10)
+      const projDate = toLocalDateStr(project.scheduledDate)
       const next = propDates.find(d => d > projDate)
       if (next) map.set(project.id, next)
     }

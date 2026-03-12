@@ -9,6 +9,7 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleaningProjects, getCleaningProjectStats, updateCleaningProject } from '@/services/cleaningProjectService'
+import { toLocalDateStr } from './utils/calendarDateUtils'
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
@@ -439,11 +440,12 @@ export default function TurnoverCalendar({
   // Filter bookings to those visible in the current date range
   const visibleBookings = useMemo(() => {
     if (!showBookings || allCachedBookings.length === 0) return []
-    return allCachedBookings.filter(b =>
-      b.checkOutDate &&
-      b.checkInDate <= dateRange.end &&
-      b.checkOutDate >= dateRange.start
-    )
+    return allCachedBookings.filter(b => {
+      if (!b.checkOutDate) return false
+      const checkIn = toLocalDateStr(b.checkInDate)
+      const checkOut = toLocalDateStr(b.checkOutDate)
+      return checkIn <= dateRange.end && checkOut >= dateRange.start
+    })
   }, [showBookings, allCachedBookings, dateRange.start, dateRange.end])
 
   // Filter projects and bookings by selected properties and cleaners
@@ -482,7 +484,7 @@ export default function TurnoverCalendar({
         break
       }
       case 'next-project': {
-        const now = new Date().toISOString().slice(0, 10)
+        const now = toLocalDateStr(new Date().toISOString())
         const nextMap = new Map<string, string>()
         for (const p of allCachedProjects) {
           if (p.scheduledDate >= now) {
@@ -516,7 +518,7 @@ export default function TurnoverCalendar({
         break
       }
       case 'next-project': {
-        const now = new Date().toISOString().slice(0, 10)
+        const now = toLocalDateStr(new Date().toISOString())
         const nextMap = new Map<string, string>()
         for (const p of allCachedProjects) {
           if (p.cleanerId && p.scheduledDate >= now) {

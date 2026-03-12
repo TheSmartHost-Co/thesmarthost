@@ -6,7 +6,7 @@ import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import BookingBar from './BookingBar'
 import ProjectEvent from './ProjectEvent'
-import { parseLocalDate, formatLocalDate, isToday } from './utils/calendarDateUtils'
+import { parseLocalDate, formatLocalDate, isToday, toLocalDateStr } from './utils/calendarDateUtils'
 import { timeToFraction } from './utils/calendarEventLayout'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -129,7 +129,7 @@ export default function MonthGridView({
   const projectsByDate = useMemo(() => {
     const map = new Map<string, CleaningProject[]>()
     for (const p of projects) {
-      const d = p.scheduledDate.slice(0, 10)
+      const d = toLocalDateStr(p.scheduledDate)
       if (!map.has(d)) map.set(d, [])
       map.get(d)!.push(p)
     }
@@ -151,8 +151,8 @@ export default function MonthGridView({
       const weekEnd = weekDates[weekDates.length - 1]
 
       for (const booking of bookings) {
-        const checkIn = booking.checkInDate.slice(0, 10)
-        const checkOut = booking.checkOutDate?.slice(0, 10) || checkIn
+        const checkIn = toLocalDateStr(booking.checkInDate)
+        const checkOut = booking.checkOutDate ? toLocalDateStr(booking.checkOutDate) : checkIn
 
         if (checkOut < weekStart || checkIn > weekEnd) continue
 
@@ -373,8 +373,8 @@ export default function MonthGridView({
           {/* Bookings for this date */}
           {bookings
             .filter(b => {
-              const checkIn = b.checkInDate.slice(0, 10)
-              const checkOut = b.checkOutDate?.slice(0, 10) || checkIn
+              const checkIn = toLocalDateStr(b.checkInDate)
+              const checkOut = b.checkOutDate ? toLocalDateStr(b.checkOutDate) : checkIn
               return popover.dateStr >= checkIn && popover.dateStr <= checkOut
             })
             .map(booking => (

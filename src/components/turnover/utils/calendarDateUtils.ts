@@ -1,15 +1,15 @@
-// Parse YYYY-MM-DD without timezone distortion
-export function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
+// Re-export shared date utilities
+export { parseLocalDate, formatLocalDate } from '@/utils/dateUtils'
+import { parseLocalDate } from '@/utils/dateUtils'
+import { formatLocalDate } from '@/utils/dateUtils'
 
-// Format Date as YYYY-MM-DD
-export function formatLocalDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+// Convert any date string (ISO timestamp or YYYY-MM-DD) to local YYYY-MM-DD
+// Fixes UTC timezone shift where "2026-03-11T00:00:00.000Z" should be "2026-03-10" in local time
+export function toLocalDateStr(dateStr: string): string {
+  // If already a plain YYYY-MM-DD (no time component), return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // Add N days to a YYYY-MM-DD string

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Booking } from '@/services/types/booking'
+import { parseLocalDate } from '@/utils/dateUtils'
 
 const NOTCH = 10
 
@@ -28,7 +29,7 @@ function formatShortTime(timeStr: string): string {
 }
 
 function formatShortDate(dateStr: string): string {
-  const date = new Date(dateStr.slice(0, 10) + 'T00:00:00')
+  const date = parseLocalDate(dateStr)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 

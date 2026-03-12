@@ -37,7 +37,7 @@ export interface SyncEvent {
   numNights: number
   platform: string
   bookingId: string | null
-  action: 'created' | 'updated' | 'skipped'
+  action: 'created' | 'updated' | 'skipped' | 'imported' | 'cancelled'
   reason?: string
   icalMetadata: { reservationUrl?: string; phoneNumberLast4Digits?: string; property?: string } | null
 }

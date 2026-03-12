@@ -8,6 +8,7 @@ import { getProperties } from '@/services/propertyService'
 import { Booking, UpdateBookingPayload, Platform } from '@/services/types/booking'
 import { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import { useUserStore } from '@/store/useUserStore'
 import { CalendarDaysIcon } from '@heroicons/react/24/outline'
 
@@ -151,10 +152,10 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
     }
 
     // Validate dates
-    const checkIn = new Date(checkInDate)
+    const checkIn = parseLocalDate(checkInDate)
 
     if (checkOutDate) {
-      const checkOut = new Date(checkOutDate)
+      const checkOut = parseLocalDate(checkOutDate)
       if (checkOut <= checkIn) {
         showNotification('Check-out date must be after check-in date', 'error')
         return

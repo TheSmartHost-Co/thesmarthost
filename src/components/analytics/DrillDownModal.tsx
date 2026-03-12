@@ -14,6 +14,7 @@ import {
 import { createPortal } from 'react-dom'
 import { getAnalyticsBookings } from '@/services/analyticsService'
 import { useAnalyticsStore } from '@/store/useAnalyticsStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import type { BookingDetail, BookingsPagination, AnalyticsDateRange } from '@/services/types/analytics'
 
 interface DrillDownModalProps {
@@ -22,7 +23,7 @@ interface DrillDownModalProps {
 }
 
 const formatCurrency = (value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const formatDate = (date: string) => parseLocalDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function DrillDownModal({ isOpen, onClose }: DrillDownModalProps) {
   const { drillDown, filters, bookingsData, isLoadingBookings, bookingsError, setBookingsData, setLoadingBookings, setBookingsError } = useAnalyticsStore()

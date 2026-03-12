@@ -102,11 +102,13 @@ function SyncStatusBadge({ status }: { status: ICalSubscription['syncStatus'] })
   )
 }
 
-function ActionBadge({ action }: { action: 'created' | 'updated' | 'skipped' }) {
+function ActionBadge({ action }: { action: 'created' | 'updated' | 'skipped' | 'imported' | 'cancelled' }) {
   const config = {
     created: { bg: 'bg-green-100', text: 'text-green-700' },
     updated: { bg: 'bg-amber-100', text: 'text-amber-700' },
     skipped: { bg: 'bg-gray-100', text: 'text-gray-600' },
+    imported: { bg: 'bg-blue-100', text: 'text-blue-700' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-700' },
   }
   const { bg, text } = config[action]
   return (

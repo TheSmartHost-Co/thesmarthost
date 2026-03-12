@@ -100,13 +100,15 @@ function SyncStatusBadge({ status }: { status: ICalSubscription['syncStatus'] })
   )
 }
 
-function ActionBadge({ action }: { action: 'created' | 'updated' | 'skipped' }) {
-  const config = {
+function ActionBadge({ action }: { action: 'created' | 'updated' | 'skipped' | 'imported' | 'cancelled' }) {
+  const config: Record<string, { bg: string; text: string }> = {
     created: { bg: 'bg-green-100', text: 'text-green-700' },
     updated: { bg: 'bg-amber-100', text: 'text-amber-700' },
     skipped: { bg: 'bg-gray-100', text: 'text-gray-600' },
+    imported: { bg: 'bg-blue-100', text: 'text-blue-700' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-700' },
   }
-  const { bg, text } = config[action]
+  const { bg, text } = config[action] ?? { bg: 'bg-gray-100', text: 'text-gray-600' }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${bg} ${text}`}>
       {action}

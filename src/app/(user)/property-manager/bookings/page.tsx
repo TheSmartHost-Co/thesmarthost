@@ -26,6 +26,7 @@ import { Booking } from '@/services/types/booking'
 import { HostawayConnection } from '@/services/types/hostawayConnection'
 import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
+import { parseLocalDate } from '@/utils/dateUtils'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import CreateBookingModal from '@/components/booking/create/createBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
@@ -274,9 +275,9 @@ export default function BookingsPage() {
         case 'propertyName':
           return multiplier * (a.propertyName || '').localeCompare(b.propertyName || '')
         case 'checkInDate':
-          return multiplier * (new Date(a.checkInDate).getTime() - new Date(b.checkInDate).getTime())
+          return multiplier * (parseLocalDate(a.checkInDate).getTime() - parseLocalDate(b.checkInDate).getTime())
         case 'checkOutDate':
-          return multiplier * (new Date(a.checkOutDate || a.checkInDate).getTime() - new Date(b.checkOutDate || b.checkInDate).getTime())
+          return multiplier * (parseLocalDate(a.checkOutDate || a.checkInDate).getTime() - parseLocalDate(b.checkOutDate || b.checkInDate).getTime())
         case 'platform':
           return multiplier * a.platform.localeCompare(b.platform)
         case 'numNights':
@@ -331,7 +332,7 @@ export default function BookingsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    return parseLocalDate(dateString).toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'

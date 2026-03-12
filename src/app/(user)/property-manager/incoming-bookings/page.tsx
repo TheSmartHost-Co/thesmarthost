@@ -8,6 +8,7 @@ import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBook
 import { getProperties } from '@/services/propertyService'
 import type { IncomingBooking, SendToTurnoverItem } from '@/services/types/incomingBooking'
 import type { Property } from '@/services/types/property'
+import { parseLocalDate } from '@/utils/dateUtils'
 import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
 import BulkApproveBookingsModal from '@/components/incoming-bookings/BulkApproveBookingsModal'
 import BulkSendToTurnoverModal from '@/components/incoming-bookings/BulkSendToTurnoverModal'
@@ -322,7 +323,7 @@ export default function IncomingBookingsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return parseLocalDate(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -351,13 +352,13 @@ export default function IncomingBookingsPage() {
       // Date filtering based on check-in date
       let matchesDateRange = true
       if (dateFrom && booking.checkInDate) {
-        const checkIn = new Date(booking.checkInDate)
-        const from = new Date(dateFrom)
+        const checkIn = parseLocalDate(booking.checkInDate)
+        const from = parseLocalDate(dateFrom)
         matchesDateRange = matchesDateRange && checkIn >= from
       }
       if (dateTo && booking.checkInDate) {
-        const checkIn = new Date(booking.checkInDate)
-        const to = new Date(dateTo)
+        const checkIn = parseLocalDate(booking.checkInDate)
+        const to = parseLocalDate(dateTo)
         matchesDateRange = matchesDateRange && checkIn <= to
       }
 
