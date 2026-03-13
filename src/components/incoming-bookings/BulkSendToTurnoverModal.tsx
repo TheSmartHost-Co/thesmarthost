@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 import {
   XMarkIcon,
   CalendarDaysIcon,
@@ -309,7 +310,7 @@ const BulkSendToTurnoverModal: React.FC<BulkSendToTurnoverModalProps> = ({
                               </div>
                               <div className="min-w-0 max-w-[100px]">
                                 <p className={`text-sm font-medium truncate ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>
-                                  {booking.guestName || 'Unknown Guest'}
+                                  {isReservedName(booking.guestName) ? '' : (booking.guestName || 'Unknown Guest')}
                                 </p>
                               </div>
                             </div>

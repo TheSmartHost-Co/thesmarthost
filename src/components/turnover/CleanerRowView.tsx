@@ -7,6 +7,7 @@ import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { ZoomLevel } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo } from './dnd/types'
+import { validateProjectDrop, validateCleanerViewDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
 import DraggableProject from './dnd/DraggableProject'
 import CalendarDragOverlay from './dnd/CalendarDragOverlay'
@@ -205,6 +206,14 @@ export default function CleanerRowView({
 
   const { headerRef, isStuck } = useStickyHeader(scrollContainer)
 
+  // When sticky header portal mounts, immediately apply the correct translateX
+  // so the day columns don't flash at position 0 before the next scroll event.
+  useLayoutEffect(() => {
+    if (isStuck) {
+      handleScrollFrame(scrollOffsetRef.current)
+    }
+  }, [isStuck, handleScrollFrame, scrollOffsetRef])
+
   // Render column header cells (shared between original and sticky clone)
   const renderColumnHeaders = useCallback(() => {
     return allDates.map(dateStr => {
@@ -315,23 +324,17 @@ export default function CleanerRowView({
     const project = projectData.project
     const sourceDate = toLocalDateStr(project.projectDate)
 
-    // Constraint validation
-    if (projectData.previousBookingCheckOut && targetDate < projectData.previousBookingCheckOut) {
-      onInvalidDrop?.({
-        projectName: projectData.project.propertyName || 'Cleaning',
-        targetDate,
-        reason: 'before_checkout',
-        boundaryDate: projectData.previousBookingCheckOut,
-      })
+    // Cleaner view: block date changes (reassignment only)
+    const dateChangeInvalid = validateCleanerViewDrop(projectData, targetDate, sourceDate)
+    if (dateChangeInvalid) {
+      onInvalidDrop?.(dateChangeInvalid)
       return
     }
-    if (projectData.nextBookingCheckIn && targetDate >= projectData.nextBookingCheckIn) {
-      onInvalidDrop?.({
-        projectName: projectData.project.propertyName || 'Cleaning',
-        targetDate,
-        reason: 'after_checkin',
-        boundaryDate: projectData.nextBookingCheckIn,
-      })
+
+    // Constraint validation
+    const invalid = validateProjectDrop(projectData, targetDate)
+    if (invalid) {
+      onInvalidDrop?.(invalid)
       return
     }
 
@@ -353,7 +356,7 @@ export default function CleanerRowView({
         sourceCleanerId,
       })
     }
-  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, isDraggingRef, resolveDropRow, cleanerNameById])
+  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, resolveDropRow, cleanerNameById])
 
   return (
     <DndContext

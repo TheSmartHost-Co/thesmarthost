@@ -8,6 +8,7 @@ import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import type { ZoomLevel } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './dnd/types'
+import { validateProjectDrop, validateBookingDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
 import DraggableProject from './dnd/DraggableProject'
@@ -51,6 +52,7 @@ interface PropertyRowViewProps {
   onDayClick?: (dateStr: string) => void
   scrollContainer?: RefObject<HTMLElement | null>
   navigationEpoch?: number
+  allBookingsForValidation?: Booking[]
 }
 
 export default function PropertyRowView({
@@ -74,6 +76,7 @@ export default function PropertyRowView({
   onDayClick,
   scrollContainer,
   navigationEpoch = 0,
+  allBookingsForValidation = [],
 }: PropertyRowViewProps) {
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -195,6 +198,14 @@ export default function PropertyRowView({
 
   const { headerRef, isStuck } = useStickyHeader(scrollContainer)
 
+  // When sticky header portal mounts, immediately apply the correct translateX
+  // so the day columns don't flash at position 0 before the next scroll event.
+  useLayoutEffect(() => {
+    if (isStuck) {
+      handleScrollFrame(scrollOffsetRef.current)
+    }
+  }, [isStuck, handleScrollFrame, scrollOffsetRef])
+
   // Render column header cells (shared between original and sticky clone)
   const renderColumnHeaders = useCallback(() => {
     return allDates.map(dateStr => {
@@ -284,23 +295,9 @@ export default function PropertyRowView({
       const projectData = data as ProjectDragData
       const sourceDate = toLocalDateStr(projectData.project.projectDate)
 
-      // Constraint validation
-      if (projectData.previousBookingCheckOut && targetDate < projectData.previousBookingCheckOut) {
-        onInvalidDrop?.({
-          projectName: projectData.project.propertyName || 'Cleaning',
-          targetDate,
-          reason: 'before_checkout',
-          boundaryDate: projectData.previousBookingCheckOut,
-        })
-        return
-      }
-      if (projectData.nextBookingCheckIn && targetDate >= projectData.nextBookingCheckIn) {
-        onInvalidDrop?.({
-          projectName: projectData.project.propertyName || 'Cleaning',
-          targetDate,
-          reason: 'after_checkin',
-          boundaryDate: projectData.nextBookingCheckIn,
-        })
+      const invalid = validateProjectDrop(projectData, targetDate)
+      if (invalid) {
+        onInvalidDrop?.(invalid)
         return
       }
 
@@ -320,6 +317,12 @@ export default function PropertyRowView({
 
       if (targetDate === sourceDate) return
 
+      const invalid = validateBookingDrop(bookingData, targetDate, allBookingsForValidation)
+      if (invalid) {
+        onInvalidDrop?.(invalid)
+        return
+      }
+
       if (onPendingDrop) {
         onPendingDrop({
           item: data,
@@ -328,7 +331,7 @@ export default function PropertyRowView({
         })
       }
     }
-  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, isDraggingRef, handleDragCancel])
+  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, handleDragCancel, allBookingsForValidation])
 
   return (
     <DndContext

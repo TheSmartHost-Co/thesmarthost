@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Booking } from '@/services/types/booking'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 
 const NOTCH = 10
 
@@ -98,7 +99,7 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight }: B
         >
           <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
             <span className="text-[12px] font-semibold truncate" style={{ color: style.text }}>
-              {booking.guestName}
+              {!isReservedName(booking.guestName) && booking.guestName}
             </span>
             <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.7 }}>
               &middot; {style.label}
@@ -123,7 +124,7 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight }: B
           style={{ left: hoverPos.x + 12, top: hoverPos.y - 12 }}
         >
           <div className="bg-gray-900 text-white rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg max-w-xs">
-            <div className="font-semibold">{booking.guestName}</div>
+            {!isReservedName(booking.guestName) && <div className="font-semibold">{booking.guestName}</div>}
             <div className="border-t border-gray-700 my-1" />
             <div className="text-gray-300">
               {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {computedNights > 0 ? `${computedNights} nights` : '\u2014'}

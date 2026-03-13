@@ -16,6 +16,7 @@ import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getPendingSupplyLists } from '@/services/supplyListService'
 import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates } from '@/services/bookingService'
+import { isValidationError } from '@/services/validationError'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
@@ -720,6 +721,77 @@ export default function TurnoverCalendar({
     return getMonthKey(d)
   }
 
+  // Refresh stats after mutations
+  const refreshStats = useCallback(() => {
+    if (!profile?.id) return
+    getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+      .then(res => {
+        if (res.status === 'success') setStats(res.data)
+      })
+  }, [profile?.id, dateRange.start, dateRange.end])
+
+  // Refetch only cleaning projects for specific months (not bookings)
+  const refetchProjectsOnly = useCallback(async (monthKeys: string[]) => {
+    if (!profile?.id) return
+    // Invalidate project cache for these months
+    setProjectCache(prev => {
+      const next = new Map(prev)
+      monthKeys.forEach(k => next.delete(k))
+      return next
+    })
+    monthKeys.forEach(k => {
+      projectCacheRef.current.delete(k)
+    })
+    // Fetch projects for each month
+    const results = await Promise.all(
+      monthKeys.map(async (monthKey) => {
+        const { startDate, endDate } = getMonthBounds(monthKey)
+        try {
+          const res = await getCleaningProjects({ userId: profile.id, startDate, endDate })
+          return { monthKey, projects: res.status === 'success' ? res.data : null }
+        } catch {
+          return { monthKey, projects: null }
+        }
+      })
+    )
+    setProjectCache(prev => {
+      const next = new Map(prev)
+      results.forEach(r => {
+        if (r.projects) next.set(r.monthKey, r.projects)
+      })
+      return next
+    })
+  }, [profile?.id])
+
+  // Surgically update a single project in cache (handles month bucket changes)
+  const surgicallyUpdateProjectInCache = useCallback((
+    projectId: string,
+    updatedProject: CleaningProject,
+    sourceDate: string,
+    targetDate: string
+  ) => {
+    const sourceMonth = getMonthKeyForDate(sourceDate)
+    const targetMonth = getMonthKeyForDate(targetDate)
+
+    setProjectCache(prev => {
+      const next = new Map(prev)
+
+      // Remove from all month buckets (project might appear in source month)
+      for (const [key, projects] of next) {
+        const filtered = projects.filter(p => p.id !== projectId)
+        if (filtered.length !== projects.length) {
+          next.set(key, filtered)
+        }
+      }
+
+      // Add to target month bucket
+      const targetBucket = next.get(targetMonth) || []
+      next.set(targetMonth, [...targetBucket, updatedProject])
+
+      return next
+    })
+  }, [])
+
   // Handle pending drop from view components
   const handlePendingDrop = useCallback((drop: PendingDrop) => {
     setPendingDrop(drop)
@@ -742,45 +814,47 @@ export default function TurnoverCalendar({
         const project = (pendingDrop.item as ProjectDragData).project
         const isReassign = pendingDrop.targetCleanerId !== undefined
 
-        if (isReassign) {
-          // Reschedule date first
-          const dateRes = await rescheduleProjectDate(project.id, {
-            projectDate: pendingDrop.targetDate,
-          })
-          if (dateRes.status !== 'success') {
-            showNotification(dateRes.message || 'Failed to reschedule', 'error')
-            setPendingDrop(null)
-            return
-          }
+        // Reschedule date
+        const dateRes = await rescheduleProjectDate(project.id, {
+          projectDate: pendingDrop.targetDate,
+        })
+        if (dateRes.status !== 'success') {
+          showNotification(dateRes.message || 'Failed to reschedule', 'error')
+          setPendingDrop(null)
+          return
+        }
 
-          // Then reassign cleaner if changed
-          if (pendingDrop.targetCleanerId !== pendingDrop.sourceCleanerId) {
-            if (pendingDrop.targetCleanerId) {
-              const assignRes = await assignCleanerToProject(project.id, {
-                cleanerId: pendingDrop.targetCleanerId,
-              })
-              if (assignRes.status !== 'success') {
-                showNotification(assignRes.message || 'Failed to reassign cleaner', 'error')
-              }
+        let updatedProject = dateRes.data
+
+        // Then reassign cleaner if changed
+        if (isReassign && pendingDrop.targetCleanerId !== pendingDrop.sourceCleanerId) {
+          if (pendingDrop.targetCleanerId) {
+            const assignRes = await assignCleanerToProject(project.id, {
+              cleanerId: pendingDrop.targetCleanerId,
+            })
+            if (assignRes.status === 'success') {
+              updatedProject = assignRes.data
             } else {
-              // Unassign cleaner
-              await updateCleaningProject(project.id, { cleanerId: null })
+              showNotification(assignRes.message || 'Failed to reassign cleaner', 'error')
+            }
+          } else {
+            // Unassign cleaner
+            const unassignRes = await updateCleaningProject(project.id, { cleanerId: null })
+            if (unassignRes.status === 'success') {
+              updatedProject = unassignRes.data
             }
           }
-
-          showNotification('Project reassigned', 'success')
-        } else {
-          const res = await rescheduleProjectDate(project.id, {
-            projectDate: pendingDrop.targetDate,
-          })
-          if (res.status === 'success') {
-            showNotification('Project rescheduled', 'success')
-          } else {
-            showNotification(res.message || 'Failed to reschedule', 'error')
-            setPendingDrop(null)
-            return
-          }
         }
+
+        // Surgical cache update — no network refetch needed
+        surgicallyUpdateProjectInCache(
+          project.id,
+          updatedProject,
+          pendingDrop.sourceDate,
+          pendingDrop.targetDate
+        )
+        refreshStats()
+        showNotification(isReassign ? 'Project reassigned' : 'Project rescheduled', 'success')
       } else if (pendingDrop.item.type === 'booking') {
         const bookingData = pendingDrop.item as BookingDragData
         const res = await rescheduleBookingDates(bookingData.booking.id, {
@@ -789,6 +863,36 @@ export default function TurnoverCalendar({
           numNights: bookingData.numNights,
         })
         if (res.status === 'success') {
+          // 1. Surgical booking cache update with response data
+          setBookingCache(prev => {
+            const next = new Map(prev)
+            const sourceMonth = getMonthKeyForDate(pendingDrop.sourceDate)
+            const targetMonth = getMonthKeyForDate(pendingDrop.targetDate)
+
+            // Remove from all buckets
+            for (const [key, bookings] of next) {
+              const filtered = bookings.filter(b => b.id !== res.data.id)
+              if (filtered.length !== bookings.length) {
+                next.set(key, filtered)
+              }
+            }
+
+            // Add to target month bucket
+            const targetBucket = next.get(targetMonth) || []
+            next.set(targetMonth, [...targetBucket, res.data])
+
+            return next
+          })
+
+          // 2. Wait for backend fire-and-forget cleaning project sync
+          await new Promise(resolve => setTimeout(resolve, 500))
+
+          // 3. Refetch only cleaning projects for affected months
+          await refetchProjectsOnly(Array.from(affectedMonths))
+
+          // 4. Refresh stats
+          refreshStats()
+
           showNotification('Booking rescheduled', 'success')
         } else {
           showNotification(res.message || 'Failed to reschedule booking', 'error')
@@ -796,16 +900,17 @@ export default function TurnoverCalendar({
           return
         }
       }
-
-      // Invalidate and re-fetch affected months
-      await invalidateAndRefetch(Array.from(affectedMonths))
     } catch (err) {
       console.error('Error executing drop:', err)
-      showNotification('Failed to complete move', 'error')
+      if (isValidationError(err)) {
+        err.errors.forEach((e) => showNotification(e, 'error'))
+      } else {
+        showNotification(err instanceof Error ? err.message : 'Failed to complete move', 'error')
+      }
     } finally {
       setPendingDrop(null)
     }
-  }, [pendingDrop, profile?.id, showNotification, invalidateAndRefetch])
+  }, [pendingDrop, profile?.id, showNotification, surgicallyUpdateProjectInCache, refetchProjectsOnly, refreshStats])
 
   // Computed: open issue count for CalendarHeader badge
   const openIssueCount = useMemo(() =>
@@ -1047,6 +1152,7 @@ export default function TurnoverCalendar({
                   issueCountsMap={issueCountsMap}
                   supplyListCountsMap={supplyListCountsMap}
                   bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
+                  allBookingsForValidation={allCachedBookings}
                   zoomLevel={zoomLevel}
                   onRequestDateShift={handleRequestDateShift}
                   onPendingDrop={handlePendingDrop}
@@ -1161,21 +1267,44 @@ export default function TurnoverCalendar({
           }}
           booking={selectedBooking}
           onUpdate={(updatedBooking) => {
+            // Capture the old booking dates before updating cache
+            const oldCheckIn = selectedBooking?.checkInDate
+            const oldCheckOut = selectedBooking?.checkOutDate
+
             // Update booking in the cache
             setBookingCache(prev => {
               const next = new Map(prev)
+              // Remove from all buckets first
               for (const [key, bookings] of next) {
-                const idx = bookings.findIndex(b => b.id === updatedBooking.id)
-                if (idx !== -1) {
-                  const updated = [...bookings]
-                  updated[idx] = updatedBooking
-                  next.set(key, updated)
+                const filtered = bookings.filter(b => b.id !== updatedBooking.id)
+                if (filtered.length !== bookings.length) {
+                  next.set(key, filtered)
                 }
               }
+              // Add to target month bucket
+              const targetMonth = getMonthKeyForDate(updatedBooking.checkInDate.split('T')[0])
+              const targetBucket = next.get(targetMonth) || []
+              next.set(targetMonth, [...targetBucket, updatedBooking])
               return next
             })
             setShowBookingUpdate(false)
             setSelectedBooking(null)
+
+            // If dates changed, refetch projects after backend sync
+            const oldDate = oldCheckIn?.split('T')[0]
+            const newDate = updatedBooking.checkInDate.split('T')[0]
+            if (oldDate !== newDate) {
+              const months = new Set<string>()
+              if (oldDate) months.add(getMonthKeyForDate(oldDate))
+              if (oldCheckOut) months.add(getMonthKeyForDate(oldCheckOut.split('T')[0]))
+              months.add(getMonthKeyForDate(newDate))
+              if (updatedBooking.checkOutDate) months.add(getMonthKeyForDate(updatedBooking.checkOutDate.split('T')[0]))
+
+              setTimeout(async () => {
+                await refetchProjectsOnly(Array.from(months))
+                refreshStats()
+              }, 500)
+            }
           }}
         />
       )}

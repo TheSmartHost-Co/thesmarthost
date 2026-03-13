@@ -27,6 +27,7 @@ import { HostawayConnection } from '@/services/types/hostawayConnection'
 import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import CreateBookingModal from '@/components/booking/create/createBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
@@ -769,7 +770,7 @@ export default function BookingsPage() {
                       <div className="relative flex-shrink-0">
                         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
                           <span className="text-white font-semibold text-sm">
-                            {booking.guestName.charAt(0).toUpperCase()}
+                            {isReservedName(booking.guestName) ? '?' : booking.guestName.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         {booking.isAutoImported && (
@@ -780,7 +781,7 @@ export default function BookingsPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="font-medium text-gray-900 flex items-center gap-1.5">
-                          {booking.guestName}
+                          {isReservedName(booking.guestName) ? '' : booking.guestName}
                           {booking.financialReadiness === 'scheduling_only' && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
                               Scheduling

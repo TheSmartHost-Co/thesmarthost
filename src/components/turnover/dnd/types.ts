@@ -28,8 +28,9 @@ export interface PendingDrop {
 }
 
 export interface InvalidDropInfo {
-  projectName: string
+  itemName: string
   targetDate: string
-  reason: 'before_checkout' | 'after_checkin'
+  reason: 'before_checkout' | 'after_checkin' | 'past_date' | 'booking_overlap' | 'date_change_not_allowed'
   boundaryDate: string
+  conflictingBookingName?: string
 }

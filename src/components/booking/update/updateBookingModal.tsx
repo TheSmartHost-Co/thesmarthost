@@ -10,6 +10,7 @@ import { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { useUserStore } from '@/store/useUserStore'
+import { isValidationError } from '@/services/validationError'
 import { CalendarDaysIcon } from '@heroicons/react/24/outline'
 
 interface UpdateBookingModalProps {
@@ -210,8 +211,12 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
       }
     } catch (err) {
       console.error('Error updating booking:', err)
-      const message = err instanceof Error ? err.message : 'Error updating booking'
-      showNotification(message, 'error')
+      if (isValidationError(err)) {
+        err.errors.forEach((e) => showNotification(e, 'error'))
+      } else {
+        const message = err instanceof Error ? err.message : 'Error updating booking'
+        showNotification(message, 'error')
+      }
     } finally {
       setIsSubmitting(false)
     }

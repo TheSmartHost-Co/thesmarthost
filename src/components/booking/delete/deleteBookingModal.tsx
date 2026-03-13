@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 
 interface DeleteBookingModalProps {
   isOpen: boolean
@@ -75,7 +76,7 @@ const DeleteBookingModal: React.FC<DeleteBookingModalProps> = ({
             Delete Booking
           </h2>
           <p className="text-sm text-gray-600">
-            Are you sure you want to delete this booking for <span className="font-medium text-gray-900">{booking.guestName}</span>?
+            Are you sure you want to delete this booking{!isReservedName(booking.guestName) && <> for <span className="font-medium text-gray-900">{booking.guestName}</span></>}?
           </p>
         </div>
       </div>

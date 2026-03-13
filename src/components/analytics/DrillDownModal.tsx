@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 import { getAnalyticsBookings } from '@/services/analyticsService'
 import { useAnalyticsStore } from '@/store/useAnalyticsStore'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 import type { BookingDetail, BookingsPagination, AnalyticsDateRange } from '@/services/types/analytics'
 
 interface DrillDownModalProps {
@@ -255,7 +256,7 @@ export function DrillDownModal({ isOpen, onClose }: DrillDownModalProps) {
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-sm text-gray-900">{booking.guestName}</span>
+                          <span className="text-sm text-gray-900">{isReservedName(booking.guestName) ? '' : booking.guestName}</span>
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-sm text-gray-600">{booking.listingName}</span>

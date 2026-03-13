@@ -134,9 +134,30 @@ interface InvalidDropModalProps {
 export function InvalidDropModal({ isOpen, info, onClose }: InvalidDropModalProps) {
   if (!info) return null
 
-  const message = info.reason === 'before_checkout'
-    ? `This cleaning cannot be scheduled before the previous guest checks out on ${formatDate(info.boundaryDate)}.`
-    : `This cleaning must be scheduled before the next guest checks in on ${formatDate(info.boundaryDate)}.`
+  let message: string
+  let title: string
+  switch (info.reason) {
+    case 'past_date':
+      message = 'Cannot reschedule to a date in the past.'
+      title = 'Invalid Date'
+      break
+    case 'before_checkout':
+      message = `This cleaning cannot be scheduled before the previous guest checks out on ${formatDate(info.boundaryDate)}.`
+      title = 'Invalid Date'
+      break
+    case 'after_checkin':
+      message = `This cleaning must be scheduled on or before the next guest's check-in on ${formatDate(info.boundaryDate)}.`
+      title = 'Invalid Date'
+      break
+    case 'booking_overlap':
+      message = `This date range overlaps with ${info.conflictingBookingName || 'another booking'}'s booking.`
+      title = 'Booking Conflict'
+      break
+    case 'date_change_not_allowed':
+      message = 'Rescheduling is not available in the cleaner view. Switch to the property view to reschedule cleanings.'
+      title = 'Reassignment Only'
+      break
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-md p-6" zIndex={70}>
@@ -145,11 +166,11 @@ export function InvalidDropModal({ isOpen, info, onClose }: InvalidDropModalProp
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">Invalid Date</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
         <div className="space-y-2">
           <p className="text-gray-700">
-            Cannot move <span className="font-semibold">{info.projectName}</span> to {formatDate(info.targetDate)}.
+            Cannot move <span className="font-semibold">{info.itemName}</span> to {formatDate(info.targetDate)}.
           </p>
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             {message}

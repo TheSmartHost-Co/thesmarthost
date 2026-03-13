@@ -10,6 +10,7 @@ import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValue
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
 import { useUserStore } from '@/store/useUserStore'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 
 interface PreviewBookingModalProps {
   isOpen: boolean
@@ -123,7 +124,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
             <CalendarDaysIcon className="h-6 w-6 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{booking.guestName}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{isReservedName(booking.guestName) ? 'Booking Details' : booking.guestName}</h2>
             <p className="text-sm text-gray-600 mt-1">Reservation: {booking.reservationCode}</p>
             {booking.listingName && (
               <p className="text-sm text-gray-500 mt-1">{booking.listingName}</p>

@@ -3,6 +3,7 @@
 import { UserIcon, ArrowRightStartOnRectangleIcon, ArrowLeftEndOnRectangleIcon } from '@heroicons/react/24/outline'
 import type { Booking } from '@/services/types/booking'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 
 interface BookingEventProps {
   booking: Booking
@@ -67,7 +68,7 @@ export default function BookingEvent({ booking, isFirstDay, isLastDay }: Booking
       <div className="flex items-center gap-1.5">
         <UserIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
         <span className={`text-xs font-semibold truncate ${config.text}`}>
-          {booking.guestName}
+          {!isReservedName(booking.guestName) && booking.guestName}
         </span>
       </div>
 

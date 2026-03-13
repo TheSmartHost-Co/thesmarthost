@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 import { updateIncomingBookingMapping, updateIncomingBookingStatus, updateIncomingBookingFinancials } from '@/services/incomingBookingService'
 import { getProperties } from '@/services/propertyService'
 import { getClientsByParentId } from '@/services/clientService'
@@ -506,7 +507,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-black text-xs text-gray-500">Guest</p>
-                <p className="font-medium text-black">{currentBooking.guestName || 'Unknown'}</p>
+                <p className="font-medium text-black">{isReservedName(currentBooking.guestName) ? '' : (currentBooking.guestName || 'Unknown')}</p>
               </div>
               <div>
                 <p className="text-black text-xs text-gray-500">Dates</p>

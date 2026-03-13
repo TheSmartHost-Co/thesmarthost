@@ -33,6 +33,7 @@ import type { Property } from '@/services/types/property'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Checklist, ChecklistItem } from '@/services/types/checklist'
 import type { Booking } from '@/services/types/booking'
+import { isValidationError } from '@/services/validationError'
 
 interface EditProjectModalProps {
   isOpen: boolean
@@ -311,7 +312,11 @@ export default function EditProjectModal({
       }
     } catch (err) {
       console.error('Error updating project:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to update project', 'error')
+      if (isValidationError(err)) {
+        err.errors.forEach((e) => showNotification(e, 'error'))
+      } else {
+        showNotification(err instanceof Error ? err.message : 'Failed to update project', 'error')
+      }
     } finally {
       setLoading(false)
     }

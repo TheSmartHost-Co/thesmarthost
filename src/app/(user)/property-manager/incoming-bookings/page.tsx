@@ -9,6 +9,7 @@ import { getProperties } from '@/services/propertyService'
 import type { IncomingBooking, SendToTurnoverItem } from '@/services/types/incomingBooking'
 import type { Property } from '@/services/types/property'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { isReservedName } from '@/utils/bookingUtils'
 import ReviewIncomingBookingsModal from '@/components/incoming-bookings/ReviewIncomingBookingsModal'
 import BulkApproveBookingsModal from '@/components/incoming-bookings/BulkApproveBookingsModal'
 import BulkSendToTurnoverModal from '@/components/incoming-bookings/BulkSendToTurnoverModal'
@@ -807,7 +808,7 @@ export default function IncomingBookingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-1.5 flex-wrap">
                           <p className="text-sm font-semibold text-gray-900">
-                            {booking.guestName || 'Unknown Guest'}
+                            {isReservedName(booking.guestName) ? '' : (booking.guestName || 'Unknown Guest')}
                           </p>
                           {/* Workflow status badge */}
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>

@@ -1,6 +1,7 @@
 // services/apiClient.ts
 import { createClient } from '@/utils/supabase/component'
 import { SessionError } from '@/services/sessionError'
+import { ValidationError } from '@/services/validationError'
 import { getSessionStore } from '@/store/useSessionStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -135,14 +136,18 @@ async function apiClient<T, B = unknown>(
     
     if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        let errorArray: string[] | undefined
         try {
             const errorBody = await responseClone.json();
             errorMessage = errorBody.message || errorMessage
+            if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
+                errorArray = errorBody.errors
+            }
             console.log('❌ Error Body:', errorBody)
         } catch {
             console.log('❌ Error (no JSON):', response.statusText)
         }
-        
+
         // Handle auth errors with SessionError and trigger modal
         if (response.status === 401 || response.status === 403) {
             console.log('🔒 Authentication error detected, triggering session modal')
@@ -154,6 +159,12 @@ async function apiClient<T, B = unknown>(
         }
 
         console.groupEnd();
+
+        // Throw ValidationError when backend returns an errors array
+        if (errorArray) {
+            throw new ValidationError(errorMessage, errorArray);
+        }
+
         throw new Error(errorMessage);
     }
 
