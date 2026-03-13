@@ -29,6 +29,7 @@ import {
   ExclamationTriangleIcon,
   ChevronLeftIcon,
   PhotoIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import { getIssuesByProperty, formatIssueAge, getIssueTypeDisplay, getIssueStatusDisplay } from '@/services/projectIssueService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
@@ -866,6 +867,12 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
                 {property.propertyType === 'STR' ? 'Short-Term Rental' : 'Long-Term Rental'}
               </span>
               {getStatusBadge()}
+              {property.cleaningManaged === false && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-200 text-gray-600">
+                  <NoSymbolIcon className="w-3 h-3" />
+                  No Cleaning
+                </span>
+              )}
               <span className="text-sm text-gray-500">
                 Added {formatDate(property.createdAt)}
               </span>

@@ -8,10 +8,10 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getCleaningProjects, getCleaningProjectStats, updateCleaningProject } from '@/services/cleaningProjectService'
+import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject } from '@/services/cleaningProjectService'
 import { toLocalDateStr } from './utils/calendarDateUtils'
 import { getCleaners } from '@/services/cleanerService'
-import { getProperties } from '@/services/propertyService'
+import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getPendingSupplyLists } from '@/services/supplyListService'
@@ -20,6 +20,7 @@ import type { CleaningProject, CleaningProjectStats } from '@/services/types/cle
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
+import type { DeepLinkSection } from '@/hooks/useDeepLink'
 import CalendarHeader from './CalendarHeader'
 import PropertyRowView from './PropertyRowView'
 import CleanerRowView from './CleanerRowView'
@@ -28,6 +29,7 @@ import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
 import DuplicateChecklistModal from '@/components/checklist/duplicate/DuplicateChecklistModal'
+import CleaningExclusionsModal from './CleaningExclusionsModal'
 import { AllIssuesModal } from '@/components/turnover/issues'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
@@ -41,11 +43,19 @@ export const UNASSIGNED_FILTER_ID = '__unassigned__'
 interface TurnoverCalendarProps {
   initialProperties?: Property[]
   initialCleaners?: Cleaner[]
+  deepLinkProjectId?: string | null
+  deepLinkSection?: DeepLinkSection | null
+  deepLinkView?: string | null
+  onCalendarReady?: () => void
 }
 
 export default function TurnoverCalendar({
   initialProperties,
   initialCleaners,
+  deepLinkProjectId,
+  deepLinkSection,
+  deepLinkView,
+  onCalendarReady,
 }: TurnoverCalendarProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -110,6 +120,11 @@ export default function TurnoverCalendar({
   const [showBookingPreview, setShowBookingPreview] = useState(false)
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
   const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
+  const [showExclusionsModal, setShowExclusionsModal] = useState(false)
+
+  // Deep link state
+  const deepLinkHandled = useRef(false)
+  const [deepLinkInitialSection, setDeepLinkInitialSection] = useState<'issues' | 'supplies' | null>(null)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -342,16 +357,54 @@ export default function TurnoverCalendar({
         showNotification(message, 'error')
       } finally {
         setLoading(false)
+        onCalendarReady?.()
       }
     }
 
     fetchInitialData()
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle deep link after calendar data is loaded
+  useEffect(() => {
+    if (loading || deepLinkHandled.current) return
+    if (!deepLinkProjectId && !deepLinkView) return
+
+    deepLinkHandled.current = true
+
+    // Handle page-level view (e.g., allIssues)
+    if (deepLinkView === 'allIssues') {
+      setShowAllIssuesModal(true)
+      return
+    }
+
+    // Handle project-level deep link
+    if (deepLinkProjectId) {
+      ;(async () => {
+        try {
+          const res = await getCleaningProjectById(deepLinkProjectId)
+          if (res.status === 'success') {
+            const project = res.data
+            // Navigate calendar to project's date
+            const projectDate = new Date(project.projectDate.split('T')[0] + 'T00:00:00')
+            setCurrentDate(projectDate)
+            // Open the detail modal
+            setSelectedProject(project)
+            if (deepLinkSection) setDeepLinkInitialSection(deepLinkSection)
+            setShowDetailModal(true)
+          } else {
+            showNotification('This project no longer exists.', 'info')
+          }
+        } catch {
+          showNotification('This project no longer exists.', 'info')
+        }
+      })()
+    }
+  }, [loading, deepLinkProjectId, deepLinkSection, deepLinkView, showNotification])
+
   // Auto-populate filter IDs with all items on initial load
   useEffect(() => {
     if (properties.length > 0 && selectedPropertyIds.length === 0) {
-      setSelectedPropertyIds(properties.map(p => p.id))
+      setSelectedPropertyIds(properties.filter(p => p.cleaningManaged !== false).map(p => p.id))
     }
   }, [properties]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -544,6 +597,11 @@ export default function TurnoverCalendar({
     return visibleBookings.filter(b => selectedPropertyIds.includes(b.propertyId))
   }, [visibleBookings, selectedPropertyIds])
 
+  const isCleanerFilterActive = useMemo(() => {
+    const allCount = cleaners.length + 1 // +1 for UNASSIGNED_FILTER_ID
+    return selectedCleanerIds.length > 0 && selectedCleanerIds.length < allCount
+  }, [selectedCleanerIds, cleaners.length])
+
   // Handle project click
   const handleProjectClick = (project: CleaningProject) => {
     setSelectedProject(project)
@@ -657,6 +715,38 @@ export default function TurnoverCalendar({
     allIssues.filter(i => i.status !== 'resolved').length,
     [allIssues]
   )
+
+  // Computed: excluded property count
+  const excludedPropertyCount = useMemo(() =>
+    properties.filter(p => p.cleaningManaged === false).length,
+    [properties]
+  )
+
+  // Toggle cleaning_managed for a property
+  const handleToggleCleaningManaged = useCallback(async (propertyId: string, enabled: boolean) => {
+    try {
+      const res = await updateProperty(propertyId, { cleaningManaged: enabled })
+      if (res.status === 'success') {
+        setProperties(prev => prev.map(p =>
+          p.id === propertyId ? { ...p, cleaningManaged: enabled } : p
+        ))
+        if (enabled) {
+          setSelectedPropertyIds(prev => prev.includes(propertyId) ? prev : [...prev, propertyId])
+        } else {
+          setSelectedPropertyIds(prev => prev.filter(id => id !== propertyId))
+        }
+        showNotification(
+          enabled ? 'Cleaning management enabled' : 'Cleaning management disabled',
+          'success'
+        )
+      } else {
+        showNotification(res.message || 'Failed to update property', 'error')
+      }
+    } catch (err) {
+      console.error('Error toggling cleaning managed:', err)
+      showNotification('Failed to update property', 'error')
+    }
+  }, [showNotification])
 
   // Arrow navigation handlers
   const handlePrevWeek = useCallback(() => {
@@ -795,9 +885,9 @@ export default function TurnoverCalendar({
           onCreateProject={() => setShowCreateModal(true)}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
-          showBookings={viewMode === 'cleaner' ? false : showBookings}
-          onToggleBookings={viewMode === 'cleaner' ? undefined : handleToggleBookings}
-          bookingsLoading={viewMode === 'cleaner' ? false : bookingsLoading}
+          showBookings={viewMode === 'cleaner' || isCleanerFilterActive ? false : showBookings}
+          onToggleBookings={viewMode === 'cleaner' || isCleanerFilterActive ? undefined : handleToggleBookings}
+          bookingsLoading={viewMode === 'cleaner' || isCleanerFilterActive ? false : bookingsLoading}
           properties={properties}
           selectedPropertyIds={selectedPropertyIds}
           onPropertyFilterChange={setSelectedPropertyIds}
@@ -811,6 +901,8 @@ export default function TurnoverCalendar({
           onSortChange={setSortOption}
           openIssueCount={openIssueCount}
           onOpenAllIssues={() => setShowAllIssuesModal(true)}
+          excludedPropertyCount={excludedPropertyCount}
+          onOpenExclusions={() => setShowExclusionsModal(true)}
         />
 
         {/* Scroll container for calendar body */}
@@ -835,7 +927,7 @@ export default function TurnoverCalendar({
                 <MonthGridView
                   projects={filteredProjects}
                   properties={filteredProperties}
-                  bookings={showBookings ? filteredBookings : []}
+                  bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
                   dateRange={dateRange}
                   onProjectClick={handleProjectClick}
                   onBookingClick={handleBookingClick}
@@ -854,7 +946,7 @@ export default function TurnoverCalendar({
                   onBookingClick={handleBookingClick}
                   issueCountsMap={issueCountsMap}
                   supplyListCountsMap={supplyListCountsMap}
-                  bookings={showBookings ? filteredBookings : []}
+                  bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
                   zoomLevel={zoomLevel}
                   onRequestDateShift={handleRequestDateShift}
                   onProjectDrop={handleProjectDrop}
@@ -903,6 +995,7 @@ export default function TurnoverCalendar({
           properties={properties}
           onUpdate={handleProjectUpdate}
           onDelete={handleProjectDelete}
+          initialSection={deepLinkInitialSection}
         />
       )}
 
@@ -911,7 +1004,7 @@ export default function TurnoverCalendar({
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onAdd={handleProjectCreate}
-        properties={properties}
+        properties={properties.filter(p => p.cleaningManaged !== false)}
         cleaners={cleaners}
         initialDate={dateRange.start}
       />
@@ -989,6 +1082,14 @@ export default function TurnoverCalendar({
         onClose={() => setShowAllIssuesModal(false)}
         issues={allIssues}
         onIssuesChanged={() => { refreshIssueCounts(); refreshSupplyListCounts() }}
+      />
+
+      {/* Cleaning Exclusions Modal */}
+      <CleaningExclusionsModal
+        isOpen={showExclusionsModal}
+        onClose={() => setShowExclusionsModal(false)}
+        properties={properties}
+        onToggleCleaningManaged={handleToggleCleaningManaged}
       />
     </motion.div>
   )

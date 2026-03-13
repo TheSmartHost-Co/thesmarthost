@@ -4,6 +4,7 @@ import { useState } from 'react'
 import ResponsiveSidebar from '@/components/navbar/ResponsiveSidebar'
 import UserNavbar from '@/components/navbar/UserNavbar'
 import { managerSidebarItems } from '@/components/navbar/sidebarItems'
+import { useNotificationPolling } from '@/hooks/useNotificationPolling'
 
 export default function AdminLayout({
   children,
@@ -11,6 +12,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  useNotificationPolling()
 
   return (
     <div className="min-h-screen bg-gray-50">

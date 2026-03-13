@@ -47,6 +47,8 @@ export interface Property {
   // Default times
   defaultCheckoutTime?: string | null
   defaultCheckinTime?: string | null
+  // Cleaning management
+  cleaningManaged: boolean
 }
 
 /**
@@ -109,6 +111,8 @@ export interface CreatePropertyPayload {
   // Default times
   defaultCheckoutTime?: string
   defaultCheckinTime?: string
+  // Cleaning management
+  cleaningManaged?: boolean
 }
 
 /**
@@ -139,6 +143,8 @@ export interface UpdatePropertyPayload {
   // Default times
   defaultCheckoutTime?: string | null
   defaultCheckinTime?: string | null
+  // Cleaning management
+  cleaningManaged?: boolean
 }
 
 /**

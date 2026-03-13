@@ -797,6 +797,12 @@ export default function PropertyManagerPropertiesPage() {
                                 Incomplete
                               </span>
                             )}
+                            {property.cleaningManaged === false && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">
+                                <NoSymbolIcon className="w-3 h-3" />
+                                No Cleaning
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-slate-500 truncate max-w-[200px]">
                             {property.address}
@@ -1089,6 +1095,12 @@ function PropertyCard({
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white backdrop-blur-sm">
               <ExclamationTriangleIcon className="w-3 h-3" />
               Incomplete
+            </span>
+          )}
+          {property.cleaningManaged === false && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-600/80 text-white backdrop-blur-sm">
+              <NoSymbolIcon className="w-3 h-3" />
+              No Cleaning
             </span>
           )}
         </div>

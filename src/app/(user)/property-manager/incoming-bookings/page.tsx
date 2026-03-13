@@ -902,10 +902,33 @@ export default function IncomingBookingsPage() {
                       )}
 
                       {booking.status === 'cleaning_only' && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-teal-100 text-teal-700">
-                          <WrenchScrewdriverIcon className="h-4 w-4" />
-                          In Turnover Calendar
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-teal-100 text-teal-700">
+                            <WrenchScrewdriverIcon className="h-4 w-4" />
+                            Turnover Only
+                          </span>
+                          {booking.propertyId ? (
+                            <motion.button
+                              onClick={() => handleStatusUpdate(booking.id, 'approved')}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-500/20 transition-colors"
+                            >
+                              <CheckIcon className="h-4 w-4 mr-1.5" />
+                              Approve to Bookings
+                            </motion.button>
+                          ) : (
+                            <motion.button
+                              onClick={() => handleReviewBooking(booking)}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/20 transition-colors"
+                            >
+                              <CheckIcon className="h-4 w-4 mr-1.5" />
+                              Map & Approve
+                            </motion.button>
+                          )}
+                        </>
                       )}
 
                       <motion.button

@@ -49,6 +49,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   // Default times
   const [defaultCheckoutTime, setDefaultCheckoutTime] = useState(property.defaultCheckoutTime || '')
   const [defaultCheckinTime, setDefaultCheckinTime] = useState(property.defaultCheckinTime || '')
+  // Cleaning management
+  const [cleaningManaged, setCleaningManaged] = useState(property.cleaningManaged ?? true)
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -81,6 +83,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setShowWifiPassword(false)
       setDefaultCheckoutTime(property.defaultCheckoutTime || '')
       setDefaultCheckinTime(property.defaultCheckinTime || '')
+      setCleaningManaged(property.cleaningManaged ?? true)
     }
   }, [isOpen, property])
 
@@ -142,6 +145,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         // Default times
         defaultCheckoutTime: defaultCheckoutTime || null,
         defaultCheckinTime: defaultCheckinTime || null,
+        // Cleaning management
+        cleaningManaged,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -487,6 +492,33 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                 />
                 <p className="text-xs text-gray-500 mt-1">When guests check in (default: 3:00 PM)</p>
               </div>
+            </div>
+          </div>
+
+          {/* Cleaning Management Section */}
+          <div className="pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">Cleaning Management</label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {cleaningManaged
+                    ? 'This property appears on the turnover calendar and receives auto-created cleaning projects.'
+                    : 'This property is excluded from the turnover calendar and will not receive cleaning projects.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCleaningManaged(!cleaningManaged)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  cleaningManaged ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    cleaningManaged ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

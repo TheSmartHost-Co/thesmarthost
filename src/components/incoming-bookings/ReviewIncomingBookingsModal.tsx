@@ -25,7 +25,8 @@ import {
   CheckIcon,
   BuildingOfficeIcon,
   PencilIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline'
 
 interface ReviewIncomingBookingsModalProps {
@@ -443,6 +444,12 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                   Imported
                 </span>
               )}
+              {currentBooking?.status === 'cleaning_only' && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                  <WrenchScrewdriverIcon className="h-3 w-3 mr-1" />
+                  Turnover Only
+                </span>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -467,13 +474,28 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                     </p>
                   </div>
                 </div>
-                <a 
+                <a
                   href={`/property-manager/bookings?id=${currentBooking.importedBookingId}`}
                   className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
                 >
                   View Full Booking
                   <EyeIcon className="ml-2 h-4 w-4" />
                 </a>
+              </div>
+            </div>
+          )}
+
+          {/* Turnover Only Banner */}
+          {currentBooking?.status === 'cleaning_only' && (
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center">
+                <WrenchScrewdriverIcon className="h-5 w-5 text-teal-600 mr-2 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-teal-800">This booking is in the turnover calendar only</p>
+                  <p className="text-xs text-teal-600 mt-1">
+                    A cleaning project has been created, but no booking record exists yet. You can approve it as a full booking below.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -783,7 +805,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                 disabled={loading || !selectedPropertyId}
                 className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                {loading ? 'Processing...' : 'Save & Approve'}
+                {loading ? 'Processing...' : currentBooking?.status === 'cleaning_only' ? 'Approve to Bookings' : 'Save & Approve'}
               </button>
             )}
           </div>

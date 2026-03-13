@@ -97,10 +97,7 @@ export default function PropertyManagerSettingsPage() {
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
         role: profile.role!,
-        phoneNumber: profile.phoneNumber || null,
-        companyName: profile.companyName || null,
-        smsNotificationsEnabled: field === 'smsNotificationsEnabled' ? enabled : (profile.smsNotificationsEnabled ?? true),
-        emailNotificationsEnabled: field === 'emailNotificationsEnabled' ? enabled : (profile.emailNotificationsEnabled ?? true),
+        [field]: enabled,
       })
 
       if (response.status === 'success' && response.data) {
@@ -130,10 +127,6 @@ export default function PropertyManagerSettingsPage() {
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
         role: profile.role!,
-        phoneNumber: profile.phoneNumber || null,
-        companyName: profile.companyName || null,
-        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
-        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
         autoImport: enabled,
       })
 
@@ -176,9 +169,6 @@ export default function PropertyManagerSettingsPage() {
         role: profileData.role,
         phoneNumber: profileData.phone || null,
         companyName: profileData.company || null,
-        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
-        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
-        autoImport: profile.autoImport ?? false,
       })
 
       if (response.status === 'success' && response.data) {

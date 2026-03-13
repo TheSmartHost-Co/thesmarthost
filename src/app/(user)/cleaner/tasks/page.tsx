@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import {
   ClipboardDocumentListIcon,
@@ -29,6 +29,7 @@ import ChecklistModal from '@/components/cleaner-portal/ChecklistModal'
 import RequestTimeChangeModal from '@/components/cleaner-portal/RequestTimeChangeModal'
 import ViewPendingTimeChangeModal from '@/components/cleaner-portal/ViewPendingTimeChangeModal'
 import ViewIssuesModal from '@/components/turnover/issues/ViewIssuesModal'
+import { useDeepLink, type DeepLinkResult } from '@/hooks/useDeepLink'
 
 // Date grouping helper
 function groupProjectsByDate(projects: CleaningProject[]) {
@@ -92,6 +93,36 @@ function groupProjectsByDate(projects: CleaningProject[]) {
   groups.completed.sort((a, b) => sortByDateTime(b, a)) // Most recent first
 
   return groups
+}
+
+/**
+ * Deep-link handler (renders nothing).
+ * Reads ?projectId from URL; when projects are loaded, opens the matching checklist modal.
+ */
+function CleanerDeepLinkHandler({
+  projects,
+  loading,
+  onOpenChecklist,
+}: {
+  projects: CleaningProject[]
+  loading: boolean
+  onOpenChecklist: (project: CleaningProject) => void
+}) {
+  const showNotification = useNotificationStore((state) => state.showNotification)
+
+  const handleDeepLink = useCallback((result: DeepLinkResult) => {
+    if (!result.projectId) return
+    const project = projects.find(p => p.id === result.projectId)
+    if (project) {
+      onOpenChecklist(project)
+    } else {
+      showNotification('Task not found — it may have been reassigned.', 'info')
+    }
+  }, [projects, onOpenChecklist, showNotification])
+
+  useDeepLink(handleDeepLink, !loading && projects.length >= 0)
+
+  return null
 }
 
 export default function CleanerTasksPage() {
@@ -398,6 +429,15 @@ export default function CleanerTasksPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {/* Deep-link handler (requires Suspense for useSearchParams) */}
+      <Suspense fallback={null}>
+        <CleanerDeepLinkHandler
+          projects={projects}
+          loading={loading}
+          onOpenChecklist={handleViewChecklist}
+        />
+      </Suspense>
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>

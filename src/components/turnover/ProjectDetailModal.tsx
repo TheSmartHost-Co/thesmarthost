@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -68,6 +68,7 @@ interface ProjectDetailModalProps {
   properties: Property[]
   onUpdate: (project: CleaningProject) => void
   onDelete?: (id: string) => void
+  initialSection?: 'issues' | 'supplies' | null
 }
 
 export default function ProjectDetailModal({
@@ -78,6 +79,7 @@ export default function ProjectDetailModal({
   properties,
   onUpdate,
   onDelete,
+  initialSection,
 }: ProjectDetailModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
   const user = useUserStore((state) => state.profile)
@@ -123,6 +125,19 @@ export default function ProjectDetailModal({
   const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
   const [isResolvingRequest, setIsResolvingRequest] = useState(false)
   const [rejectionNotes, setRejectionNotes] = useState('')
+
+  // Auto-open sub-modal from deep link (fires once per mount)
+  const initialSectionHandled = useRef(false)
+  useEffect(() => {
+    if (!isOpen || !initialSection || initialSectionHandled.current) return
+    initialSectionHandled.current = true
+    // Delay slightly so main modal renders first
+    const timer = setTimeout(() => {
+      if (initialSection === 'issues') setShowViewIssuesModal(true)
+      else if (initialSection === 'supplies') setShowViewSupplyListsModal(true)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [isOpen, initialSection])
 
   // Fetch issue counts when modal opens
   const fetchIssueCounts = useCallback(async () => {

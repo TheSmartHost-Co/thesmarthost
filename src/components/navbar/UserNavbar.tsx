@@ -7,6 +7,7 @@ import {
   Bars3Icon,
 } from '@heroicons/react/24/outline'
 import LogoutModal from '@/components/shared/LogoutModal'
+import NotificationBell from '@/components/notification-center/NotificationBell'
 
 interface UserNavbarProps {
   onToggleSidebar?: () => void
@@ -49,8 +50,11 @@ export default function UserNavbar({
           </div>
         </div>
 
-        {/* Right side - Settings and Logout */}
+        {/* Right side - Notifications, Settings, Logout */}
         <div className="flex items-center space-x-4">
+          {/* Notification Center */}
+          <NotificationBell />
+
           {/* Settings Link - Hide text on mobile */}
           <Link
             href={`${basePath}/settings`}

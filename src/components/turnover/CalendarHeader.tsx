@@ -16,6 +16,7 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   ExclamationTriangleIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
 import type { ViewMode, ZoomLevel, SortOption } from './TurnoverCalendar'
@@ -49,6 +50,8 @@ interface CalendarHeaderProps {
   onSortChange?: (sort: SortOption) => void
   openIssueCount?: number
   onOpenAllIssues?: () => void
+  excludedPropertyCount?: number
+  onOpenExclusions?: () => void
 }
 
 export default function CalendarHeader({
@@ -78,6 +81,8 @@ export default function CalendarHeader({
   onSortChange,
   openIssueCount,
   onOpenAllIssues,
+  excludedPropertyCount,
+  onOpenExclusions,
 }: CalendarHeaderProps) {
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
@@ -583,6 +588,29 @@ export default function CalendarHeader({
             {openIssueCount !== undefined && openIssueCount > 0 && (
               <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded-full leading-none">
                 {openIssueCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Exclusions Button */}
+        {onOpenExclusions && (
+          <button
+            onClick={onOpenExclusions}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
+              transition-all duration-200 cursor-pointer border
+              ${excludedPropertyCount && excludedPropertyCount > 0
+                ? 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+              }
+            `}
+          >
+            <NoSymbolIcon className="w-3.5 h-3.5" />
+            Exclusions
+            {excludedPropertyCount !== undefined && excludedPropertyCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-gray-600 text-white rounded-full leading-none">
+                {excludedPropertyCount}
               </span>
             )}
           </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import {
   CalendarDaysIcon,
@@ -14,6 +14,43 @@ import { getCleaners } from '@/services/cleanerService'
 import type { Property } from '@/services/types/property'
 import type { Cleaner } from '@/services/types/cleaner'
 import TurnoverCalendar from '@/components/turnover/TurnoverCalendar'
+import { useDeepLink, type DeepLinkResult, type DeepLinkSection } from '@/hooks/useDeepLink'
+
+/**
+ * Inner component that reads search params (requires Suspense boundary).
+ * Passes deep-link data down to TurnoverCalendar as props.
+ */
+function TurnoverCalendarWithDeepLink({
+  properties,
+  cleaners,
+}: {
+  properties: Property[]
+  cleaners: Cleaner[]
+}) {
+  const [calendarReady, setCalendarReady] = useState(false)
+  const [deepLink, setDeepLink] = useState<DeepLinkResult>({
+    projectId: null,
+    section: null,
+    view: null,
+  })
+
+  const handleDeepLink = useCallback((result: DeepLinkResult) => {
+    setDeepLink(result)
+  }, [])
+
+  useDeepLink(handleDeepLink, calendarReady)
+
+  return (
+    <TurnoverCalendar
+      initialProperties={properties}
+      initialCleaners={cleaners}
+      deepLinkProjectId={deepLink.projectId}
+      deepLinkSection={deepLink.section}
+      deepLinkView={deepLink.view}
+      onCalendarReady={() => setCalendarReady(true)}
+    />
+  )
+}
 
 export default function TurnoverPage() {
   const { profile } = useUserStore()
@@ -207,11 +244,13 @@ export default function TurnoverPage() {
         <p className="text-gray-500 mt-1">Manage cleaning projects and schedules</p>
       </div>
 
-      {/* Calendar */}
-      <TurnoverCalendar
-        initialProperties={properties}
-        initialCleaners={cleaners}
-      />
+      {/* Calendar with deep-link support (Suspense required for useSearchParams) */}
+      <Suspense fallback={null}>
+        <TurnoverCalendarWithDeepLink
+          properties={properties}
+          cleaners={cleaners}
+        />
+      </Suspense>
     </div>
   )
 }
