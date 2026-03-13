@@ -82,6 +82,7 @@ export default function CleanerRowView({
   const layoutSlotWidthRef = useRef(slotWidth)
   const trackContainerRef = useRef<HTMLDivElement>(null)
   const stickyTrackRef = useRef<HTMLDivElement>(null)
+  const prevDateStartRef = useRef(dateRange.start)
 
   // Stable scroll-frame callback — directly updates DOM transforms (no React re-render)
   const handleScrollFrame = useCallback((offset: number) => {
@@ -115,7 +116,7 @@ export default function CleanerRowView({
     bufferCols,
   })
 
-  const { scrollOffsetRef, timelineRef, resetOffset } = useCalendarScroll({
+  const { scrollOffsetRef, pendingShiftRef, timelineRef, resetOffset } = useCalendarScroll({
     slotWidth,
     onRequestDateShift: onRequestDateShift || (() => {}),
     isDraggingRef,
@@ -128,6 +129,25 @@ export default function CleanerRowView({
     layoutSlotWidthRef.current = slotWidth
     handleScrollFrame(scrollOffsetRef.current)
   }, [bufferCols, slotWidth, handleScrollFrame, scrollOffsetRef])
+
+  // After React commits a scroll-induced date shift, atomically wrap offset to match new allDates.
+  // Runs BEFORE browser paint → zero visual desync.
+  useLayoutEffect(() => {
+    const prev = prevDateStartRef.current
+    prevDateStartRef.current = dateRange.start
+    if (prev === dateRange.start) return
+    // Only wrap for scroll-induced shifts (pendingShiftRef > 0), not arrow navigation
+    if (pendingShiftRef.current === 0) return
+
+    const prevDate = parseLocalDate(prev)
+    const currDate = parseLocalDate(dateRange.start)
+    const shiftedDays = Math.round((currDate.getTime() - prevDate.getTime()) / 86400000)
+    if (shiftedDays === 0) return
+
+    scrollOffsetRef.current -= shiftedDays * layoutSlotWidthRef.current
+    pendingShiftRef.current -= shiftedDays
+    handleScrollFrame(scrollOffsetRef.current)
+  }, [dateRange.start, handleScrollFrame, scrollOffsetRef, pendingShiftRef])
 
   useEffect(() => {
     const el = timelineRef.current

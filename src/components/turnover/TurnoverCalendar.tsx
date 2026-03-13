@@ -432,10 +432,19 @@ export default function TurnoverCalendar({
     }
   }, [cleaners]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch months when navigating (after initial load)
+  // Fetch months when navigating (after initial load) — debounced to avoid
+  // rapid re-fetches during continuous scroll-induced date shifts
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
   useEffect(() => {
     if (!profile?.id || !initialFetchDone.current) return
-    fetchMonthsForRange(currentDate, profile.id)
+    if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current)
+    fetchDebounceRef.current = setTimeout(() => {
+      fetchMonthsForRange(currentDate, profile.id)
+    }, 150)
+    return () => {
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current)
+    }
   }, [currentDate, profile?.id, fetchMonthsForRange])
 
   // Ref to read dateRange inside epoch-gated effect without adding it as a dependency

@@ -11,6 +11,7 @@ interface UseCalendarScrollOptions {
 
 interface UseCalendarScrollReturn {
   scrollOffsetRef: React.MutableRefObject<number>
+  pendingShiftRef: React.MutableRefObject<number>
   timelineRef: React.RefObject<HTMLDivElement | null>
   resetOffset: () => void
 }
@@ -26,6 +27,8 @@ export function useCalendarScroll({
   const slotWidthRef = useRef(slotWidth)
   const onRequestDateShiftRef = useRef(onRequestDateShift)
   const onScrollFrameRef = useRef(onScrollFrame)
+  const pendingShiftRef = useRef(0)
+  const rafIdRef = useRef<number>(0)
 
   useEffect(() => { slotWidthRef.current = slotWidth }, [slotWidth])
   useEffect(() => { onRequestDateShiftRef.current = onRequestDateShift }, [onRequestDateShift])
@@ -33,26 +36,40 @@ export function useCalendarScroll({
 
   const resetOffset = useCallback(() => {
     scrollOffsetRef.current = 0
+    pendingShiftRef.current = 0
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = 0
+    }
     onScrollFrameRef.current?.(0)
   }, [])
 
-  // Advance offset, fire date-shift when crossing a column boundary
-  // All callback refs are stable, so applyDelta never changes → listeners stay attached
+  // Advance offset and write raw (un-wrapped) value to the DOM.
+  // Buffer columns absorb overshoot. Date shift is RAF-batched so
+  // React commit and offset-wrap happen atomically in useLayoutEffect.
   const applyDelta = useCallback((delta: number) => {
     const w = slotWidthRef.current
-    let next = scrollOffsetRef.current + delta
+    if (w <= 0) return
 
-    while (next >= w) {
-      next -= w
-      onRequestDateShiftRef.current(1)
-    }
-    while (next <= -w) {
-      next += w
-      onRequestDateShiftRef.current(-1)
-    }
+    scrollOffsetRef.current += delta
 
-    scrollOffsetRef.current = next
-    onScrollFrameRef.current?.(next)
+    // Write raw (un-wrapped) offset to DOM — buffer columns absorb overshoot
+    onScrollFrameRef.current?.(scrollOffsetRef.current)
+
+    // Schedule batched date shift when offset crosses column boundaries
+    if (!rafIdRef.current && Math.abs(scrollOffsetRef.current) >= w) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = 0
+        const w2 = slotWidthRef.current
+        if (w2 <= 0) return
+        const totalShifts = Math.trunc(scrollOffsetRef.current / w2)
+        const newShifts = totalShifts - pendingShiftRef.current
+        if (newShifts !== 0) {
+          pendingShiftRef.current = totalShifts
+          onRequestDateShiftRef.current(newShifts)
+        }
+      })
+    }
   }, [])
 
   useEffect(() => {
@@ -119,6 +136,7 @@ export function useCalendarScroll({
     el.addEventListener('pointercancel', handlePointerUp)
 
     return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
       el.removeEventListener('wheel', handleWheel)
       el.removeEventListener('pointerdown', handlePointerDown)
       el.removeEventListener('pointermove', handlePointerMove)
@@ -127,5 +145,5 @@ export function useCalendarScroll({
     }
   }, [applyDelta])
 
-  return { scrollOffsetRef, timelineRef, resetOffset }
+  return { scrollOffsetRef, pendingShiftRef, timelineRef, resetOffset }
 }
