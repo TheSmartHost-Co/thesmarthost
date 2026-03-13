@@ -79,7 +79,7 @@ export default function ProjectEvent({
   nextCheckinDate = null,
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
-  const isAwaiting = project.status === 'assigned' && project.cleanerAccepted === null
+  const isAwaiting = project.status === 'assigned'
   const dotColor = getStatusDotColor(project.status, isUnassigned, isAwaiting)
   const statusStyle = getStatusStyle(project.status, isUnassigned, isAwaiting)
   const statusLabel = getStatusLabel(project.status, isAwaiting)
@@ -91,13 +91,13 @@ export default function ProjectEvent({
     ? (project.propertyName || 'Unknown Property')
     : cleanerName
 
-  const timeStart = formatShortTime(project.checkoutTime)
-  const timeEnd = formatShortTime(project.checkinTime)
+  const timeStart = formatShortTime(project.projectStartTime)
+  const timeEnd = formatShortTime(project.projectEndTime)
   const timeStr = timeStart && timeEnd ? `${timeStart}\u2192${timeEnd}` : timeStart || timeEnd || ''
 
   const timeLong = (() => {
-    const s = formatTime(project.checkoutTime)
-    const e = formatTime(project.checkinTime)
+    const s = formatTime(project.projectStartTime)
+    const e = formatTime(project.projectEndTime)
     return s && e ? `${s} \u2192 ${e}` : s || e || ''
   })()
 
@@ -170,11 +170,9 @@ export default function ProjectEvent({
               {project.estimatedDurationMinutes && (
                 <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
               )}
-              {(project.guestName || project.reservationCode) && (
+              {project.previousBookingGuestName && (
                 <div className="text-gray-300 mt-0.5">
-                  {project.guestName ? `Guest: ${project.guestName}` : ''}
-                  {project.guestName && project.reservationCode ? ` \u00b7 #${project.reservationCode}` : ''}
-                  {!project.guestName && project.reservationCode ? `#${project.reservationCode}` : ''}
+                  Guest: {project.previousBookingGuestName}
                 </div>
               )}
               {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
@@ -189,9 +187,9 @@ export default function ProjectEvent({
   }
 
   // Timeline views: vertical layout with 3px left border (~80px)
-  const scheduledDateFormatted = project.scheduledDate
+  const scheduledDateFormatted = project.projectDate
     ? (() => {
-        const raw = project.scheduledDate
+        const raw = project.projectDate
         const dateOnly = toLocalDateStr(raw)
         const [y, m, d] = dateOnly.split('-').map(Number)
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -200,20 +198,20 @@ export default function ProjectEvent({
 
   // Calculate gap: cleaning start (scheduledDate + checkoutTime) → next guest arrival (nextCheckinDate + checkinTime)
   const gapUntilCheckin = (() => {
-    if (!project.scheduledDate || !nextCheckinDate) return null
-    // Cleaning starts at checkoutTime on scheduledDate
-    const cleanDate = toLocalDateStr(project.scheduledDate)
+    if (!project.projectDate || !nextCheckinDate) return null
+    // Cleaning starts at projectStartTime on projectDate
+    const cleanDate = toLocalDateStr(project.projectDate)
     const [cy, cm, cd] = cleanDate.split('-').map(Number)
-    const [ch, cmin] = project.checkoutTime
-      ? project.checkoutTime.split(':').map(Number)
+    const [ch, cmin] = project.projectStartTime
+      ? project.projectStartTime.split(':').map(Number)
       : [0, 0]
     const cleaningStart = new Date(cy, cm - 1, cd, ch, cmin)
 
     // Next guest checks in at checkinTime on nextCheckinDate
     const ciDate = toLocalDateStr(nextCheckinDate)
     const [iy, im, id] = ciDate.split('-').map(Number)
-    const [ih, imin] = project.checkinTime
-      ? project.checkinTime.split(':').map(Number)
+    const [ih, imin] = project.projectEndTime
+      ? project.projectEndTime.split(':').map(Number)
       : [0, 0]
     const checkinDateTime = new Date(iy, im - 1, id, ih, imin)
 
@@ -298,11 +296,9 @@ export default function ProjectEvent({
             {project.estimatedDurationMinutes && (
               <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
             )}
-            {(project.guestName || project.reservationCode) && (
+            {project.previousBookingGuestName && (
               <div className="text-gray-300 mt-0.5">
-                {project.guestName ? `Guest: ${project.guestName}` : ''}
-                {project.guestName && project.reservationCode ? ` \u00b7 #${project.reservationCode}` : ''}
-                {!project.guestName && project.reservationCode ? `#${project.reservationCode}` : ''}
+                Guest: {project.previousBookingGuestName}
               </div>
             )}
             {(project.propertyNumBedrooms || project.propertyNumBathrooms) && (

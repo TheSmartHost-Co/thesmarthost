@@ -12,19 +12,19 @@ export interface CleaningProject {
   id: string
   userId: string
   propertyId: string
-  bookingId?: string | null
+  previousBookingId?: string | null
+  nextBookingId?: string | null
   cleanerId?: string | null
   checklistId?: string | null
-  scheduledDate: string          // ISO date string (YYYY-MM-DD)
-  checkoutTime?: string | null   // Time string (HH:MM:SS)
-  checkinTime?: string | null    // Time string (HH:MM:SS)
+  projectDate: string            // ISO date string (YYYY-MM-DD)
+  projectStartTime?: string | null // Time string (HH:MM:SS)
+  projectEndTime?: string | null   // Time string (HH:MM:SS)
   estimatedDurationMinutes?: number | null
   actualStart?: string | null    // ISO timestamp
   actualEnd?: string | null      // ISO timestamp
   guestCount?: number | null
   isSameDayTurnover: boolean
   status: CleaningProjectStatus
-  cleanerAccepted?: boolean | null  // null=awaiting, true=accepted, false=declined
   pmNotes?: string | null
   cleanerNotes?: string | null
   source: 'manual' | 'hostaway' | 'ical' | 'incoming' | 'webhook'
@@ -48,10 +48,12 @@ export interface CleaningProject {
   cleanerEmail?: string
   cleanerPhone?: string
   checklistName?: string
-  guestName?: string
-  reservationCode?: string
-  bookingCheckIn?: string
-  bookingCheckOut?: string
+  previousBookingGuestName?: string
+  previousBookingCheckIn?: string
+  previousBookingCheckOut?: string
+  nextBookingGuestName?: string
+  nextBookingCheckIn?: string
+  nextBookingCheckOut?: string
   // Checklist progress (included when fetching single project)
   checklistProgress?: ChecklistProgress
   checklistItemsInitialized?: number  // Included on create when checklist auto-initialized
@@ -70,12 +72,13 @@ export type CleaningProjectStatus =
 export interface CreateCleaningProjectPayload {
   userId: string
   propertyId: string
-  bookingId?: string | null
+  previousBookingId?: string | null
+  nextBookingId?: string | null
   cleanerId?: string | null         // If null, auto-assigns default cleaner
   checklistId?: string | null       // If null, auto-assigns default checklist
-  scheduledDate: string             // Required: YYYY-MM-DD
-  checkoutTime?: string | null
-  checkinTime?: string | null
+  projectDate: string               // Required: YYYY-MM-DD
+  projectStartTime?: string | null
+  projectEndTime?: string | null
   estimatedDurationMinutes?: number | null
   guestCount?: number | null
   isSameDayTurnover?: boolean
@@ -86,12 +89,13 @@ export interface CreateCleaningProjectPayload {
 // Update payload
 export interface UpdateCleaningProjectPayload {
   propertyId?: string | null
-  bookingId?: string | null
+  previousBookingId?: string | null
+  nextBookingId?: string | null
   cleanerId?: string | null
   checklistId?: string | null
-  scheduledDate?: string | null
-  checkoutTime?: string | null
-  checkinTime?: string | null
+  projectDate?: string | null
+  projectStartTime?: string | null
+  projectEndTime?: string | null
   estimatedDurationMinutes?: number | null
   guestCount?: number | null
   isSameDayTurnover?: boolean

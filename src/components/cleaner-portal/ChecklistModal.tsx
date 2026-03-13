@@ -360,9 +360,9 @@ export default function ChecklistModal({
                 <div className="flex items-center gap-2 text-sm text-purple-100">
                   <ClockIcon className="w-4 h-4" />
                   <span>
-                    {formatTime(project.checkoutTime)}
-                    {project.checkoutTime && project.checkinTime && ' - '}
-                    {formatTime(project.checkinTime)}
+                    {formatTime(project.projectStartTime)}
+                    {project.projectStartTime && project.projectEndTime && ' - '}
+                    {formatTime(project.projectEndTime)}
                   </span>
                   {onRequestTimeChange && project.status !== 'completed' && (
                     <button

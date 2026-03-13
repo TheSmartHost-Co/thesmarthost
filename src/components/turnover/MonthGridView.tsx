@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import BookingBar from './BookingBar'
 import ProjectEvent from './ProjectEvent'
+import { useStickyHeader } from './hooks/useStickyHeader'
 import { parseLocalDate, formatLocalDate, isToday, toLocalDateStr } from './utils/calendarDateUtils'
 import { timeToFraction } from './utils/calendarEventLayout'
 
@@ -25,6 +27,8 @@ interface MonthGridViewProps {
   onDayClick: (dateStr: string) => void
   issueCountsMap: Record<string, number>
   supplyListCountsMap: Record<string, number>
+  stickyPortal?: RefObject<HTMLDivElement | null>
+  scrollContainer?: RefObject<HTMLElement | null>
 }
 
 // ---- Color helpers (for popover only) ----
@@ -81,9 +85,12 @@ export default function MonthGridView({
   onDayClick,
   issueCountsMap,
   supplyListCountsMap,
+  stickyPortal,
+  scrollContainer,
 }: MonthGridViewProps) {
   const [popover, setPopover] = useState<{ dateStr: string; x: number; y: number } | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+  const { headerRef, isStuck } = useStickyHeader(scrollContainer)
 
   // Close popover on outside click
   useEffect(() => {
@@ -129,7 +136,7 @@ export default function MonthGridView({
   const projectsByDate = useMemo(() => {
     const map = new Map<string, CleaningProject[]>()
     for (const p of projects) {
-      const d = toLocalDateStr(p.scheduledDate)
+      const d = toLocalDateStr(p.projectDate)
       if (!map.has(d)) map.set(d, [])
       map.get(d)!.push(p)
     }
@@ -214,13 +221,25 @@ export default function MonthGridView({
   return (
     <div className="relative select-none">
       {/* Weekday Header */}
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/80">
+      <div ref={headerRef} className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/80">
         {WEEKDAYS.map(day => (
           <div key={day} className="text-center py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
             {day}
           </div>
         ))}
       </div>
+
+      {/* Sticky weekday header portal */}
+      {isStuck && stickyPortal?.current && createPortal(
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/95 backdrop-blur-sm shadow-sm">
+          {WEEKDAYS.map(day => (
+            <div key={day} className="text-center py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+              {day}
+            </div>
+          ))}
+        </div>,
+        stickyPortal.current
+      )}
 
       {/* Week Rows */}
       {weekRows.map((week, weekIdx) => {
@@ -396,7 +415,7 @@ export default function MonthGridView({
           {/* Projects for this date */}
           {(projectsByDate.get(popover.dateStr) || []).map(project => {
             const isUnassigned = !project.cleanerId
-            const isAwaiting = project.status === 'assigned' && project.cleanerAccepted === null
+            const isAwaiting = project.status === 'assigned'
             const borderColor = getProjectBorderColor(project.status, isUnassigned, isAwaiting)
 
             return (

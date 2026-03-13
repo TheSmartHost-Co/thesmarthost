@@ -58,10 +58,11 @@ export default function EditProjectModal({
   const [propertyId, setPropertyId] = useState<string | null>(null)
   const [cleanerId, setCleanerId] = useState<string | null>(null)
   const [checklistId, setChecklistId] = useState<string | null>(null)
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  const [scheduledDate, setScheduledDate] = useState('')
-  const [checkoutTime, setCheckoutTime] = useState('')
-  const [checkinTime, setCheckinTime] = useState('')
+  const [previousBookingId, setPreviousBookingId] = useState<string | null>(null)
+  const [nextBookingId, setNextBookingId] = useState<string | null>(null)
+  const [projectDate, setProjectDate] = useState('')
+  const [projectStartTime, setProjectStartTime] = useState('')
+  const [projectEndTime, setProjectEndTime] = useState('')
   const [estimatedDuration, setEstimatedDuration] = useState('')
   const [guestCount, setGuestCount] = useState('')
   const [isSameDayTurnover, setIsSameDayTurnover] = useState(false)
@@ -114,7 +115,17 @@ export default function EditProjectModal({
   )
 
   // Convert bookings to SearchableSelect options
-  const bookingOptions = useMemo(
+  const previousBookingOptions = useMemo(
+    () =>
+      bookings.map((booking) => ({
+        value: booking.id,
+        label: `${booking.guestName || 'Guest'} - ${booking.checkInDate} → ${booking.checkOutDate || '?'}`,
+        secondaryLabel: booking.reservationCode || undefined,
+      })),
+    [bookings]
+  )
+
+  const nextBookingOptions = useMemo(
     () =>
       bookings.map((booking) => ({
         value: booking.id,
@@ -130,10 +141,11 @@ export default function EditProjectModal({
       setPropertyId(project.propertyId || null)
       setCleanerId(project.cleanerId || null)
       setChecklistId(project.checklistId || null)
-      setBookingId(project.bookingId || null)
-      setScheduledDate(project.scheduledDate ? project.scheduledDate.split('T')[0] : '')
-      setCheckoutTime(project.checkoutTime ? roundToNearest15(project.checkoutTime.substring(0, 5)) : '')
-      setCheckinTime(project.checkinTime ? roundToNearest15(project.checkinTime.substring(0, 5)) : '')
+      setPreviousBookingId(project.previousBookingId || null)
+      setNextBookingId(project.nextBookingId || null)
+      setProjectDate(project.projectDate ? project.projectDate.split('T')[0] : '')
+      setProjectStartTime(project.projectStartTime ? roundToNearest15(project.projectStartTime.substring(0, 5)) : '')
+      setProjectEndTime(project.projectEndTime ? roundToNearest15(project.projectEndTime.substring(0, 5)) : '')
       setEstimatedDuration(project.estimatedDurationMinutes ? roundDurationToNearest15(project.estimatedDurationMinutes) : '')
       setGuestCount(project.guestCount?.toString() || '')
       setIsSameDayTurnover(project.isSameDayTurnover || false)
@@ -177,9 +189,10 @@ export default function EditProjectModal({
     const fetchBookings = async () => {
       if (!propertyId || !profile?.id) {
         setBookings([])
-        // Only clear booking if property actually changed
+        // Only clear bookings if property actually changed
         if (propertyId !== initialPropertyId) {
-          setBookingId(null)
+          setPreviousBookingId(null)
+          setNextBookingId(null)
         }
         return
       }
@@ -264,8 +277,8 @@ export default function EditProjectModal({
       return
     }
 
-    if (!scheduledDate) {
-      showNotification('Please select a scheduled date', 'error')
+    if (!projectDate) {
+      showNotification('Please select a project date', 'error')
       return
     }
 
@@ -274,12 +287,13 @@ export default function EditProjectModal({
     try {
       const payload: UpdateCleaningProjectPayload = {
         propertyId,
-        scheduledDate,
-        bookingId: bookingId || null,
+        projectDate,
+        previousBookingId: previousBookingId || null,
+        nextBookingId: nextBookingId || null,
         cleanerId: cleanerId || null,
         checklistId: checklistId || null,
-        checkoutTime: checkoutTime || null,
-        checkinTime: checkinTime || null,
+        projectStartTime: projectStartTime || null,
+        projectEndTime: projectEndTime || null,
         estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration, 10) : null,
         guestCount: guestCount ? parseInt(guestCount, 10) : null,
         isSameDayTurnover,
@@ -356,32 +370,56 @@ export default function EditProjectModal({
                     />
                   </div>
 
-                  {/* Scheduled Date */}
+                  {/* Project Date */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <CalendarDaysIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Scheduled Date <span className="text-red-500">*</span>
+                      Project Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
-                      value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
+                      value={projectDate}
+                      onChange={(e) => setProjectDate(e.target.value)}
                       className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Booking Link (Optional) */}
+                {/* Previous Booking (Departing Guest) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Link to Booking <span className="text-gray-400">(optional)</span>
+                    Previous Booking (Departing Guest) <span className="text-gray-400">(optional)</span>
                   </label>
                   <SearchableSelect
-                    options={bookingOptions}
-                    value={bookingId}
-                    onChange={setBookingId}
+                    options={previousBookingOptions}
+                    value={previousBookingId}
+                    onChange={setPreviousBookingId}
+                    placeholder={
+                      !propertyId
+                        ? 'Select property first...'
+                        : loadingBookings
+                          ? 'Loading bookings...'
+                          : 'Search bookings...'
+                    }
+                    disabled={!propertyId || loadingBookings}
+                    loading={loadingBookings}
+                    emptyText="No recent bookings found"
+                    clearable
+                  />
+                </div>
+
+                {/* Next Booking (Arriving Guest) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
+                    Next Booking (Arriving Guest) <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <SearchableSelect
+                    options={nextBookingOptions}
+                    value={nextBookingId}
+                    onChange={setNextBookingId}
                     placeholder={
                       !propertyId
                         ? 'Select property first...'
@@ -522,23 +560,23 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Check-out Time
+                      Start Time
                     </label>
                     <TimeSelect
-                      value={checkoutTime}
-                      onChange={setCheckoutTime}
-                      placeholder="Check-out"
+                      value={projectStartTime}
+                      onChange={setProjectStartTime}
+                      placeholder="Start time"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Check-in Time
+                      End Time
                     </label>
                     <TimeSelect
-                      value={checkinTime}
-                      onChange={setCheckinTime}
-                      placeholder="Check-in"
+                      value={projectEndTime}
+                      onChange={setProjectEndTime}
+                      placeholder="End time"
                     />
                   </div>
                   <div>
@@ -614,7 +652,7 @@ export default function EditProjectModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !propertyId || !scheduledDate}
+                  disabled={loading || !propertyId || !projectDate}
                   className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {loading ? (

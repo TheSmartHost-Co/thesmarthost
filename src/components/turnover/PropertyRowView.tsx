@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useEffect, useCallback, useState } from 'react'
+import { useMemo, useEffect, useCallback, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
@@ -9,6 +10,7 @@ import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
 import { useCalendarScroll } from './hooks/useCalendarScroll'
 import { useNowIndicator } from './hooks/useNowIndicator'
+import { useStickyHeader } from './hooks/useStickyHeader'
 import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
 import { layoutBookings, layoutProjects, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
 
@@ -34,9 +36,11 @@ interface PropertyRowViewProps {
   zoomLevel?: ZoomLevel
   onRequestDateShift?: (days: number) => void
   onProjectDrop?: (projectId: string, newDate: string, newCleanerId?: string) => void
+  stickyPortal?: RefObject<HTMLDivElement | null>
   expandedDate?: string | null
   onExpandDate?: (date: string | null) => void
   onDayClick?: (dateStr: string) => void
+  scrollContainer?: RefObject<HTMLElement | null>
 }
 
 export default function PropertyRowView({
@@ -51,9 +55,11 @@ export default function PropertyRowView({
   zoomLevel = 7,
   onRequestDateShift,
   onProjectDrop,
+  stickyPortal,
   expandedDate = null,
   onExpandDate,
   onDayClick,
+  scrollContainer,
 }: PropertyRowViewProps) {
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -142,7 +148,7 @@ export default function PropertyRowView({
     for (const project of projects) {
       const propDates = sortedByProp.get(project.propertyId)
       if (!propDates) continue
-      const projDate = toLocalDateStr(project.scheduledDate)
+      const projDate = toLocalDateStr(project.projectDate)
       // Find first booking check-in after the project's scheduled date
       const next = propDates.find(d => d > projDate)
       if (next) map.set(project.id, next)
@@ -158,6 +164,39 @@ export default function PropertyRowView({
   }, [allDates, expandedDate, slotWidth])
 
   const translateX = -(bufferCols * slotWidth) - scrollOffset
+
+  const { headerRef, isStuck } = useStickyHeader(scrollContainer)
+
+  // Render column header cells (shared between original and sticky clone)
+  const renderColumnHeaders = useCallback(() => {
+    return allDates.map(dateStr => {
+      const header = formatColumnHeader(dateStr)
+      const today = isToday(dateStr)
+      const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
+      const canClick = !isMonthView && onDayClick
+
+      return (
+        <div
+          key={dateStr}
+          className={`flex-shrink-0 flex items-center justify-center ${today ? 'bg-blue-50/60' : header.isWeekend && isMonthView ? 'bg-gray-50/40' : ''} ${canClick ? 'cursor-pointer hover:bg-gray-100/60' : ''}`}
+          style={{ width: colWidth, borderRight: '1px solid rgba(0,0,0,0.12)', position: 'relative' }}
+          onClick={canClick ? () => onDayClick(dateStr) : undefined}
+          data-no-drag={canClick ? true : undefined}
+        >
+          <div className="flex flex-col items-center">
+            {!isMonthView && (
+              <span className={`text-[10px] font-medium uppercase ${today ? 'text-blue-500' : header.isWeekend ? 'text-gray-300' : 'text-gray-400'}`}>
+                {header.weekday}
+              </span>
+            )}
+            <span className={`${isMonthView ? 'text-[10px]' : 'text-xs'} font-semibold ${today ? 'text-blue-600' : 'text-gray-600'}`}>
+              {header.day}
+            </span>
+          </div>
+        </div>
+      )
+    })
+  }, [allDates, expandedDate, slotWidth, isMonthView, onDayClick])
 
   // Subdivision lines for day columns (3-14 day views only)
   const subdivisions = useMemo(() => {
@@ -234,37 +273,8 @@ export default function PropertyRowView({
           }}
         >
           {/* Column Headers */}
-          <div className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 sticky top-0 z-10">
-            {allDates.map(dateStr => {
-              const header = formatColumnHeader(dateStr)
-              const today = isToday(dateStr)
-              const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
-              const canClick = !isMonthView && onDayClick
-
-              return (
-                <div
-                  key={dateStr}
-                  className={`flex-shrink-0 flex items-center justify-center ${today ? 'bg-blue-50/60' : header.isWeekend && isMonthView ? 'bg-gray-50/40' : ''} ${canClick ? 'cursor-pointer hover:bg-gray-100/60' : ''}`}
-                  style={{ width: colWidth, borderRight: '1px solid rgba(0,0,0,0.12)', position: 'relative' }}
-                  onClick={canClick ? () => onDayClick(dateStr) : undefined}
-                  data-no-drag={canClick ? true : undefined}
-                >
-                  <div className="flex flex-col items-center">
-                    {!isMonthView && (
-                      <span className={`text-[10px] font-medium uppercase ${today ? 'text-blue-500' : header.isWeekend ? 'text-gray-300' : 'text-gray-400'}`}>
-                        {header.weekday}
-                      </span>
-                    )}
-                    <span className={`${isMonthView ? 'text-[10px]' : 'text-xs'} font-semibold ${today ? 'text-blue-600' : 'text-gray-600'}`}>
-                      {header.day}
-                    </span>
-                  </div>
-                  {subdivisions.map(frac => (
-                    <div key={frac} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
-                  ))}
-                </div>
-              )
-            })}
+          <div ref={headerRef} className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 z-10">
+            {renderColumnHeaders()}
           </div>
 
           {/* Resource Rows */}
@@ -422,6 +432,27 @@ export default function PropertyRowView({
           })}
         </div>
       </div>
+
+      {/* Sticky header portal — rendered outside overflow-hidden */}
+      {isStuck && stickyPortal?.current && createPortal(
+        <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
+          <div
+            className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
+            style={{ width: SIDEBAR_WIDTH }}
+          >
+            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <div
+              className="flex h-10"
+              style={{ width: trackWidth, transform: `translateX(${translateX}px)` }}
+            >
+              {renderColumnHeaders()}
+            </div>
+          </div>
+        </div>,
+        stickyPortal.current
+      )}
     </div>
   )
 }

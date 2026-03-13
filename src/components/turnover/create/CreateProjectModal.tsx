@@ -59,10 +59,11 @@ export default function CreateProjectModal({
   const [propertyId, setPropertyId] = useState<string | null>(null)
   const [cleanerId, setCleanerId] = useState<string | null>(null)
   const [checklistId, setChecklistId] = useState<string | null>(null)
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  const [scheduledDate, setScheduledDate] = useState('')
-  const [checkoutTime, setCheckoutTime] = useState('')
-  const [checkinTime, setCheckinTime] = useState('')
+  const [previousBookingId, setPreviousBookingId] = useState<string | null>(null)
+  const [nextBookingId, setNextBookingId] = useState<string | null>(null)
+  const [projectDate, setProjectDate] = useState('')
+  const [projectStartTime, setProjectStartTime] = useState('')
+  const [projectEndTime, setProjectEndTime] = useState('')
   const [estimatedDuration, setEstimatedDuration] = useState('')
   const [guestCount, setGuestCount] = useState('')
   const [isSameDayTurnover, setIsSameDayTurnover] = useState(false)
@@ -112,7 +113,17 @@ export default function CreateProjectModal({
   )
 
   // Convert bookings to SearchableSelect options
-  const bookingOptions = useMemo(
+  const previousBookingOptions = useMemo(
+    () =>
+      bookings.map((booking) => ({
+        value: booking.id,
+        label: `${booking.guestName || 'Guest'} - ${booking.checkInDate} → ${booking.checkOutDate || '?'}`,
+        secondaryLabel: booking.reservationCode || undefined,
+      })),
+    [bookings]
+  )
+
+  const nextBookingOptions = useMemo(
     () =>
       bookings.map((booking) => ({
         value: booking.id,
@@ -128,10 +139,11 @@ export default function CreateProjectModal({
       setPropertyId(initialPropertyId || null)
       setCleanerId(null)
       setChecklistId(null)
-      setBookingId(null)
-      setScheduledDate(initialDate || '')
-      setCheckoutTime('')
-      setCheckinTime('')
+      setPreviousBookingId(null)
+      setNextBookingId(null)
+      setProjectDate(initialDate || '')
+      setProjectStartTime('')
+      setProjectEndTime('')
       setEstimatedDuration('')
       setGuestCount('')
       setIsSameDayTurnover(false)
@@ -146,13 +158,13 @@ export default function CreateProjectModal({
     if (propertyId) {
       const prop = properties.find((p) => p.id === propertyId)
       if (prop) {
-        if (!checkoutTime) {
+        if (!projectStartTime) {
           const time = roundToNearest15(prop.defaultCheckoutTime?.slice(0, 5) || '11:00')
-          setCheckoutTime(time)
+          setProjectStartTime(time)
         }
-        if (!checkinTime) {
+        if (!projectEndTime) {
           const time = roundToNearest15(prop.defaultCheckinTime?.slice(0, 5) || '15:00')
-          setCheckinTime(time)
+          setProjectEndTime(time)
         }
       }
     }
@@ -191,7 +203,8 @@ export default function CreateProjectModal({
     const fetchBookings = async () => {
       if (!propertyId || !profile?.id) {
         setBookings([])
-        setBookingId(null)
+        setPreviousBookingId(null)
+        setNextBookingId(null)
         return
       }
 
@@ -242,18 +255,18 @@ export default function CreateProjectModal({
     fetchChecklistDetails()
   }, [checklistId])
 
-  // Auto-fill date from booking
+  // Auto-fill date from previous booking
   useEffect(() => {
-    if (bookingId) {
-      const booking = bookings.find((b) => b.id === bookingId)
+    if (previousBookingId) {
+      const booking = bookings.find((b) => b.id === previousBookingId)
       if (booking) {
-        // Use check-out date as scheduled date for turnover
+        // Use check-out date as project date for turnover
         if (booking.checkOutDate) {
-          setScheduledDate(booking.checkOutDate.split('T')[0])
+          setProjectDate(booking.checkOutDate.split('T')[0])
         }
       }
     }
-  }, [bookingId, bookings])
+  }, [previousBookingId, bookings])
 
   // Group checklist items by room
   const groupedItems = useMemo(() => {
@@ -289,8 +302,8 @@ export default function CreateProjectModal({
       return
     }
 
-    if (!scheduledDate) {
-      showNotification('Please select a scheduled date', 'error')
+    if (!projectDate) {
+      showNotification('Please select a project date', 'error')
       return
     }
 
@@ -300,16 +313,17 @@ export default function CreateProjectModal({
       const payload: CreateCleaningProjectPayload = {
         userId: profile.id,
         propertyId,
-        scheduledDate,
+        projectDate,
         source: 'manual',
       }
 
       // Optional fields
       if (cleanerId) payload.cleanerId = cleanerId
       if (checklistId) payload.checklistId = checklistId
-      if (bookingId) payload.bookingId = bookingId
-      if (checkoutTime) payload.checkoutTime = checkoutTime
-      if (checkinTime) payload.checkinTime = checkinTime
+      if (previousBookingId) payload.previousBookingId = previousBookingId
+      if (nextBookingId) payload.nextBookingId = nextBookingId
+      if (projectStartTime) payload.projectStartTime = projectStartTime
+      if (projectEndTime) payload.projectEndTime = projectEndTime
       if (estimatedDuration) payload.estimatedDurationMinutes = parseInt(estimatedDuration, 10)
       if (guestCount) payload.guestCount = parseInt(guestCount, 10)
       if (isSameDayTurnover) payload.isSameDayTurnover = true
@@ -385,32 +399,56 @@ export default function CreateProjectModal({
                     />
                   </div>
 
-                  {/* Scheduled Date */}
+                  {/* Project Date */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <CalendarDaysIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Scheduled Date <span className="text-red-500">*</span>
+                      Project Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
-                      value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
+                      value={projectDate}
+                      onChange={(e) => setProjectDate(e.target.value)}
                       className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Booking Link (Optional) */}
+                {/* Previous Booking (Departing Guest) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Link to Booking <span className="text-gray-400">(optional)</span>
+                    Previous Booking (Departing Guest) <span className="text-gray-400">(optional)</span>
                   </label>
                   <SearchableSelect
-                    options={bookingOptions}
-                    value={bookingId}
-                    onChange={setBookingId}
+                    options={previousBookingOptions}
+                    value={previousBookingId}
+                    onChange={setPreviousBookingId}
+                    placeholder={
+                      !propertyId
+                        ? 'Select property first...'
+                        : loadingBookings
+                          ? 'Loading bookings...'
+                          : 'Search bookings...'
+                    }
+                    disabled={!propertyId || loadingBookings}
+                    loading={loadingBookings}
+                    emptyText="No recent bookings found"
+                    clearable
+                  />
+                </div>
+
+                {/* Next Booking (Arriving Guest) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
+                    Next Booking (Arriving Guest) <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <SearchableSelect
+                    options={nextBookingOptions}
+                    value={nextBookingId}
+                    onChange={setNextBookingId}
                     placeholder={
                       !propertyId
                         ? 'Select property first...'
@@ -551,23 +589,23 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Check-out Time
+                      Start Time
                     </label>
                     <TimeSelect
-                      value={checkoutTime}
-                      onChange={setCheckoutTime}
-                      placeholder="Check-out"
+                      value={projectStartTime}
+                      onChange={setProjectStartTime}
+                      placeholder="Start time"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Check-in Time
+                      End Time
                     </label>
                     <TimeSelect
-                      value={checkinTime}
-                      onChange={setCheckinTime}
-                      placeholder="Check-in"
+                      value={projectEndTime}
+                      onChange={setProjectEndTime}
+                      placeholder="End time"
                     />
                   </div>
                   <div>
@@ -643,7 +681,7 @@ export default function CreateProjectModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !propertyId || !scheduledDate}
+                  disabled={loading || !propertyId || !projectDate}
                   className="px-5 py-2.5 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {loading ? (

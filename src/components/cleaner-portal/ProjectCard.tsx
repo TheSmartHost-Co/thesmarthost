@@ -75,7 +75,7 @@ export default function ProjectCard({
   }
 
   // Determine which buttons to show based on status
-  const showAcceptDecline = project.status === 'assigned' && project.cleanerAccepted === null
+  const showAcceptDecline = project.status === 'assigned'
   const showStart = project.status === 'confirmed'
   const showComplete = project.status === 'in_progress'
   const showChecklist = project.status === 'confirmed' || project.status === 'in_progress' || project.status === 'completed'
@@ -123,15 +123,15 @@ export default function ProjectCard({
           {/* Date */}
           <div className="flex items-center gap-1.5">
             <ClockIcon className="w-4 h-4 text-gray-400" />
-            <span>{formatDate(project.scheduledDate)}</span>
+            <span>{formatDate(project.projectDate)}</span>
           </div>
 
           {/* Time Window */}
-          {(project.checkoutTime || project.checkinTime) && (
+          {(project.projectStartTime || project.projectEndTime) && (
             <div className="flex items-center gap-1 text-gray-500">
-              <span>{formatTime(project.checkoutTime)}</span>
-              {project.checkoutTime && project.checkinTime && <span>-</span>}
-              <span>{formatTime(project.checkinTime)}</span>
+              <span>{formatTime(project.projectStartTime)}</span>
+              {project.projectStartTime && project.projectEndTime && <span>-</span>}
+              <span>{formatTime(project.projectEndTime)}</span>
             </div>
           )}
 

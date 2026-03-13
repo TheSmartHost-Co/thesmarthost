@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, type RefObject } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDaysIcon,
@@ -93,6 +93,12 @@ export default function TurnoverCalendar({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const initialFetchDone = useRef(false)
+
+  // Sticky header portal ref
+  const stickyPortalRef = useRef<HTMLDivElement>(null)
+
+  // Scroll container ref for internal scrolling
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
@@ -487,9 +493,9 @@ export default function TurnoverCalendar({
         const now = toLocalDateStr(new Date().toISOString())
         const nextMap = new Map<string, string>()
         for (const p of allCachedProjects) {
-          if (p.scheduledDate >= now) {
+          if (p.projectDate >= now) {
             const cur = nextMap.get(p.propertyId)
-            if (!cur || p.scheduledDate < cur) nextMap.set(p.propertyId, p.scheduledDate)
+            if (!cur || p.projectDate < cur) nextMap.set(p.propertyId, p.projectDate)
           }
         }
         result.sort((a, b) => (nextMap.get(a.id) || '9999-99-99').localeCompare(nextMap.get(b.id) || '9999-99-99'))
@@ -521,9 +527,9 @@ export default function TurnoverCalendar({
         const now = toLocalDateStr(new Date().toISOString())
         const nextMap = new Map<string, string>()
         for (const p of allCachedProjects) {
-          if (p.cleanerId && p.scheduledDate >= now) {
+          if (p.cleanerId && p.projectDate >= now) {
             const cur = nextMap.get(p.cleanerId)
-            if (!cur || p.scheduledDate < cur) nextMap.set(p.cleanerId, p.scheduledDate)
+            if (!cur || p.projectDate < cur) nextMap.set(p.cleanerId, p.projectDate)
           }
         }
         result.sort((a, b) => (nextMap.get(a.id) || '9999-99-99').localeCompare(nextMap.get(b.id) || '9999-99-99'))
@@ -572,7 +578,7 @@ export default function TurnoverCalendar({
   // Handle new project created
   const handleProjectCreate = (newProject: CleaningProject) => {
     // Determine which month this project belongs to
-    const projDate = new Date(newProject.scheduledDate + 'T00:00:00')
+    const projDate = new Date(newProject.projectDate + 'T00:00:00')
     const monthKey = getMonthKey(projDate)
     setProjectCache(prev => {
       const next = new Map(prev)
@@ -590,10 +596,34 @@ export default function TurnoverCalendar({
     }
   }
 
+  // Handle project deletion
+  const handleProjectDelete = (deletedId: string) => {
+    setProjectCache(prev => {
+      const next = new Map(prev)
+      for (const [key, projects] of next) {
+        const filtered = projects.filter(p => p.id !== deletedId)
+        if (filtered.length !== projects.length) {
+          next.set(key, filtered)
+        }
+      }
+      return next
+    })
+    setShowDetailModal(false)
+    setSelectedProject(null)
+    // Refresh stats
+    if (profile?.id) {
+      getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+        .then(res => {
+          if (res.status === 'success') setStats(res.data)
+        })
+    }
+    refreshIssueCounts()
+  }
+
   // Handle project drag-and-drop (reschedule date and optionally reassign cleaner)
   const handleProjectDrop = useCallback(async (projectId: string, newDate: string, newCleanerId?: string) => {
     try {
-      const payload: { scheduledDate: string; cleanerId?: string | null } = { scheduledDate: newDate }
+      const payload: { projectDate: string; cleanerId?: string | null } = { projectDate: newDate }
       if (newCleanerId !== undefined) {
         payload.cleanerId = newCleanerId || null
       }
@@ -740,7 +770,7 @@ export default function TurnoverCalendar({
     >
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           <StatCard label="Total" value={stats.total} color="blue" />
           <StatCard label="Pending" value={stats.pending} color="yellow" />
           <StatCard label="Assigned" value={stats.assigned} color="blue" />
@@ -748,18 +778,12 @@ export default function TurnoverCalendar({
           <StatCard label="In Progress" value={stats.inProgress} color="purple" />
           <StatCard label="Completed" value={stats.completed} color="green" />
           <StatCard label="Unassigned" value={stats.unassigned} color="amber" highlight />
-          <StatCard
-            label="Awaiting"
-            value={allCachedProjects.filter(p => p.status === 'assigned' && p.cleanerAccepted === null).length}
-            color="amber"
-            highlight
-          />
         </div>
       )}
 
       {/* Calendar Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        {/* Header with navigation and view toggle */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: 'calc(100vh - 20rem)' }}>
+        {/* Header with navigation and view toggle — stays outside scroll area */}
         <CalendarHeader
           viewMode={viewMode}
           onViewModeChange={setViewMode}
@@ -771,9 +795,9 @@ export default function TurnoverCalendar({
           onCreateProject={() => setShowCreateModal(true)}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
-          showBookings={showBookings}
-          onToggleBookings={handleToggleBookings}
-          bookingsLoading={bookingsLoading}
+          showBookings={viewMode === 'cleaner' ? false : showBookings}
+          onToggleBookings={viewMode === 'cleaner' ? undefined : handleToggleBookings}
+          bookingsLoading={viewMode === 'cleaner' ? false : bookingsLoading}
           properties={properties}
           selectedPropertyIds={selectedPropertyIds}
           onPropertyFilterChange={setSelectedPropertyIds}
@@ -789,69 +813,78 @@ export default function TurnoverCalendar({
           onOpenAllIssues={() => setShowAllIssuesModal(true)}
         />
 
-        {/* Calendar View */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={zoomLevel === 'month' ? 'month' : viewMode}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden rounded-b-2xl"
-            style={{ overscrollBehaviorX: 'none' }}
-          >
-            {zoomLevel === 'month' ? (
-              <MonthGridView
-                projects={filteredProjects}
-                properties={filteredProperties}
-                bookings={showBookings ? filteredBookings : []}
-                dateRange={dateRange}
-                onProjectClick={handleProjectClick}
-                onBookingClick={handleBookingClick}
-                onDayClick={handleMonthDayClick}
-                issueCountsMap={issueCountsMap}
-                supplyListCountsMap={supplyListCountsMap}
+        {/* Scroll container for calendar body */}
+        <div ref={scrollContainerRef} className="overflow-y-auto flex-1 min-h-0 relative rounded-b-2xl">
+          {/* Sticky header portal target — sticks to top of scroll container */}
+          <div className="sticky top-0 z-20 h-0">
+            <div ref={stickyPortalRef} />
+          </div>
 
-              />
-            ) : viewMode === 'property' ? (
-              <PropertyRowView
-                projects={filteredProjects}
-                properties={filteredProperties}
-                dateRange={dateRange}
-                onProjectClick={handleProjectClick}
-                onBookingClick={handleBookingClick}
-                issueCountsMap={issueCountsMap}
-                supplyListCountsMap={supplyListCountsMap}
-                bookings={showBookings ? filteredBookings : []}
-                zoomLevel={zoomLevel}
-                onRequestDateShift={handleRequestDateShift}
-                onProjectDrop={handleProjectDrop}
-
-                expandedDate={expandedDate}
-                onExpandDate={setExpandedDate}
-                onDayClick={handleDayClick}
-              />
-            ) : (
-              <CleanerRowView
-                projects={filteredProjects}
-                cleaners={filteredCleaners}
-                dateRange={dateRange}
-                onProjectClick={handleProjectClick}
-                onBookingClick={handleBookingClick}
-                issueCountsMap={issueCountsMap}
-                supplyListCountsMap={supplyListCountsMap}
-                bookings={showBookings ? filteredBookings : []}
-                zoomLevel={zoomLevel}
-                onRequestDateShift={handleRequestDateShift}
-                onProjectDrop={handleProjectDrop}
-
-                expandedDate={expandedDate}
-                onExpandDate={setExpandedDate}
-                onDayClick={handleDayClick}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+          {/* Calendar View */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={zoomLevel === 'month' ? 'month' : viewMode}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-x-hidden"
+              style={{ overscrollBehaviorX: 'none' }}
+            >
+              {zoomLevel === 'month' ? (
+                <MonthGridView
+                  projects={filteredProjects}
+                  properties={filteredProperties}
+                  bookings={showBookings ? filteredBookings : []}
+                  dateRange={dateRange}
+                  onProjectClick={handleProjectClick}
+                  onBookingClick={handleBookingClick}
+                  onDayClick={handleMonthDayClick}
+                  issueCountsMap={issueCountsMap}
+                  supplyListCountsMap={supplyListCountsMap}
+                  stickyPortal={stickyPortalRef}
+                  scrollContainer={scrollContainerRef}
+                />
+              ) : viewMode === 'property' ? (
+                <PropertyRowView
+                  projects={filteredProjects}
+                  properties={filteredProperties}
+                  dateRange={dateRange}
+                  onProjectClick={handleProjectClick}
+                  onBookingClick={handleBookingClick}
+                  issueCountsMap={issueCountsMap}
+                  supplyListCountsMap={supplyListCountsMap}
+                  bookings={showBookings ? filteredBookings : []}
+                  zoomLevel={zoomLevel}
+                  onRequestDateShift={handleRequestDateShift}
+                  onProjectDrop={handleProjectDrop}
+                  stickyPortal={stickyPortalRef}
+                  expandedDate={expandedDate}
+                  onExpandDate={setExpandedDate}
+                  onDayClick={handleDayClick}
+                  scrollContainer={scrollContainerRef}
+                />
+              ) : (
+                <CleanerRowView
+                  projects={filteredProjects}
+                  cleaners={filteredCleaners}
+                  dateRange={dateRange}
+                  onProjectClick={handleProjectClick}
+                  issueCountsMap={issueCountsMap}
+                  supplyListCountsMap={supplyListCountsMap}
+                  zoomLevel={zoomLevel}
+                  onRequestDateShift={handleRequestDateShift}
+                  onProjectDrop={handleProjectDrop}
+                  stickyPortal={stickyPortalRef}
+                  expandedDate={expandedDate}
+                  onExpandDate={setExpandedDate}
+                  onDayClick={handleDayClick}
+                  scrollContainer={scrollContainerRef}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Project Detail Modal */}
@@ -869,6 +902,7 @@ export default function TurnoverCalendar({
           cleaners={cleaners}
           properties={properties}
           onUpdate={handleProjectUpdate}
+          onDelete={handleProjectDelete}
         />
       )}
 

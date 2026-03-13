@@ -21,7 +21,7 @@ export interface ProjectIssue {
   userId?: string
   propertyId?: string
   propertyName?: string
-  scheduledDate?: string
+  projectDate?: string
 }
 
 export interface CreateIssuePayload {

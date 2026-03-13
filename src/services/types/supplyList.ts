@@ -24,7 +24,7 @@ export interface SupplyList {
   userId: string
   propertyId: string
   propertyName: string | null
-  scheduledDate: string
+  projectDate: string
   items: SupplyListItem[]
 }
 

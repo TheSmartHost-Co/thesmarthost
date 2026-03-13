@@ -93,16 +93,16 @@ export default function ViewPendingTimeChangeModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-xs font-medium text-gray-500 uppercase mb-2">Current</p>
-                <p className="text-sm font-semibold text-gray-900">{formatDate(request.currentScheduledDate)}</p>
+                <p className="text-sm font-semibold text-gray-900">{formatDate(request.currentProjectDate)}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {formatTime(request.currentCheckoutTime) || 'Not set'} – {formatTime(request.currentCheckinTime) || 'Not set'}
+                  {formatTime(request.currentProjectStartTime) || 'Not set'} – {formatTime(request.currentProjectEndTime) || 'Not set'}
                 </p>
               </div>
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <p className="text-xs font-medium text-amber-700 uppercase mb-2">Requested</p>
-                <p className="text-sm font-semibold text-amber-900">{formatDate(request.requestedScheduledDate)}</p>
+                <p className="text-sm font-semibold text-amber-900">{formatDate(request.requestedProjectDate)}</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  {formatTime(request.requestedCheckoutTime) || 'Not set'} – {formatTime(request.requestedCheckinTime) || 'Not set'}
+                  {formatTime(request.requestedProjectStartTime) || 'Not set'} – {formatTime(request.requestedProjectEndTime) || 'Not set'}
                 </p>
               </div>
             </div>

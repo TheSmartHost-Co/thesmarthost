@@ -822,9 +822,9 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
                             {issue.photoUrls.length}
                           </span>
                         )}
-                        {issue.scheduledDate && (
+                        {issue.projectDate && (
                           <span className="text-gray-400">
-                            Project: {new Date(issue.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            Project: {new Date(issue.projectDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         )}
                       </div>

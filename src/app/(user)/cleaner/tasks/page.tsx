@@ -57,31 +57,31 @@ function groupProjectsByDate(projects: CleaningProject[]) {
     }
 
     // Handle both ISO timestamp (2026-02-01T05:00:00.000Z) and date string (2026-02-01) formats
-    const dateStr = project.scheduledDate.split('T')[0]
-    const projectDate = new Date(dateStr + 'T00:00:00')
-    projectDate.setHours(0, 0, 0, 0)
+    const dateStr = project.projectDate.split('T')[0]
+    const projectDateObj = new Date(dateStr + 'T00:00:00')
+    projectDateObj.setHours(0, 0, 0, 0)
 
-    if (projectDate.getTime() === today.getTime()) {
+    if (projectDateObj.getTime() === today.getTime()) {
       groups.today.push(project)
-    } else if (projectDate.getTime() === tomorrow.getTime()) {
+    } else if (projectDateObj.getTime() === tomorrow.getTime()) {
       groups.tomorrow.push(project)
-    } else if (projectDate > today && projectDate < nextWeek) {
+    } else if (projectDateObj > today && projectDateObj < nextWeek) {
       groups.thisWeek.push(project)
-    } else if (projectDate >= nextWeek) {
+    } else if (projectDateObj >= nextWeek) {
       groups.later.push(project)
     }
     // Past dates that aren't completed - put in today for attention
-    else if (projectDate < today) {
+    else if (projectDateObj < today) {
       groups.today.push(project)
     }
   })
 
   // Sort each group by date and time
   const sortByDateTime = (a: CleaningProject, b: CleaningProject) => {
-    const dateStrA = a.scheduledDate.split('T')[0]
-    const dateStrB = b.scheduledDate.split('T')[0]
-    const dateA = new Date(dateStrA + 'T' + (a.checkoutTime || '00:00:00'))
-    const dateB = new Date(dateStrB + 'T' + (b.checkoutTime || '00:00:00'))
+    const dateStrA = a.projectDate.split('T')[0]
+    const dateStrB = b.projectDate.split('T')[0]
+    const dateA = new Date(dateStrA + 'T' + (a.projectStartTime || '00:00:00'))
+    const dateB = new Date(dateStrB + 'T' + (b.projectStartTime || '00:00:00'))
     return dateA.getTime() - dateB.getTime()
   }
 

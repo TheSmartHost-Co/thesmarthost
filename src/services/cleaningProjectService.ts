@@ -92,7 +92,7 @@ export function deleteCleaningProject(id: string): Promise<DeleteCleaningProject
 
 /**
  * Assign a cleaner to a project
- * Sets status to 'assigned' and cleaner_accepted to null (awaiting)
+ * Sets status to 'assigned'
  */
 export function assignCleanerToProject(
   projectId: string,

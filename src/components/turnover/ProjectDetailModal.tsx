@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
   HomeModernIcon,
@@ -22,6 +23,8 @@ import {
   ClipboardDocumentIcon,
   HomeIcon,
   PhotoIcon,
+  ChevronDownIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -44,10 +47,16 @@ import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
+import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
 import { SubmitSupplyListModal, ViewSupplyListsModal } from './supply-lists'
 import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
+import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
+import { getBookingById } from '@/services/bookingService'
+import type { Booking } from '@/services/types/booking'
+import { useUserStore } from '@/store/useUserStore'
 import type { CleaningProject } from '@/services/types/cleaningProject'
+import { parseLocalDate } from '@/utils/dateUtils'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
 
@@ -58,6 +67,7 @@ interface ProjectDetailModalProps {
   cleaners: Cleaner[]
   properties: Property[]
   onUpdate: (project: CleaningProject) => void
+  onDelete?: (id: string) => void
 }
 
 export default function ProjectDetailModal({
@@ -67,11 +77,20 @@ export default function ProjectDetailModal({
   cleaners,
   properties,
   onUpdate,
+  onDelete,
 }: ProjectDetailModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const user = useUserStore((state) => state.profile)
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState(project.cleanerId || '')
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showRelatedBookings, setShowRelatedBookings] = useState(true)
+
+  // Booking preview state
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showBookingPreview, setShowBookingPreview] = useState(false)
+  const [loadingBookingId, setLoadingBookingId] = useState<string | null>(null)
 
   // Issues state
   const [issueCounts, setIssueCounts] = useState<IssueCounts | null>(null)
@@ -265,6 +284,26 @@ export default function ProjectDetailModal({
     }
   }
 
+  // View a related booking
+  const handleViewBooking = async (bookingId: string) => {
+    if (!user?.id || loadingBookingId) return
+    setLoadingBookingId(bookingId)
+    try {
+      const res = await getBookingById(bookingId, user.id)
+      if (res.status === 'success') {
+        setSelectedBooking(res.data)
+        setShowBookingPreview(true)
+      } else {
+        showNotification(res.message || 'Failed to load booking', 'error')
+      }
+    } catch (err) {
+      console.error('Error fetching booking:', err)
+      showNotification('Error loading booking details', 'error')
+    } finally {
+      setLoadingBookingId(null)
+    }
+  }
+
   useEffect(() => {
     if (isOpen) {
       fetchIssueCounts()
@@ -279,7 +318,7 @@ export default function ProjectDetailModal({
 
   // Format date for display
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
+    const date = parseLocalDate(dateStr)
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -346,7 +385,7 @@ export default function ProjectDetailModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900">Project Details</h2>
-              <p className="text-sm text-gray-500">{formatDate(project.scheduledDate)}</p>
+              <p className="text-sm text-gray-500">{formatDate(project.projectDate)}</p>
             </div>
           </div>
         </div>
@@ -386,16 +425,16 @@ export default function ProjectDetailModal({
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-white/60 rounded-lg p-3">
                   <p className="text-xs font-medium text-gray-500 uppercase mb-1">Current</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(pendingRequest.currentScheduledDate)}</p>
+                  <p className="text-sm font-medium text-gray-900">{formatDate(pendingRequest.currentProjectDate)}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {formatTime(pendingRequest.currentCheckoutTime)} – {formatTime(pendingRequest.currentCheckinTime)}
+                    {formatTime(pendingRequest.currentProjectStartTime)} – {formatTime(pendingRequest.currentProjectEndTime)}
                   </p>
                 </div>
                 <div className="bg-amber-100/50 rounded-lg p-3">
                   <p className="text-xs font-medium text-amber-700 uppercase mb-1">Requested</p>
-                  <p className="text-sm font-medium text-amber-900">{formatDate(pendingRequest.requestedScheduledDate)}</p>
+                  <p className="text-sm font-medium text-amber-900">{formatDate(pendingRequest.requestedProjectDate)}</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    {formatTime(pendingRequest.requestedCheckoutTime)} – {formatTime(pendingRequest.requestedCheckinTime)}
+                    {formatTime(pendingRequest.requestedProjectStartTime)} – {formatTime(pendingRequest.requestedProjectEndTime)}
                   </p>
                 </div>
               </div>
@@ -446,47 +485,43 @@ export default function ProjectDetailModal({
             </div>
           )}
 
-          {/* Property Info */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <HomeModernIcon className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Property</p>
-                <p className="font-semibold text-gray-900 mt-0.5">{project.propertyName || 'Unknown'}</p>
-                {project.propertyAddress && (
-                  <p className="text-sm text-gray-500 mt-0.5">{project.propertyAddress}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Property Details (Beds, Baths, WiFi, Access Codes) */}
-          {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms || project.propertyWifiSsid || project.propertyAccessCodes) && (
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Property Details</p>
-
-              {/* Beds/Bedrooms/Bathrooms */}
-              {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms) && (
-                <div className="flex items-center gap-4 flex-wrap">
-                  {project.propertyNumBeds !== null && project.propertyNumBeds !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <UserGroupIcon className="w-4 h-4 text-indigo-500" />
-                      <span className="text-sm text-gray-700">{project.propertyNumBeds} bed{project.propertyNumBeds !== 1 ? 's' : ''}</span>
-                    </div>
+          {/* Property & Cleaner — 2-column grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Left Column — Property & Details */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <HomeModernIcon className="w-4.5 h-4.5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Property</p>
+                  <p className="font-semibold text-gray-900 mt-0.5">{project.propertyName || 'Unknown'}</p>
+                  {project.propertyAddress && (
+                    <p className="text-sm text-gray-500 mt-0.5">{project.propertyAddress}</p>
                   )}
+                </div>
+              </div>
+
+              {/* Beds / Bedrooms / Bathrooms — inline pills */}
+              {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms) && (
+                <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-600">
                   {project.propertyNumBedrooms !== null && project.propertyNumBedrooms !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <HomeIcon className="w-4 h-4 text-violet-500" />
-                      <span className="text-sm text-gray-700">{project.propertyNumBedrooms} bedroom{project.propertyNumBedrooms !== 1 ? 's' : ''}</span>
-                    </div>
+                    <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <HomeIcon className="w-3 h-3 text-violet-500" />
+                      {project.propertyNumBedrooms}BR
+                    </span>
                   )}
                   {project.propertyNumBathrooms !== null && project.propertyNumBathrooms !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-teal-500">B</span>
-                      <span className="text-sm text-gray-700">{project.propertyNumBathrooms} bath{project.propertyNumBathrooms !== 1 ? 's' : ''}</span>
-                    </div>
+                    <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold text-teal-500">B</span>
+                      {project.propertyNumBathrooms}BA
+                    </span>
+                  )}
+                  {project.propertyNumBeds !== null && project.propertyNumBeds !== undefined && (
+                    <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <UserGroupIcon className="w-3 h-3 text-indigo-500" />
+                      {project.propertyNumBeds} bed{project.propertyNumBeds !== 1 ? 's' : ''}
+                    </span>
                   )}
                 </div>
               )}
@@ -495,11 +530,11 @@ export default function ProjectDetailModal({
               {(project.propertyWifiSsid || project.propertyWifiPassword) && (
                 <div className="flex items-start gap-2">
                   <WifiIcon className="w-4 h-4 text-sky-500 mt-0.5 flex-shrink-0" />
-                  <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap">
                     {project.propertyWifiSsid && (
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-500">Network:</span>
-                        <span className="text-sm font-medium text-gray-900 font-mono">{project.propertyWifiSsid}</span>
+                        <span className="text-xs font-medium text-gray-900 font-mono">{project.propertyWifiSsid}</span>
                         <button
                           type="button"
                           onClick={() => navigator.clipboard.writeText(project.propertyWifiSsid || '')}
@@ -512,8 +547,8 @@ export default function ProjectDetailModal({
                     )}
                     {project.propertyWifiPassword && (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">Password:</span>
-                        <span className="text-sm font-medium text-gray-900 font-mono">{project.propertyWifiPassword}</span>
+                        <span className="text-xs text-gray-500">Pass:</span>
+                        <span className="text-xs font-medium text-gray-900 font-mono">{project.propertyWifiPassword}</span>
                         <button
                           type="button"
                           onClick={() => navigator.clipboard.writeText(project.propertyWifiPassword || '')}
@@ -545,116 +580,209 @@ export default function ProjectDetailModal({
                         Copy
                       </button>
                     </div>
-                    <pre className="text-sm text-gray-900 whitespace-pre-wrap font-mono bg-white/50 p-2 rounded-lg">
+                    <pre className="text-xs text-gray-900 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded-lg">
                       {project.propertyAccessCodes}
                     </pre>
                   </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Cleaner Assignment */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${project.cleanerId ? 'bg-green-100' : 'bg-amber-100'}`}>
-                <UserCircleIcon className={`w-5 h-5 ${project.cleanerId ? 'text-green-600' : 'text-amber-600'}`} />
+              {/* Google Maps link */}
+              {project.propertyAddress && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.propertyAddress)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                >
+                  <ArrowRightIcon className="w-3 h-3" />
+                  View on Google Maps
+                </a>
+              )}
+            </div>
+
+            {/* Right Column — Cleaner & Schedule */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${project.cleanerId ? 'bg-green-100' : 'bg-amber-100'}`}>
+                  <UserCircleIcon className={`w-4.5 h-4.5 ${project.cleanerId ? 'text-green-600' : 'text-amber-600'}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Cleaner</p>
+                  {project.cleanerId ? (
+                    <div className="mt-0.5">
+                      <p className="font-semibold text-gray-900">{project.cleanerName}</p>
+                      <p className="text-sm text-gray-500">{project.cleanerEmail || project.cleanerPhone || 'No contact'}</p>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <select
+                        value={selectedCleanerId}
+                        onChange={(e) => setSelectedCleanerId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">Select a cleaner...</option>
+                        {cleaners.filter(c => c.status !== 'inactive').map(cleaner => (
+                          <option key={cleaner.id} value={cleaner.id}>
+                            {cleaner.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAssignCleaner}
+                        disabled={!selectedCleanerId || isAssigning}
+                        className="mt-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        {isAssigning ? 'Assigning...' : 'Assign Cleaner'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Cleaner</p>
-                {project.cleanerId ? (
-                  <div className="mt-0.5">
-                    <p className="font-semibold text-gray-900">{project.cleanerName}</p>
-                    <p className="text-sm text-gray-500">{project.cleanerEmail || project.cleanerPhone || 'No contact'}</p>
-                    {project.cleanerAccepted === true && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-xs text-green-600">
-                        <CheckCircleIcon className="w-3.5 h-3.5" /> Accepted
-                      </span>
-                    )}
-                    {project.cleanerAccepted === false && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-xs text-red-600">
-                        <XMarkIcon className="w-3.5 h-3.5" /> Declined
-                      </span>
-                    )}
-                    {project.cleanerAccepted === null && project.status === 'assigned' && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-xs text-amber-600">
-                        <ClockIcon className="w-3.5 h-3.5" /> Awaiting response
-                      </span>
-                    )}
+
+              {/* Time — single line */}
+              <div className="flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-gray-900">
+                  {formatTime(project.projectStartTime)}
+                  {' – '}
+                  {project.projectEndTime ? formatTime(project.projectEndTime) : 'TBD'}
+                </span>
+              </div>
+
+              {/* Duration & Guests — inline */}
+              <div className="flex items-center gap-4 flex-wrap">
+                {project.estimatedDurationMinutes && (
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <ClockIcon className="w-4 h-4 text-gray-400" />
+                    <span>Est. {formatDuration(project.estimatedDurationMinutes)}</span>
                   </div>
-                ) : (
-                  <div className="mt-2">
-                    <select
-                      value={selectedCleanerId}
-                      onChange={(e) => setSelectedCleanerId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="">Select a cleaner...</option>
-                      {cleaners.filter(c => c.status !== 'inactive').map(cleaner => (
-                        <option key={cleaner.id} value={cleaner.id}>
-                          {cleaner.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleAssignCleaner}
-                      disabled={!selectedCleanerId || isAssigning}
-                      className="mt-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                    >
-                      {isAssigning ? 'Assigning...' : 'Assign Cleaner'}
-                    </button>
+                )}
+                {project.guestCount && (
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <UserGroupIcon className="w-4 h-4 text-gray-400" />
+                    <span>{project.guestCount} guests</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Time Details */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <ClockIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Checkout</span>
+          {/* Related Bookings */}
+          <div className="border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowRelatedBookings(!showRelatedBookings)}
+              className="w-full flex items-center justify-between mb-3"
+            >
+              <div className="flex items-center gap-2">
+                <CalendarDaysIcon className="w-4 h-4 text-gray-600" />
+                <p className="text-sm font-semibold text-gray-700">Related Bookings</p>
               </div>
-              <p className="font-semibold text-gray-900">{formatTime(project.checkoutTime)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <ClockIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Next Check-in</span>
-              </div>
-              <p className="font-semibold text-gray-900">{project.checkinTime ? formatTime(project.checkinTime) : 'No check-in on same day'}</p>
-            </div>
-          </div>
+              <ChevronDownIcon
+                className={`w-4 h-4 text-gray-400 transition-transform ${showRelatedBookings ? 'rotate-180' : ''}`}
+              />
+            </button>
 
-          {/* Additional Info */}
-          <div className="grid grid-cols-2 gap-4">
-            {project.guestCount && (
-              <div className="flex items-center gap-3 text-gray-600">
-                <UserGroupIcon className="w-5 h-5 text-gray-400" />
-                <span className="text-sm">{project.guestCount} guests</span>
-              </div>
-            )}
-            {project.estimatedDurationMinutes && (
-              <div className="flex items-center gap-3 text-gray-600">
-                <ClockIcon className="w-5 h-5 text-gray-400" />
-                <span className="text-sm">Est. {formatDuration(project.estimatedDurationMinutes)}</span>
-              </div>
-            )}
-          </div>
+            <AnimatePresence>
+              {showRelatedBookings && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Departing Guest */}
+                    {project.previousBookingId ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewBooking(project.previousBookingId!)}
+                        disabled={!!loadingBookingId}
+                        className="group bg-gray-50 hover:bg-amber-50/50 rounded-xl p-4 border-l-3 border-amber-400 text-left transition-colors cursor-pointer"
+                      >
+                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Departing Guest</p>
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-semibold text-gray-900">{project.previousBookingGuestName || 'Guest'}</p>
+                          {project.previousBookingCheckIn && project.previousBookingCheckOut ? (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <span>{formatDate(project.previousBookingCheckIn)}</span>
+                              <ArrowRightIcon className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span>{formatDate(project.previousBookingCheckOut)}</span>
+                            </div>
+                          ) : (
+                            <>
+                              {project.previousBookingCheckIn && (
+                                <p className="text-xs text-gray-500">Check-in: {formatDate(project.previousBookingCheckIn)}</p>
+                              )}
+                              {project.previousBookingCheckOut && (
+                                <p className="text-xs text-gray-500">Check-out: {formatDate(project.previousBookingCheckOut)}</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          {loadingBookingId === project.previousBookingId ? (
+                            <span className="text-xs text-amber-500 animate-pulse">Loading...</span>
+                          ) : (
+                            <span className="text-xs text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">View details &rarr;</span>
+                          )}
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-4 border-l-3 border-amber-400">
+                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Departing Guest</p>
+                        <p className="text-sm text-gray-400 italic">No booking linked</p>
+                      </div>
+                    )}
 
-          {/* Guest Info */}
-          {(project.guestName || project.reservationCode) && (
-            <div className="border-t border-gray-100 pt-4">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Booking Info</p>
-              {project.guestName && (
-                <p className="text-sm text-gray-700">Guest: <span className="font-medium">{project.guestName}</span></p>
+                    {/* Arriving Guest */}
+                    {project.nextBookingId ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewBooking(project.nextBookingId!)}
+                        disabled={!!loadingBookingId}
+                        className="group bg-gray-50 hover:bg-blue-50/50 rounded-xl p-4 border-l-3 border-blue-400 text-left transition-colors cursor-pointer"
+                      >
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Arriving Guest</p>
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-semibold text-gray-900">{project.nextBookingGuestName || 'Guest'}</p>
+                          {project.nextBookingCheckIn && project.nextBookingCheckOut ? (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <span>{formatDate(project.nextBookingCheckIn)}</span>
+                              <ArrowRightIcon className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span>{formatDate(project.nextBookingCheckOut)}</span>
+                            </div>
+                          ) : (
+                            <>
+                              {project.nextBookingCheckIn && (
+                                <p className="text-xs text-gray-500">Check-in: {formatDate(project.nextBookingCheckIn)}</p>
+                              )}
+                              {project.nextBookingCheckOut && (
+                                <p className="text-xs text-gray-500">Check-out: {formatDate(project.nextBookingCheckOut)}</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          {loadingBookingId === project.nextBookingId ? (
+                            <span className="text-xs text-blue-500 animate-pulse">Loading...</span>
+                          ) : (
+                            <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View details &rarr;</span>
+                          )}
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-4 border-l-3 border-blue-400">
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Arriving Guest</p>
+                        <p className="text-sm text-gray-400 italic">No booking linked</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
-              {project.reservationCode && (
-                <p className="text-sm text-gray-500">Reservation: {project.reservationCode}</p>
-              )}
-            </div>
-          )}
+            </AnimatePresence>
+          </div>
 
           {/* Notes */}
           {project.pmNotes && (
@@ -968,7 +1096,16 @@ export default function ProjectDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center gap-3">
+          {onDelete && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+            >
+              Delete
+            </button>
+          )}
+          <div className="flex-1" />
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
@@ -997,6 +1134,20 @@ export default function ProjectDetailModal({
         properties={properties}
         cleaners={cleaners}
       />
+
+      {/* Delete Project Modal */}
+      {onDelete && (
+        <DeleteProjectModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          project={project}
+          onDeleted={(id) => {
+            setShowDeleteModal(false)
+            onDelete(id)
+            onClose()
+          }}
+        />
+      )}
 
       {/* Report Issue Modal */}
       <ReportIssueModal
@@ -1055,6 +1206,18 @@ export default function ProjectDetailModal({
         photoUploadedAt={previewImage?.photoUploadedAt}
         onDownloadWatermarked={previewImage?.downloadFn}
       />
+
+      {/* Preview Booking Modal */}
+      {selectedBooking && (
+        <PreviewBookingModal
+          isOpen={showBookingPreview}
+          onClose={() => {
+            setShowBookingPreview(false)
+            setSelectedBooking(null)
+          }}
+          booking={selectedBooking}
+        />
+      )}
     </Modal>
   )
 }

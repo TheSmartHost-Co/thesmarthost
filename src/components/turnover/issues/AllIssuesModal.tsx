@@ -286,10 +286,10 @@ export default function AllIssuesModal({
                                             {issue.photoUrls.length}
                                           </span>
                                         )}
-                                        {issue.scheduledDate && (
+                                        {issue.projectDate && (
                                           <span className="flex items-center gap-1">
                                             <CalendarIcon className="w-3.5 h-3.5" />
-                                            {parseLocalDate(issue.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            {parseLocalDate(issue.projectDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                           </span>
                                         )}
                                       </div>

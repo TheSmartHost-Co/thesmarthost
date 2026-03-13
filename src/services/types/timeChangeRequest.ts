@@ -6,12 +6,12 @@ export interface TimeChangeRequest {
   projectId: string
   cleanerId: string
   cleanerName?: string
-  requestedScheduledDate: string
-  requestedCheckoutTime?: string | null
-  requestedCheckinTime?: string | null
-  currentScheduledDate: string
-  currentCheckoutTime?: string | null
-  currentCheckinTime?: string | null
+  requestedProjectDate: string
+  requestedProjectStartTime?: string | null
+  requestedProjectEndTime?: string | null
+  currentProjectDate: string
+  currentProjectStartTime?: string | null
+  currentProjectEndTime?: string | null
   reason?: string | null
   status: 'pending' | 'approved' | 'rejected'
   pmNotes?: string | null
@@ -22,9 +22,9 @@ export interface TimeChangeRequest {
 // Submit payload (from cleaner)
 export interface SubmitTimeChangePayload {
   cleanerId: string
-  requestedScheduledDate: string
-  requestedCheckoutTime?: string | null
-  requestedCheckinTime?: string | null
+  requestedProjectDate: string
+  requestedProjectStartTime?: string | null
+  requestedProjectEndTime?: string | null
   reason?: string
 }
 

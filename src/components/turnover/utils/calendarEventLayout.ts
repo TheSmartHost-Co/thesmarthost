@@ -81,7 +81,7 @@ export function layoutProjects(
 
   return projects
     .map(project => {
-      const colIndex = dateIndex.get(toLocalDateStr(project.scheduledDate)) ?? -1
+      const colIndex = dateIndex.get(toLocalDateStr(project.projectDate)) ?? -1
       const startOffset = 0
       const endOffset = 1  // span entire day column
 

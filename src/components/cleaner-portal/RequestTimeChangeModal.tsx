@@ -26,26 +26,26 @@ export default function RequestTimeChangeModal({
 }: RequestTimeChangeModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
 
-  const [scheduledDate, setScheduledDate] = useState('')
-  const [checkoutTime, setCheckoutTime] = useState('')
-  const [checkinTime, setCheckinTime] = useState('')
+  const [projectDate, setProjectDate] = useState('')
+  const [projectStartTime, setProjectStartTime] = useState('')
+  const [projectEndTime, setProjectEndTime] = useState('')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      const dateStr = project.scheduledDate.split('T')[0]
-      setScheduledDate(dateStr)
-      setCheckoutTime(project.checkoutTime ? roundToNearest15(project.checkoutTime) : '')
-      setCheckinTime(project.checkinTime ? roundToNearest15(project.checkinTime) : '')
+      const dateStr = project.projectDate.split('T')[0]
+      setProjectDate(dateStr)
+      setProjectStartTime(project.projectStartTime ? roundToNearest15(project.projectStartTime) : '')
+      setProjectEndTime(project.projectEndTime ? roundToNearest15(project.projectEndTime) : '')
       setReason('')
       setLoading(false)
     }
   }, [isOpen, project])
 
   const handleSubmit = async () => {
-    if (!scheduledDate) {
+    if (!projectDate) {
       showNotification('Please select a date', 'error')
       return
     }
@@ -54,9 +54,9 @@ export default function RequestTimeChangeModal({
     try {
       const res = await submitTimeChangeRequest(project.id, {
         cleanerId,
-        requestedScheduledDate: scheduledDate,
-        requestedCheckoutTime: checkoutTime || null,
-        requestedCheckinTime: checkinTime || null,
+        requestedProjectDate: projectDate,
+        requestedProjectStartTime: projectStartTime || null,
+        requestedProjectEndTime: projectEndTime || null,
         reason: reason.trim() || undefined,
       })
 
@@ -101,12 +101,12 @@ export default function RequestTimeChangeModal({
             </label>
             <input
               type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
+              value={projectDate}
+              onChange={(e) => setProjectDate(e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {project.scheduledDate.split('T')[0]}
+              Current: {project.projectDate.split('T')[0]}
             </p>
           </div>
 
@@ -116,12 +116,12 @@ export default function RequestTimeChangeModal({
               Start Time
             </label>
             <TimeSelect
-              value={checkoutTime}
-              onChange={setCheckoutTime}
+              value={projectStartTime}
+              onChange={setProjectStartTime}
               placeholder="Select checkout time"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {formatTime(project.checkoutTime) || 'Not set'}
+              Current: {formatTime(project.projectStartTime) || 'Not set'}
             </p>
           </div>
 
@@ -131,12 +131,12 @@ export default function RequestTimeChangeModal({
               End Time
             </label>
             <TimeSelect
-              value={checkinTime}
-              onChange={setCheckinTime}
+              value={projectEndTime}
+              onChange={setProjectEndTime}
               placeholder="Select check-in time"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {formatTime(project.checkinTime) || 'Not set'}
+              Current: {formatTime(project.projectEndTime) || 'Not set'}
             </p>
           </div>
 
@@ -168,10 +168,10 @@ export default function RequestTimeChangeModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !scheduledDate}
+            disabled={loading || !projectDate}
             className={`
               flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 cursor-pointer
-              ${loading || !scheduledDate
+              ${loading || !projectDate
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-amber-500 text-white hover:bg-amber-600'
               }

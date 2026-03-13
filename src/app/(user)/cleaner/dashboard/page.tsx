@@ -105,17 +105,17 @@ export default function CleanerDashboardPage() {
     // Upcoming this week: non-completed projects in next 7 days
     const upcomingThisWeek = projects.filter(p => {
       if (p.status === 'completed' || p.status === 'cancelled') return false
-      const dateStr = p.scheduledDate.split('T')[0]
-      const projectDate = new Date(dateStr + 'T00:00:00')
-      return projectDate >= today && projectDate <= endOfWeek
+      const dateStr = p.projectDate.split('T')[0]
+      const projectDateObj = new Date(dateStr + 'T00:00:00')
+      return projectDateObj >= today && projectDateObj <= endOfWeek
     }).length
 
     // Completed this month
     const completedThisMonth = projects.filter(p => {
       if (p.status !== 'completed') return false
-      const dateStr = p.scheduledDate.split('T')[0]
-      const projectDate = new Date(dateStr + 'T00:00:00')
-      return projectDate >= startOfMonth
+      const dateStr = p.projectDate.split('T')[0]
+      const projectDateObj = new Date(dateStr + 'T00:00:00')
+      return projectDateObj >= startOfMonth
     }).length
 
     return {
@@ -134,14 +134,14 @@ export default function CleanerDashboardPage() {
     return projects
       .filter(p => {
         if (p.status === 'completed' || p.status === 'cancelled') return false
-        const dateStr = p.scheduledDate.split('T')[0]
-        const projectDate = new Date(dateStr + 'T00:00:00')
-        projectDate.setHours(0, 0, 0, 0)
-        return projectDate.getTime() === today.getTime()
+        const dateStr = p.projectDate.split('T')[0]
+        const projectDateObj = new Date(dateStr + 'T00:00:00')
+        projectDateObj.setHours(0, 0, 0, 0)
+        return projectDateObj.getTime() === today.getTime()
       })
       .sort((a, b) => {
-        const timeA = a.checkoutTime || '00:00:00'
-        const timeB = b.checkoutTime || '00:00:00'
+        const timeA = a.projectStartTime || '00:00:00'
+        const timeB = b.projectStartTime || '00:00:00'
         return timeA.localeCompare(timeB)
       })
   }, [projects])
@@ -154,17 +154,17 @@ export default function CleanerDashboardPage() {
     return projects
       .filter(p => {
         if (p.status === 'completed' || p.status === 'cancelled') return false
-        const dateStr = p.scheduledDate.split('T')[0]
-        const projectDate = new Date(dateStr + 'T00:00:00')
-        projectDate.setHours(0, 0, 0, 0)
-        return projectDate > today
+        const dateStr = p.projectDate.split('T')[0]
+        const projectDateObj = new Date(dateStr + 'T00:00:00')
+        projectDateObj.setHours(0, 0, 0, 0)
+        return projectDateObj > today
       })
       .sort((a, b) => {
-        const dateA = a.scheduledDate.split('T')[0]
-        const dateB = b.scheduledDate.split('T')[0]
+        const dateA = a.projectDate.split('T')[0]
+        const dateB = b.projectDate.split('T')[0]
         if (dateA !== dateB) return dateA.localeCompare(dateB)
-        const timeA = a.checkoutTime || '00:00:00'
-        const timeB = b.checkoutTime || '00:00:00'
+        const timeA = a.projectStartTime || '00:00:00'
+        const timeB = b.projectStartTime || '00:00:00'
         return timeA.localeCompare(timeB)
       })
       .slice(0, 5)
@@ -502,7 +502,7 @@ function TaskRow({ task, index }: { task: CleaningProject; index: number }) {
               <p className="font-medium text-gray-900 truncate">{task.propertyName || 'Unknown Property'}</p>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <ClockIcon className="w-3.5 h-3.5" />
-                <span>{formatTime(task.checkoutTime) || 'No time set'}</span>
+                <span>{formatTime(task.projectStartTime) || 'No time set'}</span>
               </div>
             </div>
           </div>
@@ -545,11 +545,11 @@ function ScheduleRow({
             </div>
             <div className="min-w-0">
               <p className="font-medium text-gray-900 truncate">{task.propertyName || 'Unknown Property'}</p>
-              <p className="text-sm text-gray-500">{formatDate(task.scheduledDate)}</p>
+              <p className="text-sm text-gray-500">{formatDate(task.projectDate)}</p>
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-sm font-medium text-gray-700">{formatTime(task.checkoutTime) || '—'}</p>
+            <p className="text-sm font-medium text-gray-700">{formatTime(task.projectStartTime) || '—'}</p>
             {task.isSameDayTurnover && (
               <span className="text-xs text-amber-600 font-medium">Same Day</span>
             )}

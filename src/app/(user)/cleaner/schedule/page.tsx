@@ -167,7 +167,7 @@ export default function CleanerSchedulePage() {
   const projectsByDate = useMemo(() => {
     const grouped: Record<string, CleaningProject[]> = {}
     projects.forEach(project => {
-      const dateKey = project.scheduledDate.split('T')[0]
+      const dateKey = project.projectDate.split('T')[0]
       if (!grouped[dateKey]) {
         grouped[dateKey] = []
       }
@@ -176,8 +176,8 @@ export default function CleanerSchedulePage() {
     // Sort each day's projects by checkout time
     Object.values(grouped).forEach(dayProjects => {
       dayProjects.sort((a, b) => {
-        const timeA = a.checkoutTime || '00:00:00'
-        const timeB = b.checkoutTime || '00:00:00'
+        const timeA = a.projectStartTime || '00:00:00'
+        const timeB = b.projectStartTime || '00:00:00'
         return timeA.localeCompare(timeB)
       })
     })
@@ -652,10 +652,10 @@ export default function CleanerSchedulePage() {
                               <p className="text-xs font-semibold text-gray-900 truncate">
                                 {project.propertyName || 'Unknown'}
                               </p>
-                              {project.checkoutTime && (
+                              {project.projectStartTime && (
                                 <p className="text-[10px] text-gray-500 flex items-center gap-0.5 mt-0.5">
                                   <ClockIcon className="w-3 h-3" />
-                                  {formatTime(project.checkoutTime)}
+                                  {formatTime(project.projectStartTime)}
                                 </p>
                               )}
                             </div>
