@@ -61,6 +61,7 @@ export default function BookingsPage() {
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
   const [readinessFilter, setReadinessFilter] = useState('All')
   const [sourceFilter, setSourceFilter] = useState('All Sources')
+  const [statusFilter, setStatusFilter] = useState('Active')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [showSortPopover, setShowSortPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -217,26 +218,36 @@ export default function BookingsPage() {
     return `${option.label}: ${directionLabel}`
   }
 
-  const getBookingActions = (booking: Booking): ActionItem[] => [
-    {
-      label: 'View Booking',
-      icon: EyeIcon,
-      onClick: () => handleViewBooking(booking.id),
-      variant: 'default'
-    },
-    {
-      label: 'Edit Booking',
-      icon: PencilIcon,
-      onClick: () => handleEditBooking(booking.id),
-      variant: 'default'
-    },
-    {
-      label: 'Delete Booking',
-      icon: TrashIcon,
-      onClick: () => handleDeleteBooking(booking.id),
-      variant: 'danger'
+  const getBookingActions = (booking: Booking): ActionItem[] => {
+    if (booking.bookingStatus === 'cancelled') {
+      return [{
+        label: 'View Booking',
+        icon: EyeIcon,
+        onClick: () => handleViewBooking(booking.id),
+        variant: 'default'
+      }]
     }
-  ]
+    return [
+      {
+        label: 'View Booking',
+        icon: EyeIcon,
+        onClick: () => handleViewBooking(booking.id),
+        variant: 'default'
+      },
+      {
+        label: 'Edit Booking',
+        icon: PencilIcon,
+        onClick: () => handleEditBooking(booking.id),
+        variant: 'default'
+      },
+      {
+        label: 'Delete Booking',
+        icon: TrashIcon,
+        onClick: () => handleDeleteBooking(booking.id),
+        variant: 'danger'
+      }
+    ]
+  }
 
   // Filter and sort bookings
   const filteredBookings = bookings
@@ -264,7 +275,11 @@ export default function BookingsPage() {
         (sourceFilter === 'Manual' && booking.source === 'manual') ||
         (sourceFilter === 'iCal' && booking.source === 'ical')
 
-      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness && matchesSource
+      const matchesStatus = statusFilter === 'All' ||
+        (statusFilter === 'Active' && booking.bookingStatus !== 'cancelled') ||
+        (statusFilter === 'Cancelled' && booking.bookingStatus === 'cancelled')
+
+      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness && matchesSource && matchesStatus
     })
     .sort((a, b) => {
       const { field, direction } = sortConfig
@@ -321,7 +336,8 @@ export default function BookingsPage() {
     platformFilter !== 'All Platforms',
     propertyFilter !== 'All Properties',
     readinessFilter !== 'All',
-    sourceFilter !== 'All Sources'
+    sourceFilter !== 'All Sources',
+    statusFilter !== 'Active'
   ].filter(Boolean).length
 
   // Clear all filters
@@ -330,6 +346,7 @@ export default function BookingsPage() {
     setPropertyFilter('All Properties')
     setReadinessFilter('All')
     setSourceFilter('All Sources')
+    setStatusFilter('Active')
   }
 
   const formatDate = (dateString: string) => {
@@ -707,6 +724,22 @@ export default function BookingsPage() {
                           <option value="iCal">iCal</option>
                         </select>
                       </div>
+
+                      {/* Booking Status Filter */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Booking Status
+                        </label>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="All">All</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Filter Actions */}
@@ -762,7 +795,7 @@ export default function BookingsPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
-                  className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                  className={`hover:bg-blue-50/50 cursor-pointer transition-colors group ${booking.bookingStatus === 'cancelled' ? 'opacity-60' : ''}`}
                   onClick={() => handleViewBooking(booking.id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -782,6 +815,11 @@ export default function BookingsPage() {
                       <div className="min-w-0">
                         <div className="font-medium text-gray-900 flex items-center gap-1.5">
                           {isReservedName(booking.guestName) ? '' : booking.guestName}
+                          {booking.bookingStatus === 'cancelled' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
+                              Cancelled
+                            </span>
+                          )}
                           {booking.financialReadiness === 'scheduling_only' && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
                               Scheduling
@@ -854,11 +892,11 @@ export default function BookingsPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">No bookings found</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties' || readinessFilter !== 'All' || sourceFilter !== 'All Sources'
+                {searchTerm || platformFilter !== 'All Platforms' || propertyFilter !== 'All Properties' || readinessFilter !== 'All' || sourceFilter !== 'All Sources' || statusFilter !== 'Active'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Get started by creating your first booking or uploading booking data.'}
               </p>
-              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && readinessFilter === 'All' && sourceFilter === 'All Sources' && (
+              {!searchTerm && platformFilter === 'All Platforms' && propertyFilter === 'All Properties' && readinessFilter === 'All' && sourceFilter === 'All Sources' && statusFilter === 'Active' && (
                 <div className="flex justify-center gap-3">
                   <motion.button
                     onClick={() => setShowCreateModal(true)}

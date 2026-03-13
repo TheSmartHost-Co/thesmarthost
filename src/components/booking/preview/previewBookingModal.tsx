@@ -132,6 +132,11 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {booking.bookingStatus === 'cancelled' && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+              Cancelled
+            </span>
+          )}
           {booking.source && (
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
               booking.isAutoImported ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'
@@ -365,7 +370,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
         >
           Close
         </button>
-        {onEditBooking && (
+        {onEditBooking && booking.bookingStatus !== 'cancelled' && (
           <button
             type="button"
             onClick={onEditBooking}

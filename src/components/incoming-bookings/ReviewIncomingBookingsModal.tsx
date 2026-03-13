@@ -489,14 +489,25 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
           {/* Turnover Only Banner */}
           {currentBooking?.status === 'cleaning_only' && (
             <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center">
-                <WrenchScrewdriverIcon className="h-5 w-5 text-teal-600 mr-2 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-teal-800">This booking is in the turnover calendar only</p>
-                  <p className="text-xs text-teal-600 mt-1">
-                    A cleaning project has been created, but no booking record exists yet. You can approve it as a full booking below.
-                  </p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <WrenchScrewdriverIcon className="h-5 w-5 text-teal-600 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-teal-800">This booking is in the turnover calendar only</p>
+                    <p className="text-xs text-teal-600 mt-1">
+                      A cleaning project and scheduling-only booking have been created. Approve to add financial data.
+                    </p>
+                  </div>
                 </div>
+                {currentBooking.importedBookingId && (
+                  <a
+                    href={`/property-manager/bookings?id=${currentBooking.importedBookingId}`}
+                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-100 rounded-md hover:bg-teal-200 transition-colors flex-shrink-0 ml-3"
+                  >
+                    View Booking
+                    <EyeIcon className="ml-2 h-4 w-4" />
+                  </a>
+                )}
               </div>
             </div>
           )}

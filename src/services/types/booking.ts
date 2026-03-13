@@ -49,6 +49,7 @@ export interface Booking {
   isAutoImported?: boolean
   defaultCheckinTime?: string   // e.g. "15:00" — from property defaults
   defaultCheckoutTime?: string  // e.g. "11:00" — from property defaults
+  bookingStatus?: string        // 'active' | 'cancelled'
   createdAt: string
 }
 
@@ -189,6 +190,7 @@ export interface BookingSearchResult {
   financialReadiness?: FinancialReadiness
   source?: BookingSource
   isAutoImported?: boolean
+  bookingStatus?: string        // 'active' | 'cancelled'
 }
 
 /**
