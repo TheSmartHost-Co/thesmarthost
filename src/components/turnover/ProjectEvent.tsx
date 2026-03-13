@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import type { ZoomLevel } from './TurnoverCalendar'
 import { formatDuration, toLocalDateStr } from './utils/calendarDateUtils'
+import { isProjectOverdue, getOverdueMinutes, formatOverdueDuration } from '@/services/cleaningProjectService'
 
 interface ProjectEventProps {
   project: CleaningProject
@@ -13,7 +14,8 @@ interface ProjectEventProps {
   pendingSupplyListCount?: number
   zoomLevel?: ZoomLevel
   isExpanded?: boolean
-  nextCheckinDate?: string | null  // YYYY-MM-DD of next booking check-in for this property
+  /** @deprecated Use project.nextBookingCheckIn directly */
+  nextCheckinDate?: string | null
 }
 
 function formatShortTime(time: string | null | undefined): string | null {
@@ -80,9 +82,15 @@ export default function ProjectEvent({
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
   const isAwaiting = project.status === 'assigned'
-  const dotColor = getStatusDotColor(project.status, isUnassigned, isAwaiting)
-  const statusStyle = getStatusStyle(project.status, isUnassigned, isAwaiting)
-  const statusLabel = getStatusLabel(project.status, isAwaiting)
+  const overdue = isProjectOverdue(project)
+  const overdueMinutes = getOverdueMinutes(project)
+  const overdueLabel = overdue && overdueMinutes !== null ? formatOverdueDuration(overdueMinutes) : null
+
+  const dotColor = overdue ? '#ef4444' : getStatusDotColor(project.status, isUnassigned, isAwaiting)
+  const statusStyle = overdue
+    ? { bg: '#fef2f2', text: '#991b1b', borderLeft: '#dc2626' }
+    : getStatusStyle(project.status, isUnassigned, isAwaiting)
+  const statusLabel = overdue && overdueLabel ? overdueLabel : getStatusLabel(project.status, isAwaiting)
 
   const isMonth = zoomLevel === 'month'
 
@@ -103,6 +111,25 @@ export default function ProjectEvent({
 
   const hasIssues = openIssueCount > 0
   const hasSupplies = pendingSupplyListCount > 0
+
+  // Calculate gap: project date → next guest check-in (calendar days)
+  const nextGuestCountdown = (() => {
+    if (!project.nextBookingCheckIn || !project.projectDate) return null
+
+    const cleanDate = toLocalDateStr(project.projectDate)
+    const ciDate = toLocalDateStr(project.nextBookingCheckIn)
+
+    // Compare calendar days only
+    const [cy, cm, cd] = cleanDate.split('-').map(Number)
+    const [iy, im, id] = ciDate.split('-').map(Number)
+    const projectDay = new Date(cy, cm - 1, cd)
+    const checkinDay = new Date(iy, im - 1, id)
+
+    const diffDays = Math.round((checkinDay.getTime() - projectDay.getTime()) / 86400000)
+    if (diffDays <= 0) return null
+
+    return `Next Guest: ${diffDays} day${diffDays !== 1 ? 's' : ''}`
+  })()
 
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
 
@@ -167,6 +194,7 @@ export default function ProjectEvent({
               <div className="text-gray-300 mt-0.5 capitalize">
                 Status: {isAwaiting ? 'Awaiting Response' : project.status.replace('_', ' ')}
               </div>
+              {overdue && overdueLabel && <div className="text-red-400 mt-0.5 font-semibold">{overdueLabel}</div>}
               {project.estimatedDurationMinutes && (
                 <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
               )}
@@ -177,6 +205,7 @@ export default function ProjectEvent({
               )}
               {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
               {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} supply list{pendingSupplyListCount !== 1 ? 's' : ''}</div>}
+              {nextGuestCountdown && <div className="text-blue-400 mt-0.5">{nextGuestCountdown}</div>}
               {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">Same Day Turnover</div>}
             </div>
           </div>,
@@ -195,35 +224,6 @@ export default function ProjectEvent({
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
       })()
     : null
-
-  // Calculate gap: cleaning start (scheduledDate + checkoutTime) → next guest arrival (nextCheckinDate + checkinTime)
-  const gapUntilCheckin = (() => {
-    if (!project.projectDate || !nextCheckinDate) return null
-    // Cleaning starts at projectStartTime on projectDate
-    const cleanDate = toLocalDateStr(project.projectDate)
-    const [cy, cm, cd] = cleanDate.split('-').map(Number)
-    const [ch, cmin] = project.projectStartTime
-      ? project.projectStartTime.split(':').map(Number)
-      : [0, 0]
-    const cleaningStart = new Date(cy, cm - 1, cd, ch, cmin)
-
-    // Next guest checks in at checkinTime on nextCheckinDate
-    const ciDate = toLocalDateStr(nextCheckinDate)
-    const [iy, im, id] = ciDate.split('-').map(Number)
-    const [ih, imin] = project.projectEndTime
-      ? project.projectEndTime.split(':').map(Number)
-      : [0, 0]
-    const checkinDateTime = new Date(iy, im - 1, id, ih, imin)
-
-    const diffMs = checkinDateTime.getTime() - cleaningStart.getTime()
-    if (diffMs <= 0) return null
-    const totalMinutes = Math.floor(diffMs / 60000)
-    const days = Math.floor(totalMinutes / 1440)
-    const hrs = Math.floor((totalMinutes % 1440) / 60)
-    if (days > 0) return `${days}d ${hrs}h until check-in`
-    if (hrs > 0) return `${hrs}h ${totalMinutes % 60}m until check-in`
-    return `${totalMinutes}m until check-in`
-  })()
 
   return (
     <div
@@ -263,11 +263,11 @@ export default function ProjectEvent({
           </div>
 
           {/* Line 3: Scheduled date + gap until check-in */}
-          {(scheduledDateFormatted || gapUntilCheckin) && (
+          {(scheduledDateFormatted || nextGuestCountdown) && (
             <div className="mt-0.5" style={{ lineHeight: 1.2 }}>
               <span className="text-[11px]" style={{ color: statusStyle.text, opacity: 0.75 }}>
                 {scheduledDateFormatted}
-                {gapUntilCheckin && ` \u00b7 ${gapUntilCheckin}`}
+                {nextGuestCountdown && ` \u00b7 ${nextGuestCountdown}`}
               </span>
             </div>
           )}
@@ -293,6 +293,7 @@ export default function ProjectEvent({
             <div className="text-gray-300 mt-0.5 capitalize">
               Status: {isAwaiting ? 'Awaiting Response' : project.status.replace('_', ' ')}
             </div>
+            {overdue && overdueLabel && <div className="text-red-400 mt-0.5 font-semibold">{overdueLabel}</div>}
             {project.estimatedDurationMinutes && (
               <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
             )}
@@ -316,6 +317,7 @@ export default function ProjectEvent({
             )}
             {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
             {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} supply list{pendingSupplyListCount !== 1 ? 's' : ''}</div>}
+            {nextGuestCountdown && <div className="text-blue-400 mt-0.5">{nextGuestCountdown}</div>}
             {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">Same Day Turnover</div>}
           </div>
         </div>,

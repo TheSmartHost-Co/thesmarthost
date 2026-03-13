@@ -21,6 +21,9 @@ import {
   UserGroupIcon,
   HomeIcon,
   ArrowPathIcon,
+  ArrowRightIcon,
+  CalendarDaysIcon,
+  PlayCircleIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -47,6 +50,9 @@ interface ChecklistModalProps {
   project: CleaningProject
   onProjectComplete?: (project: CleaningProject) => void
   onRequestTimeChange?: () => void
+  onAccept?: (projectId: string) => Promise<void>
+  onDecline?: (projectId: string) => Promise<void>
+  onStart?: (projectId: string) => Promise<void>
 }
 
 export default function ChecklistModal({
@@ -55,11 +61,16 @@ export default function ChecklistModal({
   project,
   onProjectComplete,
   onRequestTimeChange,
+  onAccept,
+  onDecline,
+  onStart,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Read-only mode: only allow modifications when project is in_progress
   const readOnly = project.status !== 'in_progress'
+
+  // Can report issues and request supplies when confirmed or in_progress
 
   // State
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
@@ -76,6 +87,7 @@ export default function ChecklistModal({
   const [supplyListCount, setSupplyListCount] = useState(0)
   const [issueCount, setIssueCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // Fetch checklist data
   const fetchChecklist = useCallback(async () => {
@@ -423,6 +435,76 @@ export default function ChecklistModal({
           )}
         </div>
 
+        {/* Action Banner for assigned/confirmed projects */}
+        {project.status === 'assigned' && onAccept && onDecline && (
+          <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+                <ClockIcon className="w-4 h-4 flex-shrink-0" />
+                <span>You&apos;ve been assigned this project</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setActionLoading('accept')
+                    try { await onAccept(project.id) } finally { setActionLoading(null) }
+                  }}
+                  disabled={actionLoading !== null}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {actionLoading === 'accept' ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircleIcon className="w-4 h-4" />
+                  )}
+                  Accept
+                </button>
+                <button
+                  onClick={async () => {
+                    setActionLoading('decline')
+                    try { await onDecline(project.id) } finally { setActionLoading(null) }
+                  }}
+                  disabled={actionLoading !== null}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {actionLoading === 'decline' ? (
+                    <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+                  ) : (
+                    <XMarkIcon className="w-4 h-4" />
+                  )}
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {project.status === 'confirmed' && onStart && (
+          <div className="flex-shrink-0 px-4 py-3 bg-purple-50 border-b border-purple-200">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-purple-800">
+                <PlayCircleIcon className="w-4 h-4 flex-shrink-0" />
+                <span>Ready to start</span>
+              </div>
+              <button
+                onClick={async () => {
+                  setActionLoading('start')
+                  try { await onStart(project.id) } finally { setActionLoading(null) }
+                }}
+                disabled={actionLoading !== null}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {actionLoading === 'start' ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <PlayCircleIcon className="w-4 h-4" />
+                )}
+                Start Cleaning
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Property Map - collapsible, after header, before scrollable content */}
         {project.propertyAddress && (
           <div className="flex-shrink-0 px-4 pt-3">
@@ -439,6 +521,11 @@ export default function ChecklistModal({
         {/* Property Details Section - WiFi, Access Codes, Bed/Bath info */}
         {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms || project.propertyWifiSsid || project.propertyAccessCodes) && (
           <PropertyDetailsSection project={project} />
+        )}
+
+        {/* Related Bookings Section */}
+        {(project.previousBookingId || project.nextBookingId) && (
+          <RelatedBookingsSection project={project} />
         )}
 
         {/* Content - Scrollable */}
@@ -501,6 +588,22 @@ export default function ChecklistModal({
         <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
           {readOnly ? (
             <div className="space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowReportIssueModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <FlagIcon className="w-4 h-4" />
+                  Report Issue
+                </button>
+                <button
+                  onClick={() => setShowSubmitSupplyListModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <ClipboardDocumentListIcon className="w-4 h-4" />
+                  Request Supplies
+                </button>
+              </div>
               {issueCount > 0 && (
                 <button
                   onClick={() => setShowViewIssuesModal(true)}
@@ -508,6 +611,15 @@ export default function ChecklistModal({
                 >
                   <FlagIcon className="w-4 h-4" />
                   View Issues ({issueCount})
+                </button>
+              )}
+              {supplyListCount > 0 && (
+                <button
+                  onClick={() => setShowViewSupplyListsModal(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <ClipboardDocumentListIcon className="w-4 h-4" />
+                  View Supply Lists ({supplyListCount})
                 </button>
               )}
               <button
@@ -578,7 +690,7 @@ export default function ChecklistModal({
         projectId={project.id}
         projectName={project.propertyName}
         isPM={false}
-        onReportIssue={readOnly ? undefined : () => {
+        onReportIssue={() => {
           setShowViewIssuesModal(false)
           setShowReportIssueModal(true)
         }}
@@ -886,6 +998,91 @@ function ChecklistItemRow({
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Related Bookings Section Component
+interface RelatedBookingsSectionProps {
+  project: CleaningProject
+}
+
+function RelatedBookingsSection({ project }: RelatedBookingsSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—'
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  return (
+    <div className="flex-shrink-0 px-4 pt-3">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <CalendarDaysIcon className="w-4 h-4 text-purple-500" />
+            <span className="font-medium text-gray-900 text-sm">Related Bookings</span>
+          </div>
+          {isExpanded ? (
+            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="border-t border-gray-100 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Departing Guest */}
+                  <div className={`rounded-lg border-l-4 ${project.previousBookingId ? 'border-l-amber-400 bg-amber-50/50' : 'border-l-gray-200 bg-gray-50'} p-3`}>
+                    <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">Departing Guest</p>
+                    {project.previousBookingId ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-900">{project.previousBookingGuestName || 'Unknown Guest'}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <span>{formatDate(project.previousBookingCheckIn)}</span>
+                          <ArrowRightIcon className="w-3 h-3" />
+                          <span>{formatDate(project.previousBookingCheckOut)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">No booking linked</p>
+                    )}
+                  </div>
+
+                  {/* Arriving Guest */}
+                  <div className={`rounded-lg border-l-4 ${project.nextBookingId ? 'border-l-blue-400 bg-blue-50/50' : 'border-l-gray-200 bg-gray-50'} p-3`}>
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-2">Arriving Guest</p>
+                    {project.nextBookingId ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-900">{project.nextBookingGuestName || 'Unknown Guest'}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <span>{formatDate(project.nextBookingCheckIn)}</span>
+                          <ArrowRightIcon className="w-3 h-3" />
+                          <span>{formatDate(project.nextBookingCheckOut)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">No booking linked</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

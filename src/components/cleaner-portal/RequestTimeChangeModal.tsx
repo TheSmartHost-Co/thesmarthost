@@ -6,7 +6,7 @@ import TimeSelect, { roundToNearest15 } from '@/components/shared/TimeSelect'
 import { submitTimeChangeRequest } from '@/services/timeChangeRequestService'
 import { formatTime } from '@/services/cleaningProjectService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { ClockIcon } from '@heroicons/react/24/outline'
+import { ClockIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 
 interface RequestTimeChangeModalProps {
@@ -31,6 +31,7 @@ export default function RequestTimeChangeModal({
   const [projectEndTime, setProjectEndTime] = useState('')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   // Reset form when modal opens
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function RequestTimeChangeModal({
       setProjectEndTime(project.projectEndTime ? roundToNearest15(project.projectEndTime) : '')
       setReason('')
       setLoading(false)
+      setValidationErrors([])
     }
   }, [isOpen, project])
 
@@ -50,6 +52,30 @@ export default function RequestTimeChangeModal({
       return
     }
 
+    // Validate against booking boundaries
+    const errors: string[] = []
+
+    if (projectStartTime && projectEndTime && projectStartTime >= projectEndTime) {
+      errors.push('Start time must be before end time')
+    }
+
+    const prevCheckOut = project.previousBookingCheckOut?.split('T')[0]
+    const nextCheckIn = project.nextBookingCheckIn?.split('T')[0]
+
+    if (prevCheckOut && projectDate < prevCheckOut) {
+      errors.push(`Date cannot be before departing guest checkout (${prevCheckOut})`)
+    }
+
+    if (nextCheckIn && projectDate > nextCheckIn) {
+      errors.push(`Date cannot be after arriving guest check-in (${nextCheckIn})`)
+    }
+
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+
+    setValidationErrors([])
     setLoading(true)
     try {
       const res = await submitTimeChangeRequest(project.id, {
@@ -153,6 +179,34 @@ export default function RequestTimeChangeModal({
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
             />
           </div>
+
+          {/* Booking constraints info */}
+          {(project.previousBookingCheckOut || project.nextBookingCheckIn) && (
+            <div className="flex items-start gap-2.5 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
+              <InformationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">Booking window</p>
+                {project.previousBookingCheckOut && (
+                  <p>Departing guest checkout: {project.previousBookingCheckOut.split('T')[0]}</p>
+                )}
+                {project.nextBookingCheckIn && (
+                  <p>Arriving guest check-in: {project.nextBookingCheckIn.split('T')[0]}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Validation errors */}
+          {validationErrors.length > 0 && (
+            <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

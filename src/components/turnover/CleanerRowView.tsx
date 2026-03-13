@@ -1,15 +1,20 @@
 'use client'
 
-import { useMemo, useEffect, useCallback, useState, type RefObject } from 'react'
+import { useMemo, useEffect, useLayoutEffect, useCallback, useState, useRef, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { ZoomLevel } from './TurnoverCalendar'
+import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo } from './dnd/types'
 import ProjectEvent from './ProjectEvent'
+import DraggableProject from './dnd/DraggableProject'
+import CalendarDragOverlay from './dnd/CalendarDragOverlay'
 import { useCalendarScroll } from './hooks/useCalendarScroll'
+import { useCalendarDrag } from './hooks/useCalendarDrag'
 import { useNowIndicator } from './hooks/useNowIndicator'
 import { useStickyHeader } from './hooks/useStickyHeader'
-import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate } from './utils/calendarDateUtils'
+import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
 import { layoutProjects, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
 
 const SIDEBAR_WIDTH = 200
@@ -29,11 +34,14 @@ interface CleanerRowViewProps {
   zoomLevel?: ZoomLevel
   onRequestDateShift?: (days: number) => void
   onProjectDrop?: (projectId: string, newDate: string, newCleanerId?: string) => void
+  onPendingDrop?: (drop: PendingDrop) => void
+  onInvalidDrop?: (info: InvalidDropInfo) => void
   stickyPortal?: RefObject<HTMLDivElement | null>
   expandedDate?: string | null
   onExpandDate?: (date: string | null) => void
   onDayClick?: (dateStr: string) => void
   scrollContainer?: RefObject<HTMLElement | null>
+  navigationEpoch?: number
 }
 
 export default function CleanerRowView({
@@ -46,11 +54,14 @@ export default function CleanerRowView({
   zoomLevel = 7,
   onRequestDateShift,
   onProjectDrop,
+  onPendingDrop,
+  onInvalidDrop,
   stickyPortal,
   expandedDate = null,
   onExpandDate,
   onDayClick,
   scrollContainer,
+  navigationEpoch = 0,
 }: CleanerRowViewProps) {
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -65,10 +76,57 @@ export default function CleanerRowView({
     ? containerWidth / effectiveVisibleSlots
     : DAY_SLOT_WIDTH
 
-  const { scrollOffset, timelineRef, resetOffset } = useCalendarScroll({
+  // Refs for layout params used in imperative scroll-frame callback
+  const bufferColsRef = useRef(bufferCols)
+  const layoutSlotWidthRef = useRef(slotWidth)
+  const trackContainerRef = useRef<HTMLDivElement>(null)
+  const stickyTrackRef = useRef<HTMLDivElement>(null)
+
+  // Stable scroll-frame callback — directly updates DOM transforms (no React re-render)
+  const handleScrollFrame = useCallback((offset: number) => {
+    const tx = -(bufferColsRef.current * layoutSlotWidthRef.current) - offset
+    if (trackContainerRef.current) {
+      trackContainerRef.current.style.transform = `translateX(${tx}px)`
+    }
+    if (stickyTrackRef.current) {
+      stickyTrackRef.current.style.transform = `translateX(${tx}px)`
+    }
+  }, [])
+
+  const allDates = useMemo(() => {
+    const start = addDays(dateRange.start, -bufferCols)
+    const totalCols = visibleColumns + bufferCols * 2
+    return generateDateRange(start, totalCols)
+  }, [dateRange.start, bufferCols, visibleColumns])
+
+  // DnD hook
+  const {
+    sensors,
+    activeDragItem,
+    isDraggingRef,
+    handleDragStart,
+    handleDragCancel,
+  } = useCalendarDrag({
+    allDates,
+    expandedDate,
+    slotWidth,
+    translateX: -(bufferCols * slotWidth),
+    bufferCols,
+  })
+
+  const { scrollOffsetRef, timelineRef, resetOffset } = useCalendarScroll({
     slotWidth,
     onRequestDateShift: onRequestDateShift || (() => {}),
+    isDraggingRef,
+    onScrollFrame: handleScrollFrame,
   })
+
+  // Sync layout refs and DOM transform when layout params change (zoom, resize)
+  useLayoutEffect(() => {
+    bufferColsRef.current = bufferCols
+    layoutSlotWidthRef.current = slotWidth
+    handleScrollFrame(scrollOffsetRef.current)
+  }, [bufferCols, slotWidth, handleScrollFrame, scrollOffsetRef])
 
   useEffect(() => {
     const el = timelineRef.current
@@ -81,13 +139,7 @@ export default function CleanerRowView({
     return () => ro.disconnect()
   }, [timelineRef])
 
-  useEffect(() => { resetOffset() }, [zoomLevel, dateRange.start, resetOffset])
-
-  const allDates = useMemo(() => {
-    const start = addDays(dateRange.start, -bufferCols)
-    const totalCols = visibleColumns + bufferCols * 2
-    return generateDateRange(start, totalCols)
-  }, [dateRange.start, bufferCols, visibleColumns])
+  useEffect(() => { resetOffset() }, [navigationEpoch, resetOffset])
 
   const nowPos = useNowIndicator(allDates, 6, 24)
   const positionedProjects = useMemo(() => {
@@ -125,6 +177,16 @@ export default function CleanerRowView({
     })),
   ], [cleaners, unassignedCount])
 
+  // Build cleaner name lookup for confirmation modal
+  const cleanerNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    map.set('unassigned', 'Unassigned')
+    for (const c of cleaners) {
+      map.set(c.id, c.name || c.email || 'Unnamed')
+    }
+    return map
+  }, [cleaners])
+
   const projectsByResource = useMemo(() => {
     const map = new Map<string, typeof positionedProjects>()
     for (const pp of positionedProjects) {
@@ -140,8 +202,6 @@ export default function CleanerRowView({
     for (const d of allDates) w += getColumnWidth(d, expandedDate, slotWidth)
     return w
   }, [allDates, expandedDate, slotWidth])
-
-  const translateX = -(bufferCols * slotWidth) - scrollOffset
 
   const { headerRef, isStuck } = useStickyHeader(scrollContainer)
 
@@ -190,202 +250,286 @@ export default function CleanerRowView({
     return Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PADDING * 2
   }, [maxStackByCleaner])
 
-  // Drag-and-drop handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }, [])
+  // Resolve which row a drop landed on based on Y coordinate
+  const resolveDropRow = useCallback((event: DragEndEvent): string | undefined => {
+    if (!timelineRef.current) return undefined
+    const containerRect = timelineRef.current.getBoundingClientRect()
+    const pointerY = (event.activatorEvent as PointerEvent)?.clientY
+    const deltaY = event.delta.y
+    if (pointerY === undefined) return undefined
 
-  const handleDrop = useCallback((e: React.DragEvent, cleanerId: string) => {
-    e.preventDefault()
-    const projectId = e.dataTransfer.getData('text/project-id')
-    if (!projectId || !onProjectDrop) return
+    const y = (pointerY + deltaY) - containerRect.top
+    const headerHeight = 40 // h-10
 
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
+    let cumY = headerHeight
+    for (const row of resourceRows) {
+      const rowH = getRowHeight(row.id)
+      if (y < cumY + rowH) {
+        return row.id
+      }
+      cumY += rowH
+    }
+    return undefined
+  }, [timelineRef, resourceRows, getRowHeight])
+
+  // DnD drag end handler
+  const handleDragEndForView = useCallback((event: DragEndEvent) => {
+    const data = event.active.data.current as DragItem | undefined
+    if (!data || data.type !== 'project') {
+      isDraggingRef.current = false
+      return
+    }
+
+    if (!timelineRef.current) {
+      isDraggingRef.current = false
+      return
+    }
+
+    const containerRect = timelineRef.current.getBoundingClientRect()
+    const pointerX = (event.activatorEvent as PointerEvent)?.clientX
+    const deltaX = event.delta.x
+    if (pointerX === undefined) {
+      isDraggingRef.current = false
+      return
+    }
+
+    const currentTranslateX = -(bufferColsRef.current * layoutSlotWidthRef.current) - scrollOffsetRef.current
+    const x = (pointerX + deltaX) - containerRect.left - currentTranslateX
+
+    let targetDate: string | null = null
     let cumulative = 0
     for (let i = 0; i < allDates.length; i++) {
       const colW = getColumnWidth(allDates[i], expandedDate, slotWidth)
       if (x < cumulative + colW) {
-        onProjectDrop(projectId, allDates[i], cleanerId === 'unassigned' ? undefined : cleanerId)
-        return
+        targetDate = allDates[i]
+        break
       }
       cumulative += colW
     }
-  }, [slotWidth, allDates, onProjectDrop, expandedDate])
+
+    isDraggingRef.current = false
+
+    if (!targetDate) return
+
+    const projectData = data as ProjectDragData
+    const project = projectData.project
+    const sourceDate = toLocalDateStr(project.projectDate)
+
+    // Constraint validation
+    if (projectData.previousBookingCheckOut && targetDate < projectData.previousBookingCheckOut) {
+      onInvalidDrop?.({
+        projectName: projectData.project.propertyName || 'Cleaning',
+        targetDate,
+        reason: 'before_checkout',
+        boundaryDate: projectData.previousBookingCheckOut,
+      })
+      return
+    }
+    if (projectData.nextBookingCheckIn && targetDate >= projectData.nextBookingCheckIn) {
+      onInvalidDrop?.({
+        projectName: projectData.project.propertyName || 'Cleaning',
+        targetDate,
+        reason: 'after_checkin',
+        boundaryDate: projectData.nextBookingCheckIn,
+      })
+      return
+    }
+
+    // Resolve target row (cleaner)
+    const targetRowId = resolveDropRow(event)
+    const targetCleanerId = targetRowId === 'unassigned' ? null : (targetRowId || null)
+    const sourceCleanerId = project.cleanerId || null
+
+    // No-op if same date and same cleaner
+    if (targetDate === sourceDate && targetCleanerId === sourceCleanerId) return
+
+    if (onPendingDrop) {
+      onPendingDrop({
+        item: data,
+        targetDate,
+        targetCleanerId: targetRowId !== undefined ? targetCleanerId : undefined,
+        targetCleanerName: targetRowId ? cleanerNameById.get(targetRowId) || null : null,
+        sourceDate,
+        sourceCleanerId,
+      })
+    }
+  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, isDraggingRef, resolveDropRow, cleanerNameById])
 
   return (
-    <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: 'grab', overscrollBehaviorX: 'none' }}>
-      {/* Sticky Sidebar */}
-      <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
-        <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
-          <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
-        </div>
-        {resourceRows.map(row => {
-          const rowHeight = getRowHeight(row.id)
-          return (
-            <div
-              key={row.id}
-              className={`border-b-2 transition-colors ${
-                row.isUnassigned ? 'border-amber-200 bg-amber-50/30' : 'border-gray-300 hover:bg-gray-50/30'
-              }`}
-              style={{ height: rowHeight }}
-            >
-              <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
-                <div className={`font-medium text-[13px] flex items-center gap-1.5 leading-tight ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
-                  {row.label}
-                  {row.isUnassigned && row.count !== undefined && row.count > 0 && (
-                    <span className="px-1 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded">{row.count}</span>
-                  )}
-                </div>
-                <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
-                  {row.sublabel}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Scrollable Timeline */}
-      <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative" style={{ overscrollBehaviorX: 'none' }}>
-        <div
-          className="relative"
-          style={{
-            width: trackWidth,
-            transform: `translateX(${translateX}px)`,
-            willChange: 'transform',
-          }}
-        >
-          {/* Column Headers */}
-          <div ref={headerRef} className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 z-10">
-            {renderColumnHeaders()}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEndForView}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
+        {/* Sticky Sidebar */}
+        <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
+          <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
+            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
           </div>
-
-          {/* Resource Rows */}
           {resourceRows.map(row => {
-            const rowProjects = projectsByResource.get(row.id) || []
             const rowHeight = getRowHeight(row.id)
-
             return (
               <div
                 key={row.id}
-                className={`relative border-b-2 transition-colors ${
-                  row.isUnassigned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-300 hover:bg-gray-50/20'
+                className={`border-b-2 transition-colors ${
+                  row.isUnassigned ? 'border-amber-200 bg-amber-50/30' : 'border-gray-300 hover:bg-gray-50/30'
                 }`}
                 style={{ height: rowHeight }}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, row.id)}
               >
-                {/* Column grid lines + today highlight */}
-                <div className="absolute inset-0 flex pointer-events-none">
-                  {allDates.map((dateStr) => {
-                    const today = isToday(dateStr)
-                    const headerInfo = formatColumnHeader(dateStr)
-                    const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
-                    const isExp = dateStr === expandedDate
-                    return (
-                      <div
-                        key={dateStr}
-                        className={`flex-shrink-0 relative ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExp ? 'bg-blue-50/20' : ''}`}
-                        style={{
-                          width: colWidth,
-                          borderRight: '1px solid rgba(0,0,0,0.12)',
-                        }}
-                      >
-                        {subdivisions.map(frac => (
-                          <div key={frac} className="absolute top-0 bottom-0" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
-                        ))}
-                      </div>
-                    )
-                  })}
+                <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
+                  <div className={`font-medium text-[13px] flex items-center gap-1.5 leading-tight ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
+                    {row.label}
+                    {row.isUnassigned && row.count !== undefined && row.count > 0 && (
+                      <span className="px-1 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded">{row.count}</span>
+                    )}
+                  </div>
+                  <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
+                    {row.sublabel}
+                  </div>
                 </div>
-
-                {/* Now indicator */}
-                {nowPos && (
-                  <div
-                    className="absolute top-0 bottom-0 z-10 pointer-events-none"
-                    style={{
-                      left: getColumnLeft(nowPos.dayIndex, allDates, expandedDate, slotWidth) + nowPos.subDayFraction * getColumnWidth(allDates[nowPos.dayIndex], expandedDate, slotWidth),
-                      width: 1,
-                      backgroundColor: '#ef4444',
-                    }}
-                  />
-                )}
-
-                {/* Project bars with stacking */}
-                {rowProjects.map(pp => {
-                  const colLeft = getColumnLeft(pp.colIndex, allDates, expandedDate, slotWidth)
-                  const colW = getColumnWidth(allDates[pp.colIndex] || '', expandedDate, slotWidth)
-                  const projLeft = isMonthView
-                    ? colLeft
-                    : colLeft + pp.startOffset * colW
-                  const projRight = isMonthView
-                    ? colLeft + colW
-                    : colLeft + pp.endOffset * colW
-                  const projWidth = Math.max(projRight - projLeft, 20)
-                  const isExp = allDates[pp.colIndex] === expandedDate
-                  const stackTop = ROW_PADDING + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
-
-                  return (
-                    <div
-                      key={pp.project.id}
-                      className="absolute z-[6] hover:z-[100] cursor-pointer"
-                      data-no-drag
-                      style={{
-                        left: projLeft,
-                        width: projWidth,
-                        top: stackTop,
-                        height: BAR_HEIGHT,
-                      }}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/project-id', pp.project.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onProjectClick(pp.project)
-                      }}
-                    >
-                      <ProjectEvent
-                        project={pp.project}
-                        showProperty
-                        openIssueCount={issueCountsMap[pp.project.id] || 0}
-                        pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
-                        zoomLevel={zoomLevel}
-                        isExpanded={isExp}
-                        nextCheckinDate={null}
-                      />
-                    </div>
-                  )
-                })}
               </div>
             )
           })}
         </div>
-      </div>
 
-      {/* Sticky header portal — rendered outside overflow-hidden */}
-      {isStuck && stickyPortal?.current && createPortal(
-        <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
+        {/* Scrollable Timeline */}
+        <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative" style={{ overscrollBehaviorX: 'none' }}>
           <div
-            className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
-            style={{ width: SIDEBAR_WIDTH }}
+            ref={trackContainerRef}
+            className="relative"
+            style={{
+              width: trackWidth,
+              willChange: 'transform',
+            }}
           >
-            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <div
-              className="flex h-10"
-              style={{ width: trackWidth, transform: `translateX(${translateX}px)` }}
-            >
+            {/* Column Headers */}
+            <div ref={headerRef} className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 z-10">
               {renderColumnHeaders()}
             </div>
+
+            {/* Resource Rows */}
+            {resourceRows.map(row => {
+              const rowProjects = projectsByResource.get(row.id) || []
+              const rowHeight = getRowHeight(row.id)
+
+              return (
+                <div
+                  key={row.id}
+                  className={`relative border-b-2 transition-colors ${
+                    row.isUnassigned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-300 hover:bg-gray-50/20'
+                  }`}
+                  style={{ height: rowHeight }}
+                >
+                  {/* Column grid lines + today highlight */}
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {allDates.map((dateStr) => {
+                      const today = isToday(dateStr)
+                      const headerInfo = formatColumnHeader(dateStr)
+                      const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
+                      const isExp = dateStr === expandedDate
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`flex-shrink-0 relative ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExp ? 'bg-blue-50/20' : ''}`}
+                          style={{
+                            width: colWidth,
+                            borderRight: '1px solid rgba(0,0,0,0.12)',
+                          }}
+                        >
+                          {subdivisions.map(frac => (
+                            <div key={frac} className="absolute top-0 bottom-0" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Now indicator */}
+                  {nowPos && (
+                    <div
+                      className="absolute top-0 bottom-0 z-10 pointer-events-none"
+                      style={{
+                        left: getColumnLeft(nowPos.dayIndex, allDates, expandedDate, slotWidth) + nowPos.subDayFraction * getColumnWidth(allDates[nowPos.dayIndex], expandedDate, slotWidth),
+                        width: 1,
+                        backgroundColor: '#ef4444',
+                      }}
+                    />
+                  )}
+
+                  {/* Project bars with stacking */}
+                  {rowProjects.map(pp => {
+                    const colLeft = getColumnLeft(pp.colIndex, allDates, expandedDate, slotWidth)
+                    const colW = getColumnWidth(allDates[pp.colIndex] || '', expandedDate, slotWidth)
+                    const projLeft = isMonthView
+                      ? colLeft
+                      : colLeft + pp.startOffset * colW
+                    const projRight = isMonthView
+                      ? colLeft + colW
+                      : colLeft + pp.endOffset * colW
+                    const projWidth = Math.max(projRight - projLeft, 20)
+                    const isExp = allDates[pp.colIndex] === expandedDate
+                    const stackTop = ROW_PADDING + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
+
+                    return (
+                      <DraggableProject
+                        key={pp.project.id}
+                        project={pp.project}
+                        className="absolute z-[6] hover:z-[100]"
+                        style={{
+                          left: projLeft,
+                          width: projWidth,
+                          top: stackTop,
+                          height: BAR_HEIGHT,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onProjectClick(pp.project)
+                        }}
+                      >
+                        <ProjectEvent
+                          project={pp.project}
+                          showProperty
+                          openIssueCount={issueCountsMap[pp.project.id] || 0}
+                          pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
+                          zoomLevel={zoomLevel}
+                          isExpanded={isExp}
+                        />
+                      </DraggableProject>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
-        </div>,
-        stickyPortal.current
-      )}
-    </div>
+        </div>
+
+        {/* Sticky header portal — rendered outside overflow-hidden */}
+        {isStuck && stickyPortal?.current && createPortal(
+          <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
+            <div
+              className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
+              style={{ width: SIDEBAR_WIDTH }}
+            >
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div
+                ref={stickyTrackRef}
+                className="flex h-10"
+                style={{ width: trackWidth, willChange: 'transform' }}
+              >
+                {renderColumnHeaders()}
+              </div>
+            </div>
+          </div>,
+          stickyPortal.current
+        )}
+      </div>
+
+      {/* Drag Overlay */}
+      <CalendarDragOverlay activeDragItem={activeDragItem} zoomLevel={zoomLevel} />
+    </DndContext>
   )
 }

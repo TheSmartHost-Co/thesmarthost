@@ -11,6 +11,7 @@ import type {
   CompleteProjectPayload,
   DeleteCleaningProjectResponse,
   GetCleaningProjectsParams,
+  RescheduleProjectPayload,
   // Project checklist items
   ProjectChecklistItem,
   ProjectChecklistResponse,
@@ -158,6 +159,22 @@ export function completeProject(
     `/cleaning-projects/${projectId}/complete`,
     {
       method: 'POST',
+      body: data,
+    }
+  )
+}
+
+/**
+ * Reschedule a cleaning project's date via dedicated PATCH endpoint
+ */
+export function rescheduleProjectDate(
+  id: string,
+  data: RescheduleProjectPayload
+): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse, RescheduleProjectPayload>(
+    `/cleaning-projects/${id}/date`,
+    {
+      method: 'PATCH',
       body: data,
     }
   )
@@ -379,6 +396,72 @@ export function getItemsNeedingPhotos(items: ProjectChecklistItem[]): ProjectChe
  */
 export function getIncompleteItems(items: ProjectChecklistItem[]): ProjectChecklistItem[] {
   return items.filter(item => !item.isCompleted)
+}
+
+// ============================================
+// Overdue detection utilities
+// ============================================
+
+/**
+ * Check if a cleaning project is overdue (2+ hours past expected start, not yet started)
+ */
+export function isProjectOverdue(project: CleaningProject): boolean {
+  // Never overdue if already started, completed, or cancelled
+  if (['in_progress', 'completed', 'cancelled'].includes(project.status)) return false
+  // Safety net: if actualStart is set, never overdue
+  if (project.actualStart) return false
+
+  const now = Date.now()
+  const dateStr = project.projectDate.split('T')[0]
+  const [y, m, d] = dateStr.split('-').map(Number)
+
+  let expectedStart: Date
+  if (project.projectStartTime) {
+    const [h, min] = project.projectStartTime.split(':').map(Number)
+    expectedStart = new Date(y, m - 1, d, h, min)
+  } else {
+    // No start time: use midnight of projectDate
+    expectedStart = new Date(y, m - 1, d, 0, 0)
+  }
+
+  const thresholdMs = expectedStart.getTime() + 2 * 60 * 60 * 1000 // +2 hours
+  return now > thresholdMs
+}
+
+/**
+ * Get minutes elapsed past the overdue threshold, or null if not overdue
+ */
+export function getOverdueMinutes(project: CleaningProject): number | null {
+  if (!isProjectOverdue(project)) return null
+
+  const dateStr = project.projectDate.split('T')[0]
+  const [y, m, d] = dateStr.split('-').map(Number)
+
+  let expectedStart: Date
+  if (project.projectStartTime) {
+    const [h, min] = project.projectStartTime.split(':').map(Number)
+    expectedStart = new Date(y, m - 1, d, h, min)
+  } else {
+    expectedStart = new Date(y, m - 1, d, 0, 0)
+  }
+
+  const thresholdMs = expectedStart.getTime() + 2 * 60 * 60 * 1000
+  return Math.floor((Date.now() - thresholdMs) / 60000)
+}
+
+/**
+ * Format overdue duration to human-readable string
+ */
+export function formatOverdueDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m overdue`
+  if (minutes < 1440) {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return m > 0 ? `${h}h ${m}m overdue` : `${h}h overdue`
+  }
+  const days = Math.floor(minutes / 1440)
+  const h = Math.floor((minutes % 1440) / 60)
+  return h > 0 ? `${days}d ${h}h overdue` : `${days}d overdue`
 }
 
 /**

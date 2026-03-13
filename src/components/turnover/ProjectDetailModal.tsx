@@ -33,6 +33,9 @@ import {
   updateCleaningProject,
   getStatusDisplay,
   formatDuration,
+  isProjectOverdue,
+  getOverdueMinutes,
+  formatOverdueDuration,
   getProjectChecklist,
   updateProjectChecklistItem,
   initializeProjectChecklist,
@@ -376,8 +379,14 @@ export default function ProjectDetailModal({
     }
   }
 
+  // Overdue detection
+  const overdue = isProjectOverdue(project)
+  const overdueMinutes = getOverdueMinutes(project)
+  const overdueLabel = overdue && overdueMinutes !== null ? formatOverdueDuration(overdueMinutes) : null
+
   // Get status badge color
   const getStatusBadgeClasses = () => {
+    if (overdue) return 'bg-red-100 text-red-700 border-red-200'
     const colorMap: Record<string, string> = {
       yellow: 'bg-yellow-100 text-yellow-700 border-yellow-200',
       blue: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -410,8 +419,14 @@ export default function ProjectDetailModal({
           {/* Status and Same-day badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-lg border ${getStatusBadgeClasses()}`}>
-              {statusDisplay.label}
+              {overdue ? 'Overdue' : statusDisplay.label}
             </span>
+            {overdue && overdueLabel && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-red-100 text-red-700 rounded-lg border border-red-200">
+                <ExclamationTriangleIcon className="w-4 h-4" />
+                {overdueLabel}
+              </span>
+            )}
             {project.isSameDayTurnover && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-700 rounded-lg border border-amber-200">
                 <ExclamationTriangleIcon className="w-4 h-4" />

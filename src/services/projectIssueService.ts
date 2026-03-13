@@ -196,7 +196,6 @@ export function getIssueTypeDisplay(issueType: IssueType): { label: string; colo
     damage: { label: 'Damage', color: 'red' },
     missing_item: { label: 'Missing Item', color: 'amber' },
     maintenance: { label: 'Maintenance', color: 'blue' },
-    supply: { label: 'Supply Needed', color: 'purple' },
     other: { label: 'Other', color: 'gray' }
   }
   return typeMap[issueType] || { label: issueType, color: 'gray' }
@@ -300,7 +299,6 @@ export function getIssueTypeOptions(): Array<{ value: IssueType; label: string }
     { value: 'damage', label: 'Damage' },
     { value: 'missing_item', label: 'Missing Item' },
     { value: 'maintenance', label: 'Maintenance Needed' },
-    { value: 'supply', label: 'Supply Needed' },
     { value: 'other', label: 'Other' }
   ]
 }

@@ -276,6 +276,10 @@ export default function CleanerSchedulePage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
+        // Update selectedProject if modal is showing this project
+        if (selectedProject?.id === projectId) {
+          setSelectedProject(res.data)
+        }
         showNotification('Task accepted!', 'success')
       } else {
         showNotification(res.message || 'Failed to accept task', 'error')
@@ -308,9 +312,14 @@ export default function CleanerSchedulePage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
+        // Update selectedProject if modal is showing this project
+        if (selectedProject?.id === projectId) {
+          setSelectedProject(res.data)
+        } else {
+          setSelectedProject(res.data)
+          setShowChecklistModal(true)
+        }
         showNotification('Task started! Good luck!', 'success')
-        setSelectedProject(res.data)
-        setShowChecklistModal(true)
       } else {
         showNotification(res.message || 'Failed to start task', 'error')
       }
@@ -697,6 +706,13 @@ export default function CleanerSchedulePage() {
             setShowChecklistModal(false)
             if (selectedProject) handleRequestTimeChange(selectedProject)
           }}
+          onAccept={handleAccept}
+          onDecline={async (projectId: string) => {
+            await handleDecline(projectId)
+            setShowChecklistModal(false)
+            setSelectedProject(null)
+          }}
+          onStart={handleStart}
         />
       )}
 
@@ -733,7 +749,7 @@ export default function CleanerSchedulePage() {
 function getProjectBgClass(status: string): string {
   const classes: Record<string, string> = {
     pending: 'bg-gray-50 border-gray-300',
-    assigned: 'bg-blue-50 border-blue-400',
+    assigned: 'bg-amber-50 border-amber-400',
     confirmed: 'bg-indigo-50 border-indigo-400',
     in_progress: 'bg-purple-50 border-purple-400',
     completed: 'bg-green-50 border-green-400',
@@ -745,7 +761,7 @@ function getProjectBgClass(status: string): string {
 function getStatusBadgeClass(status: string): string {
   const classes: Record<string, string> = {
     pending: 'bg-gray-100 text-gray-600',
-    assigned: 'bg-blue-100 text-blue-700',
+    assigned: 'bg-amber-100 text-amber-700',
     confirmed: 'bg-indigo-100 text-indigo-700',
     in_progress: 'bg-purple-100 text-purple-700',
     completed: 'bg-green-100 text-green-700',

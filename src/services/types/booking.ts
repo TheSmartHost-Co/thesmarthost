@@ -124,6 +124,16 @@ export interface CreateMultipleBookingsPayload {
 }
 
 /**
+ * Reschedule payload (PATCH /bookings/:id/dates)
+ */
+export interface RescheduleBookingPayload {
+  userId: string
+  checkInDate: string    // YYYY-MM-DD
+  numNights: number
+  checkOutDate?: string  // YYYY-MM-DD (optional, backend can compute)
+}
+
+/**
  * Booking statistics interface
  */
 export interface BookingStats {

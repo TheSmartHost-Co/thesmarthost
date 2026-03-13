@@ -14,7 +14,6 @@ import {
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
   QuestionMarkCircleIcon,
-  CubeIcon,
   DocumentTextIcon,
   ChevronLeftIcon,
   ChevronDownIcon,
@@ -35,7 +34,6 @@ const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: stri
   damage: ExclamationTriangleIcon,
   missing_item: QuestionMarkCircleIcon,
   maintenance: WrenchScrewdriverIcon,
-  supply: CubeIcon,
   other: DocumentTextIcon
 }
 

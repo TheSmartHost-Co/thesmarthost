@@ -130,6 +130,13 @@ export interface CleaningProjectStats {
   unassigned: number
 }
 
+// Reschedule payload (PATCH /cleaning-projects/:id/date)
+export interface RescheduleProjectPayload {
+  projectDate: string              // YYYY-MM-DD
+  projectStartTime?: string | null
+  projectEndTime?: string | null
+}
+
 // Query parameters for list endpoint
 export interface GetCleaningProjectsParams {
   userId: string

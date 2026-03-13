@@ -8,14 +8,14 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject } from '@/services/cleaningProjectService'
+import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject, rescheduleProjectDate, assignCleanerToProject } from '@/services/cleaningProjectService'
 import { toLocalDateStr } from './utils/calendarDateUtils'
 import { getCleaners } from '@/services/cleanerService'
 import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getPendingSupplyLists } from '@/services/supplyListService'
-import { getBookings, getMonthKey, getMonthBounds } from '@/services/bookingService'
+import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates } from '@/services/bookingService'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
@@ -33,6 +33,8 @@ import CleaningExclusionsModal from './CleaningExclusionsModal'
 import { AllIssuesModal } from '@/components/turnover/issues'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
+import ConfirmDragModal, { InvalidDropModal } from './dnd/ConfirmDragModal'
+import type { PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './dnd/types'
 
 export type ViewMode = 'property' | 'cleaner'
 export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
@@ -110,6 +112,9 @@ export default function TurnoverCalendar({
   // Scroll container ref for internal scrolling
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
+  // Navigation epoch — incremented on explicit user navigation only (not scroll-triggered date shifts)
+  const [navigationEpoch, setNavigationEpoch] = useState(0)
+
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -121,6 +126,10 @@ export default function TurnoverCalendar({
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
   const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
   const [showExclusionsModal, setShowExclusionsModal] = useState(false)
+
+  // Drag-and-drop confirmation state
+  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
+  const [invalidDropInfo, setInvalidDropInfo] = useState<InvalidDropInfo | null>(null)
 
   // Deep link state
   const deepLinkHandled = useRef(false)
@@ -420,14 +429,19 @@ export default function TurnoverCalendar({
     fetchMonthsForRange(currentDate, profile.id)
   }, [currentDate, profile?.id, fetchMonthsForRange])
 
-  // Refresh stats when dateRange changes
+  // Ref to read dateRange inside epoch-gated effect without adding it as a dependency
+  const dateRangeRef = useRef(dateRange)
+  useEffect(() => { dateRangeRef.current = dateRange }, [dateRange])
+
+  // Refresh stats on explicit navigation only (not during scroll-triggered date shifts)
   useEffect(() => {
     if (!profile?.id || !initialFetchDone.current) return
-    getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+    const { start, end } = dateRangeRef.current
+    getCleaningProjectStats(profile.id, start, end)
       .then(res => {
         if (res.status === 'success') setStats(res.data)
       })
-  }, [dateRange.start, dateRange.end, profile?.id])
+  }, [navigationEpoch, profile?.id])
 
   // Refresh issue counts (call after issues are modified)
   const refreshIssueCounts = async () => {
@@ -678,37 +692,120 @@ export default function TurnoverCalendar({
     refreshIssueCounts()
   }
 
-  // Handle project drag-and-drop (reschedule date and optionally reassign cleaner)
-  const handleProjectDrop = useCallback(async (projectId: string, newDate: string, newCleanerId?: string) => {
+  // Invalidate specific months from cache and trigger re-fetch
+  const invalidateAndRefetch = useCallback(async (monthKeys: string[]) => {
+    if (!profile?.id) return
+    setProjectCache(prev => {
+      const next = new Map(prev)
+      monthKeys.forEach(k => next.delete(k))
+      return next
+    })
+    setBookingCache(prev => {
+      const next = new Map(prev)
+      monthKeys.forEach(k => next.delete(k))
+      return next
+    })
+    // Update refs immediately so fetchMonthsForRange sees the invalidation
+    monthKeys.forEach(k => {
+      projectCacheRef.current.delete(k)
+      bookingCacheRef.current.delete(k)
+    })
+    // Re-fetch
+    await fetchMonthsForRange(currentDate, profile.id)
+  }, [profile?.id, currentDate, fetchMonthsForRange])
+
+  // Get affected month keys for a date
+  const getMonthKeyForDate = (dateStr: string): string => {
+    const d = new Date(dateStr + 'T00:00:00')
+    return getMonthKey(d)
+  }
+
+  // Handle pending drop from view components
+  const handlePendingDrop = useCallback((drop: PendingDrop) => {
+    setPendingDrop(drop)
+  }, [])
+
+  const handleInvalidDrop = useCallback((info: InvalidDropInfo) => {
+    setInvalidDropInfo(info)
+  }, [])
+
+  // Confirm and execute the pending drop
+  const handleConfirmDrop = useCallback(async () => {
+    if (!pendingDrop || !profile?.id) return
+
+    const affectedMonths = new Set<string>()
+    affectedMonths.add(getMonthKeyForDate(pendingDrop.sourceDate))
+    affectedMonths.add(getMonthKeyForDate(pendingDrop.targetDate))
+
     try {
-      const payload: { projectDate: string; cleanerId?: string | null } = { projectDate: newDate }
-      if (newCleanerId !== undefined) {
-        payload.cleanerId = newCleanerId || null
-      }
-      const res = await updateCleaningProject(projectId, payload)
-      if (res.status === 'success') {
-        // Update project in cache
-        setProjectCache(prev => {
-          const next = new Map(prev)
-          for (const [key, projects] of next) {
-            const idx = projects.findIndex(p => p.id === projectId)
-            if (idx !== -1) {
-              const updated = [...projects]
-              updated[idx] = res.data
-              next.set(key, updated)
+      if (pendingDrop.item.type === 'project') {
+        const project = (pendingDrop.item as ProjectDragData).project
+        const isReassign = pendingDrop.targetCleanerId !== undefined
+
+        if (isReassign) {
+          // Reschedule date first
+          const dateRes = await rescheduleProjectDate(project.id, {
+            projectDate: pendingDrop.targetDate,
+          })
+          if (dateRes.status !== 'success') {
+            showNotification(dateRes.message || 'Failed to reschedule', 'error')
+            setPendingDrop(null)
+            return
+          }
+
+          // Then reassign cleaner if changed
+          if (pendingDrop.targetCleanerId !== pendingDrop.sourceCleanerId) {
+            if (pendingDrop.targetCleanerId) {
+              const assignRes = await assignCleanerToProject(project.id, {
+                cleanerId: pendingDrop.targetCleanerId,
+              })
+              if (assignRes.status !== 'success') {
+                showNotification(assignRes.message || 'Failed to reassign cleaner', 'error')
+              }
+            } else {
+              // Unassign cleaner
+              await updateCleaningProject(project.id, { cleanerId: null })
             }
           }
-          return next
+
+          showNotification('Project reassigned', 'success')
+        } else {
+          const res = await rescheduleProjectDate(project.id, {
+            projectDate: pendingDrop.targetDate,
+          })
+          if (res.status === 'success') {
+            showNotification('Project rescheduled', 'success')
+          } else {
+            showNotification(res.message || 'Failed to reschedule', 'error')
+            setPendingDrop(null)
+            return
+          }
+        }
+      } else if (pendingDrop.item.type === 'booking') {
+        const bookingData = pendingDrop.item as BookingDragData
+        const res = await rescheduleBookingDates(bookingData.booking.id, {
+          userId: profile.id,
+          checkInDate: pendingDrop.targetDate,
+          numNights: bookingData.numNights,
         })
-        showNotification('Project rescheduled', 'success')
-      } else {
-        showNotification(res.message || 'Failed to reschedule', 'error')
+        if (res.status === 'success') {
+          showNotification('Booking rescheduled', 'success')
+        } else {
+          showNotification(res.message || 'Failed to reschedule booking', 'error')
+          setPendingDrop(null)
+          return
+        }
       }
+
+      // Invalidate and re-fetch affected months
+      await invalidateAndRefetch(Array.from(affectedMonths))
     } catch (err) {
-      console.error('Error rescheduling project:', err)
-      showNotification('Failed to reschedule project', 'error')
+      console.error('Error executing drop:', err)
+      showNotification('Failed to complete move', 'error')
+    } finally {
+      setPendingDrop(null)
     }
-  }, [showNotification])
+  }, [pendingDrop, profile?.id, showNotification, invalidateAndRefetch])
 
   // Computed: open issue count for CalendarHeader badge
   const openIssueCount = useMemo(() =>
@@ -767,6 +864,7 @@ export default function TurnoverCalendar({
       }
       return d
     })
+    setNavigationEpoch(e => e + 1)
   }, [zoomLevel, isWeekPreset])
 
   const handleNextWeek = useCallback(() => {
@@ -787,6 +885,7 @@ export default function TurnoverCalendar({
       }
       return d
     })
+    setNavigationEpoch(e => e + 1)
   }, [zoomLevel, isWeekPreset])
 
   // Pixel-scroll date shift handler (called by view components when scroll crosses a column boundary)
@@ -806,6 +905,7 @@ export default function TurnoverCalendar({
     }
     setCurrentDate(today)
     setExpandedDate(null)
+    setNavigationEpoch(e => e + 1)
   }, [isWeekPreset, zoomLevel])
 
   // Loading state
@@ -949,12 +1049,14 @@ export default function TurnoverCalendar({
                   bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
                   zoomLevel={zoomLevel}
                   onRequestDateShift={handleRequestDateShift}
-                  onProjectDrop={handleProjectDrop}
+                  onPendingDrop={handlePendingDrop}
+                  onInvalidDrop={handleInvalidDrop}
                   stickyPortal={stickyPortalRef}
                   expandedDate={expandedDate}
                   onExpandDate={setExpandedDate}
                   onDayClick={handleDayClick}
                   scrollContainer={scrollContainerRef}
+                  navigationEpoch={navigationEpoch}
                 />
               ) : (
                 <CleanerRowView
@@ -966,12 +1068,14 @@ export default function TurnoverCalendar({
                   supplyListCountsMap={supplyListCountsMap}
                   zoomLevel={zoomLevel}
                   onRequestDateShift={handleRequestDateShift}
-                  onProjectDrop={handleProjectDrop}
+                  onPendingDrop={handlePendingDrop}
+                  onInvalidDrop={handleInvalidDrop}
                   stickyPortal={stickyPortalRef}
                   expandedDate={expandedDate}
                   onExpandDate={setExpandedDate}
                   onDayClick={handleDayClick}
                   scrollContainer={scrollContainerRef}
+                  navigationEpoch={navigationEpoch}
                 />
               )}
             </motion.div>
@@ -1090,6 +1194,20 @@ export default function TurnoverCalendar({
         onClose={() => setShowExclusionsModal(false)}
         properties={properties}
         onToggleCleaningManaged={handleToggleCleaningManaged}
+      />
+
+      {/* Drag-and-Drop Confirmation Modal */}
+      <ConfirmDragModal
+        isOpen={!!pendingDrop}
+        pendingDrop={pendingDrop}
+        onConfirm={handleConfirmDrop}
+        onCancel={() => setPendingDrop(null)}
+      />
+
+      <InvalidDropModal
+        isOpen={!!invalidDropInfo}
+        info={invalidDropInfo}
+        onClose={() => setInvalidDropInfo(null)}
       />
     </motion.div>
   )

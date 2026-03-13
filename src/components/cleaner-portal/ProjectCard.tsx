@@ -16,7 +16,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
-import { formatTime } from '@/services/cleaningProjectService'
+import { formatTime, isProjectOverdue, getOverdueMinutes, formatOverdueDuration } from '@/services/cleaningProjectService'
 
 interface ProjectCardProps {
   project: CleaningProject
@@ -49,7 +49,20 @@ export default function ProjectCard({
 }: ProjectCardProps) {
   const [isLoading, setIsLoading] = useState<string | null>(null)
 
-  const statusConfig = getStatusConfig(project.status)
+  const baseStatusConfig = getStatusConfig(project.status)
+  const overdue = isProjectOverdue(project)
+  const overdueMinutes = getOverdueMinutes(project)
+  const overdueLabel = overdue && overdueMinutes !== null ? formatOverdueDuration(overdueMinutes) : null
+
+  const statusConfig = overdue
+    ? {
+        ...baseStatusConfig,
+        label: 'Overdue',
+        border: 'border-red-500',
+        badge: 'bg-red-100 text-red-700',
+        icon: <ExclamationTriangleIcon className="w-3.5 h-3.5" />,
+      }
+    : baseStatusConfig
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -141,6 +154,14 @@ export default function ProjectCard({
               <UserGroupIcon className="w-4 h-4 text-gray-400" />
               <span>{project.guestCount} guests</span>
             </div>
+          )}
+
+          {/* Overdue Duration */}
+          {overdue && overdueLabel && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+              <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+              {overdueLabel}
+            </span>
           )}
 
           {/* Same Day Turnover */}
@@ -325,8 +346,8 @@ function getStatusConfig(status: CleaningProjectStatus): {
     },
     assigned: {
       label: 'Awaiting Response',
-      border: 'border-blue-400',
-      badge: 'bg-blue-100 text-blue-700',
+      border: 'border-amber-400',
+      badge: 'bg-amber-100 text-amber-700',
       icon: <ClockIcon className="w-3.5 h-3.5" />,
     },
     confirmed: {

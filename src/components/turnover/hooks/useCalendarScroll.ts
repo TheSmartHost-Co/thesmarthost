@@ -1,14 +1,16 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 
 interface UseCalendarScrollOptions {
   slotWidth: number
   onRequestDateShift: (days: number) => void
+  isDraggingRef?: React.MutableRefObject<boolean>
+  onScrollFrame?: (scrollOffset: number) => void
 }
 
 interface UseCalendarScrollReturn {
-  scrollOffset: number
+  scrollOffsetRef: React.MutableRefObject<number>
   timelineRef: React.RefObject<HTMLDivElement | null>
   resetOffset: () => void
 }
@@ -16,36 +18,42 @@ interface UseCalendarScrollReturn {
 export function useCalendarScroll({
   slotWidth,
   onRequestDateShift,
+  isDraggingRef,
+  onScrollFrame,
 }: UseCalendarScrollOptions): UseCalendarScrollReturn {
-  const [scrollOffset, setScrollOffset] = useState(0)
   const timelineRef = useRef<HTMLDivElement | null>(null)
   const scrollOffsetRef = useRef(0)
   const slotWidthRef = useRef(slotWidth)
+  const onRequestDateShiftRef = useRef(onRequestDateShift)
+  const onScrollFrameRef = useRef(onScrollFrame)
 
   useEffect(() => { slotWidthRef.current = slotWidth }, [slotWidth])
+  useEffect(() => { onRequestDateShiftRef.current = onRequestDateShift }, [onRequestDateShift])
+  useEffect(() => { onScrollFrameRef.current = onScrollFrame }, [onScrollFrame])
 
   const resetOffset = useCallback(() => {
     scrollOffsetRef.current = 0
-    setScrollOffset(0)
+    onScrollFrameRef.current?.(0)
   }, [])
 
   // Advance offset, fire date-shift when crossing a column boundary
+  // All callback refs are stable, so applyDelta never changes → listeners stay attached
   const applyDelta = useCallback((delta: number) => {
     const w = slotWidthRef.current
     let next = scrollOffsetRef.current + delta
 
     while (next >= w) {
       next -= w
-      onRequestDateShift(1)
+      onRequestDateShiftRef.current(1)
     }
     while (next <= -w) {
       next += w
-      onRequestDateShift(-1)
+      onRequestDateShiftRef.current(-1)
     }
 
     scrollOffsetRef.current = next
-    setScrollOffset(next)
-  }, [onRequestDateShift])
+    onScrollFrameRef.current?.(next)
+  }, [])
 
   useEffect(() => {
     const el = timelineRef.current
@@ -79,6 +87,8 @@ export function useCalendarScroll({
       if (e.button !== 0) return
       const target = e.target as HTMLElement
       if (target.closest('button, a, [role="button"], [data-no-drag]')) return
+      if (isDraggingRef?.current) return
+      if (target.closest('[data-dnd-item]')) return
       isDragging = true
       lastX = e.clientX
       el.setPointerCapture(e.pointerId)
@@ -117,5 +127,5 @@ export function useCalendarScroll({
     }
   }, [applyDelta])
 
-  return { scrollOffset, timelineRef, resetOffset }
+  return { scrollOffsetRef, timelineRef, resetOffset }
 }

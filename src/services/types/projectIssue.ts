@@ -1,6 +1,6 @@
 // Types for Project Issues (cleaners report damage, maintenance, etc.)
 
-export type IssueType = 'damage' | 'missing_item' | 'maintenance' | 'supply' | 'other'
+export type IssueType = 'damage' | 'missing_item' | 'maintenance' | 'other'
 
 export type IssueStatus = 'open' | 'acknowledged' | 'resolved'
 
@@ -72,7 +72,6 @@ export const ISSUE_TYPE_INFO: Record<IssueType, { label: string; color: string; 
   damage: { label: 'Damage', color: 'red', icon: 'exclamation-triangle' },
   missing_item: { label: 'Missing Item', color: 'amber', icon: 'question-mark-circle' },
   maintenance: { label: 'Maintenance', color: 'blue', icon: 'wrench-screwdriver' },
-  supply: { label: 'Supply Needed', color: 'purple', icon: 'cube' },
   other: { label: 'Other', color: 'gray', icon: 'document-text' }
 }
 

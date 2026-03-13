@@ -19,7 +19,8 @@ import type {
   Platform,
   BookingStats,
   BulkImportBookingPayload,
-  BulkImportResponse
+  BulkImportResponse,
+  RescheduleBookingPayload,
 } from './types/booking'
 
 /**
@@ -392,6 +393,23 @@ export async function bulkImportBookings(
     method: 'POST',
     body: { userId, bookings },
   })
+}
+
+/**
+ * Reschedule a booking's dates via dedicated PATCH endpoint
+ * Preserves numNights, shifts checkIn/checkOut
+ */
+export async function rescheduleBookingDates(
+  id: string,
+  data: RescheduleBookingPayload
+): Promise<BookingResponse> {
+  return apiClient<BookingResponse, RescheduleBookingPayload>(
+    `/bookings/${id}/dates`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
 }
 
 /**

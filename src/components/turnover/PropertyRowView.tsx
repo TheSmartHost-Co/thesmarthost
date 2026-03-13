@@ -1,14 +1,20 @@
 'use client'
 
-import { useMemo, useEffect, useCallback, useState, type RefObject } from 'react'
+import { useMemo, useEffect, useLayoutEffect, useCallback, useState, useRef, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import type { ZoomLevel } from './TurnoverCalendar'
+import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './dnd/types'
 import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
+import DraggableProject from './dnd/DraggableProject'
+import DraggableBooking from './dnd/DraggableBooking'
+import CalendarDragOverlay from './dnd/CalendarDragOverlay'
 import { useCalendarScroll } from './hooks/useCalendarScroll'
+import { useCalendarDrag } from './hooks/useCalendarDrag'
 import { useNowIndicator } from './hooks/useNowIndicator'
 import { useStickyHeader } from './hooks/useStickyHeader'
 import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
@@ -36,11 +42,15 @@ interface PropertyRowViewProps {
   zoomLevel?: ZoomLevel
   onRequestDateShift?: (days: number) => void
   onProjectDrop?: (projectId: string, newDate: string, newCleanerId?: string) => void
+  onBookingDrop?: (bookingId: string, newCheckInDate: string, numNights: number) => void
+  onPendingDrop?: (drop: PendingDrop) => void
+  onInvalidDrop?: (info: InvalidDropInfo) => void
   stickyPortal?: RefObject<HTMLDivElement | null>
   expandedDate?: string | null
   onExpandDate?: (date: string | null) => void
   onDayClick?: (dateStr: string) => void
   scrollContainer?: RefObject<HTMLElement | null>
+  navigationEpoch?: number
 }
 
 export default function PropertyRowView({
@@ -55,11 +65,15 @@ export default function PropertyRowView({
   zoomLevel = 7,
   onRequestDateShift,
   onProjectDrop,
+  onBookingDrop,
+  onPendingDrop,
+  onInvalidDrop,
   stickyPortal,
   expandedDate = null,
   onExpandDate,
   onDayClick,
   scrollContainer,
+  navigationEpoch = 0,
 }: PropertyRowViewProps) {
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -67,6 +81,7 @@ export default function PropertyRowView({
     : (zoomLevel as number)
   const [containerWidth, setContainerWidth] = useState(0)
   const bufferCols = isMonthView ? 0 : BUFFER_DAYS
+  const trackContainerRef = useRef<HTMLDivElement>(null)
 
   // Base slot width (for normal, non-expanded columns)
   const expandedInView = expandedDate && !isMonthView
@@ -75,10 +90,56 @@ export default function PropertyRowView({
     ? containerWidth / effectiveVisibleSlots
     : DAY_SLOT_WIDTH
 
-  const { scrollOffset, timelineRef, resetOffset } = useCalendarScroll({
+  // Refs for layout params used in imperative scroll-frame callback
+  const bufferColsRef = useRef(bufferCols)
+  const layoutSlotWidthRef = useRef(slotWidth)
+  const stickyTrackRef = useRef<HTMLDivElement>(null)
+
+  // Stable scroll-frame callback — directly updates DOM transforms (no React re-render)
+  const handleScrollFrame = useCallback((offset: number) => {
+    const tx = -(bufferColsRef.current * layoutSlotWidthRef.current) - offset
+    if (trackContainerRef.current) {
+      trackContainerRef.current.style.transform = `translateX(${tx}px)`
+    }
+    if (stickyTrackRef.current) {
+      stickyTrackRef.current.style.transform = `translateX(${tx}px)`
+    }
+  }, [])
+
+  const allDates = useMemo(() => {
+    const start = addDays(dateRange.start, -bufferCols)
+    const totalCols = visibleColumns + bufferCols * 2
+    return generateDateRange(start, totalCols)
+  }, [dateRange.start, bufferCols, visibleColumns])
+
+  // DnD hook
+  const {
+    sensors,
+    activeDragItem,
+    isDraggingRef,
+    handleDragStart,
+    handleDragCancel,
+  } = useCalendarDrag({
+    allDates,
+    expandedDate,
+    slotWidth,
+    translateX: -(bufferCols * slotWidth),
+    bufferCols,
+  })
+
+  const { scrollOffsetRef, timelineRef, resetOffset } = useCalendarScroll({
     slotWidth,
     onRequestDateShift: onRequestDateShift || (() => {}),
+    isDraggingRef,
+    onScrollFrame: handleScrollFrame,
   })
+
+  // Sync layout refs and DOM transform when layout params change (zoom, resize)
+  useLayoutEffect(() => {
+    bufferColsRef.current = bufferCols
+    layoutSlotWidthRef.current = slotWidth
+    handleScrollFrame(scrollOffsetRef.current)
+  }, [bufferCols, slotWidth, handleScrollFrame, scrollOffsetRef])
 
   useEffect(() => {
     const el = timelineRef.current
@@ -91,13 +152,7 @@ export default function PropertyRowView({
     return () => ro.disconnect()
   }, [timelineRef])
 
-  useEffect(() => { resetOffset() }, [zoomLevel, dateRange.start, resetOffset])
-
-  const allDates = useMemo(() => {
-    const start = addDays(dateRange.start, -bufferCols)
-    const totalCols = visibleColumns + bufferCols * 2
-    return generateDateRange(start, totalCols)
-  }, [dateRange.start, bufferCols, visibleColumns])
+  useEffect(() => { resetOffset() }, [navigationEpoch, resetOffset])
 
   const nowPos = useNowIndicator(allDates, 6, 24)
 
@@ -131,39 +186,12 @@ export default function PropertyRowView({
     return map
   }, [positionedBookings])
 
-  // For each project, find the next booking check-in date for the same property after the project's scheduled date
-  const nextCheckinByProject = useMemo(() => {
-    const map = new Map<string, string>()
-    // Sort bookings by checkInDate per property
-    const sortedByProp = new Map<string, string[]>()
-    for (const b of bookings) {
-      if (!b.checkInDate) continue
-      const dates = sortedByProp.get(b.propertyId) || []
-      dates.push(toLocalDateStr(b.checkInDate))
-      sortedByProp.set(b.propertyId, dates)
-    }
-    for (const dates of sortedByProp.values()) {
-      dates.sort()
-    }
-    for (const project of projects) {
-      const propDates = sortedByProp.get(project.propertyId)
-      if (!propDates) continue
-      const projDate = toLocalDateStr(project.projectDate)
-      // Find first booking check-in after the project's scheduled date
-      const next = propDates.find(d => d > projDate)
-      if (next) map.set(project.id, next)
-    }
-    return map
-  }, [bookings, projects])
-
   // Compute total track width accounting for expanded column
   const trackWidth = useMemo(() => {
     let w = 0
     for (const d of allDates) w += getColumnWidth(d, expandedDate, slotWidth)
     return w
   }, [allDates, expandedDate, slotWidth])
-
-  const translateX = -(bufferCols * slotWidth) - scrollOffset
 
   const { headerRef, isStuck } = useStickyHeader(scrollContainer)
 
@@ -212,247 +240,309 @@ export default function PropertyRowView({
     return BOOKING_BAR_HEIGHT + SUB_ROW_GAP + Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PADDING * 2
   }, [maxStackByProperty])
 
-  // Drag-and-drop handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }, [])
+  // DnD drag end handler
+  const handleDragEndForView = useCallback((event: DragEndEvent) => {
+    const data = event.active.data.current as DragItem | undefined
+    if (!data) {
+      handleDragCancel()
+      return
+    }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const projectId = e.dataTransfer.getData('text/project-id')
-    if (!projectId || !onProjectDrop) return
+    // Resolve target date from pointer position
+    if (!timelineRef.current) {
+      handleDragCancel()
+      return
+    }
 
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
+    const containerRect = timelineRef.current.getBoundingClientRect()
+    const pointerX = (event.activatorEvent as PointerEvent)?.clientX
+    const deltaX = event.delta.x
+    if (pointerX === undefined) {
+      handleDragCancel()
+      return
+    }
+
+    const currentTranslateX = -(bufferColsRef.current * layoutSlotWidthRef.current) - scrollOffsetRef.current
+    const x = (pointerX + deltaX) - containerRect.left - currentTranslateX
+
+    let targetDate: string | null = null
     let cumulative = 0
     for (let i = 0; i < allDates.length; i++) {
       const colW = getColumnWidth(allDates[i], expandedDate, slotWidth)
       if (x < cumulative + colW) {
-        onProjectDrop(projectId, allDates[i])
-        return
+        targetDate = allDates[i]
+        break
       }
       cumulative += colW
     }
-  }, [slotWidth, allDates, onProjectDrop, expandedDate])
+
+    isDraggingRef.current = false
+
+    if (!targetDate) return
+
+    if (data.type === 'project') {
+      const projectData = data as ProjectDragData
+      const sourceDate = toLocalDateStr(projectData.project.projectDate)
+
+      // Constraint validation
+      if (projectData.previousBookingCheckOut && targetDate < projectData.previousBookingCheckOut) {
+        onInvalidDrop?.({
+          projectName: projectData.project.propertyName || 'Cleaning',
+          targetDate,
+          reason: 'before_checkout',
+          boundaryDate: projectData.previousBookingCheckOut,
+        })
+        return
+      }
+      if (projectData.nextBookingCheckIn && targetDate >= projectData.nextBookingCheckIn) {
+        onInvalidDrop?.({
+          projectName: projectData.project.propertyName || 'Cleaning',
+          targetDate,
+          reason: 'after_checkin',
+          boundaryDate: projectData.nextBookingCheckIn,
+        })
+        return
+      }
+
+      if (targetDate === sourceDate) return
+
+      if (onPendingDrop) {
+        onPendingDrop({
+          item: data,
+          targetDate,
+          sourceDate,
+          sourceCleanerId: projectData.project.cleanerId || null,
+        })
+      }
+    } else if (data.type === 'booking') {
+      const bookingData = data as BookingDragData
+      const sourceDate = toLocalDateStr(bookingData.booking.checkInDate)
+
+      if (targetDate === sourceDate) return
+
+      if (onPendingDrop) {
+        onPendingDrop({
+          item: data,
+          targetDate,
+          sourceDate,
+        })
+      }
+    }
+  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, isDraggingRef, handleDragCancel])
 
   return (
-    <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: 'grab', overscrollBehaviorX: 'none' }}>
-      {/* Sticky Sidebar */}
-      <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
-        <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
-          <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
-        </div>
-        {properties.map(property => {
-          const rowHeight = getRowHeight(property.id)
-          return (
-            <div
-              key={property.id}
-              className="border-b-2 border-gray-300 hover:bg-gray-50/30 transition-colors"
-              style={{ height: rowHeight }}
-            >
-              <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
-                <div className="font-medium text-gray-800 text-[13px] truncate leading-tight">
-                  {property.listingName || property.internalName || property.address}
-                </div>
-                <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Scrollable Timeline */}
-      <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative" style={{ overscrollBehaviorX: 'none' }}>
-        <div
-          className="relative"
-          style={{
-            width: trackWidth,
-            transform: `translateX(${translateX}px)`,
-            willChange: 'transform',
-          }}
-        >
-          {/* Column Headers */}
-          <div ref={headerRef} className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 z-10">
-            {renderColumnHeaders()}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEndForView}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
+        {/* Sticky Sidebar */}
+        <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
+          <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
+            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
           </div>
-
-          {/* Resource Rows */}
           {properties.map(property => {
-            const propertyBookings = bookingsByProperty.get(property.id) || []
-            const propertyProjects = projectsByProperty.get(property.id) || []
             const rowHeight = getRowHeight(property.id)
-
             return (
               <div
                 key={property.id}
-                className="relative border-b-2 border-gray-300 hover:bg-gray-50/20 transition-colors"
+                className="border-b-2 border-gray-300 hover:bg-gray-50/30 transition-colors"
                 style={{ height: rowHeight }}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
               >
-                {/* Column grid lines + today highlight */}
-                <div className="absolute inset-0 flex pointer-events-none">
-                  {allDates.map((dateStr) => {
-                    const today = isToday(dateStr)
-                    const headerInfo = formatColumnHeader(dateStr)
-                    const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
-                    const isExp = dateStr === expandedDate
-                    return (
-                      <div
-                        key={dateStr}
-                        className={`flex-shrink-0 border-r relative ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExp ? 'bg-blue-50/20' : ''}`}
-                        style={{
-                          width: colWidth,
-                          borderColor: 'rgba(0,0,0,0.12)',
-                        }}
-                      >
-                        {subdivisions.map(frac => (
-                          <div key={frac} className="absolute top-0 bottom-0" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Now indicator */}
-                {nowPos && (
-                  <div
-                    className="absolute top-0 bottom-0 z-10 pointer-events-none"
-                    style={{
-                      left: getColumnLeft(nowPos.dayIndex, allDates, expandedDate, slotWidth) + nowPos.subDayFraction * getColumnWidth(allDates[nowPos.dayIndex], expandedDate, slotWidth),
-                      width: 1,
-                      backgroundColor: '#ef4444',
-                    }}
-                  >
-                    <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-500" />
+                <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
+                  <div className="font-medium text-gray-800 text-[13px] truncate leading-tight">
+                    {property.listingName || property.internalName || property.address}
                   </div>
-                )}
-
-                {/* Sub-row separator line */}
-                <div
-                  className="absolute left-0 right-0 pointer-events-none"
-                  style={{
-                    top: ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP / 2,
-                    height: 0,
-                    borderTop: '1px dashed rgba(0,0,0,0.15)',
-                  }}
-                />
-
-                {/* Booking bars — top sub-row */}
-                {propertyBookings.map(pb => {
-                  const startLeft = getColumnLeft(pb.startColIndex, allDates, expandedDate, slotWidth)
-                  const startColW = getColumnWidth(allDates[pb.startColIndex] || '', expandedDate, slotWidth)
-                  const barLeft = startLeft + pb.checkinOffset * startColW
-                  const endLeft = getColumnLeft(pb.endColIndex - 1, allDates, expandedDate, slotWidth)
-                  const endColW = getColumnWidth(allDates[pb.endColIndex - 1] || '', expandedDate, slotWidth)
-                  const right = endLeft + pb.checkoutOffset * endColW
-                  const barWidth = Math.max(right - barLeft, 20) + NOTCH_PX
-
-                  // Compute sticky offset: shift text to stay visible at viewport left edge
-                  const viewportLeft = bufferCols * slotWidth - scrollOffset
-                  const rawStickyOffset = Math.max(0, viewportLeft - barLeft)
-                  const maxOffset = Math.max(0, barWidth - 120)
-                  const stickyOffset = Math.min(rawStickyOffset, maxOffset)
-
-                  return (
-                    <div
-                      key={`booking-${pb.booking.id}`}
-                      className="absolute z-[5] hover:z-[100] cursor-pointer"
-                      data-no-drag
-                      style={{
-                        left: barLeft,
-                        width: barWidth,
-                        top: ROW_PADDING,
-                        height: BOOKING_BAR_HEIGHT,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onBookingClick?.(pb.booking)
-                      }}
-                    >
-                      <BookingBar
-                        booking={pb.booking}
-                        isClippedLeft={pb.startColIndex < bufferCols}
-                        isClippedRight={pb.endColIndex > allDates.length - bufferCols}
-                        stickyOffset={stickyOffset}
-                      />
-                    </div>
-                  )
-                })}
-
-                {/* Project bars — bottom sub-row with stacking */}
-                {propertyProjects.map(pp => {
-                  const colLeft = getColumnLeft(pp.colIndex, allDates, expandedDate, slotWidth)
-                  const colW = getColumnWidth(allDates[pp.colIndex] || '', expandedDate, slotWidth)
-                  const projLeft = isMonthView
-                    ? colLeft
-                    : colLeft + pp.startOffset * colW
-                  const projRight = isMonthView
-                    ? colLeft + colW
-                    : colLeft + pp.endOffset * colW
-                  const projWidth = Math.max(projRight - projLeft, 20)
-                  const isExp = allDates[pp.colIndex] === expandedDate
-                  const stackTop = ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
-
-                  return (
-                    <div
-                      key={`project-${pp.project.id}`}
-                      className="absolute z-[6] hover:z-[100] cursor-pointer"
-                      data-no-drag
-                      style={{
-                        left: projLeft,
-                        width: projWidth,
-                        top: stackTop,
-                        height: BAR_HEIGHT,
-                      }}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/project-id', pp.project.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onProjectClick(pp.project)
-                      }}
-                    >
-                      <ProjectEvent
-                        project={pp.project}
-                        openIssueCount={issueCountsMap[pp.project.id] || 0}
-                        pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
-                        zoomLevel={zoomLevel}
-                        isExpanded={isExp}
-                        nextCheckinDate={nextCheckinByProject.get(pp.project.id) || null}
-                      />
-                    </div>
-                  )
-                })}
+                  <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>
+                </div>
               </div>
             )
           })}
         </div>
-      </div>
 
-      {/* Sticky header portal — rendered outside overflow-hidden */}
-      {isStuck && stickyPortal?.current && createPortal(
-        <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
+        {/* Scrollable Timeline */}
+        <div ref={timelineRef} className="flex-1 overflow-x-hidden overflow-y-visible relative" style={{ overscrollBehaviorX: 'none' }}>
           <div
-            className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
-            style={{ width: SIDEBAR_WIDTH }}
+            ref={trackContainerRef}
+            className="relative"
+            style={{
+              width: trackWidth,
+              willChange: 'transform',
+            }}
           >
-            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <div
-              className="flex h-10"
-              style={{ width: trackWidth, transform: `translateX(${translateX}px)` }}
-            >
+            {/* Column Headers */}
+            <div ref={headerRef} className="flex border-b-2 border-gray-200 bg-gray-50/80 h-10 z-10">
               {renderColumnHeaders()}
             </div>
+
+            {/* Resource Rows */}
+            {properties.map(property => {
+              const propertyBookings = bookingsByProperty.get(property.id) || []
+              const propertyProjects = projectsByProperty.get(property.id) || []
+              const rowHeight = getRowHeight(property.id)
+
+              return (
+                <div
+                  key={property.id}
+                  className="relative border-b-2 border-gray-300 hover:bg-gray-50/20 transition-colors"
+                  style={{ height: rowHeight }}
+                >
+                  {/* Column grid lines + today highlight */}
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {allDates.map((dateStr) => {
+                      const today = isToday(dateStr)
+                      const headerInfo = formatColumnHeader(dateStr)
+                      const colWidth = getColumnWidth(dateStr, expandedDate, slotWidth)
+                      const isExp = dateStr === expandedDate
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`flex-shrink-0 border-r relative ${today ? 'bg-blue-50/30' : headerInfo.isWeekend && isMonthView ? 'bg-gray-50/30' : ''} ${isExp ? 'bg-blue-50/20' : ''}`}
+                          style={{
+                            width: colWidth,
+                            borderColor: 'rgba(0,0,0,0.12)',
+                          }}
+                        >
+                          {subdivisions.map(frac => (
+                            <div key={frac} className="absolute top-0 bottom-0" style={{ left: `${frac * 100}%`, width: 1, borderLeft: '1px dashed rgba(0,0,0,0.06)' }} />
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Now indicator */}
+                  {nowPos && (
+                    <div
+                      className="absolute top-0 bottom-0 z-10 pointer-events-none"
+                      style={{
+                        left: getColumnLeft(nowPos.dayIndex, allDates, expandedDate, slotWidth) + nowPos.subDayFraction * getColumnWidth(allDates[nowPos.dayIndex], expandedDate, slotWidth),
+                        width: 1,
+                        backgroundColor: '#ef4444',
+                      }}
+                    >
+                      <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-500" />
+                    </div>
+                  )}
+
+                  {/* Sub-row separator line */}
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{
+                      top: ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP / 2,
+                      height: 0,
+                      borderTop: '1px dashed rgba(0,0,0,0.15)',
+                    }}
+                  />
+
+                  {/* Booking bars — top sub-row */}
+                  {propertyBookings.map(pb => {
+                    const startLeft = getColumnLeft(pb.startColIndex, allDates, expandedDate, slotWidth)
+                    const startColW = getColumnWidth(allDates[pb.startColIndex] || '', expandedDate, slotWidth)
+                    const barLeft = startLeft + pb.checkinOffset * startColW
+                    const endLeft = getColumnLeft(pb.endColIndex - 1, allDates, expandedDate, slotWidth)
+                    const endColW = getColumnWidth(allDates[pb.endColIndex - 1] || '', expandedDate, slotWidth)
+                    const right = endLeft + pb.checkoutOffset * endColW
+                    const barWidth = Math.max(right - barLeft, 20) + NOTCH_PX
+
+                    return (
+                      <DraggableBooking
+                        key={`booking-${pb.booking.id}`}
+                        booking={pb.booking}
+                        className="absolute z-[5] hover:z-[100]"
+                        style={{
+                          left: barLeft,
+                          width: barWidth,
+                          top: ROW_PADDING,
+                          height: BOOKING_BAR_HEIGHT,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onBookingClick?.(pb.booking)
+                        }}
+                      >
+                        <BookingBar
+                          booking={pb.booking}
+                          isClippedLeft={pb.startColIndex < bufferCols}
+                          isClippedRight={pb.endColIndex > allDates.length - bufferCols}
+                        />
+                      </DraggableBooking>
+                    )
+                  })}
+
+                  {/* Project bars — bottom sub-row with stacking */}
+                  {propertyProjects.map(pp => {
+                    const colLeft = getColumnLeft(pp.colIndex, allDates, expandedDate, slotWidth)
+                    const colW = getColumnWidth(allDates[pp.colIndex] || '', expandedDate, slotWidth)
+                    const projLeft = isMonthView
+                      ? colLeft
+                      : colLeft + pp.startOffset * colW
+                    const projRight = isMonthView
+                      ? colLeft + colW
+                      : colLeft + pp.endOffset * colW
+                    const projWidth = Math.max(projRight - projLeft, 20)
+                    const isExp = allDates[pp.colIndex] === expandedDate
+                    const stackTop = ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
+
+                    return (
+                      <DraggableProject
+                        key={`project-${pp.project.id}`}
+                        project={pp.project}
+                        className="absolute z-[6] hover:z-[100]"
+                        style={{
+                          left: projLeft,
+                          width: projWidth,
+                          top: stackTop,
+                          height: BAR_HEIGHT,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onProjectClick(pp.project)
+                        }}
+                      >
+                        <ProjectEvent
+                          project={pp.project}
+                          openIssueCount={issueCountsMap[pp.project.id] || 0}
+                          pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
+                          zoomLevel={zoomLevel}
+                          isExpanded={isExp}
+                        />
+                      </DraggableProject>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
-        </div>,
-        stickyPortal.current
-      )}
-    </div>
+        </div>
+
+        {/* Sticky header portal — rendered outside overflow-hidden */}
+        {isStuck && stickyPortal?.current && createPortal(
+          <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
+            <div
+              className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
+              style={{ width: SIDEBAR_WIDTH }}
+            >
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div
+                ref={stickyTrackRef}
+                className="flex h-10"
+                style={{ width: trackWidth, willChange: 'transform' }}
+              >
+                {renderColumnHeaders()}
+              </div>
+            </div>
+          </div>,
+          stickyPortal.current
+        )}
+      </div>
+
+      {/* Drag Overlay */}
+      <CalendarDragOverlay activeDragItem={activeDragItem} zoomLevel={zoomLevel} />
+    </DndContext>
   )
 }

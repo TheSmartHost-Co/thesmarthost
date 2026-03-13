@@ -676,7 +676,6 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
     damage: ExclamationTriangleIcon,
     missing_item: DocumentTextIcon,
     maintenance: DocumentTextIcon,
-    supply: DocumentTextIcon,
     other: DocumentTextIcon,
   }
 

@@ -11,7 +11,6 @@ interface BookingBarProps {
   booking: Booking
   isClippedLeft?: boolean
   isClippedRight?: boolean
-  stickyOffset?: number
 }
 
 function formatTime(timeStr: string): string {
@@ -55,24 +54,32 @@ function getPlatformStyle(platform: string): { bg: string; text: string; border:
   }
 }
 
-export default function BookingBar({ booking, isClippedLeft, isClippedRight, stickyOffset = 0 }: BookingBarProps) {
+export default function BookingBar({ booking, isClippedLeft, isClippedRight }: BookingBarProps) {
   const style = getPlatformStyle(booking.platform)
   const checkoutTime = booking.defaultCheckoutTime || '11:00'
   const checkinTime = booking.defaultCheckinTime || '15:00'
+
+  const computedNights = (() => {
+    if (!booking.checkOutDate) return booking.numNights
+    const checkIn = parseLocalDate(booking.checkInDate)
+    const checkOut = parseLocalDate(booking.checkOutDate)
+    const diff = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+    return diff > 0 ? diff : booking.numNights
+  })()
 
   const left = isClippedLeft ? '0px' : `${NOTCH}px`
   const right = isClippedRight ? '100%' : `calc(100% - ${NOTCH}px)`
   const clipPath = `polygon(${left} 0, 100% 0, ${right} 100%, 0 100%)`
 
-  const nightsLabel = booking.numNights > 0 ? `${booking.numNights}n` : '\u2014'
+  const nightsLabel = computedNights > 0 ? `${computedNights}n` : '\u2014'
 
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
 
   return (
     <div
       className="group relative w-full h-full"
-      onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
-      onMouseLeave={() => setMousePos(null)}
+      onMouseEnter={(e) => setHoverPos({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setHoverPos(null)}
     >
       <div
         className="absolute inset-0 transition-opacity group-hover:opacity-85"
@@ -82,7 +89,6 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, sti
           boxShadow: `inset 0 0 0 2px ${style.border}`,
         }}
       >
-        {/* Content with sticky offset */}
         <div
           className="absolute inset-0 flex items-center overflow-hidden"
           style={{
@@ -90,10 +96,7 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, sti
             paddingRight: isClippedRight ? 4 : NOTCH + 4,
           }}
         >
-          <div
-            className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0"
-            style={{ transform: stickyOffset > 0 ? `translateX(${stickyOffset}px)` : undefined }}
-          >
+          <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
             <span className="text-[12px] font-semibold truncate" style={{ color: style.text }}>
               {booking.guestName}
             </span>
@@ -114,16 +117,16 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, sti
       </div>
 
       {/* Tooltip — portaled to body */}
-      {mousePos && createPortal(
+      {hoverPos && createPortal(
         <div
           className="fixed z-[200] pointer-events-none"
-          style={{ left: mousePos.x + 12, top: mousePos.y - 12 }}
+          style={{ left: hoverPos.x + 12, top: hoverPos.y - 12 }}
         >
           <div className="bg-gray-900 text-white rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg max-w-xs">
             <div className="font-semibold">{booking.guestName}</div>
             <div className="border-t border-gray-700 my-1" />
             <div className="text-gray-300">
-              {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {booking.numNights > 0 ? `${booking.numNights} nights` : '\u2014'}
+              {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {computedNights > 0 ? `${computedNights} nights` : '\u2014'}
             </div>
             <div className="text-gray-300 mt-0.5">
               In: {formatTime(checkinTime)} &middot; Out: {formatTime(checkoutTime)}
