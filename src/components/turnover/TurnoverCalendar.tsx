@@ -5,7 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDaysIcon,
   ExclamationCircleIcon,
+  XCircleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
+import Modal from '@/components/shared/modal'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject, rescheduleProjectDate, assignCleanerToProject } from '@/services/cleaningProjectService'
@@ -15,7 +18,7 @@ import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getPendingSupplyLists } from '@/services/supplyListService'
-import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates } from '@/services/bookingService'
+import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates, deleteBooking, cancelBooking } from '@/services/bookingService'
 import { isValidationError } from '@/services/validationError'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
@@ -127,6 +130,11 @@ export default function TurnoverCalendar({
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
   const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
   const [showExclusionsModal, setShowExclusionsModal] = useState(false)
+
+  // Booking cancel/delete confirmation state
+  const [showBookingCancelConfirm, setShowBookingCancelConfirm] = useState(false)
+  const [showBookingDeleteConfirm, setShowBookingDeleteConfirm] = useState(false)
+  const [bookingActionLoading, setBookingActionLoading] = useState(false)
 
   // Drag-and-drop confirmation state
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
@@ -516,6 +524,7 @@ export default function TurnoverCalendar({
     if (!showBookings || allCachedBookings.length === 0) return []
     return allCachedBookings.filter(b => {
       if (!b.checkOutDate) return false
+      if (b.bookingStatus === 'cancelled') return false
       const checkIn = toLocalDateStr(b.checkInDate)
       const checkOut = toLocalDateStr(b.checkOutDate)
       return checkIn <= dateRange.end && checkOut >= dateRange.start
@@ -524,7 +533,7 @@ export default function TurnoverCalendar({
 
   // Filter projects and bookings by selected properties and cleaners
   const filteredProjects = useMemo(() => {
-    let result = allCachedProjects
+    let result = allCachedProjects.filter(p => p.status !== 'cancelled')
     if (selectedPropertyIds.length > 0) {
       result = result.filter(p => selectedPropertyIds.includes(p.propertyId))
     }
@@ -691,6 +700,107 @@ export default function TurnoverCalendar({
         })
     }
     refreshIssueCounts()
+  }
+
+  // Handle project cancel (same as delete from calendar perspective — removes from cache)
+  const handleProjectCancel = (cancelledId: string) => {
+    setProjectCache(prev => {
+      const next = new Map(prev)
+      for (const [key, projects] of next) {
+        const filtered = projects.filter(p => p.id !== cancelledId)
+        if (filtered.length !== projects.length) {
+          next.set(key, filtered)
+        }
+      }
+      return next
+    })
+    setShowDetailModal(false)
+    setSelectedProject(null)
+    // Refresh stats
+    if (profile?.id) {
+      getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+        .then(res => {
+          if (res.status === 'success') setStats(res.data)
+        })
+    }
+    refreshIssueCounts()
+  }
+
+  // Handle booking delete from calendar
+  const handleBookingDelete = async () => {
+    if (!selectedBooking || !profile?.id) return
+    try {
+      setBookingActionLoading(true)
+      const res = await deleteBooking(selectedBooking.id, profile.id)
+      if (res.status === 'success') {
+        // Remove from booking cache
+        setBookingCache(prev => {
+          const next = new Map(prev)
+          for (const [key, bookings] of next) {
+            const filtered = bookings.filter(b => b.id !== selectedBooking.id)
+            if (filtered.length !== bookings.length) {
+              next.set(key, filtered)
+            }
+          }
+          return next
+        })
+        showNotification('Booking deleted successfully', 'success')
+        setShowBookingDeleteConfirm(false)
+        setShowBookingPreview(false)
+        setSelectedBooking(null)
+      } else {
+        showNotification(res.message || 'Failed to delete booking', 'error')
+      }
+    } catch (err) {
+      console.error('Error deleting booking:', err)
+      showNotification(err instanceof Error ? err.message : 'Failed to delete booking', 'error')
+    } finally {
+      setBookingActionLoading(false)
+    }
+  }
+
+  // Handle booking cancel from calendar
+  const handleBookingCancel = async () => {
+    if (!selectedBooking || !profile?.id) return
+    try {
+      setBookingActionLoading(true)
+      const res = await cancelBooking(selectedBooking.id, profile.id)
+      if (res.status === 'success') {
+        // Remove cancelled booking from cache (filtered out in visibleBookings)
+        setBookingCache(prev => {
+          const next = new Map(prev)
+          for (const [key, bookings] of next) {
+            const filtered = bookings.filter(b => b.id !== selectedBooking.id)
+            if (filtered.length !== bookings.length) {
+              next.set(key, filtered)
+            }
+          }
+          return next
+        })
+        // Also remove any linked cleaning projects from cache
+        setProjectCache(prev => {
+          const next = new Map(prev)
+          for (const [key, projects] of next) {
+            const filtered = projects.filter(p => p.previousBookingId !== selectedBooking.id)
+            if (filtered.length !== projects.length) {
+              next.set(key, filtered)
+            }
+          }
+          return next
+        })
+        showNotification('Booking cancelled successfully', 'success')
+        setShowBookingCancelConfirm(false)
+        setShowBookingPreview(false)
+        setSelectedBooking(null)
+      } else {
+        showNotification(res.message || 'Failed to cancel booking', 'error')
+      }
+    } catch (err) {
+      console.error('Error cancelling booking:', err)
+      showNotification(err instanceof Error ? err.message : 'Failed to cancel booking', 'error')
+    } finally {
+      setBookingActionLoading(false)
+    }
   }
 
   // Invalidate specific months from cache and trigger re-fetch
@@ -1205,6 +1315,7 @@ export default function TurnoverCalendar({
           properties={properties}
           onUpdate={handleProjectUpdate}
           onDelete={handleProjectDelete}
+          onCancel={handleProjectCancel}
           initialSection={deepLinkInitialSection}
         />
       )}
@@ -1254,7 +1365,75 @@ export default function TurnoverCalendar({
             setShowBookingPreview(false)
             setShowBookingUpdate(true)
           }}
+          onDeleteBooking={() => setShowBookingDeleteConfirm(true)}
+          onCancelBooking={() => setShowBookingCancelConfirm(true)}
         />
+      )}
+
+      {/* Booking Cancel Confirmation */}
+      {selectedBooking && (
+        <Modal isOpen={showBookingCancelConfirm} onClose={() => setShowBookingCancelConfirm(false)} style="p-6 max-w-md w-full">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <XCircleIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Booking</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              Are you sure you want to cancel <strong>{selectedBooking.guestName}</strong>&apos;s booking?
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              This will also cancel any associated cleaning projects.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowBookingCancelConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={handleBookingCancel}
+                disabled={bookingActionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {bookingActionLoading ? 'Cancelling...' : 'Cancel Booking'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Booking Delete Confirmation */}
+      {selectedBooking && (
+        <Modal isOpen={showBookingDeleteConfirm} onClose={() => setShowBookingDeleteConfirm(false)} style="p-6 max-w-md w-full">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <TrashIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Booking</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              Are you sure you want to permanently delete <strong>{selectedBooking.guestName}</strong>&apos;s booking?
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              This action cannot be undone. Associated cleaning projects will be cancelled.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowBookingDeleteConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={handleBookingDelete}
+                disabled={bookingActionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {bookingActionLoading ? 'Deleting...' : 'Delete Booking'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Booking Update Modal */}

@@ -25,12 +25,14 @@ import {
   PhotoIcon,
   ChevronDownIcon,
   ArrowRightIcon,
+  XCircleIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   assignCleanerToProject,
   updateCleaningProject,
+  cancelCleaningProject,
   getStatusDisplay,
   formatDuration,
   isProjectOverdue,
@@ -71,6 +73,7 @@ interface ProjectDetailModalProps {
   properties: Property[]
   onUpdate: (project: CleaningProject) => void
   onDelete?: (id: string) => void
+  onCancel?: (id: string) => void
   initialSection?: 'issues' | 'supplies' | null
 }
 
@@ -82,6 +85,7 @@ export default function ProjectDetailModal({
   properties,
   onUpdate,
   onDelete,
+  onCancel,
   initialSection,
 }: ProjectDetailModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -90,6 +94,8 @@ export default function ProjectDetailModal({
   const [selectedCleanerId, setSelectedCleanerId] = useState(project.cleanerId || '')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [cancellingProject, setCancellingProject] = useState(false)
   const [showRelatedBookings, setShowRelatedBookings] = useState(true)
 
   // Booking preview state
@@ -376,6 +382,31 @@ export default function ProjectDetailModal({
       showNotification('Error assigning cleaner', 'error')
     } finally {
       setIsAssigning(false)
+    }
+  }
+
+  const LOCKED_STATUSES = ['completed', 'cancelled']
+
+  const handleCancelProject = async () => {
+    if (!user?.id) return
+    try {
+      setCancellingProject(true)
+      const res = await cancelCleaningProject(project.id, user.id)
+      if (res.status === 'success') {
+        showNotification('Project cancelled successfully', 'success')
+        setShowCancelConfirm(false)
+        if (onCancel) {
+          onCancel(project.id)
+        }
+        onClose()
+      } else {
+        showNotification(res.message || 'Failed to cancel project', 'error')
+      }
+    } catch (err) {
+      console.error('Error cancelling project:', err)
+      showNotification(err instanceof Error ? err.message : 'Failed to cancel project', 'error')
+    } finally {
+      setCancellingProject(false)
     }
   }
 
@@ -1135,6 +1166,15 @@ export default function ProjectDetailModal({
               Delete
             </button>
           )}
+          {onCancel && !LOCKED_STATUSES.includes(project.status) && (
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              Cancel Project
+            </button>
+          )}
           <div className="flex-1" />
           <button
             onClick={onClose}
@@ -1178,6 +1218,34 @@ export default function ProjectDetailModal({
           }}
         />
       )}
+
+      {/* Cancel Project Confirmation */}
+      <Modal isOpen={showCancelConfirm} onClose={() => setShowCancelConfirm(false)} style="p-6 max-w-md w-full">
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
+            <XCircleIcon className="h-6 w-6 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Project</h3>
+          <p className="text-sm text-gray-600 mb-6">
+            Are you sure you want to cancel the cleaning project for <strong>{project.propertyName}</strong>?
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => setShowCancelConfirm(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Keep Project
+            </button>
+            <button
+              onClick={handleCancelProject}
+              disabled={cancellingProject}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {cancellingProject ? 'Cancelling...' : 'Cancel Project'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Report Issue Modal */}
       <ReportIssueModal

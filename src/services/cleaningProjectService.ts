@@ -92,6 +92,22 @@ export function deleteCleaningProject(id: string): Promise<DeleteCleaningProject
 }
 
 /**
+ * Cancel a cleaning project (sets status to 'cancelled')
+ */
+export function cancelCleaningProject(
+  id: string,
+  userId: string
+): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse, { userId: string }>(
+    `/cleaning-projects/${id}/cancel`,
+    {
+      method: 'PATCH',
+      body: { userId },
+    }
+  )
+}
+
+/**
  * Assign a cleaner to a project
  * Sets status to 'assigned'
  */

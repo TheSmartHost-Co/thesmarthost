@@ -396,6 +396,23 @@ export async function bulkImportBookings(
 }
 
 /**
+ * Cancel a booking (sets booking_status to 'cancelled')
+ * Also auto-cancels associated cleaning projects
+ */
+export async function cancelBooking(
+  id: string,
+  userId: string
+): Promise<BookingResponse> {
+  return apiClient<BookingResponse, { userId: string }>(
+    `/bookings/${id}/cancel`,
+    {
+      method: 'PATCH',
+      body: { userId },
+    }
+  )
+}
+
+/**
  * Reschedule a booking's dates via dedicated PATCH endpoint
  * Preserves numNights, shifts checkIn/checkOut
  */

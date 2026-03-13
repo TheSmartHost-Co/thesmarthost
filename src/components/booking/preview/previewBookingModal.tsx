@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { Booking } from '@/services/types/booking'
 import { formatCurrency, formatPlatformName } from '@/services/bookingService'
-import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon } from '@heroicons/react/24/outline'
+import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon, XCircleIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
@@ -17,6 +17,8 @@ interface PreviewBookingModalProps {
   onClose: () => void
   booking: Booking
   onEditBooking?: () => void
+  onDeleteBooking?: () => void
+  onCancelBooking?: () => void
 }
 
 const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
@@ -24,6 +26,8 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
   onClose,
   booking,
   onEditBooking,
+  onDeleteBooking,
+  onCancelBooking,
 }) => {
   const [fieldChanges, setFieldChanges] = useState<FieldValueChanged[]>([])
   const [loadingFieldChanges, setLoadingFieldChanges] = useState(false)
@@ -362,7 +366,28 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-between gap-3 pt-4 border-t border-gray-200">
+      <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+        {onDeleteBooking && (
+          <button
+            type="button"
+            onClick={onDeleteBooking}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <TrashIcon className="h-4 w-4" />
+            Delete
+          </button>
+        )}
+        {onCancelBooking && booking.bookingStatus !== 'cancelled' && (
+          <button
+            type="button"
+            onClick={onCancelBooking}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+          >
+            <XCircleIcon className="h-4 w-4" />
+            Cancel Booking
+          </button>
+        )}
+        <div className="flex-1" />
         <button
           type="button"
           onClick={onClose}

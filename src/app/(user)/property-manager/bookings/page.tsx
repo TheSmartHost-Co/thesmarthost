@@ -19,7 +19,9 @@ import {
   BarsArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
-import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName } from '@/services/bookingService'
+import { getBookings, calculateBookingStats, formatCurrency, formatPlatformName, cancelBooking } from '@/services/bookingService'
+import { useNotificationStore } from '@/store/useNotificationStore'
+import { XCircleIcon } from '@heroicons/react/24/outline'
 import { getConnectionByUserId } from '@/services/hostawayConnectionService'
 import { getProperties } from '@/services/propertyService'
 import { Booking } from '@/services/types/booking'
@@ -34,6 +36,7 @@ import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 import DeleteBookingModal from '@/components/booking/delete/deleteBookingModal'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import ImportHostawayBookingsModal from '@/components/booking/import/ImportHostawayBookingsModal'
+import Modal from '@/components/shared/modal'
 
 // Sort configuration type
 type SortField = 'guestName' | 'propertyName' | 'checkInDate' | 'checkOutDate' | 'platform' | 'numNights' | 'totalPayout'
@@ -75,6 +78,11 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Cancel booking state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancellingBooking, setCancellingBooking] = useState(false)
+  const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Import Hostaway bookings state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -210,6 +218,37 @@ export default function BookingsPage() {
     }
   }
 
+  const handleCancelBooking = (bookingId: string) => {
+    const booking = bookings.find(b => b.id === bookingId)
+    if (booking) {
+      setSelectedBooking(booking)
+      setShowCancelModal(true)
+    }
+  }
+
+  const confirmCancelBooking = async () => {
+    if (!selectedBooking || !profile?.id) return
+    try {
+      setCancellingBooking(true)
+      const res = await cancelBooking(selectedBooking.id, profile.id)
+      if (res.status === 'success') {
+        setBookings(prev => prev.map(b =>
+          b.id === selectedBooking.id ? { ...b, bookingStatus: 'cancelled' } : b
+        ))
+        showNotification('Booking cancelled successfully', 'success')
+        setShowCancelModal(false)
+        setSelectedBooking(null)
+      } else {
+        showNotification(res.message || 'Failed to cancel booking', 'error')
+      }
+    } catch (err) {
+      console.error('Error cancelling booking:', err)
+      showNotification(err instanceof Error ? err.message : 'Failed to cancel booking', 'error')
+    } finally {
+      setCancellingBooking(false)
+    }
+  }
+
   // Get current sort label for button display
   const getCurrentSortLabel = () => {
     const option = SORT_OPTIONS.find(o => o.field === sortConfig.field)
@@ -239,6 +278,12 @@ export default function BookingsPage() {
         icon: PencilIcon,
         onClick: () => handleEditBooking(booking.id),
         variant: 'default'
+      },
+      {
+        label: 'Cancel Booking',
+        icon: XCircleIcon,
+        onClick: () => handleCancelBooking(booking.id),
+        variant: 'danger'
       },
       {
         label: 'Delete Booking',
@@ -955,6 +1000,39 @@ export default function BookingsPage() {
           booking={selectedBooking}
           onDeleted={handleBookingDeleted}
         />
+      )}
+
+      {/* Cancel Booking Confirmation Modal */}
+      {selectedBooking && (
+        <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} style="p-6 max-w-md w-full">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <XCircleIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Booking</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              Are you sure you want to cancel <strong>{selectedBooking.guestName}</strong>&apos;s booking?
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              This will also cancel any associated cleaning projects.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={confirmCancelBooking}
+                disabled={cancellingBooking}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {cancellingBooking ? 'Cancelling...' : 'Cancel Booking'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Preview Booking Modal */}
