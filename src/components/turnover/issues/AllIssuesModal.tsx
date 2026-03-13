@@ -21,6 +21,7 @@ import {
   CalendarIcon,
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useUnreadIssueIds } from '@/hooks/useUnreadIssueIds'
 
 interface AllIssuesModalProps {
   isOpen: boolean
@@ -54,6 +55,7 @@ export default function AllIssuesModal({
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
   const [collapsedProperties, setCollapsedProperties] = useState<Set<string>>(new Set())
+  const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen)
 
   // Sync from props
   useEffect(() => {
@@ -169,6 +171,7 @@ export default function AllIssuesModal({
                 isPM
                 onIssueUpdated={handleIssueUpdated}
                 onIssueDeleted={handleIssueDeleted}
+                onViewed={() => markIssueAsRead(selectedIssue.id)}
               />
             </motion.div>
           ) : (
@@ -269,6 +272,9 @@ export default function AllIssuesModal({
                                         `}>
                                           {getIssueStatusDisplay(issue.status).label}
                                         </span>
+                                        {unreadIssueIds.has(issue.id) && (
+                                          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500" />
+                                        )}
                                       </div>
                                       <p className="text-sm text-gray-600 line-clamp-1">
                                         {issue.description}

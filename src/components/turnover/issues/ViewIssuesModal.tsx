@@ -20,6 +20,7 @@ import {
   PlusIcon
 } from '@heroicons/react/24/outline'
 import IssueDetailPanel from './IssueDetailPanel'
+import { useUnreadIssueIds } from '@/hooks/useUnreadIssueIds'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ViewIssuesModalProps {
@@ -58,6 +59,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
+  const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -173,6 +175,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                 isPM={isPM}
                 onIssueUpdated={handleIssueUpdated}
                 onIssueDeleted={handleIssueDeleted}
+                onViewed={() => markIssueAsRead(selectedIssue.id)}
               />
             </motion.div>
           ) : (
@@ -260,6 +263,9 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                               `}>
                                 {getIssueStatusDisplay(issue.status).label}
                               </span>
+                              {unreadIssueIds.has(issue.id) && (
+                                <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500" />
+                              )}
                             </div>
                             <p className="text-sm text-gray-600 line-clamp-2">
                               {issue.description}

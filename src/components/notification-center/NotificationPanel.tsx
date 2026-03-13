@@ -63,6 +63,7 @@ export default function NotificationPanel({ onFetchFiltered }: NotificationPanel
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.15 }}
+      onMouseDown={(e) => e.stopPropagation()}
       className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[480px] bg-white rounded-2xl shadow-xl border border-gray-200 z-[60] flex flex-col overflow-hidden"
     >
       {/* Header */}

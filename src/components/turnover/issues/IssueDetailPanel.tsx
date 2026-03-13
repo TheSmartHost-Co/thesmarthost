@@ -49,6 +49,7 @@ interface IssueDetailPanelProps {
   isPM?: boolean
   onIssueUpdated?: (updated: ProjectIssue) => void
   onIssueDeleted?: (issueId: string) => void
+  onViewed?: () => void
 }
 
 export default function IssueDetailPanel({
@@ -56,6 +57,7 @@ export default function IssueDetailPanel({
   isPM = true,
   onIssueUpdated,
   onIssueDeleted,
+  onViewed,
 }: IssueDetailPanelProps) {
   const [notes, setNotes] = useState<IssueNote[]>([])
   const [noteText, setNoteText] = useState('')
@@ -88,6 +90,12 @@ export default function IssueDetailPanel({
     fetchNotes()
     setNoteText('')
   }, [fetchNotes])
+
+  // Mark related notifications as read when issue is viewed
+  useEffect(() => {
+    onViewed?.()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue.id])
 
   // Auto-scroll notes
   useEffect(() => {

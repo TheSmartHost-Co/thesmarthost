@@ -34,6 +34,7 @@ import {
 import { getIssuesByProperty, formatIssueAge, getIssueTypeDisplay, getIssueStatusDisplay } from '@/services/projectIssueService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
 import IssueDetailPanel from '@/components/turnover/issues/IssueDetailPanel'
+import { useUnreadIssueIds } from '@/hooks/useUnreadIssueIds'
 
 interface PreviewPropertyModalProps {
   isOpen: boolean
@@ -80,6 +81,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   const [issuesLoaded, setIssuesLoaded] = useState(false)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [issueFilterStatus, setIssueFilterStatus] = useState<IssueStatus | 'all'>('all')
+  const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen && activeTab === 'issues')
 
   // Use stored license count from property data
   const licenseCount = property.licenses?.length || 0
@@ -730,6 +732,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
               setIssues(prev => prev.filter(i => i.id !== issueId))
               setSelectedIssue(null)
             }}
+            onViewed={() => markIssueAsRead(selectedIssue.id)}
           />
         </div>
       )
@@ -811,6 +814,9 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors.bg} ${statusColors.text}`}>
                           {getIssueStatusDisplay(issue.status).label}
                         </span>
+                        {unreadIssueIds.has(issue.id) && (
+                          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500" />
+                        )}
                       </div>
                       <p className="text-sm text-gray-600 line-clamp-1">{issue.description}</p>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">

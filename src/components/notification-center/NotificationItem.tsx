@@ -9,7 +9,6 @@ import {
   CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 import { TimeAgo } from '@/components/dashboard/shared/TimeAgo'
-import { useNotificationCenterStore } from '@/store/useNotificationCenterStore'
 import type { InAppNotification, NotificationCategory } from '@/services/types/notificationCenter'
 
 interface NotificationItemProps {
@@ -31,14 +30,12 @@ const categoryConfig: Record<
 export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const closePanel = useNotificationCenterStore((s) => s.closePanel)
   const { icon: Icon, iconColor } = categoryConfig[notification.category]
 
   const handleClick = () => {
     if (!notification.isRead) {
       onMarkAsRead(notification.id)
     }
-    closePanel()
     if (notification.linkUrl) {
       // Extract the path portion (before ?) to check if we're already on it
       const linkPath = notification.linkUrl.split('?')[0]
