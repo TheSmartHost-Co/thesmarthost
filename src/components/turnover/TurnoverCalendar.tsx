@@ -1184,15 +1184,28 @@ export default function TurnoverCalendar({
     >
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          <StatCard label="Total" value={stats.total} color="blue" />
-          <StatCard label="Pending" value={stats.pending} color="yellow" />
-          <StatCard label="Assigned" value={stats.assigned} color="blue" />
-          <StatCard label="Confirmed" value={stats.confirmed} color="indigo" />
-          <StatCard label="In Progress" value={stats.inProgress} color="purple" />
-          <StatCard label="Completed" value={stats.completed} color="green" />
-          <StatCard label="Unassigned" value={stats.unassigned} color="amber" highlight />
-        </div>
+        <>
+          {/* Mobile: wrapping pills */}
+          <div className="flex flex-wrap gap-2 sm:hidden">
+            <StatPill label="Total" value={stats.total} color="blue" />
+            <StatPill label="Pending" value={stats.pending} color="yellow" />
+            <StatPill label="Assigned" value={stats.assigned} color="blue" />
+            <StatPill label="Confirmed" value={stats.confirmed} color="indigo" />
+            <StatPill label="In Progress" value={stats.inProgress} color="purple" />
+            <StatPill label="Completed" value={stats.completed} color="green" />
+            <StatPill label="Unassigned" value={stats.unassigned} color="amber" highlight />
+          </div>
+          {/* Desktop: existing grid */}
+          <div className="hidden sm:grid sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <StatCard label="Total" value={stats.total} color="blue" />
+            <StatCard label="Pending" value={stats.pending} color="yellow" />
+            <StatCard label="Assigned" value={stats.assigned} color="blue" />
+            <StatCard label="Confirmed" value={stats.confirmed} color="indigo" />
+            <StatCard label="In Progress" value={stats.inProgress} color="purple" />
+            <StatCard label="Completed" value={stats.completed} color="green" />
+            <StatCard label="Unassigned" value={stats.unassigned} color="amber" highlight />
+          </div>
+        </>
       )}
 
       {/* Calendar Container */}
@@ -1527,6 +1540,49 @@ export default function TurnoverCalendar({
         onClose={() => setInvalidDropInfo(null)}
       />
     </motion.div>
+  )
+}
+
+// Compact stat pill for mobile
+function StatPill({
+  label,
+  value,
+  color,
+  highlight,
+}: {
+  label: string
+  value: number
+  color: string
+  highlight?: boolean
+}) {
+  const dotColors: Record<string, string> = {
+    blue: 'bg-blue-500',
+    yellow: 'bg-yellow-500',
+    indigo: 'bg-indigo-500',
+    purple: 'bg-purple-500',
+    green: 'bg-green-500',
+    amber: 'bg-amber-500',
+  }
+  const textColors: Record<string, string> = {
+    blue: 'text-blue-700',
+    yellow: 'text-yellow-700',
+    indigo: 'text-indigo-700',
+    purple: 'text-purple-700',
+    green: 'text-green-700',
+    amber: 'text-amber-700',
+  }
+
+  return (
+    <div
+      className={`
+        flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 whitespace-nowrap
+        ${highlight && value > 0 ? 'ring-2 ring-amber-300 ring-offset-1' : ''}
+      `}
+    >
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dotColors[color] || dotColors.blue}`} />
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className={`text-xs font-bold ${textColors[color] || textColors.blue}`}>{value}</span>
+    </div>
   )
 }
 

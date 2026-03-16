@@ -122,7 +122,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
                 value={item.quantity}
                 onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                 min="1"
-                className="w-16 px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                className="w-20 px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               />
               <button
                 type="button"

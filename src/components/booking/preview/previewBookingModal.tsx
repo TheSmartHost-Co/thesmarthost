@@ -122,8 +122,8 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-9 max-w-4xl w-11/12 max-h-[90vh] overflow-y-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-start gap-4">
+      <div className="mb-6">
+        <div className="flex items-start gap-4 mb-3">
           <div className="shrink-0 h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
             <CalendarDaysIcon className="h-6 w-6 text-blue-600" />
           </div>
@@ -135,7 +135,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {booking.bookingStatus === 'cancelled' && (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
               Cancelled
@@ -173,7 +173,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
       )}
 
       {/* Booking Overview Grid */}
-      <div className="grid grid-cols-2 gap-6 mb-6 pb-6 border-b border-gray-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 pb-6 border-b border-gray-200">
         {/* Property Information */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -231,7 +231,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           {financialItems.length > 0 && (
             <div className="mb-6">
               <h4 className="text-md font-medium text-gray-700 mb-3">Charges & Fees</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {financialItems.map((item) => (
                   <div key={item.label} className="flex justify-between items-center py-2 border-b border-gray-100">
                     <span className="text-sm text-gray-600">{item.label}:</span>
@@ -297,7 +297,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
                       </span>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-600">Original Value:</span>
                         <div className="font-medium text-gray-900 mt-1">
@@ -343,7 +343,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
       {/* Metadata */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Additional Information</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-gray-600">Created At</p>
             <p className="text-sm font-medium text-gray-900">
@@ -366,14 +366,14 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+      <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-gray-200">
         {onDeleteBooking && (
           <button
             type="button"
             onClick={onDeleteBooking}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <TrashIcon className="h-4 w-4" />
+            <TrashIcon className="h-3.5 w-3.5" />
             Delete
           </button>
         )}
@@ -381,17 +381,17 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           <button
             type="button"
             onClick={onCancelBooking}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
           >
-            <XCircleIcon className="h-4 w-4" />
+            <XCircleIcon className="h-3.5 w-3.5" />
             Cancel Booking
           </button>
         )}
-        <div className="flex-1" />
+        <div className="flex-1 min-w-0" />
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
         >
           Close
         </button>
@@ -399,9 +399,9 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           <button
             type="button"
             onClick={onEditBooking}
-            className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <PencilIcon className="h-4 w-4" />
+            <PencilIcon className="h-3.5 w-3.5" />
             Edit Booking
           </button>
         )}

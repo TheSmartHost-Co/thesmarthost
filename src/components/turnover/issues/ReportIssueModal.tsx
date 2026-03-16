@@ -217,7 +217,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
               exit={{ opacity: 0, x: 20 }}
             >
               {/* Issue Type Selection */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                 {ISSUE_TYPE_OPTIONS.map((type) => {
                   const Icon = ISSUE_TYPE_ICONS[type.value]
                   const isSelected = issueType === type.value

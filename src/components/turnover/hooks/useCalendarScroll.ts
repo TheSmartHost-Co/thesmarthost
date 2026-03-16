@@ -7,6 +7,7 @@ interface UseCalendarScrollOptions {
   onRequestDateShift: (days: number) => void
   isDraggingRef?: React.MutableRefObject<boolean>
   onScrollFrame?: (scrollOffset: number) => void
+  dragScale?: number
 }
 
 interface UseCalendarScrollReturn {
@@ -21,18 +22,21 @@ export function useCalendarScroll({
   onRequestDateShift,
   isDraggingRef,
   onScrollFrame,
+  dragScale = 1,
 }: UseCalendarScrollOptions): UseCalendarScrollReturn {
   const timelineRef = useRef<HTMLDivElement | null>(null)
   const scrollOffsetRef = useRef(0)
   const slotWidthRef = useRef(slotWidth)
   const onRequestDateShiftRef = useRef(onRequestDateShift)
   const onScrollFrameRef = useRef(onScrollFrame)
+  const dragScaleRef = useRef(dragScale)
   const pendingShiftRef = useRef(0)
   const rafIdRef = useRef<number>(0)
 
   useEffect(() => { slotWidthRef.current = slotWidth }, [slotWidth])
   useEffect(() => { onRequestDateShiftRef.current = onRequestDateShift }, [onRequestDateShift])
   useEffect(() => { onScrollFrameRef.current = onScrollFrame }, [onScrollFrame])
+  useEffect(() => { dragScaleRef.current = dragScale }, [dragScale])
 
   const resetOffset = useCallback(() => {
     scrollOffsetRef.current = 0
@@ -76,6 +80,10 @@ export function useCalendarScroll({
     const el = timelineRef.current
     if (!el) return
 
+    // Tell the browser horizontal gestures are handled by JS,
+    // suppressing the back/forward navigation swipe on mobile.
+    el.style.touchAction = 'pan-y'
+
     // --- Wheel / trackpad ---
     const handleWheel = (e: WheelEvent) => {
       let h = e.deltaX
@@ -118,7 +126,7 @@ export function useCalendarScroll({
       e.preventDefault()
       const delta = lastX - e.clientX // drag left = move forward in time
       lastX = e.clientX
-      applyDelta(delta)
+      applyDelta(delta * dragScaleRef.current)
     }
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -136,6 +144,7 @@ export function useCalendarScroll({
     el.addEventListener('pointercancel', handlePointerUp)
 
     return () => {
+      el.style.touchAction = ''
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
       el.removeEventListener('wheel', handleWheel)
       el.removeEventListener('pointerdown', handlePointerDown)

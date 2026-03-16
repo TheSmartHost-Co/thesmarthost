@@ -64,7 +64,7 @@ export default function NotificationPanel({ onFetchFiltered }: NotificationPanel
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.15 }}
       onMouseDown={(e) => e.stopPropagation()}
-      className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] max-h-[480px] bg-white rounded-2xl shadow-xl border border-gray-200 z-[60] flex flex-col overflow-hidden"
+      className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-xl border border-gray-200 z-[60] flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">

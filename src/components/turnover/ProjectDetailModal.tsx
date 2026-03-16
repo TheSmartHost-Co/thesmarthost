@@ -483,7 +483,7 @@ export default function ProjectDetailModal({
               </div>
 
               {/* Current vs Requested side-by-side */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div className="bg-white/60 rounded-lg p-3">
                   <p className="text-xs font-medium text-gray-500 uppercase mb-1">Current</p>
                   <p className="text-sm font-medium text-gray-900">{formatDate(pendingRequest.currentProjectDate)}</p>
@@ -753,7 +753,7 @@ export default function ProjectDetailModal({
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Departing Guest */}
                     {project.previousBookingId ? (
                       <button
@@ -995,7 +995,7 @@ export default function ProjectDetailModal({
                 </div>
 
                 {totalPhotoCount > 0 ? (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
                     {checklistPhotos.map(item => (
                       <button
                         key={item.id}
@@ -1157,11 +1157,11 @@ export default function ProjectDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center gap-3">
+        <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap items-center gap-2">
           {onDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
             >
               Delete
             </button>
@@ -1169,24 +1169,24 @@ export default function ProjectDetailModal({
           {onCancel && !LOCKED_STATUSES.includes(project.status) && (
             <button
               onClick={() => setShowCancelConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
             >
-              <XCircleIcon className="w-4 h-4" />
+              <XCircleIcon className="w-3.5 h-3.5" />
               Cancel Project
             </button>
           )}
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             Close
           </button>
           <button
             onClick={() => setShowEditModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer"
           >
-            <PencilSquareIcon className="w-4 h-4" />
+            <PencilSquareIcon className="w-3.5 h-3.5" />
             Edit Project
           </button>
         </div>

@@ -382,7 +382,7 @@ export default function CreateProjectModal({
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
               <div className="p-6 space-y-6">
                 {/* Property & Date Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Property Select */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -464,7 +464,7 @@ export default function CreateProjectModal({
                 </div>
 
                 {/* Cleaner & Checklist Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Cleaner Select */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -585,7 +585,7 @@ export default function CreateProjectModal({
                 )}
 
                 {/* Time Fields */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
@@ -622,7 +622,7 @@ export default function CreateProjectModal({
                 </div>
 
                 {/* Guest Count & Same Day Toggle */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <UsersIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />

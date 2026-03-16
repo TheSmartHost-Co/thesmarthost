@@ -18,10 +18,11 @@ import { useCalendarScroll } from './hooks/useCalendarScroll'
 import { useCalendarDrag } from './hooks/useCalendarDrag'
 import { useNowIndicator } from './hooks/useNowIndicator'
 import { useStickyHeader } from './hooks/useStickyHeader'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { getSidebarWidth } from './utils/sidebarUtils'
 import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
 import { layoutBookings, layoutProjects, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
-
-const SIDEBAR_WIDTH = 200
+import { HomeModernIcon } from '@heroicons/react/24/outline'
 const DAY_SLOT_WIDTH = 110
 const BUFFER_DAYS = 3
 const SUB_ROW_GAP = 2
@@ -78,6 +79,9 @@ export default function PropertyRowView({
   navigationEpoch = 0,
   allBookingsForValidation = [],
 }: PropertyRowViewProps) {
+  const isMobile = useIsMobile()
+  const sidebarWidth = getSidebarWidth(isMobile)
+
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
     ? getDaysInMonth(parseLocalDate(dateRange.start))
@@ -136,6 +140,7 @@ export default function PropertyRowView({
     onRequestDateShift: onRequestDateShift || (() => {}),
     isDraggingRef,
     onScrollFrame: handleScrollFrame,
+    dragScale: isMobile ? 2 : 1,
   })
 
   // Sync layout refs and DOM transform when layout params change (zoom, resize)
@@ -362,24 +367,49 @@ export default function PropertyRowView({
     >
       <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
         {/* Sticky Sidebar */}
-        <div className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative" style={{ width: SIDEBAR_WIDTH }}>
-          <div className="flex items-center px-4 border-b-2 border-gray-200 bg-gray-50/80 h-10">
-            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+        <div
+          className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative"
+          style={{ width: sidebarWidth }}
+        >
+          <div className="flex items-center justify-center border-b-2 border-gray-200 bg-gray-50/80 h-10 px-2">
+            {isMobile ? (
+              <HomeModernIcon className="w-4 h-4 text-gray-400" />
+            ) : (
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+            )}
           </div>
           {properties.map(property => {
             const rowHeight = getRowHeight(property.id)
+            const displayName = property.listingName || property.internalName || property.address
             return (
               <div
                 key={property.id}
-                className="border-b-2 border-gray-300 hover:bg-gray-50/30 transition-colors"
+                className="border-b-2 border-gray-300 hover:bg-gray-50/30 transition-colors relative"
                 style={{ height: rowHeight }}
               >
-                <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
-                  <div className="font-medium text-gray-800 text-[13px] truncate leading-tight">
-                    {property.listingName || property.internalName || property.address}
+                {isMobile ? (
+                  <div className="flex items-center justify-center overflow-hidden" style={{ height: rowHeight }}>
+                    <span
+                      className="text-[11px] font-semibold text-gray-600 whitespace-nowrap leading-none select-none"
+                      style={{
+                        writingMode: 'vertical-rl',
+                        textOrientation: 'mixed',
+                        maxHeight: rowHeight - 8,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {displayName}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>
-                </div>
+                ) : (
+                  <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
+                    <div className="font-medium text-gray-800 text-[13px] truncate leading-tight">
+                      {displayName}
+                    </div>
+                    <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -545,10 +575,14 @@ export default function PropertyRowView({
         {isStuck && stickyPortal?.current && createPortal(
           <div className="flex h-10 bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200 shadow-sm">
             <div
-              className="flex-shrink-0 flex items-center px-4 border-r-2 border-gray-300 bg-white/95"
-              style={{ width: SIDEBAR_WIDTH }}
+              className="flex-shrink-0 flex items-center justify-center border-r-2 border-gray-300 bg-white/95 px-2"
+              style={{ width: sidebarWidth }}
             >
-              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+              {isMobile ? (
+                <HomeModernIcon className="w-4 h-4 text-gray-400" />
+              ) : (
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <div
