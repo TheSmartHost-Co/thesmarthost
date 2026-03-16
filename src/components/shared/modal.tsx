@@ -41,7 +41,7 @@ const Modal = ({ isOpen, onClose, children, style, zIndex = 60, closable = true 
       ></div>
 
       {/* Modal box */}
-      <div className={`relative bg-white rounded-lg shadow-lg z-10 overflow-y-auto max-h-[70vh] ${style}`}>  
+      <div className={`relative bg-white rounded-lg shadow-lg z-10 overflow-y-auto max-h-[70vh] max-w-[calc(100vw-1rem)] ${style}`}>
         {closable && (
           <button
             className="absolute top-2 right-2 text-lg"

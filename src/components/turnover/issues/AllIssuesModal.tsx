@@ -128,7 +128,7 @@ export default function AllIssuesModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} closable style="w-11/12 max-w-2xl">
-      <div className="p-6">
+      <div className="p-4 sm:p-6 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -182,7 +182,7 @@ export default function AllIssuesModal({
               exit={{ opacity: 0, x: 20 }}
             >
               {/* Filter Tabs */}
-              <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
+              <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 pb-3">
                 {(['all', 'open', 'acknowledged', 'resolved'] as const).map((status) => (
                   <button
                     key={status}
@@ -279,7 +279,7 @@ export default function AllIssuesModal({
                                       <p className="text-sm text-gray-600 line-clamp-1">
                                         {issue.description}
                                       </p>
-                                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-400">
                                         <span>{formatIssueAge(issue.createdAt)}</span>
                                         {issue.reporterName && (
                                           <span>by {issue.reporterName}</span>

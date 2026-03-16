@@ -316,7 +316,7 @@ export default function CalendarHeader({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute left-0 top-full mt-1.5 w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
+                  className="fixed sm:absolute left-2 right-2 sm:left-0 sm:right-auto top-auto sm:top-full mt-1.5 sm:w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
                 >
                   {/* Sort By */}
                   {onSortChange && (
