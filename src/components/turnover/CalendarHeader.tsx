@@ -234,8 +234,8 @@ export default function CalendarHeader({
   zoomItems.push({ label: 'Month', value: 'month', dividerBefore: true })
 
   return (
-    <div className="px-4 py-3 border-b border-gray-100">
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="px-2 py-2 sm:px-4 sm:py-3 border-b border-gray-100">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
         {/* Today Button */}
         <motion.button
           onClick={onToday}
@@ -251,7 +251,7 @@ export default function CalendarHeader({
           `}
         >
           <CalendarIcon className="w-3.5 h-3.5" />
-          Today
+          <span className="hidden sm:inline">Today</span>
         </motion.button>
 
         {/* Date Navigation */}
@@ -300,7 +300,7 @@ export default function CalendarHeader({
               `}
             >
               <FunnelIcon className="w-3.5 h-3.5" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
                 <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-600 text-white rounded-full leading-none">
                   {activeFilterCount}
@@ -504,7 +504,7 @@ export default function CalendarHeader({
             ) : (
               <CalendarDaysIcon className="w-3.5 h-3.5" />
             )}
-            Bookings
+            <span className="hidden sm:inline">Bookings</span>
           </button>
         )}
 
@@ -584,7 +584,7 @@ export default function CalendarHeader({
             `}
           >
             <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-            Issues
+            <span className="hidden sm:inline">Issues</span>
             {openIssueCount !== undefined && openIssueCount > 0 && (
               <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded-full leading-none">
                 {openIssueCount}
@@ -607,7 +607,7 @@ export default function CalendarHeader({
             `}
           >
             <NoSymbolIcon className="w-3.5 h-3.5" />
-            Exclusions
+            <span className="hidden sm:inline">Exclusions</span>
             {excludedPropertyCount !== undefined && excludedPropertyCount > 0 && (
               <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-gray-600 text-white rounded-full leading-none">
                 {excludedPropertyCount}

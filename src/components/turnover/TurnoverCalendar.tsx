@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback, type RefObject } from 'react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDaysIcon,
@@ -65,6 +66,7 @@ export default function TurnoverCalendar({
 }: TurnoverCalendarProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const isMobile = useIsMobile()
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('property')
@@ -1180,7 +1182,7 @@ export default function TurnoverCalendar({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-5"
+      className="space-y-2 sm:space-y-5"
     >
       {/* Stats Cards */}
       {stats && (
@@ -1209,7 +1211,7 @@ export default function TurnoverCalendar({
       )}
 
       {/* Calendar Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: 'calc(100vh - 20rem)' }}>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: isMobile ? 'calc(100vh - 13rem)' : 'calc(100vh - 20rem)' }}>
         {/* Header with navigation and view toggle — stays outside scroll area */}
         <CalendarHeader
           viewMode={viewMode}

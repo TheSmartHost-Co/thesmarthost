@@ -51,8 +51,8 @@ const LogoutModal = () => {
         className="cursor-pointer flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-gray-50 rounded-md transition-colors w-full"
         onClick={openModal}  
       >
-        <ArrowRightOnRectangleIcon className="w-5 h-5 mr-2" />
-        <span>Logout</span>
+        <ArrowRightOnRectangleIcon className="w-5 h-5 sm:mr-2" />
+        <span className="hidden sm:inline">Logout</span>
       </button>
 
       {/* Logout confirmation modal */}

@@ -26,7 +26,7 @@ export default function AdminLayout({
         onClose={() => setIsSidebarOpen(false)}
         items={managerSidebarItems}
       />
-      <main className="md:ml-64 pt-20 p-6">
+      <main className="md:ml-64 pt-16 p-3 sm:pt-20 sm:p-6">
         {children}
       </main>
     </div>

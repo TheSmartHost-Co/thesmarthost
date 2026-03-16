@@ -20,7 +20,7 @@ export default function UserNavbar({
 }: UserNavbarProps) {
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 lg:px-8">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 px-3 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-16">
         {/* Left side - Hamburger + Logo */}
         <div className="flex items-center">
@@ -36,14 +36,14 @@ export default function UserNavbar({
           )}
 
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <div>
             <Link href={`${basePath}/dashboard`}>
               <Image
                 src="/images/smarthostlogo.png"
                 alt="TheSmartHost"
                 width={180}
                 height={40}
-                className="h-10 w-auto"
+                className="h-8 sm:h-10 w-auto"
                 priority
               />
             </Link>
@@ -51,7 +51,7 @@ export default function UserNavbar({
         </div>
 
         {/* Right side - Notifications, Settings, Logout */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Notification Center */}
           <NotificationBell />
 
