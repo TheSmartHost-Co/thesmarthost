@@ -27,6 +27,8 @@ export interface PendingDrop {
   sourceCleanerId?: string | null
 }
 
+export type ActivatedItem = { type: 'project'; id: string } | { type: 'booking'; id: string } | null
+
 export interface InvalidDropInfo {
   itemName: string
   targetDate: string

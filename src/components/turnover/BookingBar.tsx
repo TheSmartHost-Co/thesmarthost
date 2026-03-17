@@ -12,6 +12,7 @@ interface BookingBarProps {
   booking: Booking
   isClippedLeft?: boolean
   isClippedRight?: boolean
+  isActivated?: boolean
 }
 
 function formatTime(timeStr: string): string {
@@ -36,26 +37,26 @@ function formatShortDate(dateStr: string): string {
 function getPlatformStyle(platform: string): { bg: string; text: string; border: string; label: string } {
   switch (platform) {
     case 'airbnb':
-      return { bg: '#fff1f2', text: '#be123c', border: '#fecdd3', label: 'Airbnb' }
+      return { bg: '#fda4af', text: '#881337', border: '#f43f5e', label: 'Airbnb' }
     case 'booking':
-      return { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe', label: 'Booking.com' }
+      return { bg: '#93c5fd', text: '#1e3a8a', border: '#3b82f6', label: 'Booking.com' }
     case 'vrbo':
-      return { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe', label: 'VRBO' }
+      return { bg: '#a5b4fc', text: '#312e81', border: '#6366f1', label: 'VRBO' }
     case 'direct':
     case 'direct-etransfer':
-      return { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0', label: 'Direct' }
+      return { bg: '#6ee7b7', text: '#064e3b', border: '#10b981', label: 'Direct' }
     case 'google':
-      return { bg: '#fffbeb', text: '#b45309', border: '#fde68a', label: 'Google' }
+      return { bg: '#fcd34d', text: '#78350f', border: '#f59e0b', label: 'Google' }
     case 'wechalet':
-      return { bg: '#f0fdfa', text: '#0f766e', border: '#99f6e4', label: 'WeChalet' }
+      return { bg: '#5eead4', text: '#134e4a', border: '#14b8a6', label: 'WeChalet' }
     case 'monsieurchalets':
-      return { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa', label: 'MonsieurChalets' }
+      return { bg: '#fdba74', text: '#7c2d12', border: '#f97316', label: 'MonsieurChalets' }
     default:
-      return { bg: '#f9fafb', text: '#4b5563', border: '#e5e7eb', label: platform || 'Unknown' }
+      return { bg: '#d1d5db', text: '#1f2937', border: '#6b7280', label: platform || 'Unknown' }
   }
 }
 
-export default function BookingBar({ booking, isClippedLeft, isClippedRight }: BookingBarProps) {
+export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false }: BookingBarProps) {
   const style = getPlatformStyle(booking.platform)
   const checkoutTime = booking.defaultCheckoutTime || '11:00'
   const checkinTime = booking.defaultCheckinTime || '15:00'
@@ -76,12 +77,34 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight }: B
 
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
 
+  // Outline clip-path: same parallelogram but 2px larger on all sides
+  const outlineLeft = isClippedLeft ? '-2px' : `${NOTCH - 1}px`
+  const outlineRight = isClippedRight ? 'calc(100% + 2px)' : `calc(100% - ${NOTCH - 1}px)`
+  const outlineClipPath = `polygon(${outlineLeft} -2px, calc(100% + 2px) -2px, ${outlineRight} calc(100% + 2px), -2px calc(100% + 2px))`
+
   return (
     <div
       className="group relative w-full h-full"
+      style={{
+        zIndex: isActivated ? 200 : undefined,
+        transform: isActivated ? 'scale(1.04)' : undefined,
+        filter: isActivated ? 'drop-shadow(0 6px 20px rgba(0,0,0,0.25))' : undefined,
+        transition: 'transform 0.15s ease, filter 0.15s ease',
+      }}
       onMouseEnter={(e) => setHoverPos({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setHoverPos(null)}
     >
+      {/* Dark outline layer — parallelogram-shaped, shown only when activated */}
+      {isActivated && (
+        <div
+          className="absolute"
+          style={{
+            inset: -2,
+            backgroundColor: '#1f2937',
+            clipPath: outlineClipPath,
+          }}
+        />
+      )}
       <div
         className="absolute inset-0 transition-opacity group-hover:opacity-85"
         style={{
@@ -90,6 +113,26 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight }: B
           boxShadow: `inset 0 0 0 2px ${style.border}`,
         }}
       >
+        {/* Grip dots handle — visible when activated */}
+        {isActivated && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 flex flex-col gap-[2px] opacity-40"
+            style={{ left: isClippedLeft ? 4 : NOTCH + 4, cursor: 'grab' }}
+          >
+            <div className="flex gap-[2px]">
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+            </div>
+            <div className="flex gap-[2px]">
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+            </div>
+            <div className="flex gap-[2px]">
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+              <span className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: style.text }} />
+            </div>
+          </div>
+        )}
         <div
           className="absolute inset-0 flex items-center overflow-hidden"
           style={{

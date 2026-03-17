@@ -6,7 +6,7 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { ZoomLevel } from './TurnoverCalendar'
-import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo } from './dnd/types'
+import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { validateProjectDrop, validateCleanerViewDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
 import DraggableProject from './dnd/DraggableProject'
@@ -44,6 +44,8 @@ interface CleanerRowViewProps {
   onDayClick?: (dateStr: string) => void
   scrollContainer?: RefObject<HTMLElement | null>
   navigationEpoch?: number
+  activatedItem?: ActivatedItem
+  onOpenProjectModal?: (project: CleaningProject) => void
 }
 
 export default function CleanerRowView({
@@ -64,6 +66,8 @@ export default function CleanerRowView({
   onDayClick,
   scrollContainer,
   navigationEpoch = 0,
+  activatedItem,
+  onOpenProjectModal,
 }: CleanerRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
@@ -524,17 +528,21 @@ export default function CleanerRowView({
                     const isExp = allDates[pp.colIndex] === expandedDate
                     const stackTop = ROW_PADDING + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
 
+                    const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === pp.project.id
+
                     return (
                       <DraggableProject
                         key={pp.project.id}
                         project={pp.project}
-                        className="absolute z-[6] hover:z-[100]"
+                        className={`absolute z-[6] hover:z-[100] ${isProjectActivated ? 'z-[200]' : ''}`}
                         style={{
                           left: projLeft,
                           width: projWidth,
                           top: stackTop,
                           height: BAR_HEIGHT,
                         }}
+                        isActivated={isProjectActivated}
+                        onOpenModal={onOpenProjectModal ? () => onOpenProjectModal(pp.project) : undefined}
                         onClick={(e) => {
                           e.stopPropagation()
                           onProjectClick(pp.project)
@@ -547,6 +555,7 @@ export default function CleanerRowView({
                           pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
                           zoomLevel={zoomLevel}
                           isExpanded={isExp}
+                          isActivated={isProjectActivated}
                         />
                       </DraggableProject>
                     )

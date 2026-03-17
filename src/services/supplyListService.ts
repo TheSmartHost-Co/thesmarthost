@@ -7,6 +7,7 @@ import type {
   CreateSupplyListPayload,
   UpdateSupplyListPayload,
   DeleteSupplyListResponse,
+  ToggleItemPayload,
 } from './types/supplyList'
 
 // =============================================
@@ -85,11 +86,29 @@ export function deleteSupplyList(supplyListId: string): Promise<DeleteSupplyList
 }
 
 /**
+ * Toggle a single item's purchased status
+ */
+export function toggleSupplyListItem(
+  supplyListId: string,
+  itemId: string,
+  data: ToggleItemPayload
+): Promise<SupplyListResponse> {
+  return apiClient<SupplyListResponse, ToggleItemPayload>(
+    `/supply-lists/${supplyListId}/items/${itemId}`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
+}
+
+/**
  * Mark a supply list as fulfilled (notifies cleaner)
  */
-export function fulfillSupplyList(supplyListId: string): Promise<SupplyListResponse> {
-  return apiClient<SupplyListResponse>(`/supply-lists/${supplyListId}/fulfill`, {
+export function fulfillSupplyList(supplyListId: string, fulfilledBy?: string): Promise<SupplyListResponse> {
+  return apiClient<SupplyListResponse, { fulfilledBy?: string }>(`/supply-lists/${supplyListId}/fulfill`, {
     method: 'POST',
+    body: fulfilledBy ? { fulfilledBy } : {},
   })
 }
 

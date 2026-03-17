@@ -717,6 +717,7 @@ export default function ChecklistModal({
         projectId={project.id}
         projectName={project.propertyName}
         onSupplyListsChanged={fetchSupplyListCount}
+        fulfilledBy={project.cleanerId ?? undefined}
       />
 
       {/* Image Viewer Lightbox */}

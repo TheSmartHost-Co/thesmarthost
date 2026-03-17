@@ -7,6 +7,7 @@ import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import BookingBar from './BookingBar'
 import ProjectEvent from './ProjectEvent'
+import type { ActivatedItem } from './dnd/types'
 import { useStickyHeader } from './hooks/useStickyHeader'
 import { parseLocalDate, formatLocalDate, isToday, toLocalDateStr } from './utils/calendarDateUtils'
 import { timeToFraction } from './utils/calendarEventLayout'
@@ -29,6 +30,7 @@ interface MonthGridViewProps {
   supplyListCountsMap: Record<string, number>
   stickyPortal?: RefObject<HTMLDivElement | null>
   scrollContainer?: RefObject<HTMLElement | null>
+  activatedItem?: ActivatedItem
 }
 
 // ---- Color helpers (for popover only) ----
@@ -48,10 +50,10 @@ function getPlatformColor(platform: string): string {
 }
 
 function getProjectBorderColor(status: string, isUnassigned: boolean, isAwaiting: boolean): string {
-  if (isUnassigned || isAwaiting) return '#fbbf24'
+  if (isUnassigned || isAwaiting) return '#d97706'
   const borders: Record<string, string> = {
-    pending: '#d1d5db', assigned: '#93c5fd', confirmed: '#a5b4fc',
-    in_progress: '#c084fc', completed: '#86efac', cancelled: '#d1d5db',
+    pending: '#f59e0b', assigned: '#3b82f6', confirmed: '#6366f1',
+    in_progress: '#a855f7', completed: '#22c55e', cancelled: '#6b7280',
   }
   return borders[status] || borders.pending
 }
@@ -87,6 +89,7 @@ export default function MonthGridView({
   supplyListCountsMap,
   stickyPortal,
   scrollContainer,
+  activatedItem,
 }: MonthGridViewProps) {
   const [popover, setPopover] = useState<{ dateStr: string; x: number; y: number } | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -255,11 +258,12 @@ export default function MonthGridView({
                 // Reduce width for partial checkout day
                 const reductionPct = gb.isClippedRight ? 0 : ((1 - gb.checkoutFraction) / 7) * 100
                 const widthPct = fullWidthPct - reductionPct
+                const isBookingActivated = activatedItem?.type === 'booking' && activatedItem.id === gb.booking.id
 
                 return (
                   <div
                     key={`booking-${gb.booking.id}-w${weekIdx}`}
-                    className="absolute pointer-events-auto cursor-pointer"
+                    className={`absolute pointer-events-auto cursor-pointer ${isBookingActivated ? 'z-[200]' : ''}`}
                     style={{
                       left: `calc(${leftPct}% + 2px)`,
                       width: `calc(${widthPct}% - 4px)`,
@@ -272,6 +276,7 @@ export default function MonthGridView({
                       booking={gb.booking}
                       isClippedLeft={gb.isClippedLeft}
                       isClippedRight={gb.isClippedRight}
+                      isActivated={isBookingActivated}
                     />
                   </div>
                 )
@@ -331,24 +336,28 @@ export default function MonthGridView({
 
                   {/* Project blocks using ProjectEvent component */}
                   <div className="px-0.5 absolute left-0 right-0" style={{ top: PROJECT_ZONE_TOP, zIndex: 6 }}>
-                    {dayProjects.slice(0, visibleProjectCount).map(project => (
-                      <div
-                        key={project.id}
-                        className="mb-0.5 cursor-pointer"
-                        style={{ height: PROJECT_BAR_HEIGHT }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onProjectClick(project)
-                        }}
-                      >
-                        <ProjectEvent
-                          project={project}
-                          openIssueCount={issueCountsMap[project.id] || 0}
-                          pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
-                          zoomLevel="month"
-                        />
-                      </div>
-                    ))}
+                    {dayProjects.slice(0, visibleProjectCount).map(project => {
+                      const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === project.id
+                      return (
+                        <div
+                          key={project.id}
+                          className={`mb-0.5 cursor-pointer ${isProjectActivated ? 'z-[200] relative' : ''}`}
+                          style={{ height: PROJECT_BAR_HEIGHT }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onProjectClick(project)
+                          }}
+                        >
+                          <ProjectEvent
+                            project={project}
+                            openIssueCount={issueCountsMap[project.id] || 0}
+                            pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
+                            zoomLevel="month"
+                            isActivated={isProjectActivated}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {/* "+N more" overflow */}

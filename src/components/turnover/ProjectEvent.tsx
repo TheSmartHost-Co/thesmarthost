@@ -14,6 +14,7 @@ interface ProjectEventProps {
   pendingSupplyListCount?: number
   zoomLevel?: ZoomLevel
   isExpanded?: boolean
+  isActivated?: boolean
   /** @deprecated Use project.nextBookingCheckIn directly */
   nextCheckinDate?: string | null
 }
@@ -37,27 +38,27 @@ function formatTime(time: string | null | undefined): string | null {
 }
 
 function getStatusStyle(status: CleaningProjectStatus, isUnassigned: boolean, isAwaiting: boolean): { bg: string; text: string; border?: string; borderLeft: string } {
-  if (isUnassigned || isAwaiting) return { bg: '#fef3c7', text: '#78350f', border: '#fbbf24', borderLeft: '#d97706' }
+  if (isUnassigned || isAwaiting) return { bg: '#fcd34d', text: '#451a03', border: '#fbbf24', borderLeft: '#d97706' }
   const styles: Record<CleaningProjectStatus, { bg: string; text: string; borderLeft: string }> = {
-    pending: { bg: '#f3f4f6', text: '#111827', borderLeft: '#d97706' },
-    assigned: { bg: '#dbeafe', text: '#1e3a8a', borderLeft: '#2563eb' },
-    confirmed: { bg: '#e0e7ff', text: '#312e81', borderLeft: '#4f46e5' },
-    in_progress: { bg: '#f3e8ff', text: '#581c87', borderLeft: '#9333ea' },
-    completed: { bg: '#dcfce7', text: '#14532d', borderLeft: '#16a34a' },
-    cancelled: { bg: '#f3f4f6', text: '#4b5563', borderLeft: '#6b7280' },
+    pending: { bg: '#d1d5db', text: '#111827', borderLeft: '#d97706' },
+    assigned: { bg: '#93c5fd', text: '#1e3a8a', borderLeft: '#2563eb' },
+    confirmed: { bg: '#a5b4fc', text: '#312e81', borderLeft: '#4f46e5' },
+    in_progress: { bg: '#d8b4fe', text: '#3b0764', borderLeft: '#9333ea' },
+    completed: { bg: '#86efac', text: '#052e16', borderLeft: '#16a34a' },
+    cancelled: { bg: '#d1d5db', text: '#1f2937', borderLeft: '#6b7280' },
   }
   return styles[status] || styles.pending
 }
 
 function getStatusDotColor(status: CleaningProjectStatus, isUnassigned: boolean, isAwaiting: boolean): string {
-  if (isUnassigned || isAwaiting) return '#f59e0b'
+  if (isUnassigned || isAwaiting) return '#d97706'
   const colors: Record<CleaningProjectStatus, string> = {
-    pending: '#fbbf24',
-    assigned: '#60a5fa',
-    confirmed: '#818cf8',
-    in_progress: '#c084fc',
-    completed: '#4ade80',
-    cancelled: '#9ca3af',
+    pending: '#f59e0b',
+    assigned: '#3b82f6',
+    confirmed: '#6366f1',
+    in_progress: '#a855f7',
+    completed: '#22c55e',
+    cancelled: '#6b7280',
   }
   return colors[status] || colors.pending
 }
@@ -78,6 +79,7 @@ export default function ProjectEvent({
   pendingSupplyListCount = 0,
   zoomLevel = 7,
   isExpanded = false,
+  isActivated = false,
   nextCheckinDate = null,
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
@@ -88,7 +90,7 @@ export default function ProjectEvent({
 
   const dotColor = overdue ? '#ef4444' : getStatusDotColor(project.status, isUnassigned, isAwaiting)
   const statusStyle = overdue
-    ? { bg: '#fef2f2', text: '#991b1b', borderLeft: '#dc2626' }
+    ? { bg: '#fca5a5', text: '#7f1d1d', borderLeft: '#dc2626' }
     : getStatusStyle(project.status, isUnassigned, isAwaiting)
   const statusLabel = overdue && overdueLabel ? overdueLabel : getStatusLabel(project.status, isAwaiting)
 
@@ -133,11 +135,17 @@ export default function ProjectEvent({
 
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
 
+  // Activated visual styles
+  const activatedBoxShadow = isActivated
+    ? '0 0 0 2px #1f2937, 0 6px 20px rgba(0,0,0,0.2)'
+    : undefined
+
   // Month view: compact colored card
   if (isMonth) {
     return (
       <div
         className="group relative w-full h-full"
+        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -146,9 +154,11 @@ export default function ProjectEvent({
           style={{
             backgroundColor: statusStyle.bg,
             borderLeft: `3px solid ${statusStyle.borderLeft}`,
-            boxShadow: statusStyle.border
+            boxShadow: activatedBoxShadow || (statusStyle.border
               ? `inset 0 0 0 1px ${statusStyle.border}`
-              : `inset 0 0 0 1px rgba(0,0,0,0.1)`,
+              : `inset 0 0 0 1px rgba(0,0,0,0.1)`),
+            transform: isActivated ? 'scale(1.04)' : undefined,
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
           }}
         >
           <div
@@ -228,6 +238,7 @@ export default function ProjectEvent({
   return (
     <div
       className="group relative w-full h-full"
+      style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setMousePos(null)}
     >
@@ -235,12 +246,34 @@ export default function ProjectEvent({
         className="absolute inset-0 rounded-lg transition-opacity group-hover:opacity-90"
         style={{
           backgroundColor: statusStyle.bg,
-          borderLeft: `3px solid ${statusStyle.borderLeft}`,
-          boxShadow: statusStyle.border
+          borderLeft: isActivated ? `3px solid ${statusStyle.borderLeft}` : `3px solid ${statusStyle.borderLeft}`,
+          boxShadow: activatedBoxShadow || (statusStyle.border
             ? `inset 0 0 0 1px ${statusStyle.border}`
-            : `inset 0 0 0 1px rgba(0,0,0,0.1)`,
+            : `inset 0 0 0 1px rgba(0,0,0,0.1)`),
+          transform: isActivated ? 'scale(1.04)' : undefined,
+          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
         }}
       >
+        {/* Grip dots handle — visible when activated */}
+        {isActivated && (
+          <div
+            className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-[3px] opacity-40"
+            style={{ cursor: 'grab' }}
+          >
+            <div className="flex gap-[3px]">
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+            </div>
+            <div className="flex gap-[3px]">
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+            </div>
+            <div className="flex gap-[3px]">
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+              <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: statusStyle.text }} />
+            </div>
+          </div>
+        )}
         {/* Content — vertical layout */}
         <div className="absolute inset-0 flex flex-col justify-start px-2.5 py-1.5" style={{ overflow: 'hidden' }}>
           {/* Line 1: [dot] Name (bold) */}

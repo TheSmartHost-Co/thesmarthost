@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShoppingCartIcon,
-  ClockIcon,
-  CheckCircleIcon,
   ExclamationCircleIcon,
   BuildingOfficeIcon,
 } from '@heroicons/react/24/outline'
@@ -31,8 +29,8 @@ export default function CleanerSuppliesPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [selectedProjectName, setSelectedProjectName] = useState('')
 
-  // Completed section toggle
-  const [showFulfilled, setShowFulfilled] = useState(false)
+  // Filter
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'fulfilled'>('all')
 
   const fetchData = useCallback(async () => {
     if (!profile?.id) return
@@ -78,14 +76,18 @@ export default function CleanerSuppliesPage() {
     setShowViewModal(true)
   }
 
-  // Split into pending and fulfilled
-  const pendingLists = supplyLists
-    .filter(sl => sl.status === 'pending')
+  // Counts for filter pills
+  const pendingCount = supplyLists.filter(sl => sl.status === 'pending').length
+  const inProgressCount = supplyLists.filter(sl => sl.status === 'in_progress').length
+  const fulfilledCount = supplyLists.filter(sl => sl.status === 'fulfilled').length
+
+  // Stable sort by creation date, then filter by selected status
+  const sortedLists = [...supplyLists]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  const fulfilledLists = supplyLists
-    .filter(sl => sl.status === 'fulfilled')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const filteredLists = statusFilter === 'all'
+    ? sortedLists
+    : sortedLists.filter(sl => sl.status === statusFilter)
 
   // Loading state
   if (loading) {
@@ -167,74 +169,50 @@ export default function CleanerSuppliesPage() {
         <p className="text-gray-500 mt-1">Track your supply requests</p>
       </div>
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className={`rounded-xl border p-3 bg-amber-50 text-amber-700 border-amber-100 ${pendingLists.length > 0 ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}>
-          <div className="flex items-center gap-2">
-            <ClockIcon className="w-5 h-5 opacity-70" />
-            <span className="text-xs font-medium opacity-70">Pending</span>
-          </div>
-          <p className="text-2xl font-bold mt-1">{pendingLists.length}</p>
-        </div>
-        <div className="rounded-xl border p-3 bg-green-50 text-green-700 border-green-100">
-          <div className="flex items-center gap-2">
-            <CheckCircleIcon className="w-5 h-5 opacity-70" />
-            <span className="text-xs font-medium opacity-70">Fulfilled</span>
-          </div>
-          <p className="text-2xl font-bold mt-1">{fulfilledLists.length}</p>
-        </div>
+      {/* Filter Pills */}
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto">
+        {([
+          { key: 'all' as const, label: 'All', count: supplyLists.length, color: 'gray' },
+          { key: 'pending' as const, label: 'Pending', count: pendingCount, color: 'amber' },
+          { key: 'in_progress' as const, label: 'In Progress', count: inProgressCount, color: 'blue' },
+          { key: 'fulfilled' as const, label: 'Fulfilled', count: fulfilledCount, color: 'green' },
+        ]).map(({ key, label, count, color }) => {
+          const isActive = statusFilter === key
+          const activeStyles: Record<string, string> = {
+            gray: 'bg-gray-900 text-white',
+            amber: 'bg-amber-500 text-white',
+            blue: 'bg-blue-500 text-white',
+            green: 'bg-green-500 text-white',
+          }
+          return (
+            <button
+              key={key}
+              onClick={() => setStatusFilter(key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                isActive
+                  ? activeStyles[color]
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+              <span className={`text-xs ${isActive ? 'opacity-80' : 'opacity-60'}`}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Sections */}
-      <div className="space-y-6">
-        {/* Pending Section */}
-        {pendingLists.length > 0 && (
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 mb-3">
-              <span className="text-sm font-semibold text-amber-700">Pending</span>
-              <span className="text-xs font-medium text-amber-700 opacity-70">
-                ({pendingLists.length})
-              </span>
-            </div>
-            <div className="space-y-3">
-              {pendingLists.map((sl, index) => (
-                <SupplyCard key={sl.id} supplyList={sl} index={index} onClick={() => handleCardClick(sl)} />
-              ))}
-            </div>
+      {/* Supply List Cards */}
+      <div className="space-y-3">
+        {filteredLists.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">
+            No {statusFilter === 'all' ? '' : statusFilter.replace('_', ' ')} supply lists
           </div>
-        )}
-
-        {/* Fulfilled Section (collapsible) */}
-        {fulfilledLists.length > 0 && (
-          <div>
-            <button
-              onClick={() => setShowFulfilled(!showFulfilled)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors cursor-pointer"
-            >
-              <CheckCircleIcon className="w-4 h-4" />
-              <span className="text-sm font-semibold">
-                Fulfilled ({fulfilledLists.length})
-              </span>
-              <span className="text-xs">{showFulfilled ? '\u2212' : '+'}</span>
-            </button>
-
-            {showFulfilled && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-3 space-y-3"
-              >
-                {fulfilledLists.slice(0, 10).map((sl, index) => (
-                  <SupplyCard key={sl.id} supplyList={sl} index={index} onClick={() => handleCardClick(sl)} />
-                ))}
-                {fulfilledLists.length > 10 && (
-                  <p className="text-sm text-gray-500 text-center py-2">
-                    + {fulfilledLists.length - 10} more fulfilled requests
-                  </p>
-                )}
-              </motion.div>
-            )}
-          </div>
+        ) : (
+          filteredLists.map((sl, index) => (
+            <SupplyCard key={sl.id} supplyList={sl} index={index} onClick={() => handleCardClick(sl)} />
+          ))
         )}
       </div>
 
@@ -245,6 +223,7 @@ export default function CleanerSuppliesPage() {
         projectId={selectedProjectId}
         projectName={selectedProjectName}
         onSupplyListsChanged={fetchData}
+        fulfilledBy={cleaner?.id}
       />
     </div>
   )
@@ -266,8 +245,13 @@ function SupplyCard({
 
   const statusColors: Record<string, string> = {
     amber: 'bg-amber-100 text-amber-700',
+    blue: 'bg-blue-100 text-blue-700',
     green: 'bg-green-100 text-green-700',
   }
+
+  const purchasedCount = supplyList.items.filter(i => i.isPurchased).length
+  const totalCount = supplyList.items.length
+  const percentage = totalCount > 0 ? Math.round((purchasedCount / totalCount) * 100) : 0
 
   return (
     <motion.div
@@ -292,6 +276,21 @@ function SupplyCard({
             <p className="text-xs text-gray-400 mt-1 truncate">
               {itemPreview}{remaining > 0 ? `, +${remaining} more` : ''}
             </p>
+            {/* Progress bar */}
+            {supplyList.status !== 'fulfilled' && purchasedCount > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>{purchasedCount}/{totalCount} purchased</span>
+                  <span>{percentage}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[statusInfo.color] || 'bg-gray-100 text-gray-700'}`}>

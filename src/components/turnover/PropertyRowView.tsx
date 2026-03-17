@@ -7,7 +7,7 @@ import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import type { ZoomLevel } from './TurnoverCalendar'
-import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './dnd/types'
+import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { validateProjectDrop, validateBookingDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
 import BookingBar from './BookingBar'
@@ -54,6 +54,9 @@ interface PropertyRowViewProps {
   scrollContainer?: RefObject<HTMLElement | null>
   navigationEpoch?: number
   allBookingsForValidation?: Booking[]
+  activatedItem?: ActivatedItem
+  onOpenProjectModal?: (project: CleaningProject) => void
+  onOpenBookingModal?: (booking: Booking) => void
 }
 
 export default function PropertyRowView({
@@ -78,6 +81,9 @@ export default function PropertyRowView({
   scrollContainer,
   navigationEpoch = 0,
   allBookingsForValidation = [],
+  activatedItem,
+  onOpenProjectModal,
+  onOpenBookingModal,
 }: PropertyRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
@@ -500,17 +506,21 @@ export default function PropertyRowView({
                     const right = endLeft + pb.checkoutOffset * endColW
                     const barWidth = Math.max(right - barLeft, 20) + NOTCH_PX
 
+                    const isBookingActivated = activatedItem?.type === 'booking' && activatedItem.id === pb.booking.id
+
                     return (
                       <DraggableBooking
                         key={`booking-${pb.booking.id}`}
                         booking={pb.booking}
-                        className="absolute z-[5] hover:z-[100]"
+                        className={`absolute z-[5] hover:z-[100] ${isBookingActivated ? 'z-[200]' : ''}`}
                         style={{
                           left: barLeft,
                           width: barWidth,
                           top: ROW_PADDING,
                           height: BOOKING_BAR_HEIGHT,
                         }}
+                        isActivated={isBookingActivated}
+                        onOpenModal={onOpenBookingModal ? () => onOpenBookingModal(pb.booking) : undefined}
                         onClick={(e) => {
                           e.stopPropagation()
                           onBookingClick?.(pb.booking)
@@ -520,6 +530,7 @@ export default function PropertyRowView({
                           booking={pb.booking}
                           isClippedLeft={pb.startColIndex < bufferCols}
                           isClippedRight={pb.endColIndex > allDates.length - bufferCols}
+                          isActivated={isBookingActivated}
                         />
                       </DraggableBooking>
                     )
@@ -539,17 +550,21 @@ export default function PropertyRowView({
                     const isExp = allDates[pp.colIndex] === expandedDate
                     const stackTop = ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
 
+                    const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === pp.project.id
+
                     return (
                       <DraggableProject
                         key={`project-${pp.project.id}`}
                         project={pp.project}
-                        className="absolute z-[6] hover:z-[100]"
+                        className={`absolute z-[6] hover:z-[100] ${isProjectActivated ? 'z-[200]' : ''}`}
                         style={{
                           left: projLeft,
                           width: projWidth,
                           top: stackTop,
                           height: BAR_HEIGHT,
                         }}
+                        isActivated={isProjectActivated}
+                        onOpenModal={onOpenProjectModal ? () => onOpenProjectModal(pp.project) : undefined}
                         onClick={(e) => {
                           e.stopPropagation()
                           onProjectClick(pp.project)
@@ -561,6 +576,7 @@ export default function PropertyRowView({
                           pendingSupplyListCount={supplyListCountsMap[pp.project.id] || 0}
                           zoomLevel={zoomLevel}
                           isExpanded={isExp}
+                          isActivated={isProjectActivated}
                         />
                       </DraggableProject>
                     )

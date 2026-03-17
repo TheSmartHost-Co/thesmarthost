@@ -179,7 +179,7 @@ export default function SupplyListsPage() {
       },
     ]
 
-    if (sl.status === 'pending') {
+    if (sl.status === 'pending' || sl.status === 'in_progress') {
       actions.push({
         label: 'Fulfill',
         icon: CheckCircleIcon,
@@ -256,6 +256,7 @@ export default function SupplyListsPage() {
 
   // Stats
   const pendingCount = supplyLists.filter(sl => sl.status === 'pending').length
+  const inProgressCount = supplyLists.filter(sl => sl.status === 'in_progress').length
   const fulfilledCount = supplyLists.filter(sl => sl.status === 'fulfilled').length
   const totalItemsCount = supplyLists.reduce((sum, sl) => sum + sl.items.length, 0)
 
@@ -269,6 +270,16 @@ export default function SupplyListsPage() {
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
       borderColor: 'border-amber-100',
+    },
+    {
+      label: 'In Progress',
+      value: inProgressCount,
+      subValue: 'Partially fulfilled',
+      icon: RectangleStackIcon,
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      borderColor: 'border-blue-100',
     },
     {
       label: 'Fulfilled',
@@ -290,22 +301,13 @@ export default function SupplyListsPage() {
       iconColor: 'text-teal-600',
       borderColor: 'border-teal-100',
     },
-    {
-      label: 'Supply Lists',
-      value: supplyLists.length,
-      subValue: 'Total requests',
-      icon: RectangleStackIcon,
-      bgColor: 'bg-blue-50',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      borderColor: 'border-blue-100',
-    },
   ]
 
   const getStatusBadge = (status: SupplyListStatus) => {
     const info = SUPPLY_LIST_STATUS_INFO[status]
     const colors: Record<string, string> = {
       amber: 'bg-amber-100 text-amber-700',
+      blue: 'bg-blue-100 text-blue-700',
       green: 'bg-green-100 text-green-700',
     }
     return colors[info.color] || 'bg-gray-100 text-gray-700'
@@ -457,6 +459,7 @@ export default function SupplyListsPage() {
                         >
                           <option value="">All Statuses</option>
                           <option value="pending">Pending</option>
+                          <option value="in_progress">In Progress</option>
                           <option value="fulfilled">Fulfilled</option>
                         </select>
                       </div>
@@ -572,7 +575,14 @@ export default function SupplyListsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <span className="text-sm font-medium text-gray-900">{sl.items.length} item{sl.items.length !== 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">{sl.items.length} item{sl.items.length !== 1 ? 's' : ''}</span>
+                          {sl.status !== 'fulfilled' && sl.items.some(i => i.isPurchased) && (
+                            <span className="text-xs text-teal-600 font-medium">
+                              {sl.items.filter(i => i.isPurchased).length}/{sl.items.length} purchased
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500 truncate max-w-[180px]">
                           {itemPreview}{remaining > 0 ? `, +${remaining} more` : ''}
                         </p>
@@ -700,6 +710,7 @@ export default function SupplyListsPage() {
         projectId={selectedProjectId}
         projectName={selectedProjectName}
         onSupplyListsChanged={reloadSupplyLists}
+        fulfilledBy={profile?.id}
       />
     </div>
   )

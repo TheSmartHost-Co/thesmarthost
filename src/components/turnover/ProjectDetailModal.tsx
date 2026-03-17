@@ -1292,6 +1292,7 @@ export default function ProjectDetailModal({
         projectId={project.id}
         projectName={project.propertyName}
         onSupplyListsChanged={fetchSupplyListCount}
+        fulfilledBy={user?.id}
       />
 
       {/* Image Preview Modal */}

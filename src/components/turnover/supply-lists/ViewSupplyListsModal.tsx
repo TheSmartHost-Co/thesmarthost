@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import {
   getSupplyListsByProject,
   updateSupplyList,
   deleteSupplyList,
   fulfillSupplyList,
+  toggleSupplyListItem,
   formatSupplyListAge,
 } from '@/services/supplyListService'
 import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
@@ -30,6 +31,31 @@ interface ViewSupplyListsModalProps {
   projectId: string
   projectName?: string
   onSupplyListsChanged?: () => void
+  fulfilledBy?: string
+}
+
+// Inline progress bar component
+function ProgressBar({ percentage }: { percentage: number }) {
+  return (
+    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+      <div
+        className="h-full bg-teal-500 rounded-full transition-all duration-300"
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  )
+}
+
+const statusBadgeColors: Record<string, string> = {
+  amber: 'bg-amber-100 text-amber-700',
+  blue: 'bg-blue-100 text-blue-700',
+  green: 'bg-green-100 text-green-700',
+}
+
+const statusIconColors: Record<string, string> = {
+  pending: 'bg-teal-100 text-teal-600',
+  in_progress: 'bg-blue-100 text-blue-600',
+  fulfilled: 'bg-green-100 text-green-600',
 }
 
 const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
@@ -38,6 +64,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   projectId,
   projectName,
   onSupplyListsChanged,
+  fulfilledBy,
 }) => {
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,6 +73,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [itemFilter, setItemFilter] = useState<'all' | 'remaining' | 'purchased'>('all')
+
+  // Preserve item order: capture the order when a list is first selected
+  const itemOrderRef = useRef<string[]>([])
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -80,20 +111,45 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       setNewItemName('')
       setNewItemQuantity('1')
       setShowDeleteConfirm(false)
+      setItemFilter('all')
+      itemOrderRef.current = []
     }
   }, [isOpen])
 
-  // Toggle item purchased status
+  // Capture item order when a list is first selected
+  const selectList = (list: SupplyList) => {
+    itemOrderRef.current = list.items.map(i => i.id)
+    setItemFilter('all')
+    setSelectedList(list)
+  }
+
+  // Sort items by their original order, putting new items at the end
+  const getStableItems = (list: SupplyList): SupplyListItem[] => {
+    const order = itemOrderRef.current
+    if (order.length === 0) return list.items
+    return [...list.items].sort((a, b) => {
+      const ai = order.indexOf(a.id)
+      const bi = order.indexOf(b.id)
+      // Items not in original order go to end
+      const aIdx = ai === -1 ? order.length : ai
+      const bIdx = bi === -1 ? order.length : bi
+      return aIdx - bIdx
+    })
+  }
+
+  // Toggle item purchased status via PATCH
   const handleTogglePurchased = async (item: SupplyListItem) => {
-    if (!selectedList || selectedList.status === 'fulfilled') return
+    if (!selectedList) return
     setActionLoading(true)
     try {
-      const res = await updateSupplyList(selectedList.id, {
-        items: [{ id: item.id, isPurchased: !item.isPurchased }],
+      const res = await toggleSupplyListItem(selectedList.id, item.id, {
+        isPurchased: !item.isPurchased,
+        fulfilledBy: fulfilledBy,
       })
       if (res.status === 'success') {
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
+        onSupplyListsChanged?.()
       } else {
         showNotification(res.message || 'Failed to update item', 'error')
       }
@@ -129,6 +185,11 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         newItems: [{ name: newItemName.trim(), quantity: parseInt(newItemQuantity, 10) || 1 }],
       })
       if (res.status === 'success') {
+        // Add new item IDs to the stable order ref
+        const existingIds = new Set(itemOrderRef.current)
+        res.data.items.forEach(i => {
+          if (!existingIds.has(i.id)) itemOrderRef.current.push(i.id)
+        })
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         setNewItemName('')
@@ -171,7 +232,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     if (!selectedList || selectedList.status === 'fulfilled') return
     setActionLoading(true)
     try {
-      const res = await fulfillSupplyList(selectedList.id)
+      const res = await fulfillSupplyList(selectedList.id, fulfilledBy)
       if (res.status === 'success') {
         showNotification('Supply list marked as fulfilled', 'success')
         setSelectedList(res.data)
@@ -209,7 +270,12 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  const pendingCount = supplyLists.filter(sl => sl.status === 'pending').length
+  const getProgress = (list: SupplyList) => {
+    if (list.progress) return list.progress
+    const totalItems = list.items.length
+    const purchasedItems = list.items.filter(i => i.isPurchased).length
+    return { totalItems, purchasedItems, percentage: totalItems > 0 ? Math.round((purchasedItems / totalItems) * 100) : 0 }
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} closable>
@@ -257,7 +323,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               <div className="flex items-center gap-3">
                 <span className={`
                   px-3 py-1.5 rounded-lg text-sm font-medium
-                  ${selectedList.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}
+                  ${statusBadgeColors[SUPPLY_LIST_STATUS_INFO[selectedList.status].color] || 'bg-gray-100 text-gray-700'}
                 `}>
                   {SUPPLY_LIST_STATUS_INFO[selectedList.status].label}
                 </span>
@@ -269,78 +335,122 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 )}
               </div>
 
+              {/* Progress Bar (detail view) */}
+              {selectedList.items.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} purchased</span>
+                    <span>{getProgress(selectedList).percentage}%</span>
+                  </div>
+                  <ProgressBar percentage={getProgress(selectedList).percentage} />
+                </div>
+              )}
+
+              {/* Item Filter Pills */}
+              {selectedList.items.length > 0 && (() => {
+                const purchased = selectedList.items.filter(i => i.isPurchased).length
+                const remaining = selectedList.items.length - purchased
+                return (
+                  <div className="flex items-center gap-1.5">
+                    {([
+                      { key: 'all' as const, label: 'All', count: selectedList.items.length },
+                      { key: 'remaining' as const, label: 'Remaining', count: remaining },
+                      { key: 'purchased' as const, label: 'Purchased', count: purchased },
+                    ]).map(({ key, label, count }) => (
+                      <button
+                        key={key}
+                        onClick={() => setItemFilter(key)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                          itemFilter === key
+                            ? 'bg-teal-500 text-white'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {label} ({count})
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
               {/* Items Checklist */}
               <div className="bg-gray-50 rounded-xl p-4 max-h-80 overflow-y-auto">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-                  Items ({selectedList.items.length})
-                </p>
                 <div className="space-y-2">
-                  {selectedList.items.map(item => (
-                    <div
-                      key={item.id}
-                      className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors ${
-                        item.isPurchased ? 'bg-green-50' : 'bg-white'
-                      }`}
-                    >
-                      <button
-                        onClick={() => handleTogglePurchased(item)}
-                        disabled={actionLoading || selectedList.status === 'fulfilled'}
-                        className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                          item.isPurchased
-                            ? 'bg-teal-500 border-teal-500 text-white'
-                            : 'border-gray-300 hover:border-teal-500'
-                        } ${actionLoading ? 'opacity-50' : ''}`}
+                  {getStableItems(selectedList)
+                    .filter(item => {
+                      if (itemFilter === 'remaining') return !item.isPurchased
+                      if (itemFilter === 'purchased') return item.isPurchased
+                      return true
+                    })
+                    .map(item => {
+                    const isEditable = selectedList.status !== 'fulfilled'
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors ${
+                          item.isPurchased ? 'bg-green-50' : 'bg-white'
+                        }`}
                       >
-                        {item.isPurchased && <CheckIcon className="w-3 h-3" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                            {item.name}
-                          </p>
-                          {item.quantity > 1 && (
-                            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                              x{item.quantity}
-                            </span>
+                        <button
+                          onClick={() => handleTogglePurchased(item)}
+                          disabled={actionLoading}
+                          className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                            item.isPurchased
+                              ? 'bg-teal-500 border-teal-500 text-white'
+                              : 'border-gray-300 hover:border-teal-500'
+                          } ${actionLoading ? 'opacity-50' : ''}`}
+                        >
+                          {item.isPurchased && <CheckIcon className="w-3 h-3" />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                              {item.name}
+                            </p>
+                            {item.quantity > 1 && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                x{item.quantity}
+                              </span>
+                            )}
+                          </div>
+                          {/* PM Notes inline edit */}
+                          {isEditable && (
+                            <input
+                              type="text"
+                              value={item.pmNotes || ''}
+                              onChange={(e) => {
+                                // Optimistic update
+                                setSelectedList(prev => prev ? {
+                                  ...prev,
+                                  items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: e.target.value } : i),
+                                } : null)
+                              }}
+                              onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
+                              placeholder="Add a note..."
+                              className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
+                            />
+                          )}
+                          {!isEditable && item.pmNotes && (
+                            <p className="text-xs text-gray-500 mt-0.5">{item.pmNotes}</p>
                           )}
                         </div>
-                        {/* PM Notes inline edit */}
-                        {selectedList.status === 'pending' && (
-                          <input
-                            type="text"
-                            value={item.pmNotes || ''}
-                            onChange={(e) => {
-                              // Optimistic update
-                              setSelectedList(prev => prev ? {
-                                ...prev,
-                                items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: e.target.value } : i),
-                              } : null)
-                            }}
-                            onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
-                            placeholder="Add a note..."
-                            className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
-                          />
-                        )}
-                        {selectedList.status === 'fulfilled' && item.pmNotes && (
-                          <p className="text-xs text-gray-500 mt-0.5">{item.pmNotes}</p>
+                        {isEditable && (
+                          <button
+                            onClick={() => handleRemoveItem(item.id)}
+                            disabled={actionLoading}
+                            className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
-                      {selectedList.status === 'pending' && (
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          disabled={actionLoading}
-                          className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* Add new item (only for pending lists) */}
-              {selectedList.status === 'pending' && (
+              {/* Add new item (editable lists) */}
+              {selectedList.status !== 'fulfilled' && (
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -367,8 +477,8 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 </div>
               )}
 
-              {/* Actions */}
-              {selectedList.status === 'pending' && (
+              {/* Actions (editable lists) */}
+              {selectedList.status !== 'fulfilled' && (
                 <div className="border-t pt-4 flex gap-3">
                   <button
                     onClick={handleFulfill}
@@ -446,19 +556,16 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
                   {supplyLists.map((list) => {
                     const statusInfo = SUPPLY_LIST_STATUS_INFO[list.status]
-                    const purchasedCount = list.items.filter(i => i.isPurchased).length
+                    const progress = getProgress(list)
 
                     return (
                       <button
                         key={list.id}
-                        onClick={() => setSelectedList(list)}
+                        onClick={() => selectList(list)}
                         className="w-full text-left p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all"
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`
-                            p-2 rounded-lg
-                            ${list.status === 'pending' ? 'bg-teal-100 text-teal-600' : 'bg-green-100 text-green-600'}
-                          `}>
+                          <div className={`p-2 rounded-lg ${statusIconColors[list.status] || 'bg-teal-100 text-teal-600'}`}>
                             <ClipboardDocumentListIcon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -468,7 +575,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               </span>
                               <span className={`
                                 px-2 py-0.5 rounded text-xs font-medium
-                                ${statusInfo.color === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}
+                                ${statusBadgeColors[statusInfo.color] || 'bg-gray-100 text-gray-700'}
                               `}>
                                 {statusInfo.label}
                               </span>
@@ -487,12 +594,18 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                                   {list.submitterName}
                                 </span>
                               )}
-                              {list.status === 'pending' && purchasedCount > 0 && (
+                              {list.status !== 'fulfilled' && progress.purchasedItems > 0 && (
                                 <span className="text-teal-600">
-                                  {purchasedCount}/{list.items.length} purchased
+                                  {progress.purchasedItems}/{progress.totalItems} purchased
                                 </span>
                               )}
                             </div>
+                            {/* Progress bar on list card */}
+                            {list.status !== 'fulfilled' && list.items.length > 0 && progress.purchasedItems > 0 && (
+                              <div className="mt-2">
+                                <ProgressBar percentage={progress.percentage} />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </button>

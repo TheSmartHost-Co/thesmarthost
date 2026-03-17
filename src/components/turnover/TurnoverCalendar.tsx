@@ -18,7 +18,7 @@ import { getCleaners } from '@/services/cleanerService'
 import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
-import { getPendingSupplyLists } from '@/services/supplyListService'
+import { getAllSupplyLists } from '@/services/supplyListService'
 import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates, deleteBooking, cancelBooking } from '@/services/bookingService'
 import { isValidationError } from '@/services/validationError'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
@@ -39,7 +39,8 @@ import { AllIssuesModal } from '@/components/turnover/issues'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 import ConfirmDragModal, { InvalidDropModal } from './dnd/ConfirmDragModal'
-import type { PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './dnd/types'
+import type { PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
+import { useActivatedItem } from './hooks/useActivatedItem'
 
 export type ViewMode = 'property' | 'cleaner'
 export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
@@ -343,7 +344,7 @@ export default function TurnoverCalendar({
           initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(profile.id),
           getCleaningProjectStats(profile.id, dateRange.start, dateRange.end),
           getAllIssues(profile.id),
-          getPendingSupplyLists(profile.id),
+          getAllSupplyLists(profile.id),
         ])
 
         if (propertiesRes.status === 'success') setProperties(propertiesRes.data)
@@ -360,8 +361,9 @@ export default function TurnoverCalendar({
           setIssueCountsMap(countsMap)
         }
         if (supplyRes.status === 'success') {
+          // Count pending + in_progress supply lists (exclude fulfilled)
           const countsMap: Record<string, number> = {}
-          supplyRes.data.forEach(list => {
+          supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {
             countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
           })
           setSupplyListCountsMap(countsMap)
@@ -485,10 +487,10 @@ export default function TurnoverCalendar({
   const refreshSupplyListCounts = async () => {
     if (!profile?.id) return
     try {
-      const supplyRes = await getPendingSupplyLists(profile.id)
+      const supplyRes = await getAllSupplyLists(profile.id)
       if (supplyRes.status === 'success') {
         const countsMap: Record<string, number> = {}
-        supplyRes.data.forEach(list => {
+        supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {
           countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
         })
         setSupplyListCountsMap(countsMap)
@@ -637,17 +639,30 @@ export default function TurnoverCalendar({
     return selectedCleanerIds.length > 0 && selectedCleanerIds.length < allCount
   }, [selectedCleanerIds, cleaners.length])
 
-  // Handle project click
-  const handleProjectClick = (project: CleaningProject) => {
+  // Click-to-activate: first click activates, second click opens modal
+  const openProjectModal = useCallback((project: CleaningProject) => {
     setSelectedProject(project)
     setShowDetailModal(true)
-  }
+  }, [])
 
-  // Handle booking click
-  const handleBookingClick = (booking: Booking) => {
+  const openBookingModal = useCallback((booking: Booking) => {
     setSelectedBooking(booking)
     setShowBookingPreview(true)
-  }
+  }, [])
+
+  const { activatedItem, handleProjectClick, handleBookingClick, clearActivatedItem } = useActivatedItem({
+    onOpenProjectModal: openProjectModal,
+    onOpenBookingModal: openBookingModal,
+  })
+
+  // Escape key deactivates
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearActivatedItem()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [clearActivatedItem])
 
   // Handle project update (after editing in modal)
   const handleProjectUpdate = (updatedProject: CleaningProject) => {
@@ -1245,7 +1260,7 @@ export default function TurnoverCalendar({
         />
 
         {/* Scroll container for calendar body */}
-        <div ref={scrollContainerRef} className="overflow-y-auto flex-1 min-h-0 relative rounded-b-2xl">
+        <div ref={scrollContainerRef} className="overflow-y-auto flex-1 min-h-0 relative rounded-b-2xl" onClick={clearActivatedItem}>
           {/* Sticky header portal target — sticks to top of scroll container */}
           <div className="sticky top-0 z-20 h-0">
             <div ref={stickyPortalRef} />
@@ -1275,6 +1290,7 @@ export default function TurnoverCalendar({
                   supplyListCountsMap={supplyListCountsMap}
                   stickyPortal={stickyPortalRef}
                   scrollContainer={scrollContainerRef}
+                  activatedItem={activatedItem}
                 />
               ) : viewMode === 'property' ? (
                 <PropertyRowView
@@ -1297,6 +1313,9 @@ export default function TurnoverCalendar({
                   onDayClick={handleDayClick}
                   scrollContainer={scrollContainerRef}
                   navigationEpoch={navigationEpoch}
+                  activatedItem={activatedItem}
+                  onOpenProjectModal={openProjectModal}
+                  onOpenBookingModal={openBookingModal}
                 />
               ) : (
                 <CleanerRowView
@@ -1316,6 +1335,8 @@ export default function TurnoverCalendar({
                   onDayClick={handleDayClick}
                   scrollContainer={scrollContainerRef}
                   navigationEpoch={navigationEpoch}
+                  activatedItem={activatedItem}
+                  onOpenProjectModal={openProjectModal}
                 />
               )}
             </motion.div>

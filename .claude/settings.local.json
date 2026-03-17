@@ -14,7 +14,8 @@
       "WebFetch(domain:supabase.com)",
       "Bash(ls:*)",
       "WebFetch(domain:fullcalendar.io)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(wc -l \"/mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\(user\\)/property-manager/settings/page.tsx\")"
     ],
     "deny": []
   }

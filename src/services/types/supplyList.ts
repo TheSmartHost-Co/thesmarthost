@@ -1,6 +1,6 @@
 // Types for Supply Lists (cleaners request missing supplies during cleaning projects)
 
-export type SupplyListStatus = 'pending' | 'fulfilled'
+export type SupplyListStatus = 'pending' | 'in_progress' | 'fulfilled'
 
 export interface SupplyListItem {
   id: string
@@ -8,6 +8,8 @@ export interface SupplyListItem {
   quantity: number
   isPurchased: boolean
   pmNotes: string | null
+  fulfilledBy: string | null
+  fulfilledAt: string | null
   createdAt: string
 }
 
@@ -26,6 +28,7 @@ export interface SupplyList {
   propertyName: string | null
   projectDate: string
   items: SupplyListItem[]
+  progress?: { totalItems: number; purchasedItems: number; percentage: number }
 }
 
 export interface CreateSupplyListPayload {
@@ -37,6 +40,12 @@ export interface UpdateSupplyListPayload {
   items?: { id: string; isPurchased?: boolean; pmNotes?: string }[]
   newItems?: { name: string; quantity?: number }[]
   removeItemIds?: string[]
+  fulfilledBy?: string
+}
+
+export interface ToggleItemPayload {
+  isPurchased: boolean
+  fulfilledBy?: string
 }
 
 // API Response Types
@@ -60,5 +69,6 @@ export interface DeleteSupplyListResponse {
 // Status display information
 export const SUPPLY_LIST_STATUS_INFO: Record<SupplyListStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'amber' },
+  in_progress: { label: 'In Progress', color: 'blue' },
   fulfilled: { label: 'Fulfilled', color: 'green' },
 }
