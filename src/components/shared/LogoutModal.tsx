@@ -56,7 +56,7 @@ const LogoutModal = () => {
       </button>
 
       {/* Logout confirmation modal */}
-      <Modal isOpen={isModalOpen} onClose={closeModal} style="p-9">
+      <Modal isOpen={isModalOpen} onClose={closeModal} style="p-9 max-w-sm w-11/12">
         <h2 className="text-lg mb-4 text-black p-3">
           Are you sure you want to log out?
         </h2>

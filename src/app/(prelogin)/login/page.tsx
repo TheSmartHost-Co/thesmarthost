@@ -75,9 +75,8 @@ function LoginForm() {
 
         if (profileResponse.status === 'success' && profileResponse.data) {
           setProfile({
+            ...profileResponse.data,
             id: data.user.id,
-            fullName: profileResponse.data.fullName,
-            role: profileResponse.data.role,
             email: data.user.email
           })
 

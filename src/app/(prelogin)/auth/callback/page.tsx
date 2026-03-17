@@ -59,8 +59,8 @@ export default function AuthCallbackPage() {
             if (hasProfile) {
               // Returning user - set profile and go to dashboard
               setProfile({
+                ...profileResponse.data!,
                 id: user.id,
-                fullName: profileResponse.data!.fullName,
                 role: 'CLEANER',
                 email: user.email,
               })
@@ -84,9 +84,8 @@ export default function AuthCallbackPage() {
 
             if (profileResponse.status === 'success' && profileResponse.data) {
               setProfile({
+                ...profileResponse.data,
                 id: user.id,
-                fullName: profileResponse.data.fullName,
-                role: profileResponse.data.role,
                 email: user.email,
               })
 

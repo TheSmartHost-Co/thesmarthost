@@ -102,6 +102,7 @@ interface TransformedReservation {
   totalPayout: number
   // Mapping fields
   hostawayListingId: number
+  hostawayStatus: string
   propertyId: string | null
   isDuplicate: boolean
 }
@@ -269,17 +270,27 @@ const ImportHostawayBookingsModal: React.FC<ImportHostawayBookingsModalProps> = 
             totalPayout: financeData.totalPayout,
             // Mapping fields
             hostawayListingId: r.listingMapId,
+            hostawayStatus: (r.status || '').toLowerCase(),
             propertyId: null,
             isDuplicate: false
           }
         })
 
-        setReservations(transformed)
+        // Defense-in-depth: filter by allowed statuses (backend should already filter)
+        const allowedStatuses = ['new', 'modified', 'confirmed']
+        const filtered = transformed.filter(r => allowedStatuses.includes(r.hostawayStatus))
+
+        setReservations(filtered)
         // Pre-select all non-duplicate reservations
-        const allIds = new Set(transformed.map(r => r.id))
+        const allIds = new Set(filtered.map(r => r.id))
         setSelectedIds(allIds)
 
-        showNotification(`Found ${transformed.length} reservations`, 'success')
+        const totalFetched = res.data.totalFetched || transformed.length
+        if (totalFetched > filtered.length) {
+          showNotification(`Found ${filtered.length} active reservations (${totalFetched - filtered.length} inquiries/cancelled excluded)`, 'success')
+        } else {
+          showNotification(`Found ${filtered.length} reservations`, 'success')
+        }
 
         // Move to next step
         setCompletedSteps(prev => new Set([...prev, 'dateRange']))

@@ -153,6 +153,7 @@ export interface FetchReservationsResponse {
   data?: {
     reservations: HostawayReservation[];
     count: number;
+    totalFetched?: number;
     dateRange: {
       startDate: string;
       endDate: string;

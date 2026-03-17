@@ -94,8 +94,8 @@ export default function SetPasswordPage() {
 
       if (profileResponse.status === 'success' && profileResponse.data) {
         setProfile({
+          ...profileResponse.data,
           id: userId,
-          fullName: profileResponse.data.fullName,
           role: 'CLEANER',
           email: userEmail,
         })
