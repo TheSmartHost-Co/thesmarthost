@@ -35,7 +35,7 @@ export default function CleanerSettingsPage() {
   })
 
   // Notification preferences state
-  const [savingNotifications, setSavingNotifications] = useState(false)
+  const [savingField, setSavingField] = useState<string | null>(null)
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -51,7 +51,7 @@ export default function CleanerSettingsPage() {
     }
 
     try {
-      setSavingNotifications(true)
+      setSavingField(field)
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
         role: 'CLEANER',
@@ -75,7 +75,7 @@ export default function CleanerSettingsPage() {
       console.error('Error updating notification preferences:', err)
       showNotification('Failed to update notification preferences', 'error')
     } finally {
-      setSavingNotifications(false)
+      setSavingField(null)
     }
   }
 
@@ -403,11 +403,11 @@ export default function CleanerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingNotifications}
+                  disabled={savingField === 'emailNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
                     (profile?.emailNotificationsEnabled ?? true) ? 'bg-purple-600' : 'bg-gray-200'
-                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -439,11 +439,11 @@ export default function CleanerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingNotifications}
+                  disabled={savingField === 'smsNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                     (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${

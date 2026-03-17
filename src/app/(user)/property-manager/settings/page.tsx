@@ -66,7 +66,7 @@ export default function PropertyManagerSettingsPage() {
   const [loadingProperties, setLoadingProperties] = useState(false)
 
   // Notification preferences state
-  const [savingNotifications, setSavingNotifications] = useState(false)
+  const [savingField, setSavingField] = useState<string | null>(null)
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
@@ -93,7 +93,7 @@ export default function PropertyManagerSettingsPage() {
     }
 
     try {
-      setSavingNotifications(true)
+      setSavingField(field)
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
         role: profile.role!,
@@ -115,7 +115,7 @@ export default function PropertyManagerSettingsPage() {
       console.error('Error updating notification preferences:', err)
       showNotification('Failed to update notification preferences', 'error')
     } finally {
-      setSavingNotifications(false)
+      setSavingField(null)
     }
   }
 
@@ -123,7 +123,7 @@ export default function PropertyManagerSettingsPage() {
     if (!profile?.id) return
 
     try {
-      setSavingNotifications(true)
+      setSavingField('autoImport')
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
         role: profile.role!,
@@ -149,7 +149,7 @@ export default function PropertyManagerSettingsPage() {
       console.error('Error updating auto-import setting:', err)
       showNotification('Failed to update auto-import setting', 'error')
     } finally {
-      setSavingNotifications(false)
+      setSavingField(null)
     }
   }
 
@@ -606,11 +606,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingNotifications}
+                  disabled={savingField === 'emailNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     (profile?.emailNotificationsEnabled ?? true) ? 'bg-blue-600' : 'bg-gray-200'
-                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -642,11 +642,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingNotifications}
+                  disabled={savingField === 'smsNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                     (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -678,11 +678,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.autoImport ?? false}
-                  disabled={savingNotifications}
+                  disabled={savingField === 'autoImport'}
                   onClick={() => handleAutoImportToggle(!(profile?.autoImport ?? false))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
                     (profile?.autoImport ?? false) ? 'bg-green-600' : 'bg-gray-200'
-                  } ${savingNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'autoImport' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
