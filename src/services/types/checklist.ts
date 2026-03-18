@@ -4,11 +4,13 @@ export interface Checklist {
   propertyId: string
   name: string
   isDefault: boolean
+  templateId?: string | null
   createdAt: string
   updatedAt?: string | null
   // Joined fields
   propertyName?: string
   propertyAddress?: string
+  templateName?: string | null
   itemCount?: number
   // Items (when fetching single checklist)
   items?: ChecklistItem[]

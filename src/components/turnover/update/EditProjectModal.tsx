@@ -20,7 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { updateCleaningProject } from '@/services/cleaningProjectService'
+import { updateCleaningProject, initializeProjectChecklist } from '@/services/cleaningProjectService'
 import { getChecklists, getChecklistById } from '@/services/checklistService'
 import { getBookings } from '@/services/bookingService'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -78,6 +78,10 @@ export default function EditProjectModal({
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [showChecklistPreview, setShowChecklistPreview] = useState(false)
   const [showCreateChecklistModal, setShowCreateChecklistModal] = useState(false)
+  const [showReinitDialog, setShowReinitDialog] = useState(false)
+  const [reinitProjectId, setReinitProjectId] = useState<string | null>(null)
+  const [isReinitializing, setIsReinitializing] = useState(false)
+  const [pendingUpdatedProject, setPendingUpdatedProject] = useState<CleaningProject | null>(null)
 
   // Track if property changed (to know if we should refetch checklists/bookings)
   const [initialPropertyId, setInitialPropertyId] = useState<string | null>(null)
@@ -270,6 +274,38 @@ export default function EditProjectModal({
     setShowCreateChecklistModal(false)
   }
 
+  const handleConfirmReinit = async () => {
+    if (!reinitProjectId) return
+    setIsReinitializing(true)
+    try {
+      const res = await initializeProjectChecklist(reinitProjectId, { force: true })
+      if (res.status === 'success') {
+        showNotification(`Checklist re-initialized with ${res.data.initialized} items`, 'success')
+      } else {
+        showNotification(res.message || 'Failed to re-initialize checklist', 'error')
+      }
+    } catch (err) {
+      console.error('Error re-initializing checklist:', err)
+      showNotification('Error re-initializing checklist', 'error')
+    } finally {
+      setIsReinitializing(false)
+      setShowReinitDialog(false)
+      if (pendingUpdatedProject) {
+        onUpdate(pendingUpdatedProject)
+      }
+      onClose()
+    }
+  }
+
+  const handleSkipReinit = () => {
+    setShowReinitDialog(false)
+    showNotification('Project updated. Checklist items kept from previous template.', 'info')
+    if (pendingUpdatedProject) {
+      onUpdate(pendingUpdatedProject)
+    }
+    onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -304,9 +340,19 @@ export default function EditProjectModal({
       const res = await updateCleaningProject(project.id, payload)
 
       if (res.status === 'success') {
-        showNotification('Project updated successfully', 'success')
-        onUpdate(res.data)
-        onClose()
+        if (res.data.checklistChanged) {
+          // Checklist was swapped (A → B) — prompt PM before re-initializing
+          setPendingUpdatedProject(res.data)
+          setReinitProjectId(res.data.id)
+          setShowReinitDialog(true)
+        } else {
+          const autoInitMsg = res.data.checklistAutoInitialized
+            ? ` (${res.data.checklistAutoInitialized} checklist items initialized)`
+            : ''
+          showNotification(`Project updated successfully${autoInitMsg}`, 'success')
+          onUpdate(res.data)
+          onClose()
+        }
       } else {
         showNotification(res.message || 'Failed to update project', 'error')
       }
@@ -686,6 +732,67 @@ export default function EditProjectModal({
         properties={properties}
         initialPropertyId={propertyId || undefined}
       />
+
+      {/* Checklist Re-initialization Confirmation Dialog */}
+      <AnimatePresence>
+        {showReinitDialog && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Checklist Changed</h3>
+                    <p className="text-sm text-gray-500">New template selected</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-sm text-gray-700">
+                  You changed the checklist template. Would you like to re-initialize the checklist items
+                  from the new template? <span className="font-medium text-amber-700">This will clear any existing progress.</span>
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={handleSkipReinit}
+                  disabled={isReinitializing}
+                  className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Keep Existing Items
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReinit}
+                  disabled={isReinitializing}
+                  className="px-5 py-2.5 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isReinitializing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Re-initializing...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardDocumentListIcon className="w-4 h-4" />
+                      Re-initialize
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

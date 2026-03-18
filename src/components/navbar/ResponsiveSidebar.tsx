@@ -4,13 +4,22 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SidebarItem } from './sidebarItems'
+import { SidebarItem, SidebarNavConfig } from './sidebarItems'
+import { useSidebarStore } from '@/store/useSidebarStore'
+import SidebarGroupSection from './SidebarGroupSection'
+import SidebarCollapseToggle from './SidebarCollapseToggle'
+import SidebarTooltip from './SidebarTooltip'
+
+function isRouteActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(href + '/')
+}
 
 interface ResponsiveSidebarProps {
   variant: 'manager' | 'cleaner'
   isOpen: boolean
   onClose: () => void
   items: SidebarItem[]
+  navConfig?: SidebarNavConfig
 }
 
 export default function ResponsiveSidebar({
@@ -18,13 +27,15 @@ export default function ResponsiveSidebar({
   isOpen,
   onClose,
   items,
+  navConfig,
 }: ResponsiveSidebarProps) {
   const pathname = usePathname()
   const prevPathnameRef = useRef(pathname)
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed)
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed)
 
   // Auto-close sidebar on route change (mobile only)
   useEffect(() => {
-    // Only close if pathname actually changed (not on initial render or isOpen change)
     if (prevPathnameRef.current !== pathname && isOpen) {
       onClose()
     }
@@ -55,7 +66,6 @@ export default function ResponsiveSidebar({
     }
   }, [isOpen])
 
-  // Accent colors based on variant
   const accentColors = {
     manager: {
       active: 'bg-blue-50 text-blue-700 border-r-2 border-blue-700',
@@ -69,42 +79,114 @@ export default function ResponsiveSidebar({
 
   const colors = accentColors[variant]
 
-  const renderNavItems = (closeOnClick?: boolean) => (
-    <nav className="flex-1 px-2 py-6 space-y-2 overflow-y-auto">
-      {items.map((item) => {
-        const isActive = pathname === item.href
-        const Icon = item.icon
+  // Render a single nav link item
+  const renderNavLink = (item: SidebarItem, collapsed: boolean, closeOnClick?: boolean) => {
+    const isActive = isRouteActive(pathname, item.href)
+    const Icon = item.icon
 
-        return (
-          <Link
-            key={item.name}
-            href={item.href}
-            onClick={closeOnClick ? onClose : undefined}
+    if (collapsed) {
+      return (
+        <SidebarTooltip key={item.href} label={item.name}>
+          <button
+            onClick={() => setCollapsed(false)}
             className={`
-              flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+              flex items-center justify-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors
               ${isActive ? colors.active : colors.hover}
             `}
           >
-            <Icon className="w-5 h-5 mr-3 flex-shrink-0" />
-            {item.name}
-          </Link>
-        )
-      })}
-    </nav>
+            <Icon className="w-5 h-5 flex-shrink-0" />
+          </button>
+        </SidebarTooltip>
+      )
+    }
+
+    return (
+      <div key={item.href}>
+        <Link
+          href={item.href}
+          onClick={closeOnClick ? onClose : undefined}
+          className={`
+            flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+            ${isActive ? colors.active : colors.hover}
+          `}
+        >
+          <Icon className="w-5 h-5 flex-shrink-0 mr-3" />
+          {item.name}
+        </Link>
+      </div>
+    )
+  }
+
+  // Render grouped nav content (when navConfig is provided)
+  const renderGroupedNav = (collapsed: boolean, closeOnClick?: boolean) => (
+    <div className="flex flex-col h-full">
+      <nav className={`flex-1 px-2 py-4 space-y-1 ${collapsed ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        {navConfig!.top.map((entry, idx) => {
+          if (entry.type === 'item') {
+            return renderNavLink(entry.item, collapsed, closeOnClick)
+          }
+          return (
+            <SidebarGroupSection
+              key={entry.group.label + idx}
+              group={entry.group}
+              isCollapsed={collapsed}
+              colors={colors}
+              onLinkClick={closeOnClick ? onClose : undefined}
+            />
+          )
+        })}
+      </nav>
+
+      {/* Bottom-pinned items (Settings) + collapse toggle */}
+      <div className="border-t border-gray-200 px-2 py-2 space-y-1">
+        {navConfig!.bottom.map((item) => renderNavLink(item, collapsed, closeOnClick))}
+        <div className="hidden md:block">
+          <SidebarCollapseToggle />
+        </div>
+      </div>
+    </div>
   )
+
+  // Render flat nav content (when no navConfig, e.g., cleaner sidebar)
+  const renderFlatNav = (collapsed: boolean, closeOnClick?: boolean) => {
+    const mainItems = items.filter((item) => item.name !== 'Settings')
+    const settingsItem = items.find((item) => item.name === 'Settings')
+
+    return (
+      <div className="flex flex-col h-full">
+        <nav className={`flex-1 px-2 py-4 space-y-1 ${collapsed ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          {mainItems.map((item) => renderNavLink(item, collapsed, closeOnClick))}
+        </nav>
+        <div className="border-t border-gray-200 px-2 py-2 space-y-1">
+          {settingsItem && renderNavLink(settingsItem, collapsed, closeOnClick)}
+          <div className="hidden md:block">
+            <SidebarCollapseToggle />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderContent = (collapsed: boolean, closeOnClick?: boolean) =>
+    navConfig
+      ? renderGroupedNav(collapsed, closeOnClick)
+      : renderFlatNav(collapsed, closeOnClick)
 
   return (
     <>
-      {/* Desktop Sidebar - Hidden on mobile, always visible on md+ */}
-      <div className="hidden md:flex fixed top-16 left-0 z-40 flex-col w-64 bg-white h-[calc(100vh-4rem)] border-r border-gray-200">
-        {renderNavItems()}
-      </div>
+      {/* Desktop Sidebar - Animated width */}
+      <motion.div
+        animate={{ width: isCollapsed ? 64 : 256 }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+        className="hidden md:flex fixed top-16 left-0 z-40 flex-col bg-white h-[calc(100vh-4rem)] border-r border-gray-200"
+      >
+        {renderContent(isCollapsed)}
+      </motion.div>
 
-      {/* Mobile Drawer - Visible only when isOpen on mobile */}
+      {/* Mobile Drawer - Always full width, unchanged behavior */}
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop - Dims the content behind */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -115,7 +197,6 @@ export default function ResponsiveSidebar({
               aria-hidden="true"
             />
 
-            {/* Sidebar Panel - Slides in from left */}
             <motion.div
               initial={{ x: -256 }}
               animate={{ x: 0 }}
@@ -123,7 +204,7 @@ export default function ResponsiveSidebar({
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
               className="fixed top-16 left-0 bottom-0 z-50 w-64 bg-white shadow-xl md:hidden border-r border-gray-200"
             >
-              {renderNavItems(true)}
+              {renderContent(false, true)}
             </motion.div>
           </>
         )}

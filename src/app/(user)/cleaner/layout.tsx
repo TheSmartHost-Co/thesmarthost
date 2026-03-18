@@ -4,6 +4,7 @@ import { useState } from 'react'
 import ResponsiveSidebar from '@/components/navbar/ResponsiveSidebar'
 import UserNavbar from '@/components/navbar/UserNavbar'
 import { cleanerSidebarItems } from '@/components/navbar/sidebarItems'
+import { useSidebarStore } from '@/store/useSidebarStore'
 import { useNotificationPolling } from '@/hooks/useNotificationPolling'
 
 export default function CleanerLayout({
@@ -12,6 +13,7 @@ export default function CleanerLayout({
   children: React.ReactNode
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed)
   useNotificationPolling()
 
   return (
@@ -26,7 +28,7 @@ export default function CleanerLayout({
         onClose={() => setIsSidebarOpen(false)}
         items={cleanerSidebarItems}
       />
-      <main className="md:ml-64 pt-20 p-6">
+      <main className={`pt-20 p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         {children}
       </main>
     </div>

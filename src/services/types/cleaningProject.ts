@@ -57,6 +57,10 @@ export interface CleaningProject {
   // Checklist progress (included when fetching single project)
   checklistProgress?: ChecklistProgress
   checklistItemsInitialized?: number  // Included on create when checklist auto-initialized
+  // Returned on update when checklist assignment changes
+  checklistAutoInitialized?: number    // Set when items were auto-initialized (null → value)
+  checklistChanged?: boolean           // Set when checklist was swapped (A → B)
+  previousChecklistId?: string         // The old checklist ID when swapped
 }
 
 // Status workflow: pending → assigned → confirmed → in_progress → completed

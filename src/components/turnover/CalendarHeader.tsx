@@ -77,7 +77,7 @@ export default function CalendarHeader({
   zoomLevel = 7,
   onZoomChange,
   isWeekPreset = true,
-  sortOption = 'alpha-asc',
+  sortOption = 'next-project',
   onSortChange,
   openIssueCount,
   onOpenAllIssues,

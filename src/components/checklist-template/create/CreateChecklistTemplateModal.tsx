@@ -9,64 +9,45 @@ import {
   TrashIcon,
   Bars3Icon,
   CameraIcon,
-  HomeIcon,
   ChevronDownIcon,
   CheckIcon,
-  RectangleStackIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import {
-  createChecklist,
-  addChecklistItem,
-  COMMON_ROOM_NAMES,
-} from '@/services/checklistService'
-import {
-  getChecklistTemplates,
-  getChecklistTemplateById,
-} from '@/services/checklistTemplateService'
-import SearchableSelect from '@/components/shared/SearchableSelect'
-import type { Checklist, ChecklistItemPayload } from '@/services/types/checklist'
-import type { Property } from '@/services/types/property'
+import { createChecklistTemplate } from '@/services/checklistTemplateService'
+import { COMMON_ROOM_NAMES } from '@/services/checklistService'
 import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
 
-interface CreateChecklistModalProps {
+interface CreateChecklistTemplateModalProps {
   isOpen: boolean
   onClose: () => void
-  onAdd: (checklist: Checklist) => void
-  properties: Property[]
-  initialPropertyId?: string
+  onAdd: (template: ChecklistTemplate) => void
 }
 
 // Local item state before saving
 interface LocalItem {
-  id: string // temporary local ID
+  id: string
   roomName: string
   taskDescription: string
   requiresPhoto: boolean
   sortOrder: number
 }
 
-export default function CreateChecklistModal({
+export default function CreateChecklistTemplateModal({
   isOpen,
   onClose,
   onAdd,
-  properties,
-  initialPropertyId,
-}: CreateChecklistModalProps) {
+}: CreateChecklistTemplateModalProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Form state
-  const [propertyId, setPropertyId] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [isDefault, setIsDefault] = useState(false)
+  const [description, setDescription] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [items, setItems] = useState<LocalItem[]>([])
-
-  // Template state
-  const [availableTemplates, setAvailableTemplates] = useState<ChecklistTemplate[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
-  const [loadingTemplate, setLoadingTemplate] = useState(false)
 
   // New item form state
   const [newRoom, setNewRoom] = useState('')
@@ -78,93 +59,37 @@ export default function CreateChecklistModal({
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'details' | 'items'>('details')
 
-  // Convert properties to SearchableSelect options
-  const propertyOptions = useMemo(
-    () =>
-      properties.map((prop) => ({
-        value: prop.id,
-        label: prop.listingName || prop.internalName || prop.address,
-        secondaryLabel: prop.address,
-      })),
-    [properties]
-  )
-
-  // Template options for SearchableSelect
-  const templateOptions = useMemo(
-    () =>
-      availableTemplates.map((t) => ({
-        value: t.id,
-        label: t.name,
-        secondaryLabel: t.description || `${t.itemCount || 0} tasks`,
-      })),
-    [availableTemplates]
-  )
-
-  // Fetch templates when modal opens
-  useEffect(() => {
-    if (isOpen && profile?.id) {
-      getChecklistTemplates(profile.id)
-        .then((res) => {
-          if (res.status === 'success') {
-            setAvailableTemplates(res.data || [])
-          }
-        })
-        .catch(() => {})
-    }
-  }, [isOpen, profile?.id])
-
-  // When a template is selected, load its items and pre-fill
-  useEffect(() => {
-    if (!selectedTemplateId) return
-
-    setLoadingTemplate(true)
-    getChecklistTemplateById(selectedTemplateId)
-      .then((res) => {
-        if (res.status === 'success' && res.data) {
-          const template = res.data
-          // Pre-fill name if empty
-          if (!name.trim()) {
-            setName(template.name)
-          }
-          // Pre-fill items from template
-          if (template.items && template.items.length > 0) {
-            setItems(
-              template.items.map((item, index) => ({
-                id: generateTempId(),
-                roomName: item.roomName || '',
-                taskDescription: item.taskDescription,
-                requiresPhoto: item.requiresPhoto,
-                sortOrder: index,
-              }))
-            )
-          }
-        }
-      })
-      .catch(() => {
-        showNotification('Failed to load template', 'error')
-      })
-      .finally(() => setLoadingTemplate(false))
-  }, [selectedTemplateId])
-
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setPropertyId(initialPropertyId || null)
       setName('')
-      setIsDefault(false)
+      setDescription('')
+      setTags([])
+      setTagInput('')
       setItems([])
-      setSelectedTemplateId(null)
       setNewRoom('')
       setNewTask('')
       setNewRequiresPhoto(false)
       setStep('details')
     }
-  }, [isOpen, initialPropertyId])
+  }, [isOpen])
 
-  // Generate temporary ID for local items
   const generateTempId = () => `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-  // Add a new item
+  // Tag management
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim().toLowerCase()
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed])
+    }
+    setTagInput('')
+  }
+
+  const handleRemoveTag = (tag: string) => {
+    setTags(tags.filter((t) => t !== tag))
+  }
+
+  // Item management
   const handleAddItem = () => {
     if (!newTask.trim()) {
       showNotification('Please enter a task description', 'error')
@@ -182,15 +107,12 @@ export default function CreateChecklistModal({
     setItems([...items, newItem])
     setNewTask('')
     setNewRequiresPhoto(false)
-    // Keep the room for quick consecutive additions
   }
 
-  // Remove an item
   const handleRemoveItem = (id: string) => {
     setItems(items.filter((item) => item.id !== id))
   }
 
-  // Toggle photo requirement for an item
   const togglePhotoRequirement = (id: string) => {
     setItems(
       items.map((item) =>
@@ -199,29 +121,29 @@ export default function CreateChecklistModal({
     )
   }
 
-  // Handle reorder
   const handleReorder = (newOrder: LocalItem[]) => {
     setItems(newOrder.map((item, index) => ({ ...item, sortOrder: index })))
   }
 
-  // Filter room suggestions
+  // Room suggestions
   const filteredRoomSuggestions = COMMON_ROOM_NAMES.filter((room) =>
     room.toLowerCase().includes(newRoom.toLowerCase())
   )
 
-  // Get unique rooms from current items
   const usedRooms = [...new Set(items.map((item) => item.roomName).filter(Boolean))]
 
   // Group items by room for display
-  const groupedItems = items.reduce(
-    (acc, item) => {
-      const room = item.roomName || 'General'
-      if (!acc[room]) acc[room] = []
-      acc[room].push(item)
-      return acc
-    },
-    {} as Record<string, LocalItem[]>
-  )
+  const groupedItems = useMemo(() => {
+    return items.reduce(
+      (acc, item) => {
+        const room = item.roomName || 'General'
+        if (!acc[room]) acc[room] = []
+        acc[room].push(item)
+        return acc
+      },
+      {} as Record<string, LocalItem[]>
+    )
+  }, [items])
 
   const handleSubmit = async () => {
     if (!profile?.id) {
@@ -229,63 +151,41 @@ export default function CreateChecklistModal({
       return
     }
 
-    if (!propertyId) {
-      showNotification('Please select a property', 'error')
-      return
-    }
-
     if (!name.trim()) {
-      showNotification('Please enter a checklist name', 'error')
+      showNotification('Please enter a template name', 'error')
       return
     }
 
     setLoading(true)
 
     try {
-      // 1. Create the checklist
-      const checklistRes = await createChecklist({
-        propertyId,
+      const res = await createChecklistTemplate({
+        userId: profile.id,
         name: name.trim(),
-        isDefault,
+        description: description.trim() || null,
+        tags,
+        items: items.map((item, index) => ({
+          roomName: item.roomName || null,
+          taskDescription: item.taskDescription,
+          requiresPhoto: item.requiresPhoto,
+          sortOrder: index,
+        })),
       })
 
-      if (checklistRes.status !== 'success') {
-        throw new Error(checklistRes.message || 'Failed to create checklist')
-      }
-
-      const checklistId = checklistRes.data.id
-
-      // 2. Add all items
-      if (items.length > 0) {
-        const itemPromises = items.map((item, index) => {
-          const payload: ChecklistItemPayload = {
-            taskDescription: item.taskDescription,
-            roomName: item.roomName || null,
-            requiresPhoto: item.requiresPhoto,
-            sortOrder: index,
-          }
-          return addChecklistItem(checklistId, payload)
-        })
-
-        await Promise.all(itemPromises)
-      }
-
-      // 3. Fetch the complete checklist with items
-      const finalChecklist: Checklist = {
-        ...checklistRes.data,
-        itemCount: items.length,
+      if (res.status !== 'success') {
+        throw new Error(res.message || 'Failed to create template')
       }
 
       showNotification(
-        `Checklist "${name}" created with ${items.length} items`,
+        `Template "${name}" created with ${items.length} tasks`,
         'success'
       )
-      onAdd(finalChecklist)
+      onAdd(res.data)
       onClose()
     } catch (err) {
-      console.error('Error creating checklist:', err)
+      console.error('Error creating template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to create checklist',
+        err instanceof Error ? err.message : 'Failed to create template',
         'error'
       )
     } finally {
@@ -312,9 +212,9 @@ export default function CreateChecklistModal({
                 <ClipboardDocumentListIcon className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Create Property Checklist</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Create Checklist Template</h2>
                 <p className="text-sm text-gray-500">
-                  {step === 'details' ? 'Step 1: Property & details' : 'Step 2: Add tasks'}
+                  {step === 'details' ? 'Step 1: Template details' : 'Step 2: Add tasks'}
                 </p>
               </div>
             </div>
@@ -337,85 +237,85 @@ export default function CreateChecklistModal({
                   exit={{ opacity: 0, x: 20 }}
                   className="p-6 space-y-6"
                 >
-                  {/* Property Select */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      <HomeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Property <span className="text-red-500">*</span>
-                    </label>
-                    <SearchableSelect
-                      options={propertyOptions}
-                      value={propertyId}
-                      onChange={setPropertyId}
-                      placeholder="Search properties..."
-                      emptyText="No properties found"
-                      clearable={false}
-                    />
-                  </div>
-
-                  {/* Start from Template (optional) */}
-                  {availableTemplates.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        <RectangleStackIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                        Start from Template
-                        <span className="text-xs text-gray-400 ml-1">(optional)</span>
-                      </label>
-                      <SearchableSelect
-                        options={templateOptions}
-                        value={selectedTemplateId}
-                        onChange={(val) => setSelectedTemplateId(val)}
-                        placeholder="Choose a template to pre-fill tasks..."
-                        emptyText="No templates found"
-                        clearable
-                      />
-                      {loadingTemplate && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-emerald-600">
-                          <div className="w-3.5 h-3.5 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-                          Loading template tasks...
-                        </div>
-                      )}
-                      {selectedTemplateId && !loadingTemplate && items.length > 0 && (
-                        <p className="text-xs text-emerald-600 mt-1.5">
-                          {items.length} tasks loaded from template — you can customize them in the next step
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Checklist Name */}
+                  {/* Template Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClipboardDocumentListIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Checklist Name <span className="text-red-500">*</span>
+                      Template Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g., Standard Turnover, Deep Clean, Quick Refresh"
+                      placeholder="e.g., 3 Bedroom Apartment, Studio Quick Turn, Deep Clean"
                       className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
                       required
                     />
                   </div>
 
-                  {/* Default Toggle */}
-                  <label className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={isDefault}
-                      onChange={(e) => setIsDefault(e.target.checked)}
-                      className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Description
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe when to use this template..."
+                      rows={3}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors resize-none"
                     />
-                    <div>
-                      <span className="text-sm font-medium text-emerald-800">
-                        Set as default checklist
-                      </span>
-                      <p className="text-xs text-emerald-600">
-                        This checklist will be auto-selected for new projects at this property
-                      </p>
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <TagIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
+                      Tags
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddTag()
+                          }
+                        }}
+                        placeholder="Add tag and press Enter..."
+                        className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        disabled={!tagInput.trim()}
+                        className="px-3 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                      </button>
                     </div>
-                  </label>
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-700 text-sm rounded-lg"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="p-0.5 hover:bg-emerald-200 rounded-full transition-colors"
+                            >
+                              <XMarkIcon className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
@@ -537,7 +437,7 @@ export default function CreateChecklistModal({
                       <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p className="text-sm">No tasks added yet</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        Add tasks above to build your checklist
+                        Add tasks above to build your template
                       </p>
                     </div>
                   ) : (
@@ -630,12 +530,8 @@ export default function CreateChecklistModal({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!propertyId) {
-                      showNotification('Please select a property', 'error')
-                      return
-                    }
                     if (!name.trim()) {
-                      showNotification('Please enter a checklist name', 'error')
+                      showNotification('Please enter a template name', 'error')
                       return
                     }
                     setStep('items')
@@ -660,7 +556,7 @@ export default function CreateChecklistModal({
                   ) : (
                     <>
                       <CheckIcon className="w-4 h-4" />
-                      Create Checklist ({items.length} tasks)
+                      Create Template ({items.length} tasks)
                     </>
                   )}
                 </button>

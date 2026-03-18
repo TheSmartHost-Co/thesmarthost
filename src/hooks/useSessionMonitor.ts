@@ -9,6 +9,16 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { useSessionStore } from '@/store/useSessionStore'
 import { isLoggingOut, markIntentionalLogout } from '@/utils/logoutState'
 
+/** Extract issued-at timestamp from JWT payload for lifetime calculation */
+function getJwtIssuedAt(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return typeof payload.iat === 'number' ? payload.iat : null
+  } catch {
+    return null
+  }
+}
+
 export interface SessionStatus {
   isExpired: boolean
   isNearExpiry: boolean
@@ -40,6 +50,8 @@ export function useSessionMonitor() {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const warningShownRef = useRef(false)
   const warningDismissTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastActivityRef = useRef<number>(Date.now())
+  const activityCheckScheduledRef = useRef(false)
 
   const checkSessionStatus = useCallback(async () => {
     // Skip checks if user intentionally logged out
@@ -65,11 +77,40 @@ export function useSessionMonitor() {
         return
       }
 
-      const now = new Date().getTime() / 1000
+      const now = Date.now() / 1000
 
       // Validate expires_at is present and reasonable
       if (!session.expires_at || typeof session.expires_at !== 'number') {
         return
+      }
+
+      // Proactive refresh at 50% token lifetime
+      // With a 7-day JWT this triggers at ~3.5 days — well before any expiry risk
+      const iat = getJwtIssuedAt(session.access_token)
+      if (iat) {
+        const lifetime = session.expires_at - iat
+        const elapsed = now - iat
+        if (lifetime > 0 && elapsed / lifetime >= 0.5) {
+          console.log('🔄 Proactive session refresh (50% token lifetime elapsed)')
+          const { error: refreshError } = await supabase.auth.refreshSession()
+          if (!refreshError) {
+            console.log('✅ Proactive refresh succeeded')
+            updateSessionCheck()
+            // Re-check with refreshed session data
+            const { data: { session: newSession } } = await supabase.auth.getSession()
+            if (newSession?.expires_at) {
+              const newTimeRemaining = Math.max(0, (newSession.expires_at - Date.now() / 1000) / 60)
+              setSessionStatus({
+                isExpired: false,
+                isNearExpiry: false,
+                expiresAt: new Date(newSession.expires_at * 1000),
+                timeRemaining: Math.round(newTimeRemaining)
+              })
+            }
+            return
+          }
+          console.warn('⚠️ Proactive refresh failed, falling back to Supabase auto-refresh')
+        }
       }
 
       const expiresAt = new Date(session.expires_at * 1000)
@@ -190,8 +231,9 @@ export function useSessionMonitor() {
     // Initial check
     checkSessionStatus()
 
-    // Poll every 5 minutes (API calls catch expiry instantly via 401/403)
-    timerRef.current = setInterval(checkSessionStatus, 300000)
+    // Poll every 30 minutes (was 5 min — with 7-day JWT, 30 min is sufficient)
+    // Proactive refresh at 50% lifetime + visibility/activity checks provide faster coverage
+    timerRef.current = setInterval(checkSessionStatus, 1800000)
 
     // Check when user returns to tab (Page Visibility API)
     const handleVisibilityChange = () => {
@@ -200,6 +242,25 @@ export function useSessionMonitor() {
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Activity-based refresh: when user returns after 30+ min idle, check session
+    const IDLE_THRESHOLD = 30 * 60 * 1000 // 30 minutes
+    const handleUserActivity = () => {
+      const now = Date.now()
+      const idleTime = now - lastActivityRef.current
+      lastActivityRef.current = now
+
+      if (idleTime >= IDLE_THRESHOLD && !activityCheckScheduledRef.current) {
+        activityCheckScheduledRef.current = true
+        // Small delay to debounce rapid events on return from idle
+        setTimeout(() => {
+          checkSessionStatus()
+          activityCheckScheduledRef.current = false
+        }, 1000)
+      }
+    }
+    document.addEventListener('mousedown', handleUserActivity)
+    document.addEventListener('keydown', handleUserActivity)
 
     // Listen for API-triggered session events
     const handleApiSessionExpired = () => {
@@ -219,6 +280,8 @@ export function useSessionMonitor() {
         clearInterval(timerRef.current)
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('mousedown', handleUserActivity)
+      document.removeEventListener('keydown', handleUserActivity)
       sessionEvents.off('session-expired', handleApiSessionExpired)
       sessionEvents.off('session-invalid', handleApiSessionInvalid)
     }

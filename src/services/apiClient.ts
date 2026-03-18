@@ -113,7 +113,7 @@ async function apiClient<T, B = unknown>(
     }
 
     const fullUrl = `${baseURL}${endpoint}`;
-    
+
     // Comprehensive API logging like Postman
     console.group(`🚀 API Request: ${method} ${endpoint}`);
     console.log('📍 URL:', fullUrl);
@@ -123,17 +123,43 @@ async function apiClient<T, B = unknown>(
         console.log('📦 Body:', isFormData ? 'FormData (check network tab)' : body);
     }
     console.groupEnd();
-    
-    const response = await fetch(fullUrl, config);
-    
+
+    let response = await fetch(fullUrl, config);
+
+    // Silent retry on 401: token may have expired between session check and server validation
+    // Skip for FormData (file uploads can't be re-read) and 403 (permissions, not expiry)
+    if (response.status === 401 && !isFormData) {
+        console.log('🔄 401 received, attempting silent token refresh and retry...')
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+
+        if (!refreshError && refreshData.session?.access_token) {
+            const retryConfig: RequestInit = {
+                ...config,
+                headers: {
+                    ...(config.headers as Record<string, string>),
+                    'Authorization': `Bearer ${refreshData.session.access_token}`,
+                },
+            }
+            const retryResponse = await fetch(fullUrl, retryConfig)
+            response = retryResponse // Use retry response regardless of status
+            if (retryResponse.ok) {
+                console.log('✅ Silent retry succeeded')
+            } else {
+                console.log('❌ Silent retry also failed with status', retryResponse.status)
+            }
+        } else {
+            console.log('❌ Token refresh failed, proceeding with original 401')
+        }
+    }
+
     // Response logging
     console.group(`📥 API Response: ${response.status} ${response.statusText}`);
     console.log('📍 URL:', fullUrl);
     console.log('✅ Status:', `${response.status} ${response.statusText}`);
     console.log('📝 Headers:', Object.fromEntries(response.headers.entries()));
-    
+
     const responseClone = response.clone(); // Clone to avoid consuming body twice
-    
+
     if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorArray: string[] | undefined

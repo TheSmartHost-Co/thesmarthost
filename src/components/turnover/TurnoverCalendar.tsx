@@ -106,7 +106,7 @@ export default function TurnoverCalendar({
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>([])
 
   // Sort state
-  const [sortOption, setSortOption] = useState<SortOption>('alpha-asc')
+  const [sortOption, setSortOption] = useState<SortOption>('next-project')
 
   // Loading state
   const [loading, setLoading] = useState(true)
