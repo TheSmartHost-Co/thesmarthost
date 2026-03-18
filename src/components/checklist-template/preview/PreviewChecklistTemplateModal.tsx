@@ -7,6 +7,8 @@ import {
   ClipboardDocumentListIcon,
   CameraIcon,
   TagIcon,
+  PencilSquareIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline'
 import { groupTemplateItemsByRoom } from '@/services/checklistTemplateService'
 import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
@@ -14,12 +16,16 @@ import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
 interface PreviewChecklistTemplateModalProps {
   isOpen: boolean
   onClose: () => void
+  onEdit?: (template: ChecklistTemplate) => void
+  onApply?: (template: ChecklistTemplate) => void
   template: ChecklistTemplate | null
 }
 
 export default function PreviewChecklistTemplateModal({
   isOpen,
   onClose,
+  onEdit,
+  onApply,
   template,
 }: PreviewChecklistTemplateModalProps) {
   const groupedItems = useMemo(() => {
@@ -143,7 +149,7 @@ export default function PreviewChecklistTemplateModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
             <button
               type="button"
               onClick={onClose}
@@ -151,6 +157,34 @@ export default function PreviewChecklistTemplateModal({
             >
               Close
             </button>
+            <div className="flex items-center gap-3">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    onEdit(template)
+                  }}
+                  className="px-4 py-2.5 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors flex items-center gap-2"
+                >
+                  <PencilSquareIcon className="w-4 h-4" />
+                  Edit Template
+                </button>
+              )}
+              {onApply && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    onApply(template)
+                  }}
+                  className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                >
+                  <ArrowRightIcon className="w-4 h-4" />
+                  Apply to Property
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
       </div>

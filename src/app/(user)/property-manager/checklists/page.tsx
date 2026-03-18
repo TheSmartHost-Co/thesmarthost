@@ -113,6 +113,17 @@ export default function ChecklistsPage() {
   // Derived data
   const allTags = useMemo(() => getAllTags(templates), [templates])
 
+  // Count how many property checklists were created from each template
+  const templateUsageMap = useMemo(() => {
+    const map = new Map<string, number>()
+    propertyChecklists.forEach((c) => {
+      if (c.templateId) {
+        map.set(c.templateId, (map.get(c.templateId) || 0) + 1)
+      }
+    })
+    return map
+  }, [propertyChecklists])
+
   const uniqueProperties = useMemo(() => {
     const map = new Map<string, string>()
     propertyChecklists.forEach((c) => {
@@ -329,14 +340,22 @@ export default function ChecklistsPage() {
           <p className="text-gray-500 mt-1">Manage checklist templates and property checklists</p>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-              <XMarkIcon className="w-5 h-5 text-red-600" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <XMarkIcon className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-red-800">Error loading data</h3>
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold text-red-800">Error loading data</h3>
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
+            <button
+              onClick={loadData}
+              className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-xl transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>
@@ -606,10 +625,19 @@ export default function ChecklistsPage() {
                       </div>
                     )}
 
-                    <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                       <p className="text-xs text-gray-400">
                         Created {formatDate(template.createdAt)}
                       </p>
+                      {(templateUsageMap.get(template.id) || 0) > 0 ? (
+                        <span className="text-xs text-blue-600 font-medium">
+                          Applied to {templateUsageMap.get(template.id)} {templateUsageMap.get(template.id) === 1 ? 'property' : 'properties'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          Not yet applied
+                        </span>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -637,34 +665,43 @@ export default function ChecklistsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      <th className="pb-3 pr-4">Checklist</th>
+                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th className="pb-3 pr-4 pl-1">Checklist</th>
                       <th className="pb-3 pr-4">Property</th>
                       <th className="pb-3 pr-4">Based On</th>
                       <th className="pb-3 pr-4 text-center">Tasks</th>
-                      <th className="pb-3 pr-4 text-center">Default</th>
-                      <th className="pb-3 w-10" />
+                      <th className="pb-3 pr-4 text-center">Status</th>
+                      <th className="pb-3 w-12 sticky right-0 bg-white" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredPropertyChecklists.map((checklist) => (
                       <tr
                         key={checklist.id}
-                        className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                        className="group hover:bg-blue-50/50 transition-colors cursor-pointer"
                         onClick={() => {
                           setSelectedChecklistId(checklist.id)
                           setShowPropertyChecklistModal(true)
                         }}
                       >
-                        <td className="py-3.5 pr-4">
-                          <span className="text-sm font-medium text-gray-900">
-                            {checklist.name}
-                          </span>
+                        <td className="py-3.5 pr-4 pl-1">
+                          <div>
+                            <span className="text-sm font-medium text-gray-900 group-hover:text-blue-700 transition-colors">
+                              {checklist.name}
+                            </span>
+                          </div>
                         </td>
                         <td className="py-3.5 pr-4">
-                          <span className="text-sm text-gray-600">
-                            {checklist.propertyName || 'Unknown'}
-                          </span>
+                          <div>
+                            <span className="text-sm text-gray-700">
+                              {checklist.propertyName || 'Unknown'}
+                            </span>
+                            {checklist.propertyAddress && checklist.propertyAddress !== checklist.propertyName && (
+                              <p className="text-xs text-gray-400 truncate max-w-[200px]">
+                                {checklist.propertyAddress}
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 pr-4">
                           {checklist.templateId ? (
@@ -684,18 +721,23 @@ export default function ChecklistsPage() {
                           )}
                         </td>
                         <td className="py-3.5 pr-4 text-center">
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm font-medium text-gray-700">
                             {checklist.itemCount || 0}
                           </span>
                         </td>
                         <td className="py-3.5 pr-4 text-center">
-                          {checklist.isDefault && (
+                          {checklist.isDefault ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">
                               DEFAULT
                             </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="py-3.5 sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm transition-colors shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.05)]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <TableActionsDropdown
                             actions={[
                               {
@@ -764,6 +806,14 @@ export default function ChecklistsPage() {
         onClose={() => {
           setShowPreviewModal(false)
           setSelectedTemplate(null)
+        }}
+        onEdit={(tmpl) => {
+          setShowPreviewModal(false)
+          handleEditTemplate(tmpl)
+        }}
+        onApply={(tmpl) => {
+          setShowPreviewModal(false)
+          handleApplyTemplate(tmpl)
         }}
         template={selectedTemplate}
       />
