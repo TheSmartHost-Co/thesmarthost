@@ -456,15 +456,17 @@ export default function PropertyManagerSettingsPage() {
                   <p className="text-sm text-gray-500">Update your personal information</p>
                 </div>
               </div>
-              <motion.button
-                onClick={() => setShowProfileEdit(!showProfileEdit)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-              >
-                <PencilIcon className="h-4 w-4 mr-2" />
-                {showProfileEdit ? 'Cancel' : 'Edit'}
-              </motion.button>
+              {canWrite('settings') && (
+                <motion.button
+                  onClick={() => setShowProfileEdit(!showProfileEdit)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                >
+                  <PencilIcon className="h-4 w-4 mr-2" />
+                  {showProfileEdit ? 'Cancel' : 'Edit'}
+                </motion.button>
+              )}
             </div>
           </div>
 
@@ -610,11 +612,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingField === 'emailNotificationsEnabled'}
+                  disabled={savingField === 'emailNotificationsEnabled' || !canWrite('settings')}
                   onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     (profile?.emailNotificationsEnabled ?? true) ? 'bg-blue-600' : 'bg-gray-200'
-                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'emailNotificationsEnabled' || !canWrite('settings') ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -646,11 +648,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingField === 'smsNotificationsEnabled'}
+                  disabled={savingField === 'smsNotificationsEnabled' || !canWrite('settings')}
                   onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                     (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'smsNotificationsEnabled' || !canWrite('settings') ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -682,11 +684,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.autoImport ?? false}
-                  disabled={savingField === 'autoImport'}
+                  disabled={savingField === 'autoImport' || !canWrite('settings')}
                   onClick={() => handleAutoImportToggle(!(profile?.autoImport ?? false))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
                     (profile?.autoImport ?? false) ? 'bg-green-600' : 'bg-gray-200'
-                  } ${savingField === 'autoImport' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'autoImport' || !canWrite('settings') ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -764,26 +766,28 @@ export default function PropertyManagerSettingsPage() {
                     </div>
                   </div>
                 </div>
-                {hostawayConnection ? (
-                  <motion.button
-                    onClick={handleHostawayDisconnect}
-                    disabled={loadingHostawayConnection}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingHostawayConnection ? 'Disconnecting...' : 'Disconnect'}
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    onClick={handleConnectHostaway}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Connect
-                  </motion.button>
+                {canWrite('settings') && (
+                  hostawayConnection ? (
+                    <motion.button
+                      onClick={handleHostawayDisconnect}
+                      disabled={loadingHostawayConnection}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingHostawayConnection ? 'Disconnecting...' : 'Disconnect'}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      onClick={handleConnectHostaway}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Connect
+                    </motion.button>
+                  )
                 )}
               </div>
 
@@ -857,26 +861,28 @@ export default function PropertyManagerSettingsPage() {
                     </div>
                   </div>
                 </div>
-                {guestyConnection ? (
-                  <motion.button
-                    onClick={handleGuestyDisconnect}
-                    disabled={loadingGuestyConnection}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingGuestyConnection ? 'Disconnecting...' : 'Disconnect'}
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    onClick={handleConnectGuesty}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Connect
-                  </motion.button>
+                {canWrite('settings') && (
+                  guestyConnection ? (
+                    <motion.button
+                      onClick={handleGuestyDisconnect}
+                      disabled={loadingGuestyConnection}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingGuestyConnection ? 'Disconnecting...' : 'Disconnect'}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      onClick={handleConnectGuesty}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Connect
+                    </motion.button>
+                  )
                 )}
               </div>
 
@@ -950,26 +956,28 @@ export default function PropertyManagerSettingsPage() {
                     </div>
                   </div>
                 </div>
-                {hospitableConnection ? (
-                  <motion.button
-                    onClick={handleHospitableDisconnect}
-                    disabled={loadingHospitableConnection}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingHospitableConnection ? 'Disconnecting...' : 'Disconnect'}
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    onClick={handleConnectHospitable}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/25 transition-colors"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Connect
-                  </motion.button>
+                {canWrite('settings') && (
+                  hospitableConnection ? (
+                    <motion.button
+                      onClick={handleHospitableDisconnect}
+                      disabled={loadingHospitableConnection}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingHospitableConnection ? 'Disconnecting...' : 'Disconnect'}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      onClick={handleConnectHospitable}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/25 transition-colors"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Connect
+                    </motion.button>
+                  )
                 )}
               </div>
 

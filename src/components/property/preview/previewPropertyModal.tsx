@@ -40,7 +40,7 @@ interface PreviewPropertyModalProps {
   isOpen: boolean
   onClose: () => void
   property: Property
-  onEditProperty: () => void
+  onEditProperty?: () => void
   onManageLicenses?: () => void
   onManageChannels?: () => void
   onManageOwners?: () => void
@@ -489,52 +489,62 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
       )}
 
       {/* Quick Actions */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Quick Actions
-        </h3>
-        <div className="grid grid-cols-4 gap-3">
-          <button
-            onClick={onManageLicenses}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <DocumentTextIcon className="h-5 w-5 text-amber-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Licenses</span>
-            <span className="text-xs text-gray-500">{licenseCount} document{licenseCount !== 1 ? 's' : ''}</span>
-          </button>
-          <button
-            onClick={onManageChannels}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <SignalIcon className="h-5 w-5 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Channels</span>
-            <span className="text-xs text-gray-500">{channelCount} connected</span>
-          </button>
-          <button
-            onClick={onManageOwners}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <UserGroupIcon className="h-5 w-5 text-purple-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Owners</span>
-            <span className="text-xs text-gray-500">{property.owners.length} owner{property.owners.length !== 1 ? 's' : ''}</span>
-          </button>
-          <button
-            onClick={onManageICal}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-cyan-300 hover:bg-cyan-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-              <CalendarDaysIcon className="h-5 w-5 text-cyan-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">iCal Feeds</span>
-          </button>
+      {(onManageLicenses || onManageChannels || onManageOwners || onManageICal) && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-4 gap-3">
+            {onManageLicenses && (
+              <button
+                onClick={onManageLicenses}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <DocumentTextIcon className="h-5 w-5 text-amber-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Licenses</span>
+                <span className="text-xs text-gray-500">{licenseCount} document{licenseCount !== 1 ? 's' : ''}</span>
+              </button>
+            )}
+            {onManageChannels && (
+              <button
+                onClick={onManageChannels}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <SignalIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Channels</span>
+                <span className="text-xs text-gray-500">{channelCount} connected</span>
+              </button>
+            )}
+            {onManageOwners && (
+              <button
+                onClick={onManageOwners}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <UserGroupIcon className="h-5 w-5 text-purple-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Owners</span>
+                <span className="text-xs text-gray-500">{property.owners.length} owner{property.owners.length !== 1 ? 's' : ''}</span>
+              </button>
+            )}
+            {onManageICal && (
+              <button
+                onClick={onManageICal}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-cyan-300 hover:bg-cyan-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+                  <CalendarDaysIcon className="h-5 w-5 text-cyan-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">iCal Feeds</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 
@@ -921,14 +931,16 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
         >
           Close
         </button>
-        <button
-          type="button"
-          onClick={onEditProperty}
-          className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Edit Property
-        </button>
+        {onEditProperty && (
+          <button
+            type="button"
+            onClick={onEditProperty}
+            className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PencilIcon className="h-4 w-4 mr-2" />
+            Edit Property
+          </button>
+        )}
       </div>
     </Modal>
   )

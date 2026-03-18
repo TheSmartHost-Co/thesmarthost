@@ -128,29 +128,33 @@ export default function ReportTemplatesPage() {
 
   // Get template actions for dropdown
   const getTemplateActions = (template: FullReportTemplate): ActionItem[] => {
-    const actions: ActionItem[] = [
-      {
-        label: 'Edit',
-        icon: PencilSquareIcon,
-        onClick: () => handleEditTemplate(template),
-        variant: 'default',
-      },
-      {
-        label: 'Clone',
-        icon: DocumentDuplicateIcon,
-        onClick: () => handleCloneTemplate(template),
-        variant: 'default',
-      },
-    ]
+    const actions: ActionItem[] = []
 
-    // Only allow delete for non-system templates
-    if (!template.isSystemTemplate) {
-      actions.push({
-        label: 'Delete',
-        icon: TrashIcon,
-        onClick: () => handleDeleteTemplate(template),
-        variant: 'danger',
-      })
+    if (canWrite('report_templates')) {
+      actions.push(
+        {
+          label: 'Edit',
+          icon: PencilSquareIcon,
+          onClick: () => handleEditTemplate(template),
+          variant: 'default',
+        },
+        {
+          label: 'Clone',
+          icon: DocumentDuplicateIcon,
+          onClick: () => handleCloneTemplate(template),
+          variant: 'default',
+        },
+      )
+
+      // Only allow delete for non-system templates
+      if (!template.isSystemTemplate) {
+        actions.push({
+          label: 'Delete',
+          icon: TrashIcon,
+          onClick: () => handleDeleteTemplate(template),
+          variant: 'danger',
+        })
+      }
     }
 
     return actions

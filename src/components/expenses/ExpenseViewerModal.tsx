@@ -29,6 +29,7 @@ import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   PencilIcon,
   TrashIcon,
@@ -120,6 +121,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { canWrite } = usePermissions()
+  const hasWrite = canWrite('expenses')
 
   useEffect(() => {
     if (isOpen && expenseId && profile?.id) {
@@ -458,22 +461,24 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               {formatCurrency(expense.amount, expense.currency)}
             </h3>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleModeSwitch('edit')}
-              className="cursor-pointer p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Edit expense"
-            >
-              <PencilIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleDelete}
-              className="cursor-pointer p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete expense"
-            >
-              <TrashIcon className="w-5 h-5" />
-            </button>
-          </div>
+          {hasWrite && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleModeSwitch('edit')}
+                className="cursor-pointer p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Edit expense"
+              >
+                <PencilIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="cursor-pointer p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Delete expense"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Details Grid */}
@@ -621,12 +626,14 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center">
             <DocumentTextIcon className="mx-auto w-8 h-8 text-gray-300 mb-2" />
             <p className="text-sm text-gray-500 mb-2">No receipt attached</p>
-            <button
-              onClick={() => handleModeSwitch('receipt')}
-              className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Add Receipt
-            </button>
+            {hasWrite && (
+              <button
+                onClick={() => handleModeSwitch('receipt')}
+                className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Add Receipt
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -983,65 +990,69 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                   <ArrowDownTrayIcon className="w-4 h-4" />
                   Download
                 </button>
-                <button
-                  onClick={handleDeleteReceipt}
-                  className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                  Remove
-                </button>
+                {hasWrite && (
+                  <button
+                    onClick={handleDeleteReceipt}
+                    className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Replace Receipt */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Replace Receipt</p>
-              <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                  isDragOver ? 'border-blue-400 bg-blue-50' : selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300'
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-                onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setIsDragOver(false)
-                  const files = Array.from(e.dataTransfer.files)
-                  if (files[0]) handleFileSelect(files[0])
-                }}
-              >
-                {selectedFile ? (
-                  <div className="flex items-center justify-center gap-4">
-                    <span className="text-sm text-green-700">{selectedFile.name}</span>
-                    <button
-                      onClick={handleUploadReceipt}
-                      disabled={uploadingReceipt}
-                      className="cursor-pointer px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm"
-                    >
-                      {uploadingReceipt ? 'Uploading...' : 'Upload'}
-                    </button>
-                    <button
-                      onClick={() => setSelectedFile(null)}
-                      className="cursor-pointer text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer text-sm text-gray-600">
-                    Drop a new file or{' '}
-                    <span className="text-blue-600 hover:text-blue-800">browse</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt"
-                      onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                    />
-                  </label>
-                )}
+            {hasWrite && (
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Replace Receipt</p>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                    isDragOver ? 'border-blue-400 bg-blue-50' : selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setIsDragOver(false)
+                    const files = Array.from(e.dataTransfer.files)
+                    if (files[0]) handleFileSelect(files[0])
+                  }}
+                >
+                  {selectedFile ? (
+                    <div className="flex items-center justify-center gap-4">
+                      <span className="text-sm text-green-700">{selectedFile.name}</span>
+                      <button
+                        onClick={handleUploadReceipt}
+                        disabled={uploadingReceipt}
+                        className="cursor-pointer px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm"
+                      >
+                        {uploadingReceipt ? 'Uploading...' : 'Upload'}
+                      </button>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="cursor-pointer text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer text-sm text-gray-600">
+                      Drop a new file or{' '}
+                      <span className="text-blue-600 hover:text-blue-800">browse</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt"
+                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        ) : (
+        ) : hasWrite ? (
           /* No receipt - upload form */
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -1094,6 +1105,11 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                 <p className="text-xs text-gray-500">JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, TXT (max 5MB)</p>
               </div>
             )}
+          </div>
+        ) : (
+          <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <DocumentTextIcon className="mx-auto h-10 w-10 text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500">No receipt attached</p>
           </div>
         )}
 

@@ -311,13 +311,18 @@ export default function PropertyManagerPropertiesPage() {
 
   // Generate actions for table dropdown
   const getPropertyActions = (property: Property): ActionItem[] => {
-    const actions: ActionItem[] = [
-      {
+    const actions: ActionItem[] = []
+
+    if (canWrite('properties')) {
+      actions.push({
         label: 'Edit Property',
         icon: PencilIcon,
         onClick: () => handleEditProperty(property),
         variant: 'default'
-      },
+      })
+    }
+
+    actions.push(
       {
         label: 'Property Licenses',
         icon: DocumentTextIcon,
@@ -341,23 +346,26 @@ export default function PropertyManagerPropertiesPage() {
         icon: CalendarDaysIcon,
         onClick: () => handleOpenICal(property),
         variant: 'default'
-      },
-      {
+      }
+    )
+
+    if (canWrite('properties')) {
+      actions.push({
         label: 'Delete Property',
         icon: TrashIcon,
         onClick: () => handleDeleteProperty(property),
         variant: 'danger'
-      }
-    ]
-
-    // Only show permanent delete for inactive properties
-    if (!property.isActive) {
-      actions.push({
-        label: 'Permanently Delete',
-        icon: NoSymbolIcon,
-        onClick: () => handlePermanentDeleteProperty(property),
-        variant: 'danger'
       })
+
+      // Only show permanent delete for inactive properties
+      if (!property.isActive) {
+        actions.push({
+          label: 'Permanently Delete',
+          icon: NoSymbolIcon,
+          onClick: () => handlePermanentDeleteProperty(property),
+          variant: 'danger'
+        })
+      }
     }
 
     return actions
@@ -972,14 +980,14 @@ export default function PropertyManagerPropertiesPage() {
               setSelectedProperty(null)
             }}
             property={selectedProperty}
-            onEditProperty={() => {
+            onEditProperty={canWrite('properties') ? () => {
               setShowPreviewModal(false)
               setShowUpdateModal(true)
-            }}
-            onManageLicenses={handleManageLicenses}
-            onManageChannels={handleManageChannels}
-            onManageOwners={handleManageOwners}
-            onManageICal={handleManageICal}
+            } : undefined}
+            onManageLicenses={canWrite('properties') ? handleManageLicenses : undefined}
+            onManageChannels={canWrite('properties') ? handleManageChannels : undefined}
+            onManageOwners={canWrite('properties') ? handleManageOwners : undefined}
+            onManageICal={canWrite('properties') ? handleManageICal : undefined}
           />
 
           <PropertyLicenseModal

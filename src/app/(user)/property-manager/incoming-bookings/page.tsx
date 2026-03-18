@@ -732,7 +732,7 @@ export default function IncomingBookingsPage() {
         className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
       >
         {/* Bulk Selection Header */}
-        {getEligibleBookings().length > 0 && (
+        {canWrite('incoming_bookings') && getEligibleBookings().length > 0 && (
           <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
@@ -791,7 +791,7 @@ export default function IncomingBookingsPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 min-w-0 flex-1">
                       {/* Checkbox for eligible bookings */}
-                      {isEligibleForBulk && (
+                      {canWrite('incoming_bookings') && isEligibleForBulk && (
                         <div onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
@@ -801,8 +801,8 @@ export default function IncomingBookingsPage() {
                           />
                         </div>
                       )}
-                      {/* Placeholder for alignment when not eligible */}
-                      {!isEligibleForBulk && (
+                      {/* Placeholder for alignment when not eligible or no write permission */}
+                      {(!isEligibleForBulk || !canWrite('incoming_bookings')) && (
                         <div className="w-4" />
                       )}
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
@@ -876,7 +876,7 @@ export default function IncomingBookingsPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {booking.status === 'pending' && (
+                      {canWrite('incoming_bookings') && booking.status === 'pending' && (
                         <>
                           <motion.button
                             onClick={() => handleStatusUpdate(booking.id, 'approved')}
@@ -912,7 +912,7 @@ export default function IncomingBookingsPage() {
                             <WrenchScrewdriverIcon className="h-4 w-4" />
                             Turnover Only
                           </span>
-                          {booking.propertyId ? (
+                          {canWrite('incoming_bookings') && booking.propertyId && (
                             <motion.button
                               onClick={() => handleStatusUpdate(booking.id, 'approved')}
                               whileHover={{ scale: 1.02 }}
@@ -922,7 +922,8 @@ export default function IncomingBookingsPage() {
                               <CheckIcon className="h-4 w-4 mr-1.5" />
                               Approve to Bookings
                             </motion.button>
-                          ) : (
+                          )}
+                          {canWrite('incoming_bookings') && !booking.propertyId && (
                             <motion.button
                               onClick={() => handleReviewBooking(booking)}
                               whileHover={{ scale: 1.02 }}
@@ -993,7 +994,7 @@ export default function IncomingBookingsPage() {
       />
 
       {/* Floating Bulk Action Bar */}
-      {selectedBookingIds.size > 0 && (
+      {canWrite('incoming_bookings') && selectedBookingIds.size > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}

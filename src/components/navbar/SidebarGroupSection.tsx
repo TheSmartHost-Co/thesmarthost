@@ -44,8 +44,8 @@ export default function SidebarGroupSection({
   const setGroupExpanded = useSidebarStore((s) => s.setGroupExpanded)
   const setCollapsed = useSidebarStore((s) => s.setCollapsed)
 
-  // If no stored preference exists, default to expanded if group has active route
-  const isExpanded = expandedGroups[group.label] ?? groupActive
+  // Default all groups to expanded; user collapses are persisted to localStorage
+  const isExpanded = expandedGroups[group.label] ?? true
 
   // Auto-expand group when navigating to a route inside it
   useEffect(() => {

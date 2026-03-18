@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 import { updateIncomingBookingMapping, updateIncomingBookingStatus, updateIncomingBookingFinancials } from '@/services/incomingBookingService'
@@ -64,6 +65,8 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { canWrite } = usePermissions()
+  const hasWrite = canWrite('incoming_bookings')
 
   // Convert properties to SearchableSelect options
   const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
@@ -585,7 +588,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
                   <CurrencyDollarIcon className="h-5 w-5 mr-2" />
                   Financial Breakdown
                 </h4>
-                {currentBooking?.status !== 'imported' && (
+                {hasWrite && currentBooking?.status !== 'imported' && (
                   <button
                     onClick={() => isEditingFinancials ? handleSaveFinancialEdits() : setIsEditingFinancials(true)}
                     disabled={loading}
@@ -804,14 +807,16 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
             >
               Cancel
             </button>
-            <button
-              onClick={handleSaveMapping}
-              disabled={loading || !selectedPropertyId}
-              className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : 'Save Mapping'}
-            </button>
-            {currentBooking?.status !== 'imported' && (
+            {hasWrite && (
+              <button
+                onClick={handleSaveMapping}
+                disabled={loading || !selectedPropertyId}
+                className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Mapping'}
+              </button>
+            )}
+            {hasWrite && currentBooking?.status !== 'imported' && (
               <button
                 onClick={handleSaveAndApprove}
                 disabled={loading || !selectedPropertyId}

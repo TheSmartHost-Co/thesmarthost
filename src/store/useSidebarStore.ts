@@ -21,7 +21,7 @@ export const useSidebarStore = create<SidebarStore>()(
         set((state) => ({
           expandedGroups: {
             ...state.expandedGroups,
-            [label]: !state.expandedGroups[label],
+            [label]: !(state.expandedGroups[label] ?? true),
           },
         })),
       setGroupExpanded: (label, expanded) =>

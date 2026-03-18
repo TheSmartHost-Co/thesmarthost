@@ -6,6 +6,7 @@ import Modal from '../../shared/modal'
 import { getSingleReport, deleteReportFile } from '../../../services/reportService'
 import { SingleReportResponse, ReportFile } from '../../../services/types/report'
 import { useNotificationStore } from '../../../store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface ViewReportModalProps {
   isOpen: boolean
@@ -27,6 +28,8 @@ const ViewReportModal: React.FC<ViewReportModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [fileToDelete, setFileToDelete] = useState<ReportFile | null>(null)
   const { showNotification } = useNotificationStore()
+  const { canWrite } = usePermissions()
+  const hasWrite = canWrite('reports')
 
   const loadReport = async () => {
     if (!reportId) return
@@ -275,17 +278,19 @@ const ViewReportModal: React.FC<ViewReportModalProps> = ({
                                 >
                                   Download
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteClick(file)}
-                                  disabled={deletingFileId === file.id}
-                                  className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-                                >
-                                  {deletingFileId === file.id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                  ) : (
-                                    <TrashIcon className="h-4 w-4" />
-                                  )}
-                                </button>
+                                {hasWrite && (
+                                  <button
+                                    onClick={() => handleDeleteClick(file)}
+                                    disabled={deletingFileId === file.id}
+                                    className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                                  >
+                                    {deletingFileId === file.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    ) : (
+                                      <TrashIcon className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}

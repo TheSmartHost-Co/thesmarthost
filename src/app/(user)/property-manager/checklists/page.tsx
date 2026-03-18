@@ -239,38 +239,47 @@ export default function ChecklistsPage() {
     }
   }
 
-  const getTemplateActions = (template: ChecklistTemplate): ActionItem[] => [
-    {
-      label: 'Preview',
-      icon: EyeIcon,
-      onClick: () => handlePreviewTemplate(template),
-      variant: 'default' as const,
-    },
-    {
-      label: 'Edit',
-      icon: PencilSquareIcon,
-      onClick: () => handleEditTemplate(template),
-      variant: 'default' as const,
-    },
-    {
-      label: 'Apply to Property',
-      icon: ArrowRightIcon,
-      onClick: () => handleApplyTemplate(template),
-      variant: 'default' as const,
-    },
-    {
-      label: 'Duplicate',
-      icon: DocumentDuplicateIcon,
-      onClick: () => handleCloneTemplate(template),
-      variant: 'default' as const,
-    },
-    {
-      label: 'Delete',
-      icon: TrashIcon,
-      onClick: () => handleDeleteTemplate(template),
-      variant: 'danger' as const,
-    },
-  ]
+  const getTemplateActions = (template: ChecklistTemplate): ActionItem[] => {
+    const actions: ActionItem[] = [
+      {
+        label: 'Preview',
+        icon: EyeIcon,
+        onClick: () => handlePreviewTemplate(template),
+        variant: 'default' as const,
+      },
+    ]
+
+    if (canWrite('checklists')) {
+      actions.push(
+        {
+          label: 'Edit',
+          icon: PencilSquareIcon,
+          onClick: () => handleEditTemplate(template),
+          variant: 'default' as const,
+        },
+        {
+          label: 'Apply to Property',
+          icon: ArrowRightIcon,
+          onClick: () => handleApplyTemplate(template),
+          variant: 'default' as const,
+        },
+        {
+          label: 'Duplicate',
+          icon: DocumentDuplicateIcon,
+          onClick: () => handleCloneTemplate(template),
+          variant: 'default' as const,
+        },
+        {
+          label: 'Delete',
+          icon: TrashIcon,
+          onClick: () => handleDeleteTemplate(template),
+          variant: 'danger' as const,
+        },
+      )
+    }
+
+    return actions
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-CA', {

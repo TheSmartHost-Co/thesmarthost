@@ -19,8 +19,8 @@ interface PreviewCleanerModalProps {
   isOpen: boolean
   onClose: () => void
   cleaner: Cleaner
-  onEditCleaner: () => void
-  onAssignProperties: () => void
+  onEditCleaner?: () => void
+  onAssignProperties?: () => void
   onResendInvite?: () => void
 }
 
@@ -198,53 +198,61 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <BuildingOfficeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-500">No properties assigned yet</p>
-            <button
-              onClick={onAssignProperties}
-              className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Assign properties
-            </button>
+            {onAssignProperties && (
+              <button
+                onClick={onAssignProperties}
+                className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Assign properties
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Quick Actions */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Quick Actions
-        </h3>
-        <div className={`grid gap-3 ${cleaner.email && cleaner.authUserId && onResendInvite ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          <button
-            onClick={onAssignProperties}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <BuildingOfficeIcon className="h-5 w-5 text-purple-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Manage Properties</span>
-          </button>
-          <button
-            onClick={onEditCleaner}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <PencilIcon className="h-5 w-5 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Edit Details</span>
-          </button>
-          {cleaner.email && cleaner.authUserId && onResendInvite && (
-            <button
-              onClick={onResendInvite}
-              className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-green-300 hover:bg-green-50 transition-all"
-            >
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <PaperAirplaneIcon className="h-5 w-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Resend Invite</span>
-            </button>
-          )}
+      {(onAssignProperties || onEditCleaner || onResendInvite) && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            Quick Actions
+          </h3>
+          <div className={`grid gap-3 ${[onAssignProperties, onEditCleaner, (cleaner.email && cleaner.authUserId && onResendInvite)].filter(Boolean).length >= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {onAssignProperties && (
+              <button
+                onClick={onAssignProperties}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <BuildingOfficeIcon className="h-5 w-5 text-purple-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Manage Properties</span>
+              </button>
+            )}
+            {onEditCleaner && (
+              <button
+                onClick={onEditCleaner}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <PencilIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Edit Details</span>
+              </button>
+            )}
+            {cleaner.email && cleaner.authUserId && onResendInvite && (
+              <button
+                onClick={onResendInvite}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-green-300 hover:bg-green-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <PaperAirplaneIcon className="h-5 w-5 text-green-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Resend Invite</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Footer */}
       <div className="flex justify-between gap-3 pt-4 border-t border-gray-200">
@@ -255,14 +263,16 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
         >
           Close
         </button>
-        <button
-          type="button"
-          onClick={onEditCleaner}
-          className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Edit Cleaner
-        </button>
+        {onEditCleaner && (
+          <button
+            type="button"
+            onClick={onEditCleaner}
+            className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PencilIcon className="h-4 w-4 mr-2" />
+            Edit Cleaner
+          </button>
+        )}
       </div>
     </Modal>
   )

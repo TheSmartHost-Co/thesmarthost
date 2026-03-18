@@ -20,10 +20,10 @@ interface PreviewClientModalProps {
   isOpen: boolean
   onClose: () => void
   client: Client
-  onEditClient: () => void
-  onManagePMS: () => void
-  onManageAgreements: () => void
-  onManageNotes: () => void
+  onEditClient?: () => void
+  onManagePMS?: () => void
+  onManageAgreements?: () => void
+  onManageNotes?: () => void
   noteCount?: number
 }
 
@@ -192,45 +192,53 @@ const PreviewClientModal: React.FC<PreviewClientModalProps> = ({
       </div>
 
       {/* Quick Actions */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Quick Actions
-        </h3>
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={onManagePMS}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <KeyIcon className="h-5 w-5 text-emerald-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">PMS Credentials</span>
-          </button>
-          <button
-            onClick={onManageAgreements}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-          >
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <DocumentTextIcon className="h-5 w-5 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Agreements</span>
-          </button>
-          <button
-            onClick={onManageNotes}
-            className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all relative"
-          >
-            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <ChatBubbleLeftRightIcon className="h-5 w-5 text-amber-600" />
-            </div>
-            <span className="text-sm font-medium text-gray-700">Notes</span>
-            {noteCount > 0 && (
-              <span className="absolute top-2 right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-amber-500 rounded-full">
-                {noteCount}
-              </span>
+      {(onManagePMS || onManageAgreements || onManageNotes) && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {onManagePMS && (
+              <button
+                onClick={onManagePMS}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <KeyIcon className="h-5 w-5 text-emerald-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">PMS Credentials</span>
+              </button>
             )}
-          </button>
+            {onManageAgreements && (
+              <button
+                onClick={onManageAgreements}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <DocumentTextIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Agreements</span>
+              </button>
+            )}
+            {onManageNotes && (
+              <button
+                onClick={onManageNotes}
+                className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all relative"
+              >
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <ChatBubbleLeftRightIcon className="h-5 w-5 text-amber-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">Notes</span>
+                {noteCount > 0 && (
+                  <span className="absolute top-2 right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-amber-500 rounded-full">
+                    {noteCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Footer */}
       <div className="flex justify-between gap-3 pt-4 border-t border-gray-200">
@@ -241,14 +249,16 @@ const PreviewClientModal: React.FC<PreviewClientModalProps> = ({
         >
           Close
         </button>
-        <button
-          type="button"
-          onClick={onEditClient}
-          className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Edit Client
-        </button>
+        {onEditClient && (
+          <button
+            type="button"
+            onClick={onEditClient}
+            className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PencilIcon className="h-4 w-4 mr-2" />
+            Edit Client
+          </button>
+        )}
       </div>
     </Modal>
   )

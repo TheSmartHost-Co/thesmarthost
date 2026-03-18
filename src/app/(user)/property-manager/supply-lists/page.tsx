@@ -183,7 +183,7 @@ export default function SupplyListsPage() {
       },
     ]
 
-    if (sl.status === 'pending' || sl.status === 'in_progress') {
+    if (canWrite('supply_lists') && (sl.status === 'pending' || sl.status === 'in_progress')) {
       actions.push({
         label: 'Fulfill',
         icon: CheckCircleIcon,
@@ -192,12 +192,14 @@ export default function SupplyListsPage() {
       })
     }
 
-    actions.push({
-      label: 'Delete',
-      icon: TrashIcon,
-      onClick: () => handleDelete(sl.id),
-      variant: 'danger',
-    })
+    if (canWrite('supply_lists')) {
+      actions.push({
+        label: 'Delete',
+        icon: TrashIcon,
+        onClick: () => handleDelete(sl.id),
+        variant: 'danger',
+      })
+    }
 
     return actions
   }

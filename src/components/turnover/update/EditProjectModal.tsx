@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { updateCleaningProject, initializeProjectChecklist } from '@/services/cleaningProjectService'
 import { getChecklists, getChecklistById } from '@/services/checklistService'
 import { getBookings } from '@/services/bookingService'
@@ -53,6 +54,7 @@ export default function EditProjectModal({
   cleaners,
 }: EditProjectModalProps) {
   const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Form state
@@ -192,7 +194,7 @@ export default function EditProjectModal({
   // Fetch bookings when property changes
   useEffect(() => {
     const fetchBookings = async () => {
-      if (!propertyId || !profile?.id) {
+      if (!propertyId || !effectiveUserId) {
         setBookings([])
         // Only clear bookings if property actually changed
         if (propertyId !== initialPropertyId) {
@@ -204,7 +206,7 @@ export default function EditProjectModal({
 
       setLoadingBookings(true)
       try {
-        const res = await getBookings({ userId: profile.id, propertyId })
+        const res = await getBookings({ userId: effectiveUserId!, propertyId })
         if (res.status === 'success') {
           // Filter to upcoming/recent bookings
           const now = new Date()
@@ -225,7 +227,7 @@ export default function EditProjectModal({
     if (isOpen) {
       fetchBookings()
     }
-  }, [propertyId, profile?.id, isOpen, initialPropertyId])
+  }, [propertyId, effectiveUserId, isOpen, initialPropertyId])
 
   // Fetch checklist details when checklist changes
   useEffect(() => {

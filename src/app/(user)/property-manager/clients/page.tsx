@@ -808,22 +808,22 @@ export default function PropertyManagerClientsPage() {
             setSelectedClient(null)
           }}
           client={selectedClient}
-          onEditClient={() => {
+          onEditClient={canWrite('clients') ? () => {
             setShowPreviewModal(false)
             setShowUpdateModal(true)
-          }}
-          onManagePMS={() => {
+          } : undefined}
+          onManagePMS={canWrite('clients') ? () => {
             setShowPreviewModal(false)
             setShowPMSCredentialModal(true)
-          }}
-          onManageAgreements={() => {
+          } : undefined}
+          onManageAgreements={canWrite('clients') ? () => {
             setShowPreviewModal(false)
             setShowAgreementsModal(true)
-          }}
-          onManageNotes={() => {
+          } : undefined}
+          onManageNotes={canWrite('clients') ? () => {
             setShowPreviewModal(false)
             setShowNotesModal(true)
-          }}
+          } : undefined}
           noteCount={noteCounts[selectedClient.id] || 0}
         />
       )}

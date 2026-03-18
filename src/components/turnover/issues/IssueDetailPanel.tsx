@@ -30,6 +30,7 @@ import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/proj
 import type { IssueNote } from '@/services/types/projectIssueNote'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: string }>> = {
   damage: ExclamationTriangleIcon,
@@ -70,7 +71,7 @@ export default function IssueDetailPanel({
   const notesEndRef = useRef<HTMLDivElement>(null)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
-  const userId = useUserStore((state) => state.profile?.id)
+  const { effectiveUserId: userId } = usePermissions()
 
   const fetchNotes = useCallback(async () => {
     setNotesLoading(true)

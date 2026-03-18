@@ -167,38 +167,52 @@ export default function ScheduledReportsPage() {
     setSelectedSchedule(null)
   }
 
-  const getScheduleActions = (schedule: Schedule): ActionItem[] => [
-    {
-      label: schedule.isActive ? 'Pause' : 'Activate',
-      icon: schedule.isActive ? PauseIcon : PlayIcon,
-      onClick: () => handleToggle(schedule),
-      variant: 'default'
-    },
-    {
-      label: 'Run Now',
-      icon: BoltIcon,
-      onClick: () => handleRunNow(schedule),
-      variant: 'default'
-    },
-    {
+  const getScheduleActions = (schedule: Schedule): ActionItem[] => {
+    const actions: ActionItem[] = []
+
+    if (canWrite('scheduled_reports')) {
+      actions.push(
+        {
+          label: schedule.isActive ? 'Pause' : 'Activate',
+          icon: schedule.isActive ? PauseIcon : PlayIcon,
+          onClick: () => handleToggle(schedule),
+          variant: 'default'
+        },
+        {
+          label: 'Run Now',
+          icon: BoltIcon,
+          onClick: () => handleRunNow(schedule),
+          variant: 'default'
+        },
+      )
+    }
+
+    actions.push({
       label: 'View Runs',
       icon: ChartBarIcon,
       onClick: () => handleViewRuns(schedule),
       variant: 'default'
-    },
-    {
-      label: 'Edit',
-      icon: PencilSquareIcon,
-      onClick: () => handleEdit(schedule),
-      variant: 'default'
-    },
-    {
-      label: 'Delete',
-      icon: TrashIcon,
-      onClick: () => handleDelete(schedule),
-      variant: 'danger'
+    })
+
+    if (canWrite('scheduled_reports')) {
+      actions.push(
+        {
+          label: 'Edit',
+          icon: PencilSquareIcon,
+          onClick: () => handleEdit(schedule),
+          variant: 'default'
+        },
+        {
+          label: 'Delete',
+          icon: TrashIcon,
+          onClick: () => handleDelete(schedule),
+          variant: 'danger'
+        }
+      )
     }
-  ]
+
+    return actions
+  }
 
   // Filter schedules by search
   const filteredSchedules = schedules.filter(schedule =>

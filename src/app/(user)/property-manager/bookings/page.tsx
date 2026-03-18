@@ -270,32 +270,37 @@ export default function BookingsPage() {
         variant: 'default'
       }]
     }
-    return [
+    const actions: ActionItem[] = [
       {
         label: 'View Booking',
         icon: EyeIcon,
         onClick: () => handleViewBooking(booking.id),
         variant: 'default'
       },
-      {
-        label: 'Edit Booking',
-        icon: PencilIcon,
-        onClick: () => handleEditBooking(booking.id),
-        variant: 'default'
-      },
-      {
-        label: 'Cancel Booking',
-        icon: XCircleIcon,
-        onClick: () => handleCancelBooking(booking.id),
-        variant: 'danger'
-      },
-      {
-        label: 'Delete Booking',
-        icon: TrashIcon,
-        onClick: () => handleDeleteBooking(booking.id),
-        variant: 'danger'
-      }
     ]
+    if (canWrite('bookings')) {
+      actions.push(
+        {
+          label: 'Edit Booking',
+          icon: PencilIcon,
+          onClick: () => handleEditBooking(booking.id),
+          variant: 'default'
+        },
+        {
+          label: 'Cancel Booking',
+          icon: XCircleIcon,
+          onClick: () => handleCancelBooking(booking.id),
+          variant: 'danger'
+        },
+        {
+          label: 'Delete Booking',
+          icon: TrashIcon,
+          onClick: () => handleDeleteBooking(booking.id),
+          variant: 'danger'
+        }
+      )
+    }
+    return actions
   }
 
   // Filter and sort bookings
@@ -1047,10 +1052,10 @@ export default function BookingsPage() {
           isOpen={showPreviewModal}
           onClose={() => setShowPreviewModal(false)}
           booking={selectedBooking}
-          onEditBooking={() => {
+          onEditBooking={canWrite('bookings') ? () => {
             setShowPreviewModal(false)
             setShowUpdateModal(true)
-          }}
+          } : undefined}
         />
       )}
 

@@ -152,38 +152,41 @@ export default function PropertyManagerCleanersPage() {
         onClick: () => handleViewCleaner(cleaner.id),
         variant: 'default'
       },
-      {
+    ]
+
+    if (canWrite('cleaners')) {
+      actions.push({
         label: 'Edit Cleaner',
         icon: PencilIcon,
         onClick: () => handleEditCleaner(cleaner.id),
         variant: 'default'
-      },
-    ]
-
-    // Only show Resend Invite if cleaner has an email and auth account
-    if (cleaner.email && cleaner.authUserId) {
-      actions.push({
-        label: 'Resend Invite',
-        icon: EnvelopeIcon,
-        onClick: () => handleResendInvite(cleaner.id),
-        variant: 'default'
       })
-    }
 
-    actions.push(
-      {
-        label: 'Assign Properties',
-        icon: BuildingOfficeIcon,
-        onClick: () => handleAssignProperties(cleaner.id),
-        variant: 'default'
-      },
-      {
-        label: 'Delete Cleaner',
-        icon: TrashIcon,
-        onClick: () => handleDeleteCleaner(cleaner.id),
-        variant: 'danger'
+      // Only show Resend Invite if cleaner has an email and auth account
+      if (cleaner.email && cleaner.authUserId) {
+        actions.push({
+          label: 'Resend Invite',
+          icon: EnvelopeIcon,
+          onClick: () => handleResendInvite(cleaner.id),
+          variant: 'default'
+        })
       }
-    )
+
+      actions.push(
+        {
+          label: 'Assign Properties',
+          icon: BuildingOfficeIcon,
+          onClick: () => handleAssignProperties(cleaner.id),
+          variant: 'default'
+        },
+        {
+          label: 'Delete Cleaner',
+          icon: TrashIcon,
+          onClick: () => handleDeleteCleaner(cleaner.id),
+          variant: 'danger'
+        }
+      )
+    }
 
     return actions
   }
@@ -585,15 +588,15 @@ export default function PropertyManagerCleanersPage() {
             setSelectedCleaner(null)
           }}
           cleaner={selectedCleaner}
-          onEditCleaner={() => {
+          onEditCleaner={canWrite('cleaners') ? () => {
             setShowPreviewModal(false)
             setShowUpdateModal(true)
-          }}
-          onAssignProperties={() => {
+          } : undefined}
+          onAssignProperties={canWrite('cleaners') ? () => {
             setShowPreviewModal(false)
             setShowAssignModal(true)
-          }}
-          onResendInvite={() => handleResendInvite(selectedCleaner.id)}
+          } : undefined}
+          onResendInvite={canWrite('cleaners') ? () => handleResendInvite(selectedCleaner.id) : undefined}
         />
       )}
 

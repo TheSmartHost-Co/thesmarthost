@@ -29,6 +29,7 @@ import {
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   assignCleanerToProject,
   updateCleaningProject,
@@ -90,6 +91,8 @@ export default function ProjectDetailModal({
 }: ProjectDetailModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
   const user = useUserStore((state) => state.profile)
+  const { canWrite } = usePermissions()
+  const hasWrite = canWrite('turnover')
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState(project.cleanerId || '')
   const [showEditModal, setShowEditModal] = useState(false)
@@ -508,41 +511,45 @@ export default function ProjectDetailModal({
               )}
 
               {/* Rejection notes input */}
-              <textarea
-                value={rejectionNotes}
-                onChange={(e) => setRejectionNotes(e.target.value)}
-                placeholder="Notes (optional, shown to cleaner if rejected)"
-                rows={2}
-                className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-3"
-              />
+              {hasWrite && (
+                <textarea
+                  value={rejectionNotes}
+                  onChange={(e) => setRejectionNotes(e.target.value)}
+                  placeholder="Notes (optional, shown to cleaner if rejected)"
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-3"
+                />
+              )}
 
               {/* Approve / Reject buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleApproveRequest}
-                  disabled={isResolvingRequest}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isResolvingRequest ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <CheckCircleIcon className="w-4 h-4" />
-                  )}
-                  Approve
-                </button>
-                <button
-                  onClick={handleRejectRequest}
-                  disabled={isResolvingRequest}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {isResolvingRequest ? (
-                    <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
-                  ) : (
-                    <XMarkIcon className="w-4 h-4" />
-                  )}
-                  Reject
-                </button>
-              </div>
+              {hasWrite && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApproveRequest}
+                    disabled={isResolvingRequest}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isResolvingRequest ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <CheckCircleIcon className="w-4 h-4" />
+                    )}
+                    Approve
+                  </button>
+                  <button
+                    onClick={handleRejectRequest}
+                    disabled={isResolvingRequest}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isResolvingRequest ? (
+                      <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+                    ) : (
+                      <XMarkIcon className="w-4 h-4" />
+                    )}
+                    Reject
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -675,7 +682,7 @@ export default function ProjectDetailModal({
                       <p className="font-semibold text-gray-900">{project.cleanerName}</p>
                       <p className="text-sm text-gray-500">{project.cleanerEmail || project.cleanerPhone || 'No contact'}</p>
                     </div>
-                  ) : (
+                  ) : hasWrite ? (
                     <div className="mt-2">
                       <select
                         value={selectedCleanerId}
@@ -697,6 +704,8 @@ export default function ProjectDetailModal({
                         {isAssigning ? 'Assigning...' : 'Assign Cleaner'}
                       </button>
                     </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 mt-1">No cleaner assigned</p>
                   )}
                 </div>
               </div>
@@ -1158,7 +1167,7 @@ export default function ProjectDetailModal({
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap items-center gap-2">
-          {onDelete && (
+          {hasWrite && onDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
               className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
@@ -1166,7 +1175,7 @@ export default function ProjectDetailModal({
               Delete
             </button>
           )}
-          {onCancel && !LOCKED_STATUSES.includes(project.status) && (
+          {hasWrite && onCancel && !LOCKED_STATUSES.includes(project.status) && (
             <button
               onClick={() => setShowCancelConfirm(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
@@ -1182,13 +1191,15 @@ export default function ProjectDetailModal({
           >
             Close
           </button>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer"
-          >
-            <PencilSquareIcon className="w-3.5 h-3.5" />
-            Edit Project
-          </button>
+          {hasWrite && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer"
+            >
+              <PencilSquareIcon className="w-3.5 h-3.5" />
+              Edit Project
+            </button>
+          )}
         </div>
       </div>
 

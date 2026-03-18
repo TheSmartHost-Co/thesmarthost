@@ -19,6 +19,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createCleaningProject } from '@/services/cleaningProjectService'
 import { getChecklists, getChecklistById } from '@/services/checklistService'
 import { getBookings } from '@/services/bookingService'
@@ -54,6 +55,7 @@ export default function CreateProjectModal({
 }: CreateProjectModalProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { effectiveUserId } = usePermissions()
 
   // Form state
   const [propertyId, setPropertyId] = useState<string | null>(null)
@@ -201,7 +203,7 @@ export default function CreateProjectModal({
   // Fetch bookings when property changes
   useEffect(() => {
     const fetchBookings = async () => {
-      if (!propertyId || !profile?.id) {
+      if (!propertyId || !effectiveUserId) {
         setBookings([])
         setPreviousBookingId(null)
         setNextBookingId(null)
@@ -210,7 +212,7 @@ export default function CreateProjectModal({
 
       setLoadingBookings(true)
       try {
-        const res = await getBookings({ userId: profile.id, propertyId })
+        const res = await getBookings({ userId: effectiveUserId!, propertyId })
         if (res.status === 'success') {
           // Filter to upcoming/recent bookings
           const now = new Date()
@@ -229,7 +231,7 @@ export default function CreateProjectModal({
     }
 
     fetchBookings()
-  }, [propertyId, profile?.id])
+  }, [propertyId, effectiveUserId])
 
   // Fetch checklist details when checklist changes
   useEffect(() => {
@@ -292,7 +294,7 @@ export default function CreateProjectModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('Please log in to create a project', 'error')
       return
     }
@@ -311,7 +313,7 @@ export default function CreateProjectModal({
 
     try {
       const payload: CreateCleaningProjectPayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         propertyId,
         projectDate,
         source: 'manual',

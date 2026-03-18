@@ -12,6 +12,7 @@ import {
 import Modal from '@/components/shared/modal'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject, rescheduleProjectDate, assignCleanerToProject } from '@/services/cleaningProjectService'
 import { toLocalDateStr } from './utils/calendarDateUtils'
 import { getCleaners } from '@/services/cleanerService'
@@ -67,6 +68,7 @@ export default function TurnoverCalendar({
 }: TurnoverCalendarProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { effectiveUserId } = usePermissions()
   const isMobile = useIsMobile()
 
   // View state
@@ -331,7 +333,7 @@ export default function TurnoverCalendar({
   // Initial data fetch (properties, cleaners, stats, issues, supply lists + first month cache)
   useEffect(() => {
     const fetchInitialData = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
       if (initialFetchDone.current) return
 
       setLoading(true)
@@ -340,11 +342,11 @@ export default function TurnoverCalendar({
       try {
         // Fetch static data in parallel
         const [propertiesRes, cleanersRes, statsRes, issuesRes, supplyRes] = await Promise.all([
-          initialProperties ? Promise.resolve({ status: 'success' as const, data: initialProperties }) : getProperties(profile.id),
-          initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(profile.id),
-          getCleaningProjectStats(profile.id, dateRange.start, dateRange.end),
-          getAllIssues(profile.id),
-          getAllSupplyLists(profile.id),
+          initialProperties ? Promise.resolve({ status: 'success' as const, data: initialProperties }) : getProperties(effectiveUserId!),
+          initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(effectiveUserId!),
+          getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end),
+          getAllIssues(effectiveUserId!),
+          getAllSupplyLists(effectiveUserId!),
         ])
 
         if (propertiesRes.status === 'success') setProperties(propertiesRes.data)
@@ -370,7 +372,7 @@ export default function TurnoverCalendar({
         }
 
         // Trigger month-based cache fetch for bookings + projects
-        await fetchMonthsForRange(currentDate, profile.id)
+        await fetchMonthsForRange(currentDate, effectiveUserId!)
 
         initialFetchDone.current = true
       } catch (err) {
@@ -384,7 +386,7 @@ export default function TurnoverCalendar({
     }
 
     fetchInitialData()
-  }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle deep link after calendar data is loaded
   useEffect(() => {
@@ -441,15 +443,15 @@ export default function TurnoverCalendar({
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
-    if (!profile?.id || !initialFetchDone.current) return
+    if (!effectiveUserId || !initialFetchDone.current) return
     if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current)
     fetchDebounceRef.current = setTimeout(() => {
-      fetchMonthsForRange(currentDate, profile.id)
+      fetchMonthsForRange(currentDate, effectiveUserId!)
     }, 150)
     return () => {
       if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current)
     }
-  }, [currentDate, profile?.id, fetchMonthsForRange])
+  }, [currentDate, effectiveUserId, fetchMonthsForRange])
 
   // Ref to read dateRange inside epoch-gated effect without adding it as a dependency
   const dateRangeRef = useRef(dateRange)
@@ -457,19 +459,19 @@ export default function TurnoverCalendar({
 
   // Refresh stats on explicit navigation only (not during scroll-triggered date shifts)
   useEffect(() => {
-    if (!profile?.id || !initialFetchDone.current) return
+    if (!effectiveUserId || !initialFetchDone.current) return
     const { start, end } = dateRangeRef.current
-    getCleaningProjectStats(profile.id, start, end)
+    getCleaningProjectStats(effectiveUserId!, start, end)
       .then(res => {
         if (res.status === 'success') setStats(res.data)
       })
-  }, [navigationEpoch, profile?.id])
+  }, [navigationEpoch, effectiveUserId])
 
   // Refresh issue counts (call after issues are modified)
   const refreshIssueCounts = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     try {
-      const issuesRes = await getAllIssues(profile.id)
+      const issuesRes = await getAllIssues(effectiveUserId!)
       if (issuesRes.status === 'success') {
         setAllIssues(issuesRes.data)
         const countsMap: Record<string, number> = {}
@@ -485,9 +487,9 @@ export default function TurnoverCalendar({
 
   // Refresh supply list counts (call after supply lists are modified)
   const refreshSupplyListCounts = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     try {
-      const supplyRes = await getAllSupplyLists(profile.id)
+      const supplyRes = await getAllSupplyLists(effectiveUserId!)
       if (supplyRes.status === 'success') {
         const countsMap: Record<string, number> = {}
         supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {
@@ -696,8 +698,8 @@ export default function TurnoverCalendar({
     })
     setShowCreateModal(false)
     // Refresh stats
-    if (profile?.id) {
-      getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+    if (effectiveUserId) {
+      getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end)
         .then(res => {
           if (res.status === 'success') setStats(res.data)
         })
@@ -719,8 +721,8 @@ export default function TurnoverCalendar({
     setShowDetailModal(false)
     setSelectedProject(null)
     // Refresh stats
-    if (profile?.id) {
-      getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+    if (effectiveUserId) {
+      getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end)
         .then(res => {
           if (res.status === 'success') setStats(res.data)
         })
@@ -743,8 +745,8 @@ export default function TurnoverCalendar({
     setShowDetailModal(false)
     setSelectedProject(null)
     // Refresh stats
-    if (profile?.id) {
-      getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+    if (effectiveUserId) {
+      getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end)
         .then(res => {
           if (res.status === 'success') setStats(res.data)
         })
@@ -754,10 +756,10 @@ export default function TurnoverCalendar({
 
   // Handle booking delete from calendar
   const handleBookingDelete = async () => {
-    if (!selectedBooking || !profile?.id) return
+    if (!selectedBooking || !effectiveUserId) return
     try {
       setBookingActionLoading(true)
-      const res = await deleteBooking(selectedBooking.id, profile.id)
+      const res = await deleteBooking(selectedBooking.id, effectiveUserId!)
       if (res.status === 'success') {
         // Remove from booking cache
         setBookingCache(prev => {
@@ -787,10 +789,10 @@ export default function TurnoverCalendar({
 
   // Handle booking cancel from calendar
   const handleBookingCancel = async () => {
-    if (!selectedBooking || !profile?.id) return
+    if (!selectedBooking || !effectiveUserId) return
     try {
       setBookingActionLoading(true)
-      const res = await cancelBooking(selectedBooking.id, profile.id)
+      const res = await cancelBooking(selectedBooking.id, effectiveUserId!)
       if (res.status === 'success') {
         // Remove cancelled booking from cache (filtered out in visibleBookings)
         setBookingCache(prev => {
@@ -831,7 +833,7 @@ export default function TurnoverCalendar({
 
   // Invalidate specific months from cache and trigger re-fetch
   const invalidateAndRefetch = useCallback(async (monthKeys: string[]) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     setProjectCache(prev => {
       const next = new Map(prev)
       monthKeys.forEach(k => next.delete(k))
@@ -848,8 +850,8 @@ export default function TurnoverCalendar({
       bookingCacheRef.current.delete(k)
     })
     // Re-fetch
-    await fetchMonthsForRange(currentDate, profile.id)
-  }, [profile?.id, currentDate, fetchMonthsForRange])
+    await fetchMonthsForRange(currentDate, effectiveUserId!)
+  }, [effectiveUserId, currentDate, fetchMonthsForRange])
 
   // Get affected month keys for a date
   const getMonthKeyForDate = (dateStr: string): string => {
@@ -859,16 +861,16 @@ export default function TurnoverCalendar({
 
   // Refresh stats after mutations
   const refreshStats = useCallback(() => {
-    if (!profile?.id) return
-    getCleaningProjectStats(profile.id, dateRange.start, dateRange.end)
+    if (!effectiveUserId) return
+    getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end)
       .then(res => {
         if (res.status === 'success') setStats(res.data)
       })
-  }, [profile?.id, dateRange.start, dateRange.end])
+  }, [effectiveUserId, dateRange.start, dateRange.end])
 
   // Refetch only cleaning projects for specific months (not bookings)
   const refetchProjectsOnly = useCallback(async (monthKeys: string[]) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     // Invalidate project cache for these months
     setProjectCache(prev => {
       const next = new Map(prev)
@@ -883,7 +885,7 @@ export default function TurnoverCalendar({
       monthKeys.map(async (monthKey) => {
         const { startDate, endDate } = getMonthBounds(monthKey)
         try {
-          const res = await getCleaningProjects({ userId: profile.id, startDate, endDate })
+          const res = await getCleaningProjects({ userId: effectiveUserId!, startDate, endDate })
           return { monthKey, projects: res.status === 'success' ? res.data : null }
         } catch {
           return { monthKey, projects: null }
@@ -897,7 +899,7 @@ export default function TurnoverCalendar({
       })
       return next
     })
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Surgically update a single project in cache (handles month bucket changes)
   const surgicallyUpdateProjectInCache = useCallback((
@@ -939,7 +941,7 @@ export default function TurnoverCalendar({
 
   // Confirm and execute the pending drop
   const handleConfirmDrop = useCallback(async () => {
-    if (!pendingDrop || !profile?.id) return
+    if (!pendingDrop || !effectiveUserId) return
 
     const affectedMonths = new Set<string>()
     affectedMonths.add(getMonthKeyForDate(pendingDrop.sourceDate))
@@ -994,7 +996,7 @@ export default function TurnoverCalendar({
       } else if (pendingDrop.item.type === 'booking') {
         const bookingData = pendingDrop.item as BookingDragData
         const res = await rescheduleBookingDates(bookingData.booking.id, {
-          userId: profile.id,
+          userId: effectiveUserId!,
           checkInDate: pendingDrop.targetDate,
           numNights: bookingData.numNights,
         })
@@ -1046,7 +1048,7 @@ export default function TurnoverCalendar({
     } finally {
       setPendingDrop(null)
     }
-  }, [pendingDrop, profile?.id, showNotification, surgicallyUpdateProjectInCache, refetchProjectsOnly, refreshStats])
+  }, [pendingDrop, effectiveUserId, showNotification, surgicallyUpdateProjectInCache, refetchProjectsOnly, refreshStats])
 
   // Computed: open issue count for CalendarHeader badge
   const openIssueCount = useMemo(() =>
