@@ -77,7 +77,8 @@ export default function ProjectCard({
   }
 
   // Handle action with loading state
-  const handleAction = async (action: string, handler?: (id: string) => Promise<void>) => {
+  const handleAction = async (e: React.MouseEvent, action: string, handler?: (id: string) => Promise<void>) => {
+    e.stopPropagation()
     if (!handler || isLoading) return
     setIsLoading(action)
     try {
@@ -97,9 +98,11 @@ export default function ProjectCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      onClick={() => onViewChecklist?.(project)}
       className={`
         bg-white rounded-xl border-l-4 shadow-sm hover:shadow-md transition-shadow
         ${statusConfig.border}
+        ${onViewChecklist ? 'cursor-pointer' : ''}
       `}
     >
       {/* Header */}
@@ -191,7 +194,7 @@ export default function ProjectCard({
           {/* Time Change Pending */}
           {hasPendingTimeChange && (
             <button
-              onClick={() => onViewPendingTimeChange?.(project)}
+              onClick={(e) => { e.stopPropagation(); onViewPendingTimeChange?.(project) }}
               className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors cursor-pointer"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
@@ -233,7 +236,7 @@ export default function ProjectCard({
           {showAcceptDecline && (
             <>
               <button
-                onClick={() => handleAction('accept', onAccept)}
+                onClick={(e) => handleAction(e, 'accept', onAccept)}
                 disabled={isLoading !== null}
                 className="flex-1 min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -245,7 +248,7 @@ export default function ProjectCard({
                 Accept
               </button>
               <button
-                onClick={() => handleAction('decline', onDecline)}
+                onClick={(e) => handleAction(e, 'decline', onDecline)}
                 disabled={isLoading !== null}
                 className="flex-1 min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -262,7 +265,7 @@ export default function ProjectCard({
           {/* Start button for confirmed projects */}
           {showStart && (
             <button
-              onClick={() => handleAction('start', onStart)}
+              onClick={(e) => handleAction(e, 'start', onStart)}
               disabled={isLoading !== null}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
             >
@@ -278,7 +281,7 @@ export default function ProjectCard({
           {/* View Checklist button */}
           {showChecklist && onViewChecklist && (
             <button
-              onClick={() => onViewChecklist(project)}
+              onClick={(e) => { e.stopPropagation(); onViewChecklist(project) }}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
             >
               <ClipboardDocumentCheckIcon className="w-4 h-4" />
@@ -290,7 +293,7 @@ export default function ProjectCard({
           {onRequestTimeChange && !hasPendingTimeChange &&
             (project.status === 'assigned' || project.status === 'confirmed' || project.status === 'in_progress') && (
             <button
-              onClick={() => onRequestTimeChange(project)}
+              onClick={(e) => { e.stopPropagation(); onRequestTimeChange(project) }}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
             >
               <ArrowPathIcon className="w-4 h-4" />
@@ -301,7 +304,7 @@ export default function ProjectCard({
           {/* View Issues button - only when issues exist */}
           {openIssueCount > 0 && onViewIssues && (
             <button
-              onClick={() => onViewIssues(project)}
+              onClick={(e) => { e.stopPropagation(); onViewIssues(project) }}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
             >
               <FlagIcon className="w-4 h-4" />
@@ -312,7 +315,7 @@ export default function ProjectCard({
           {/* Complete button for in_progress projects */}
           {showComplete && (
             <button
-              onClick={() => handleAction('complete', onComplete)}
+              onClick={(e) => handleAction(e, 'complete', onComplete)}
               disabled={isLoading !== null}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
             >

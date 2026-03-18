@@ -584,6 +584,13 @@ export default function CleanerTasksPage() {
             setShowChecklistModal(false)
             if (selectedProject) handleRequestTimeChange(selectedProject)
           }}
+          onAccept={handleAccept}
+          onDecline={async (projectId: string) => {
+            await handleDecline(projectId)
+            setShowChecklistModal(false)
+            setSelectedProject(null)
+          }}
+          onStart={handleStart}
         />
       )}
 

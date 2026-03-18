@@ -1,48 +1,31 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  XMarkIcon,
-  CheckCircleIcon,
-  CameraIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  HomeModernIcon,
-  ClockIcon,
-  TrashIcon,
-  FlagIcon,
-  PlusIcon,
-  MagnifyingGlassPlusIcon,
-  WifiIcon,
-  KeyIcon,
-  ClipboardDocumentIcon,
-  ClipboardDocumentListIcon,
-  UserGroupIcon,
-  HomeIcon,
-  ArrowPathIcon,
-  ArrowRightIcon,
-  CalendarDaysIcon,
-  PlayCircleIcon,
-} from '@heroicons/react/24/outline'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   getProjectChecklist,
   initializeProjectChecklist,
   updateProjectChecklistItem,
   uploadProjectChecklistItemPhoto,
   deleteProjectChecklistItemPhoto,
-  groupChecklistItemsByRoom,
   completeProject,
-  formatTime,
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
 import { SubmitSupplyListModal, ViewSupplyListsModal } from '@/components/turnover/supply-lists'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getIssueCounts } from '@/services/projectIssueService'
-import PropertyMapEmbed from '@/components/shared/PropertyMapEmbed'
+
+import ChecklistHeader from './checklist/ChecklistHeader'
+import ChecklistTabs, { type ChecklistTab } from './checklist/ChecklistTabs'
+import ChecklistContent from './checklist/ChecklistContent'
+import InfoContent from './checklist/InfoContent'
+import BottomActionBar from './checklist/BottomActionBar'
 
 interface ChecklistModalProps {
   isOpen: boolean
@@ -66,20 +49,24 @@ export default function ChecklistModal({
   onStart,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const isMobile = useIsMobile()
 
-  // Read-only mode: only allow modifications when project is in_progress
   const readOnly = project.status !== 'in_progress'
 
-  // Can report issues and request supplies when confirmed or in_progress
+  // Tab state: Info first for assigned/confirmed (cleaner en route), Checklist for in_progress/completed
+  const [activeTab, setActiveTab] = useState<ChecklistTab>(
+    project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info'
+  )
 
-  // State
+  // Checklist state
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
   const [progress, setProgress] = useState<ChecklistProgress | null>(null)
   const [loading, setLoading] = useState(true)
-  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set())
   const [uploadingItems, setUploadingItems] = useState<Set<string>>(new Set())
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
+
+  // Nested modal state
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
   const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
@@ -87,7 +74,23 @@ export default function ChecklistModal({
   const [supplyListCount, setSupplyListCount] = useState(0)
   const [issueCount, setIssueCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // Body scroll lock for mobile full-screen
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = 'auto' }
+    }
+  }, [isOpen, isMobile])
+
+  // Reset tab when modal opens — status-aware default
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(
+        project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info'
+      )
+    }
+  }, [isOpen, project.status])
 
   // Fetch checklist data
   const fetchChecklist = useCallback(async () => {
@@ -97,28 +100,19 @@ export default function ChecklistModal({
     try {
       const res = await getProjectChecklist(project.id)
       if (res.status === 'success') {
-        // If no items but project has a checklist assigned, auto-initialize (only for active projects)
         if (res.data.items.length === 0 && project.checklistId && project.status === 'in_progress') {
-          console.log('No checklist items found, auto-initializing from template...')
           const initRes = await initializeProjectChecklist(project.id)
           if (initRes.status === 'success' && initRes.data.initialized > 0) {
-            // Re-fetch after initialization
             const refreshRes = await getProjectChecklist(project.id)
             if (refreshRes.status === 'success') {
               setItems(refreshRes.data.items)
               setProgress(refreshRes.data.progress)
-              const rooms = new Set(refreshRes.data.items.map(item => item.roomName || 'General'))
-              setExpandedRooms(rooms)
               return
             }
           }
         }
-
         setItems(res.data.items)
         setProgress(res.data.progress)
-        // Expand all rooms by default
-        const rooms = new Set(res.data.items.map(item => item.roomName || 'General'))
-        setExpandedRooms(rooms)
       } else {
         showNotification(res.message || 'Failed to load checklist', 'error')
       }
@@ -128,29 +122,23 @@ export default function ChecklistModal({
     } finally {
       setLoading(false)
     }
-  }, [project.id, project.checklistId, showNotification])
+  }, [project.id, project.checklistId, project.status, showNotification])
 
-  // Fetch supply list count
   const fetchSupplyListCount = useCallback(async () => {
     if (!project.id) return
     try {
       const res = await getSupplyListsByProject(project.id)
-      if (res.status === 'success') {
-        setSupplyListCount(res.data.length)
-      }
+      if (res.status === 'success') setSupplyListCount(res.data.length)
     } catch (err) {
       console.error('Error fetching supply list count:', err)
     }
   }, [project.id])
 
-  // Fetch issue count
   const fetchIssueCount = useCallback(async () => {
     if (!project.id) return
     try {
       const res = await getIssueCounts(project.id)
-      if (res.status === 'success') {
-        setIssueCount(res.data.total)
-      }
+      if (res.status === 'success') setIssueCount(res.data.total)
     } catch (err) {
       console.error('Error fetching issue count:', err)
     }
@@ -164,27 +152,10 @@ export default function ChecklistModal({
     }
   }, [isOpen, fetchChecklist, fetchSupplyListCount, fetchIssueCount])
 
-  // Group items by room
-  const itemsByRoom = groupChecklistItemsByRoom(items)
-
-  // Toggle room expansion
-  const toggleRoom = (roomName: string) => {
-    setExpandedRooms(prev => {
-      const next = new Set(prev)
-      if (next.has(roomName)) {
-        next.delete(roomName)
-      } else {
-        next.add(roomName)
-      }
-      return next
-    })
-  }
-
-  // Toggle item completion
+  // Handlers
   const handleToggleItem = async (item: ProjectChecklistItem) => {
     if (togglingItems.has(item.id)) return
 
-    // Optimistic update for item
     const newValue = !item.isCompleted
     const previousItems = [...items]
     setItems(prev => prev.map(i =>
@@ -193,17 +164,9 @@ export default function ChecklistModal({
     setTogglingItems(prev => new Set(prev).add(item.id))
 
     try {
-      const res = await updateProjectChecklistItem(project.id, item.id, {
-        isCompleted: newValue
-      })
-
+      const res = await updateProjectChecklistItem(project.id, item.id, { isCompleted: newValue })
       if (res.status === 'success') {
-        // Update item with server response
-        setItems(prev => prev.map(i =>
-          i.id === item.id ? res.data : i
-        ))
-        // Recalculate progress from current items state for accuracy
-        // This is more reliable than manual +/- calculation
+        setItems(prev => prev.map(i => i.id === item.id ? res.data : i))
         setProgress(prev => {
           if (!prev) return prev
           const updatedItems = items.map(i => i.id === item.id ? res.data : i)
@@ -215,12 +178,10 @@ export default function ChecklistModal({
           }
         })
       } else {
-        // Rollback on failure
         setItems(previousItems)
         showNotification(res.message || 'Failed to update item', 'error')
       }
     } catch (err) {
-      // Rollback on error
       setItems(previousItems)
       console.error('Error updating checklist item:', err)
       showNotification('Error updating item', 'error')
@@ -233,9 +194,7 @@ export default function ChecklistModal({
     }
   }
 
-  // Handle photo upload
   const handlePhotoUpload = async (itemId: string, file: File) => {
-    // Validate file
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
     if (!allowedTypes.includes(file.type)) {
       showNotification('Invalid file type. Only images allowed.', 'error')
@@ -247,23 +206,14 @@ export default function ChecklistModal({
     }
 
     setUploadingItems(prev => new Set(prev).add(itemId))
-
     try {
       const res = await uploadProjectChecklistItemPhoto(project.id, itemId, file)
       if (res.status === 'success') {
-        // Check if item previously had no photo (for progress update)
         const previousItem = items.find(i => i.id === itemId)
         const hadNoPhoto = previousItem && !previousItem.photoUrl
-
-        setItems(prev => prev.map(i =>
-          i.id === itemId ? res.data : i
-        ))
-        // Only increment photo count if item didn't have a photo before
+        setItems(prev => prev.map(i => i.id === itemId ? res.data : i))
         if (hadNoPhoto) {
-          setProgress(prev => prev ? {
-            ...prev,
-            photosUploaded: prev.photosUploaded + 1
-          } : prev)
+          setProgress(prev => prev ? { ...prev, photosUploaded: prev.photosUploaded + 1 } : prev)
         }
         showNotification('Photo uploaded successfully', 'success')
       } else {
@@ -281,26 +231,19 @@ export default function ChecklistModal({
     }
   }
 
-  // Handle photo delete
   const handleDeletePhoto = async (itemId: string) => {
-    // Check if item actually has a photo before attempting delete
     const item = items.find(i => i.id === itemId)
     if (!item?.photoUrl) return
 
     setUploadingItems(prev => new Set(prev).add(itemId))
-
     try {
       const res = await deleteProjectChecklistItemPhoto(project.id, itemId)
       if (res.status === 'success') {
         setItems(prev => prev.map(i =>
           i.id === itemId ? { ...i, photoUrl: null, photoTakenAt: null, photoUploadedAt: null } : i
         ))
-        // Only decrement if item requires a photo (counts toward required photos)
         if (item.requiresPhoto) {
-          setProgress(prev => prev ? {
-            ...prev,
-            photosUploaded: Math.max(0, prev.photosUploaded - 1)
-          } : prev)
+          setProgress(prev => prev ? { ...prev, photosUploaded: Math.max(0, prev.photosUploaded - 1) } : prev)
         }
         showNotification('Photo deleted', 'success')
       } else {
@@ -318,17 +261,12 @@ export default function ChecklistModal({
     }
   }
 
-  // Handle project completion
   const handleComplete = async () => {
     if (completing) return
-
-    // Check if all items are complete
     if (progress && progress.completedItems < progress.totalItems) {
       showNotification('Please complete all checklist items first', 'error')
       return
     }
-
-    // Check if all required photos are uploaded
     if (progress && progress.photosUploaded < progress.photoRequired) {
       showNotification(`Please upload all required photos (${progress.photosUploaded}/${progress.photoRequired})`, 'error')
       return
@@ -339,9 +277,7 @@ export default function ChecklistModal({
       const res = await completeProject(project.id)
       if (res.status === 'success') {
         showNotification('Project marked as complete!', 'success')
-        if (onProjectComplete) {
-          onProjectComplete(res.data)
-        }
+        onProjectComplete?.(res.data)
         onClose()
       } else {
         showNotification(res.message || 'Failed to complete project', 'error')
@@ -353,324 +289,80 @@ export default function ChecklistModal({
     }
   }
 
-  const canComplete = progress &&
-    progress.completedItems === progress.totalItems &&
-    progress.photosUploaded >= progress.photoRequired
+  if (!isOpen) return null
+
+  // Shared inner content
+  const innerContent = (
+    <>
+      <ChecklistHeader
+        propertyName={project.propertyName}
+        progress={progress}
+        onClose={onClose}
+        completing={completing}
+      />
+      <ChecklistTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        issueCount={issueCount}
+        supplyListCount={supplyListCount}
+      />
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'checklist' ? (
+          <ChecklistContent
+            items={items}
+            loading={loading}
+            onToggleItem={handleToggleItem}
+            onUploadPhoto={handlePhotoUpload}
+            onDeletePhoto={handleDeletePhoto}
+            onViewPhoto={setViewingImage}
+            uploadingItems={uploadingItems}
+            togglingItems={togglingItems}
+            readOnly={readOnly}
+          />
+        ) : (
+          <InfoContent
+            project={project}
+            onRequestTimeChange={onRequestTimeChange}
+          />
+        )}
+      </div>
+      <BottomActionBar
+        status={project.status}
+        progress={progress}
+        completing={completing}
+        issueCount={issueCount}
+        supplyListCount={supplyListCount}
+        onAccept={onAccept}
+        onDecline={onDecline}
+        onStart={onStart}
+        onComplete={handleComplete}
+        onClose={onClose}
+        onReportIssue={() => setShowReportIssueModal(true)}
+        onViewIssues={() => setShowViewIssuesModal(true)}
+        onSubmitSupplyList={() => setShowSubmitSupplyListModal(true)}
+        onViewSupplyLists={() => setShowViewSupplyListsModal(true)}
+        projectId={project.id}
+      />
+    </>
+  )
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} closable={false} style="p-0 max-w-3xl w-11/12 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex-shrink-0 px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <HomeModernIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold">{project.propertyName}</h2>
-                <div className="flex items-center gap-2 text-sm text-purple-100">
-                  <ClockIcon className="w-4 h-4" />
-                  <span>
-                    {formatTime(project.projectStartTime)}
-                    {project.projectStartTime && project.projectEndTime && ' - '}
-                    {formatTime(project.projectEndTime)}
-                  </span>
-                  {onRequestTimeChange && project.status !== 'completed' && (
-                    <button
-                      onClick={onRequestTimeChange}
-                      className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-md transition-colors cursor-pointer"
-                    >
-                      <ArrowPathIcon className="w-3 h-3" />
-                      Change
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-            {!completing && (
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+      {/* Main UI: full-screen on mobile, modal on desktop */}
+      {isMobile ? (
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-white flex flex-col">
+            {innerContent}
+          </div>,
+          document.body
+        )
+      ) : (
+        <Modal isOpen={isOpen} onClose={onClose} closable={false} style="p-0 max-w-3xl w-11/12 max-h-[90vh] overflow-hidden flex flex-col">
+          {innerContent}
+        </Modal>
+      )}
 
-          {/* Progress Bar */}
-          {progress && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span>{progress.completedItems} of {progress.totalItems} tasks</span>
-                <span>{progress.completionPercentage}%</span>
-              </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-white rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress.completionPercentage}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-              {progress.photoRequired > 0 && (
-                <div className="flex items-center gap-1 mt-2 text-xs text-purple-100">
-                  <CameraIcon className="w-3.5 h-3.5" />
-                  <span>{progress.photosUploaded}/{progress.photoRequired} required photos</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Read-only banner */}
-          {readOnly && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-white/15 rounded-lg text-sm text-purple-100">
-              <ClockIcon className="w-4 h-4 flex-shrink-0" />
-              <span>
-                {project.status === 'completed'
-                  ? 'This project is completed. Checklist is view-only.'
-                  : 'Press "Start Cleaning" on the project to begin checking off items.'}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Action Banner for assigned/confirmed projects */}
-        {project.status === 'assigned' && onAccept && onDecline && (
-          <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
-                <ClockIcon className="w-4 h-4 flex-shrink-0" />
-                <span>You&apos;ve been assigned this project</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    setActionLoading('accept')
-                    try { await onAccept(project.id) } finally { setActionLoading(null) }
-                  }}
-                  disabled={actionLoading !== null}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {actionLoading === 'accept' ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <CheckCircleIcon className="w-4 h-4" />
-                  )}
-                  Accept
-                </button>
-                <button
-                  onClick={async () => {
-                    setActionLoading('decline')
-                    try { await onDecline(project.id) } finally { setActionLoading(null) }
-                  }}
-                  disabled={actionLoading !== null}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {actionLoading === 'decline' ? (
-                    <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
-                  ) : (
-                    <XMarkIcon className="w-4 h-4" />
-                  )}
-                  Decline
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {project.status === 'confirmed' && onStart && (
-          <div className="flex-shrink-0 px-4 py-3 bg-purple-50 border-b border-purple-200">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-purple-800">
-                <PlayCircleIcon className="w-4 h-4 flex-shrink-0" />
-                <span>Ready to start</span>
-              </div>
-              <button
-                onClick={async () => {
-                  setActionLoading('start')
-                  try { await onStart(project.id) } finally { setActionLoading(null) }
-                }}
-                disabled={actionLoading !== null}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {actionLoading === 'start' ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <PlayCircleIcon className="w-4 h-4" />
-                )}
-                Start Cleaning
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Property Map - collapsible, after header, before scrollable content */}
-        {project.propertyAddress && (
-          <div className="flex-shrink-0 px-4 pt-3">
-            <PropertyMapEmbed
-              address={project.propertyAddress}
-              googleMapsUrl={project.googleMapsUrl}
-              height="h-40"
-              collapsible={true}
-              defaultExpanded={false}
-            />
-          </div>
-        )}
-
-        {/* Property Details Section - WiFi, Access Codes, Bed/Bath info */}
-        {(project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms || project.propertyWifiSsid || project.propertyAccessCodes) && (
-          <PropertyDetailsSection project={project} />
-        )}
-
-        {/* Related Bookings Section */}
-        {(project.previousBookingId || project.nextBookingId) && (
-          <RelatedBookingsSection project={project} />
-        )}
-
-        {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-            </div>
-          ) : items.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p>No checklist items found for this property.</p>
-            </div>
-          ) : (
-            Object.entries(itemsByRoom).map(([roomName, roomItems]) => (
-              <RoomSection
-                key={roomName}
-                roomName={roomName}
-                items={roomItems}
-                isExpanded={expandedRooms.has(roomName)}
-                onToggle={() => toggleRoom(roomName)}
-                onToggleItem={handleToggleItem}
-                onUploadPhoto={handlePhotoUpload}
-                onDeletePhoto={handleDeletePhoto}
-                onViewPhoto={setViewingImage}
-                uploadingItems={uploadingItems}
-                togglingItems={togglingItems}
-                readOnly={readOnly}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Issue Count Indicator */}
-        {issueCount > 0 && (
-          <div className="flex-shrink-0 px-6 py-2 border-t border-gray-100 bg-amber-50/50">
-            <button
-              onClick={() => setShowViewIssuesModal(true)}
-              className="w-full flex items-center justify-center gap-2 text-sm font-medium text-amber-700 hover:text-amber-800 transition-colors cursor-pointer"
-            >
-              <FlagIcon className="w-4 h-4" />
-              {issueCount} issue{issueCount !== 1 ? 's' : ''} reported
-            </button>
-          </div>
-        )}
-
-        {/* Supply List Count Indicator */}
-        {supplyListCount > 0 && (
-          <div className="flex-shrink-0 px-6 py-2 border-t border-gray-100 bg-teal-50/50">
-            <button
-              onClick={() => setShowViewSupplyListsModal(true)}
-              className="w-full flex items-center justify-center gap-2 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors cursor-pointer"
-            >
-              <ClipboardDocumentListIcon className="w-4 h-4" />
-              {supplyListCount} supply list{supplyListCount !== 1 ? 's' : ''} submitted
-            </button>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
-          {readOnly ? (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowReportIssueModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <FlagIcon className="w-4 h-4" />
-                  Report Issue
-                </button>
-                <button
-                  onClick={() => setShowSubmitSupplyListModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <ClipboardDocumentListIcon className="w-4 h-4" />
-                  Request Supplies
-                </button>
-              </div>
-              {issueCount > 0 && (
-                <button
-                  onClick={() => setShowViewIssuesModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <FlagIcon className="w-4 h-4" />
-                  View Issues ({issueCount})
-                </button>
-              )}
-              {supplyListCount > 0 && (
-                <button
-                  onClick={() => setShowViewSupplyListsModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <ClipboardDocumentListIcon className="w-4 h-4" />
-                  View Supply Lists ({supplyListCount})
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowReportIssueModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <FlagIcon className="w-4 h-4" />
-                  Report Issue
-                </button>
-                <button
-                  onClick={() => setShowSubmitSupplyListModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  <ClipboardDocumentListIcon className="w-4 h-4" />
-                  Request Supplies
-                </button>
-              </div>
-              <button
-                onClick={handleComplete}
-                disabled={!canComplete || completing}
-                className={`
-                  w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer
-                  ${canComplete
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                {completing ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <CheckCircleIcon className="w-5 h-5" />
-                )}
-                {completing ? 'Completing...' : 'Complete Project'}
-              </button>
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      {/* Report Issue Modal */}
+      {/* Nested modals */}
       <ReportIssueModal
         isOpen={showReportIssueModal}
         onClose={() => setShowReportIssueModal(false)}
@@ -683,7 +375,6 @@ export default function ChecklistModal({
         }}
       />
 
-      {/* View Issues Modal (cleaner view) */}
       <ViewIssuesModal
         isOpen={showViewIssuesModal}
         onClose={() => setShowViewIssuesModal(false)}
@@ -697,7 +388,6 @@ export default function ChecklistModal({
         onIssuesChanged={fetchIssueCount}
       />
 
-      {/* Submit Supply List Modal */}
       <SubmitSupplyListModal
         isOpen={showSubmitSupplyListModal}
         onClose={() => setShowSubmitSupplyListModal(false)}
@@ -710,7 +400,6 @@ export default function ChecklistModal({
         }}
       />
 
-      {/* View Supply Lists Modal */}
       <ViewSupplyListsModal
         isOpen={showViewSupplyListsModal}
         onClose={() => setShowViewSupplyListsModal(false)}
@@ -752,7 +441,6 @@ export default function ChecklistModal({
               >
                 <XMarkIcon className="w-5 h-5 text-gray-700" />
               </button>
-              {/* Open in new tab button */}
               <a
                 href={viewingImage}
                 target="_blank"
@@ -767,478 +455,5 @@ export default function ChecklistModal({
         )}
       </AnimatePresence>
     </>
-  )
-}
-
-// Room Section Component
-interface RoomSectionProps {
-  roomName: string
-  items: ProjectChecklistItem[]
-  isExpanded: boolean
-  onToggle: () => void
-  onToggleItem: (item: ProjectChecklistItem) => void
-  onUploadPhoto: (itemId: string, file: File) => void
-  onDeletePhoto: (itemId: string) => void
-  onViewPhoto: (url: string) => void
-  uploadingItems: Set<string>
-  togglingItems: Set<string>
-  readOnly?: boolean
-}
-
-function RoomSection({
-  roomName,
-  items,
-  isExpanded,
-  onToggle,
-  onToggleItem,
-  onUploadPhoto,
-  onDeletePhoto,
-  onViewPhoto,
-  uploadingItems,
-  togglingItems,
-  readOnly,
-}: RoomSectionProps) {
-  const completedCount = items.filter(i => i.isCompleted).length
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Room Header */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-gray-900">{roomName}</h3>
-          <span className={`
-            text-xs font-medium px-2 py-0.5 rounded-full
-            ${completedCount === items.length ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}
-          `}>
-            {completedCount}/{items.length}
-          </span>
-        </div>
-        {isExpanded ? (
-          <ChevronUpIcon className="w-5 h-5 text-gray-400" />
-        ) : (
-          <ChevronDownIcon className="w-5 h-5 text-gray-400" />
-        )}
-      </button>
-
-      {/* Room Items */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="border-t border-gray-100">
-              {items.map(item => (
-                <ChecklistItemRow
-                  key={item.id}
-                  item={item}
-                  onToggle={() => onToggleItem(item)}
-                  onUploadPhoto={(file) => onUploadPhoto(item.id, file)}
-                  onDeletePhoto={() => onDeletePhoto(item.id)}
-                  onViewPhoto={onViewPhoto}
-                  isUploading={uploadingItems.has(item.id)}
-                  isToggling={togglingItems.has(item.id)}
-                  readOnly={readOnly}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// Checklist Item Row Component
-interface ChecklistItemRowProps {
-  item: ProjectChecklistItem
-  onToggle: () => void
-  onUploadPhoto: (file: File) => void
-  onDeletePhoto: () => void
-  onViewPhoto: (url: string) => void
-  isUploading: boolean
-  isToggling: boolean
-  readOnly?: boolean
-}
-
-function ChecklistItemRow({
-  item,
-  onToggle,
-  onUploadPhoto,
-  onDeletePhoto,
-  onViewPhoto,
-  isUploading,
-  isToggling,
-  readOnly,
-}: ChecklistItemRowProps) {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      onUploadPhoto(file)
-    }
-  }
-
-  return (
-    <div className={`
-      flex items-start gap-3 p-4 border-b border-gray-50 last:border-b-0
-      ${item.isCompleted ? 'bg-green-50/50' : ''}
-    `}>
-      {/* Checkbox */}
-      <button
-        onClick={readOnly ? undefined : onToggle}
-        disabled={isToggling || readOnly}
-        className={`flex-shrink-0 mt-0.5 ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
-      >
-        <div className={`
-          w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
-          ${item.isCompleted
-            ? 'bg-green-500 border-green-500 text-white'
-            : readOnly ? 'border-gray-200' : 'border-gray-300 hover:border-purple-400'
-          }
-          ${isToggling ? 'opacity-50' : ''}
-          ${readOnly && !item.isCompleted ? 'opacity-50' : ''}
-        `}>
-          {isToggling ? (
-            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          ) : item.isCompleted ? (
-            <CheckCircleIcon className="w-4 h-4" />
-          ) : null}
-        </div>
-      </button>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm ${item.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-          {item.taskDescription}
-        </p>
-
-        {/* Photo Section */}
-        {item.requiresPhoto && (
-          <div className="mt-2">
-            {item.photoUrl ? (
-              <div className="inline-flex flex-col gap-1">
-                <div className="relative inline-flex items-end gap-2">
-                  <div className="relative group">
-                    <img
-                      src={item.photoUrl}
-                      alt="Uploaded photo"
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => onViewPhoto(item.photoUrl!)}
-                      onError={(e) => {
-                        // Handle broken image - show placeholder
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        target.parentElement?.classList.add('bg-gray-100')
-                      }}
-                    />
-                    {/* View overlay on hover */}
-                    <div
-                      className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                      onClick={() => onViewPhoto(item.photoUrl!)}
-                    >
-                      <MagnifyingGlassPlusIcon className="w-6 h-6 text-white" />
-                    </div>
-                  </div>
-                  {!readOnly && (
-                    <button
-                      onClick={onDeletePhoto}
-                      disabled={isUploading}
-                      className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                      title="Delete photo"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {(item.photoTakenAt || item.photoUploadedAt) && (
-                  <span className="text-[10px] text-gray-400">
-                    {item.photoTakenAt
-                      ? `Taken ${new Date(item.photoTakenAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
-                      : `Uploaded ${new Date(item.photoUploadedAt!).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
-                    }
-                  </span>
-                )}
-              </div>
-            ) : readOnly ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-400">
-                <CameraIcon className="w-3.5 h-3.5" />
-                Photo Required
-              </span>
-            ) : (
-              <label className={`
-                inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer transition-colors
-                ${isUploading
-                  ? 'bg-gray-100 text-gray-400'
-                  : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                }
-              `}>
-                {isUploading ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <CameraIcon className="w-3.5 h-3.5" />
-                    Add Photo (Required)
-                  </>
-                )}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
-                  onChange={handleFileChange}
-                  disabled={isUploading}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Related Bookings Section Component
-interface RelatedBookingsSectionProps {
-  project: CleaningProject
-}
-
-function RelatedBookingsSection({ project }: RelatedBookingsSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '—'
-    const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  return (
-    <div className="flex-shrink-0 px-4 pt-3">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <CalendarDaysIcon className="w-4 h-4 text-purple-500" />
-            <span className="font-medium text-gray-900 text-sm">Related Bookings</span>
-          </div>
-          {isExpanded ? (
-            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="border-t border-gray-100 p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Departing Guest */}
-                  <div className={`rounded-lg border-l-4 ${project.previousBookingId ? 'border-l-amber-400 bg-amber-50/50' : 'border-l-gray-200 bg-gray-50'} p-3`}>
-                    <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">Departing Guest</p>
-                    {project.previousBookingId ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900">{project.previousBookingGuestName || 'Unknown Guest'}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <span>{formatDate(project.previousBookingCheckIn)}</span>
-                          <ArrowRightIcon className="w-3 h-3" />
-                          <span>{formatDate(project.previousBookingCheckOut)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No booking linked</p>
-                    )}
-                  </div>
-
-                  {/* Arriving Guest */}
-                  <div className={`rounded-lg border-l-4 ${project.nextBookingId ? 'border-l-blue-400 bg-blue-50/50' : 'border-l-gray-200 bg-gray-50'} p-3`}>
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-2">Arriving Guest</p>
-                    {project.nextBookingId ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900">{project.nextBookingGuestName || 'Unknown Guest'}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <span>{formatDate(project.nextBookingCheckIn)}</span>
-                          <ArrowRightIcon className="w-3 h-3" />
-                          <span>{formatDate(project.nextBookingCheckOut)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">No booking linked</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
-
-// Property Details Section Component
-interface PropertyDetailsSectionProps {
-  project: CleaningProject
-}
-
-function PropertyDetailsSection({ project }: PropertyDetailsSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const showNotification = useNotificationStore((state) => state.showNotification)
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text)
-    showNotification(`${label} copied to clipboard`, 'success')
-  }
-
-  const hasSpecs = project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms
-  const hasWifi = project.propertyWifiSsid || project.propertyWifiPassword
-  const hasAccessCodes = project.propertyAccessCodes
-
-  return (
-    <div className="flex-shrink-0 px-4 pt-3">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <KeyIcon className="w-4 h-4 text-orange-500" />
-            <span className="font-medium text-gray-900 text-sm">Property Details</span>
-            <span className="text-xs text-gray-500">
-              (WiFi, Access Codes{hasSpecs ? ', Beds/Baths' : ''})
-            </span>
-          </div>
-          {isExpanded ? (
-            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="border-t border-gray-100 p-4 space-y-4">
-                {/* Beds/Bedrooms/Bathrooms */}
-                {hasSpecs && (
-                  <div className="flex items-center gap-4 flex-wrap">
-                    {project.propertyNumBeds !== null && project.propertyNumBeds !== undefined && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg">
-                        <UserGroupIcon className="w-4 h-4 text-indigo-600" />
-                        <span className="text-sm font-medium text-indigo-700">
-                          {project.propertyNumBeds} bed{project.propertyNumBeds !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
-                    {project.propertyNumBedrooms !== null && project.propertyNumBedrooms !== undefined && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 rounded-lg">
-                        <HomeIcon className="w-4 h-4 text-violet-600" />
-                        <span className="text-sm font-medium text-violet-700">
-                          {project.propertyNumBedrooms} bedroom{project.propertyNumBedrooms !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
-                    {project.propertyNumBathrooms !== null && project.propertyNumBathrooms !== undefined && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
-                        <span className="text-sm font-bold text-teal-600">B</span>
-                        <span className="text-sm font-medium text-teal-700">
-                          {project.propertyNumBathrooms} bath{project.propertyNumBathrooms !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* WiFi Credentials */}
-                {hasWifi && (
-                  <div className="bg-sky-50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <WifiIcon className="w-4 h-4 text-sky-600" />
-                      <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">WiFi</span>
-                    </div>
-                    <div className="space-y-2">
-                      {project.propertyWifiSsid && (
-                        <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
-                          <div>
-                            <span className="text-xs text-gray-500 block">Network</span>
-                            <span className="text-sm font-mono font-medium text-gray-900">{project.propertyWifiSsid}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(project.propertyWifiSsid || '', 'Network name')}
-                            className="p-2 text-sky-600 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer"
-                            title="Copy network name"
-                          >
-                            <ClipboardDocumentIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      )}
-                      {project.propertyWifiPassword && (
-                        <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
-                          <div>
-                            <span className="text-xs text-gray-500 block">Password</span>
-                            <span className="text-sm font-mono font-medium text-gray-900">{project.propertyWifiPassword}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(project.propertyWifiPassword || '', 'Password')}
-                            className="p-2 text-sky-600 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer"
-                            title="Copy password"
-                          >
-                            <ClipboardDocumentIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Access Codes */}
-                {hasAccessCodes && (
-                  <div className="bg-orange-50 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <KeyIcon className="w-4 h-4 text-orange-600" />
-                        <span className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Access Codes</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(project.propertyAccessCodes || '', 'Access codes')}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-orange-700 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
-                        title="Copy all codes"
-                      >
-                        <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-                        Copy All
-                      </button>
-                    </div>
-                    <pre className="text-sm text-gray-900 whitespace-pre-wrap font-mono bg-white/80 p-3 rounded-lg">
-                      {project.propertyAccessCodes}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
   )
 }
