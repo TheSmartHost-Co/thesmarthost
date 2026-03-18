@@ -111,8 +111,8 @@ export async function GET(request: NextRequest) {
       console.log('[auth/callback] Password recovery, redirecting to reset-password')
       redirectTo.pathname = '/reset-password'
       redirectTo.search = ''
-    } else if (role === 'CLEANER') {
-      console.log('[auth/callback] Cleaner detected, redirecting to set-password')
+    } else if (role === 'CLEANER' || role === 'TEAM_MEMBER') {
+      console.log(`[auth/callback] ${role} detected, redirecting to set-password`)
       redirectTo.pathname = '/auth/set-password'
       redirectTo.search = ''
     } else {

@@ -7,7 +7,7 @@ import { EyeIcon, EyeSlashIcon, LockClosedIcon, CheckCircleIcon } from '@heroico
 import { createClient } from '@/utils/supabase/component'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getOrCreateCleanerProfile } from '@/services/profileService'
+import { getOrCreateCleanerProfile, getOrCreateTeamMemberProfile } from '@/services/profileService'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Notification from '@/components/shared/notification'
 
@@ -39,6 +39,7 @@ export default function SetPasswordPage() {
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState('')
+  const [userRole, setUserRole] = useState<string>('')
 
   // Password validation
   const hasMinLength = password.length >= 8
@@ -62,6 +63,7 @@ export default function SetPasswordPage() {
       setUserId(user.id)
       setUserEmail(user.email || '')
       setUserName(user.user_metadata?.fullName || user.email?.split('@')[0] || 'User')
+      setUserRole(user.user_metadata?.role || '')
       setIsCheckingSession(false)
     }
 
@@ -89,19 +91,36 @@ export default function SetPasswordPage() {
         return
       }
 
-      // Create the cleaner profile
-      const profileResponse = await getOrCreateCleanerProfile(userId, userName)
+      // Create profile based on role
+      const isTeamMember = userRole === 'TEAM_MEMBER'
+      const profileResponse = isTeamMember
+        ? await getOrCreateTeamMemberProfile(userId, userName)
+        : await getOrCreateCleanerProfile(userId, userName)
 
       if (profileResponse.status === 'success' && profileResponse.data) {
-        setProfile({
-          ...profileResponse.data,
-          id: userId,
-          role: 'CLEANER',
-          email: userEmail,
-        })
+        const profileData = profileResponse.data
 
-        notify('Account setup complete! Welcome to TheSmartHost.', 'success')
-        router.push('/cleaner/dashboard')
+        if (isTeamMember) {
+          setProfile({
+            ...profileData,
+            id: userId,
+            role: 'TEAM_MEMBER',
+            email: userEmail,
+            pmUserId: profileData.pmUserId ?? null,
+            permissions: profileData.permissions ?? null,
+          })
+          notify('Account setup complete! Welcome to TheSmartHost.', 'success')
+          router.push('/property-manager/dashboard')
+        } else {
+          setProfile({
+            ...profileData,
+            id: userId,
+            role: 'CLEANER',
+            email: userEmail,
+          })
+          notify('Account setup complete! Welcome to TheSmartHost.', 'success')
+          router.push('/cleaner/dashboard')
+        }
       } else {
         console.error('Profile creation error:', profileResponse.message)
         notify(profileResponse.message || 'Failed to create profile', 'error')

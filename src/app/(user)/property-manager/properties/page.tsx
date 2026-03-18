@@ -30,6 +30,8 @@ import { getClientsByParentId } from '@/services/clientService'
 import { Property } from '@/services/types/property'
 import { Client } from '@/services/types/client'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
 import UpdatePropertyModal from '@/components/property/update/updatePropertyModal'
 import DeletePropertyModal from '@/components/property/delete/deletePropertyModal'
@@ -92,13 +94,15 @@ export default function PropertyManagerPropertiesPage() {
   const [openedFromPreview, setOpenedFromPreview] = useState(false)
 
   const { profile } = useUserStore()
+  usePermissionGuard('properties')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Refresh all properties from server
   const refreshProperties = useCallback(async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
-      const propertiesRes = await getProperties(profile.id)
+      const propertiesRes = await getProperties(effectiveUserId)
       setProperties(propertiesRes.data)
       // Also update selectedProperty if it exists
       if (selectedProperty) {
@@ -110,18 +114,18 @@ export default function PropertyManagerPropertiesPage() {
     } catch (err) {
       console.error('Error refreshing properties:', err)
     }
-  }, [profile?.id, selectedProperty])
+  }, [effectiveUserId, selectedProperty])
 
   // Fetch all data on mount - properties already include owners, channels, licenses
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         setLoading(true)
         const [propertiesRes, clientsRes] = await Promise.all([
-          getProperties(profile.id),
-          getClientsByParentId(profile.id)
+          getProperties(effectiveUserId),
+          getClientsByParentId(effectiveUserId)
         ])
         setProperties(propertiesRes.data)
         setClients(clientsRes.data)
@@ -134,7 +138,7 @@ export default function PropertyManagerPropertiesPage() {
     }
 
     fetchData()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Update a property in the local state (used by modals after changes)
   const updatePropertyInState = useCallback((updatedProperty: Property) => {
@@ -479,24 +483,28 @@ export default function PropertyManagerPropertiesPage() {
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export CSV
           </motion.button>
-          <motion.button
-            onClick={() => setShowBulkImportModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
-          >
-            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
-            Import CSV
-          </motion.button>
-          <motion.button
-            onClick={() => setShowCreateModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Add Property
-          </motion.button>
+          {canWrite('properties') && (
+            <motion.button
+              onClick={() => setShowBulkImportModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
+            >
+              <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+              Import CSV
+            </motion.button>
+          )}
+          {canWrite('properties') && (
+            <motion.button
+              onClick={() => setShowCreateModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Add Property
+            </motion.button>
+          )}
         </div>
       </div>
 

@@ -17,6 +17,8 @@ import {
   DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { updateUserProfile } from '@/services/profileService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getConnectionByUserId, disconnectHostaway } from '@/services/hostawayConnectionService'
@@ -43,7 +45,7 @@ export default function PropertyManagerSettingsPage() {
     email: '',
     phone: '',
     company: '',
-    role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER'
+    role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER'
   })
 
   // Hostaway modal state
@@ -70,6 +72,8 @@ export default function PropertyManagerSettingsPage() {
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('settings')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   useEffect(() => {
     if (profile) {
@@ -196,11 +200,11 @@ export default function PropertyManagerSettingsPage() {
   }
 
   const fetchHostawayConnection = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoadingHostawayConnection(true)
     try {
-      const response = await getConnectionByUserId(profile.id)
+      const response = await getConnectionByUserId(effectiveUserId)
       if (response.status === 'success' && response.data) {
         setHostawayConnection(response.data)
       } else {
@@ -215,11 +219,11 @@ export default function PropertyManagerSettingsPage() {
   }
 
   const fetchGuestyConnection = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoadingGuestyConnection(true)
     try {
-      const response = await getGuestyConnection(profile.id)
+      const response = await getGuestyConnection(effectiveUserId)
       if (response.status === 'success' && response.data) {
         setGuestyConnection(response.data)
       } else {
@@ -234,11 +238,11 @@ export default function PropertyManagerSettingsPage() {
   }
 
   const fetchHospitableConnection = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoadingHospitableConnection(true)
     try {
-      const response = await getHospitableConnection(profile.id)
+      const response = await getHospitableConnection(effectiveUserId)
       if (response.status === 'success' && response.data) {
         setHospitableConnection(response.data)
       } else {
@@ -253,11 +257,11 @@ export default function PropertyManagerSettingsPage() {
   }
 
   const fetchProperties = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoadingProperties(true)
     try {
-      const response = await getProperties(profile.id)
+      const response = await getProperties(effectiveUserId)
       if (response.status === 'success' && response.data) {
         setProperties(response.data)
       }
@@ -273,7 +277,7 @@ export default function PropertyManagerSettingsPage() {
     fetchGuestyConnection()
     fetchHospitableConnection()
     fetchProperties()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   const handleHostawayConnect = async (accountId: string, apiKey: string) => {
     setShowHostawayModal(false)
@@ -1024,7 +1028,7 @@ export default function PropertyManagerSettingsPage() {
 
       {/* iCal Calendar Feeds Section */}
       <ICalSubscriptionsSection
-        userId={profile?.id!}
+        userId={effectiveUserId!}
         properties={properties}
         loadingProperties={loadingProperties}
       />
@@ -1034,7 +1038,7 @@ export default function PropertyManagerSettingsPage() {
         isOpen={showHostawayModal}
         onClose={() => setShowHostawayModal(false)}
         onConnect={handleHostawayConnect}
-        userId={profile?.id!}
+        userId={effectiveUserId!}
       />
 
       {/* Guesty Connection Modal */}
@@ -1042,7 +1046,7 @@ export default function PropertyManagerSettingsPage() {
         isOpen={showGuestyModal}
         onClose={() => setShowGuestyModal(false)}
         onConnect={handleGuestyConnect}
-        userId={profile?.id!}
+        userId={effectiveUserId!}
       />
 
       {/* Hospitable Connection Modal */}
@@ -1050,7 +1054,7 @@ export default function PropertyManagerSettingsPage() {
         isOpen={showHospitableModal}
         onClose={() => setShowHospitableModal(false)}
         onConnect={handleHospitableConnect}
-        userId={profile?.id!}
+        userId={effectiveUserId!}
       />
     </div>
   )

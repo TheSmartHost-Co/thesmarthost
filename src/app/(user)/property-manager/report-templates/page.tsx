@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getReportTemplates, deleteReportTemplate, cloneReportTemplate } from '@/services/reportTemplateService'
 import type { FullReportTemplate } from '@/services/types/reportTemplate'
 import {
@@ -24,6 +26,8 @@ import EditReportTemplateModal from '@/components/report-template/edit/editRepor
 export default function ReportTemplatesPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('report_templates')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [templates, setTemplates] = useState<FullReportTemplate[]>([])
@@ -54,7 +58,7 @@ export default function ReportTemplatesPage() {
       setLoading(true)
       setError(null)
 
-      const res = await getReportTemplates(profile!.id)
+      const res = await getReportTemplates(effectiveUserId!)
 
       if (res.status === 'success') {
         setTemplates(res.data || [])
@@ -73,7 +77,7 @@ export default function ReportTemplatesPage() {
     try {
       setCloningTemplateId(template.id)
       const res = await cloneReportTemplate(template.id, {
-        userId: profile!.id,
+        userId: effectiveUserId!,
         name: `${template.name} (Copy)`,
       })
 
@@ -262,15 +266,17 @@ export default function ReportTemplatesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Report Templates</h1>
           <p className="text-gray-500 mt-1">Create and manage report calculation templates</p>
         </div>
-        <motion.button
-          onClick={() => setShowCreateModal(true)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Create Template
-        </motion.button>
+        {canWrite('report_templates') && (
+          <motion.button
+            onClick={() => setShowCreateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Create Template
+          </motion.button>
+        )}
       </div>
 
       {/* Stats Cards */}

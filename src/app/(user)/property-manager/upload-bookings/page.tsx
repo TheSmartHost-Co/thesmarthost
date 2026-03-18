@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   ArrowUpTrayIcon,
   SparklesIcon,
@@ -12,6 +14,8 @@ import UploadWizard from '@/components/upload-wizard/UploadWizard'
 
 export default function UploadBookingsPage() {
   const router = useRouter()
+  usePermissionGuard('upload_bookings', 'read-write')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   const handleWizardComplete = () => {
     router.push('/property-manager/bookings')

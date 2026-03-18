@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   getChecklistTemplates,
   getChecklistTemplateById,
@@ -43,6 +45,8 @@ type Tab = 'templates' | 'property-checklists'
 export default function ChecklistsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('checklists')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
@@ -88,9 +92,9 @@ export default function ChecklistsPage() {
       setError(null)
 
       const [templatesRes, checklistsRes, propertiesRes] = await Promise.all([
-        getChecklistTemplates(profile!.id),
-        getChecklists({ userId: profile!.id }),
-        getProperties(profile!.id),
+        getChecklistTemplates(effectiveUserId!),
+        getChecklists({ userId: effectiveUserId! }),
+        getProperties(effectiveUserId!),
       ])
 
       if (templatesRes.status === 'success') {
@@ -371,24 +375,28 @@ export default function ChecklistsPage() {
           <p className="text-gray-500 mt-1">Manage checklist templates and property checklists</p>
         </div>
         <div className="flex items-center gap-3">
-          <motion.button
-            onClick={() => setShowCreateChecklistModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Checklist
-          </motion.button>
-          <motion.button
-            onClick={() => setShowCreateModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Template
-          </motion.button>
+          {canWrite('checklists') && (
+            <motion.button
+              onClick={() => setShowCreateChecklistModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Create Checklist
+            </motion.button>
+          )}
+          {canWrite('checklists') && (
+            <motion.button
+              onClick={() => setShowCreateModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Create Template
+            </motion.button>
+          )}
         </div>
       </div>
 

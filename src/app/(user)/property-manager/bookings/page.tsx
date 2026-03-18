@@ -28,6 +28,8 @@ import { Booking } from '@/services/types/booking'
 import { HostawayConnection } from '@/services/types/hostawayConnection'
 import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
@@ -90,14 +92,16 @@ export default function BookingsPage() {
   const [properties, setProperties] = useState<Property[]>([])
 
   const { profile } = useUserStore()
+  usePermissionGuard('bookings')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   useEffect(() => {
     const fetchBookings = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         setLoading(true)
-        const response = await getBookings({ userId: profile.id })
+        const response = await getBookings({ userId: effectiveUserId })
         if (response.status === 'success') {
           setBookings(response.data)
         } else {
@@ -112,7 +116,7 @@ export default function BookingsPage() {
     }
 
     fetchBookings()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Close popovers when clicking outside
   useEffect(() => {
@@ -134,17 +138,17 @@ export default function BookingsPage() {
   // Fetch Hostaway connection and properties for import modal
   useEffect(() => {
     const fetchConnectionAndProperties = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         // Fetch Hostaway connection
-        const connectionRes = await getConnectionByUserId(profile.id)
+        const connectionRes = await getConnectionByUserId(effectiveUserId)
         if (connectionRes.status === 'success' && connectionRes.data) {
           setHostawayConnection(connectionRes.data)
         }
 
         // Fetch properties for mapping
-        const propertiesRes = await getProperties(profile.id)
+        const propertiesRes = await getProperties(effectiveUserId)
         if (propertiesRes.status === 'success') {
           setProperties(propertiesRes.data)
         }
@@ -154,7 +158,7 @@ export default function BookingsPage() {
     }
 
     fetchConnectionAndProperties()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   const handleAddBooking = (newBooking: Booking) => {
     setBookings(prev => [newBooking, ...prev])
@@ -209,8 +213,8 @@ export default function BookingsPage() {
 
   const handleBookingsImported = () => {
     // Refresh bookings list after import
-    if (profile?.id) {
-      getBookings({ userId: profile.id }).then((response) => {
+    if (effectiveUserId) {
+      getBookings({ userId: effectiveUserId }).then((response) => {
         if (response.status === 'success') {
           setBookings(response.data)
         }
@@ -227,10 +231,10 @@ export default function BookingsPage() {
   }
 
   const confirmCancelBooking = async () => {
-    if (!selectedBooking || !profile?.id) return
+    if (!selectedBooking || !effectiveUserId) return
     try {
       setCancellingBooking(true)
-      const res = await cancelBooking(selectedBooking.id, profile.id)
+      const res = await cancelBooking(selectedBooking.id, effectiveUserId)
       if (res.status === 'success') {
         setBookings(prev => prev.map(b =>
           b.id === selectedBooking.id ? { ...b, bookingStatus: 'cancelled' } : b
@@ -515,7 +519,7 @@ export default function BookingsPage() {
           <p className="text-gray-500 mt-1">Manage and view all property bookings</p>
         </div>
         <div className="flex items-center gap-3">
-          {hostawayConnection && (
+          {canWrite('bookings') && hostawayConnection && (
             <motion.button
               onClick={() => setShowImportModal(true)}
               whileHover={{ scale: 1.02 }}
@@ -526,15 +530,17 @@ export default function BookingsPage() {
               Import from Hostaway
             </motion.button>
           )}
-          <motion.button
-            onClick={() => setShowCreateModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Booking
-          </motion.button>
+          {canWrite('bookings') && (
+            <motion.button
+              onClick={() => setShowCreateModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Create Booking
+            </motion.button>
+          )}
         </div>
       </div>
 

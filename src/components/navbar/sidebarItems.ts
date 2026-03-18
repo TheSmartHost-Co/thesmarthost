@@ -19,6 +19,7 @@ import {
   BookOpenIcon,
   CurrencyDollarIcon,
   WrenchScrewdriverIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline'
 
 export interface SidebarItem {
@@ -114,6 +115,7 @@ export const managerNavConfig: SidebarNavConfig = {
     },
   ],
   bottom: [
+    { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
     { name: 'Settings', href: '/property-manager/settings', icon: CogIcon },
   ],
 }
@@ -135,6 +137,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'Supply Lists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
   { name: 'Cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
   { name: 'Analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
+  { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
   { name: 'Settings', href: '/property-manager/settings', icon: CogIcon },
 ]
 

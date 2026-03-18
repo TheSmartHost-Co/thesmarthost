@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus, sendToTurnover } from '@/services/incomingBookingService'
 import { getProperties } from '@/services/propertyService'
 import type { IncomingBooking, SendToTurnoverItem } from '@/services/types/incomingBooking'
@@ -98,24 +100,26 @@ export default function IncomingBookingsPage() {
   const [properties, setProperties] = useState<Property[]>([])
 
   const { profile } = useUserStore()
+  usePermissionGuard('incoming_bookings')
+  const { effectiveUserId, canWrite } = usePermissions()
   const { showNotification } = useNotificationStore()
 
   useEffect(() => {
-    if (profile?.id) {
+    if (effectiveUserId) {
       fetchIncomingBookings()
     }
-  }, [profile?.id, statusFilter])
+  }, [effectiveUserId, statusFilter])
 
   // Fetch properties for send-to-turnover property selector
   useEffect(() => {
-    if (profile?.id) {
-      getProperties(profile.id).then(res => {
+    if (effectiveUserId) {
+      getProperties(effectiveUserId).then(res => {
         if (res.status === 'success') {
           setProperties(res.data)
         }
       }).catch(() => {})
     }
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Close filter popover when clicking outside
   useEffect(() => {
@@ -132,15 +136,15 @@ export default function IncomingBookingsPage() {
   }, [showFilterPopover])
 
   const fetchIncomingBookings = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
       setLoading(true)
       setError(null)
 
       const response = statusFilter === 'all'
-        ? await getAllIncomingBookings(profile.id)
-        : await getIncomingBookingsByStatus(profile.id, statusFilter)
+        ? await getAllIncomingBookings(effectiveUserId)
+        : await getIncomingBookingsByStatus(effectiveUserId, statusFilter)
 
       if (response.status === 'success') {
         setBookings(response.data)
@@ -294,11 +298,11 @@ export default function IncomingBookingsPage() {
 
   // Handle bulk send to turnover calendar
   const handleBulkSendToTurnover = async (items: SendToTurnoverItem[]) => {
-    if (!profile?.id || items.length === 0) return
+    if (!effectiveUserId || items.length === 0) return
 
     setIsBulkSendingToTurnover(true)
     try {
-      const response = await sendToTurnover({ userId: profile.id, items })
+      const response = await sendToTurnover({ userId: effectiveUserId, items })
       if (response.status === 'success') {
         const { successCount, failCount } = response.data
         if (failCount === 0) {

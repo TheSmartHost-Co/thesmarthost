@@ -17,6 +17,16 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "TheSmartHost | Automate Property Reporting",
   description: "Transform 4 hours of manual reporting into 10 minutes. PMS-agnostic owner reporting platform for short-term rental managers.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    title: "TheSmartHost",
+    capable: true,
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({

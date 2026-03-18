@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
 import {
@@ -54,6 +56,8 @@ const PAYMENT_STATUSES: { value: PaymentStatus | ''; label: string }[] = [
 export default function ExpensesPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('expenses')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -89,27 +93,27 @@ export default function ExpensesPage() {
 
   // Load initial data
   useEffect(() => {
-    if (profile?.id) {
+    if (effectiveUserId) {
       loadData()
     }
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Reload expenses when filters change
   useEffect(() => {
-    if (profile?.id) {
+    if (effectiveUserId) {
       loadExpenses()
     }
   }, [selectedPropertyId, selectedBookingId, selectedCategory, filterStartDate, filterEndDate, filterPaymentStatus])
 
   // Load bookings when property changes
   useEffect(() => {
-    if (selectedPropertyId && profile?.id) {
+    if (selectedPropertyId && effectiveUserId) {
       loadBookingsForProperty(selectedPropertyId)
     } else {
       setBookings([])
       setSelectedBookingId('')
     }
-  }, [selectedPropertyId, profile?.id])
+  }, [selectedPropertyId, effectiveUserId])
 
   // Close filter popover when clicking outside
   useEffect(() => {
@@ -126,17 +130,17 @@ export default function ExpensesPage() {
   }, [showFilterPopover])
 
   const loadData = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     setError(null)
 
     try {
       const [propertiesRes, categoriesRes, expensesRes, summaryRes] = await Promise.all([
-        getProperties(profile.id),
-        getCategoriesByUserId(profile.id),
-        getExpenses({ userId: profile.id }),
-        getExpenseSummary(profile.id, 'category'),
+        getProperties(effectiveUserId),
+        getCategoriesByUserId(effectiveUserId),
+        getExpenses({ userId: effectiveUserId }),
+        getExpenseSummary(effectiveUserId, 'category'),
       ])
 
       if (propertiesRes.status === 'success') {
@@ -165,12 +169,12 @@ export default function ExpensesPage() {
   }
 
   const loadExpenses = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
       const [expensesRes, summaryRes] = await Promise.all([
         getExpenses({
-          userId: profile.id,
+          userId: effectiveUserId,
           propertyId: selectedPropertyId || undefined,
           bookingId: selectedBookingId || undefined,
           category: selectedCategory || undefined,
@@ -179,7 +183,7 @@ export default function ExpensesPage() {
           paymentStatus: filterPaymentStatus || undefined,
         }),
         getExpenseSummary(
-          profile.id,
+          effectiveUserId,
           'category',
           selectedPropertyId || undefined,
           filterStartDate || undefined,
@@ -204,10 +208,10 @@ export default function ExpensesPage() {
   }
 
   const loadBookingsForProperty = async (propertyId: string) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
-      const res = await getBookings({ userId: profile.id, propertyId })
+      const res = await getBookings({ userId: effectiveUserId, propertyId })
       if (res.status === 'success') {
         setBookings(res.data || [])
       }
@@ -236,8 +240,8 @@ export default function ExpensesPage() {
   }
 
   const handleCategoryUpdate = () => {
-    if (profile?.id) {
-      getCategoriesByUserId(profile.id).then(res => {
+    if (effectiveUserId) {
+      getCategoriesByUserId(effectiveUserId).then(res => {
         if (res.status === 'success') {
           setCategories(res.data || [])
         }
@@ -413,42 +417,50 @@ export default function ExpensesPage() {
           <p className="text-gray-500 mt-1">Track and manage property expenses</p>
         </div>
         <div className="flex gap-3">
-          <motion.button
-            onClick={() => setShowCategoriesModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
-          >
-            <Cog6ToothIcon className="h-4 w-4 mr-2" />
-            Categories
-          </motion.button>
-          <motion.button
-            onClick={() => setShowBulkImportModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-500/20 transition-colors"
-          >
-            <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
-            Import CSV
-          </motion.button>
-          <motion.button
-            onClick={() => setShowScanModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-colors"
-          >
-            <CameraIcon className="h-4 w-4 mr-2" />
-            Scan Receipt
-          </motion.button>
-          <motion.button
-            onClick={() => setShowCreateModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Add Expense
-          </motion.button>
+          {canWrite('expenses') && (
+            <motion.button
+              onClick={() => setShowCategoriesModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
+            >
+              <Cog6ToothIcon className="h-4 w-4 mr-2" />
+              Categories
+            </motion.button>
+          )}
+          {canWrite('expenses') && (
+            <motion.button
+              onClick={() => setShowBulkImportModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-500/20 transition-colors"
+            >
+              <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
+              Import CSV
+            </motion.button>
+          )}
+          {canWrite('expenses') && (
+            <motion.button
+              onClick={() => setShowScanModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-colors"
+            >
+              <CameraIcon className="h-4 w-4 mr-2" />
+              Scan Receipt
+            </motion.button>
+          )}
+          {canWrite('expenses') && (
+            <motion.button
+              onClick={() => setShowCreateModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Add Expense
+            </motion.button>
+          )}
         </div>
       </div>
 

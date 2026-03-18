@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import {
   getAllSupplyLists,
@@ -33,6 +35,8 @@ import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyL
 export default function SupplyListsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('supply_lists')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
@@ -60,10 +64,10 @@ export default function SupplyListsPage() {
 
   // Load initial data
   useEffect(() => {
-    if (profile?.id) {
+    if (effectiveUserId) {
       loadData()
     }
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Close filter popover on outside click
   useEffect(() => {
@@ -80,15 +84,15 @@ export default function SupplyListsPage() {
   }, [showFilterPopover])
 
   const loadData = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     setError(null)
 
     try {
       const [propertiesRes, supplyListsRes] = await Promise.all([
-        getProperties(profile.id),
-        getAllSupplyLists(profile.id),
+        getProperties(effectiveUserId),
+        getAllSupplyLists(effectiveUserId),
       ])
 
       if (propertiesRes.status === 'success') {
@@ -109,11 +113,11 @@ export default function SupplyListsPage() {
   }
 
   const reloadSupplyLists = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
       const statusFilter = filterStatus || undefined
-      const res = await getAllSupplyLists(profile.id, statusFilter)
+      const res = await getAllSupplyLists(effectiveUserId, statusFilter)
       if (res.status === 'success') {
         setSupplyLists(res.data || [])
         setCurrentPage(1)
@@ -128,7 +132,7 @@ export default function SupplyListsPage() {
 
   // Reload when status filter changes (server-side filter)
   useEffect(() => {
-    if (profile?.id && !loading) {
+    if (effectiveUserId && !loading) {
       reloadSupplyLists()
     }
   }, [filterStatus])

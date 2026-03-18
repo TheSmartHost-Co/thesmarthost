@@ -1,17 +1,20 @@
 // src/store/useUserStore.ts
   import { create } from 'zustand'
   import { persist } from 'zustand/middleware'
+  import type { Permissions } from '@/constants/permissionTemplates'
 
   interface UserProfile {
     id: string
     fullName: string
-    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER'
+    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER'
     email?: string
     phoneNumber?: string | null
     companyName?: string | null
     smsNotificationsEnabled?: boolean
     emailNotificationsEnabled?: boolean
     autoImport?: boolean | null
+    pmUserId?: string | null       // PM's userId (for team members, used in API calls)
+    permissions?: Permissions | null // Page-level permissions (for team members)
   }
 
   interface UserStore {
@@ -74,6 +77,8 @@
               return '/client/dashboard'
             case 'CLEANER':
               return '/cleaner/dashboard'
+            case 'TEAM_MEMBER':
+              return '/property-manager/dashboard'
             default:
               return '/dashboard'
           }

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import { getReports, deleteReport } from '@/services/reportService'
 import { getReportTemplates } from '@/services/reportTemplateService'
@@ -30,6 +32,8 @@ import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActio
 export default function ReportsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('reports')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [reports, setReports] = useState<Report[]>([])
@@ -90,9 +94,9 @@ export default function ReportsPage() {
       setError(null)
 
       const [propertiesRes, reportsRes, templatesRes] = await Promise.all([
-        getProperties(profile!.id),
+        getProperties(effectiveUserId!),
         getReports({}),
-        getReportTemplates(profile!.id)
+        getReportTemplates(effectiveUserId!)
       ])
 
       if (propertiesRes.status === 'success') {
@@ -181,20 +185,25 @@ export default function ReportsPage() {
   }
 
   // Get report actions for dropdown
-  const getReportActions = (report: Report): ActionItem[] => [
-    {
-      label: 'View Details',
-      icon: EyeIcon,
-      onClick: () => handleViewReport(report.id),
-      variant: 'default'
-    },
-    {
-      label: 'Delete Report',
-      icon: TrashIcon,
-      onClick: () => handleDeleteReport(report.id),
-      variant: 'danger'
+  const getReportActions = (report: Report): ActionItem[] => {
+    const actions: ActionItem[] = [
+      {
+        label: 'View Details',
+        icon: EyeIcon,
+        onClick: () => handleViewReport(report.id),
+        variant: 'default'
+      },
+    ]
+    if (canWrite('reports')) {
+      actions.push({
+        label: 'Delete Report',
+        icon: TrashIcon,
+        onClick: () => handleDeleteReport(report.id),
+        variant: 'danger'
+      })
     }
-  ]
+    return actions
+  }
 
   // Filter reports by search term
   const filteredReports = reports.filter(report => {
@@ -347,15 +356,17 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <p className="text-gray-500 mt-1">Generate and manage financial reports</p>
         </div>
-        <motion.button
-          onClick={() => setShowGenerateModal(true)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Generate Report
-        </motion.button>
+        {canWrite('reports') && (
+          <motion.button
+            onClick={() => setShowGenerateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Generate Report
+          </motion.button>
+        )}
       </div>
 
       {/* Stats Cards */}

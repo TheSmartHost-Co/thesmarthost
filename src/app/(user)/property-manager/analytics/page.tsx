@@ -4,22 +4,26 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChartBarIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import type { Property } from '@/services/types/property'
 import { AnalyticsWidget } from '@/components/analytics/AnalyticsWidget'
 
 export default function AnalyticsPage() {
   const { profile } = useUserStore()
+  usePermissionGuard('analytics')
+  const { effectiveUserId, canWrite } = usePermissions()
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(true)
 
   useEffect(() => {
     const loadProperties = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         setLoadingProperties(true)
-        const res = await getProperties(profile.id)
+        const res = await getProperties(effectiveUserId)
         if (res.status === 'success') {
           setProperties(res.data)
         }
@@ -31,7 +35,7 @@ export default function AnalyticsPage() {
     }
 
     loadProperties()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
   // Loading state for user profile
   if (!profile?.id) {

@@ -7,46 +7,50 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  UserCircleIcon,
+  UsersIcon,
   CheckCircleIcon,
   XCircleIcon,
   FunnelIcon,
-  BuildingOfficeIcon,
-  ClockIcon,
   EyeIcon,
   EnvelopeIcon,
 } from '@heroicons/react/24/outline'
-import { getCleaners, calculateCleanerStats, resendCleanerInvite } from '@/services/cleanerService'
+import { getTeamMembers, calculateTeamMemberStats, resendTeamMemberInvite } from '@/services/teamMemberService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { Cleaner, CleanerStats } from '@/services/types/cleaner'
+import { TeamMember, TeamMemberStats } from '@/services/types/teamMember'
 import { useUserStore } from '@/store/useUserStore'
-import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
+import { PERMISSION_TEMPLATES } from '@/constants/permissionTemplates'
+import { PERMISSION_KEYS } from '@/constants/permissionTemplates'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
-import CreateCleanerModal from '@/components/cleaner/create/createCleanerModal'
-import UpdateCleanerModal from '@/components/cleaner/update/updateCleanerModal'
-import DeleteCleanerModal from '@/components/cleaner/delete/deleteCleanerModal'
-import PreviewCleanerModal from '@/components/cleaner/preview/previewCleanerModal'
-import AssignPropertiesModal from '@/components/cleaner/AssignPropertiesModal'
+import CreateTeamMemberModal from '@/components/team-member/create/CreateTeamMemberModal'
+import UpdateTeamMemberModal from '@/components/team-member/update/UpdateTeamMemberModal'
+import DeleteTeamMemberModal from '@/components/team-member/delete/DeleteTeamMemberModal'
+import PreviewTeamMemberModal from '@/components/team-member/preview/PreviewTeamMemberModal'
 
-export default function PropertyManagerCleanersPage() {
+export default function TeamMembersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'invited'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
-  const [showAssignModal, setShowAssignModal] = useState(false)
-  const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null)
-  const [cleaners, setCleaners] = useState<Cleaner[]>([])
-  const [stats, setStats] = useState<CleanerStats>({ total: 0, active: 0, inactive: 0, invited: 0, withAssignments: 0 })
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [stats, setStats] = useState<TeamMemberStats>({ total: 0, active: 0, inactive: 0, invited: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
-  usePermissionGuard('cleaners')
-  const { effectiveUserId, canWrite } = usePermissions()
+  const { effectiveUserId, isPM } = usePermissions()
+
+  // Only PMs can access this page
+  useEffect(() => {
+    if (profile && !isPM) {
+      showNotification('Only property managers can manage team members', 'error')
+      window.location.href = '/property-manager/dashboard'
+    }
+  }, [profile, isPM, showNotification])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,17 +58,17 @@ export default function PropertyManagerCleanersPage() {
 
       try {
         setLoading(true)
-        const response = await getCleaners(effectiveUserId)
+        const response = await getTeamMembers(effectiveUserId)
 
         if (response.status === 'success') {
-          setCleaners(response.data)
-          setStats(calculateCleanerStats(response.data))
+          setMembers(response.data)
+          setStats(calculateTeamMemberStats(response.data))
         } else {
-          setError(response.message || 'Failed to fetch cleaners')
+          setError(response.message || 'Failed to fetch team members')
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch cleaners')
-        console.error('Error fetching cleaners:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch team members')
+        console.error('Error fetching team members:', err)
       } finally {
         setLoading(false)
       }
@@ -73,68 +77,55 @@ export default function PropertyManagerCleanersPage() {
     fetchData()
   }, [effectiveUserId])
 
-  const handleAddCleaner = (newCleaner: Cleaner) => {
-    setCleaners(prev => [...prev, newCleaner])
-    setStats(calculateCleanerStats([...cleaners, newCleaner]))
+  const handleAddMember = (newMember: TeamMember) => {
+    setMembers(prev => [...prev, newMember])
+    setStats(calculateTeamMemberStats([...members, newMember]))
   }
 
-  const handleViewCleaner = (cleanerId: string) => {
-    const cleaner = cleaners.find(c => c.id === cleanerId)
-    if (cleaner) {
-      setSelectedCleaner(cleaner)
+  const handleViewMember = (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (member) {
+      setSelectedMember(member)
       setShowPreviewModal(true)
     }
   }
 
-  const handleEditCleaner = (cleanerId: string) => {
-    const cleaner = cleaners.find(c => c.id === cleanerId)
-    if (cleaner) {
-      setSelectedCleaner(cleaner)
+  const handleEditMember = (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (member) {
+      setSelectedMember(member)
       setShowUpdateModal(true)
     }
   }
 
-  const handleDeleteCleaner = (cleanerId: string) => {
-    const cleaner = cleaners.find(c => c.id === cleanerId)
-    if (cleaner) {
-      setSelectedCleaner(cleaner)
+  const handleDeleteMember = (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (member) {
+      setSelectedMember(member)
       setShowDeleteModal(true)
     }
   }
 
-  const handleAssignProperties = (cleanerId: string) => {
-    const cleaner = cleaners.find(c => c.id === cleanerId)
-    if (cleaner) {
-      setSelectedCleaner(cleaner)
-      setShowAssignModal(true)
-    }
+  const handleMemberDeleted = (memberId: string) => {
+    const updatedMembers = members.filter(m => m.id !== memberId)
+    setMembers(updatedMembers)
+    setStats(calculateTeamMemberStats(updatedMembers))
   }
 
-  const handleCleanerDeleted = (cleanerId: string) => {
-    const updatedCleaners = cleaners.filter(c => c.id !== cleanerId)
-    setCleaners(updatedCleaners)
-    setStats(calculateCleanerStats(updatedCleaners))
+  const handleMemberUpdated = (updatedMember: TeamMember) => {
+    const updatedMembers = members.map(m => m.id === updatedMember.id ? updatedMember : m)
+    setMembers(updatedMembers)
+    setStats(calculateTeamMemberStats(updatedMembers))
   }
 
-  const handleCleanerUpdated = (updatedCleaner: Cleaner) => {
-    const updatedCleaners = cleaners.map(c => c.id === updatedCleaner.id ? updatedCleaner : c)
-    setCleaners(updatedCleaners)
-    setStats(calculateCleanerStats(updatedCleaners))
-  }
-
-  const handleResendInvite = async (cleanerId: string) => {
-    const cleaner = cleaners.find(c => c.id === cleanerId)
-    if (!cleaner) return
-
-    if (!cleaner.email) {
-      showNotification('Cleaner does not have an email address', 'error')
-      return
-    }
+  const handleResendInvite = async (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
 
     try {
-      const res = await resendCleanerInvite(cleanerId)
+      const res = await resendTeamMemberInvite(memberId)
       if (res.status === 'success') {
-        showNotification(`Invite email sent to ${cleaner.email}`, 'success')
+        showNotification(`Invite email sent to ${member.email}`, 'success')
       } else {
         showNotification(res.message || 'Failed to send invite', 'error')
       }
@@ -144,56 +135,53 @@ export default function PropertyManagerCleanersPage() {
     }
   }
 
-  const getCleanerActions = (cleaner: Cleaner): ActionItem[] => {
+  const getMemberActions = (member: TeamMember): ActionItem[] => {
     const actions: ActionItem[] = [
       {
         label: 'View Details',
         icon: EyeIcon,
-        onClick: () => handleViewCleaner(cleaner.id),
+        onClick: () => handleViewMember(member.id),
         variant: 'default'
       },
       {
-        label: 'Edit Cleaner',
+        label: 'Edit Member',
         icon: PencilIcon,
-        onClick: () => handleEditCleaner(cleaner.id),
+        onClick: () => handleEditMember(member.id),
         variant: 'default'
       },
     ]
 
-    // Only show Resend Invite if cleaner has an email and auth account
-    if (cleaner.email && cleaner.authUserId) {
+    // Only show Resend Invite for invited members
+    if (member.status === 'invited' && member.email) {
       actions.push({
         label: 'Resend Invite',
         icon: EnvelopeIcon,
-        onClick: () => handleResendInvite(cleaner.id),
+        onClick: () => handleResendInvite(member.id),
         variant: 'default'
       })
     }
 
-    actions.push(
-      {
-        label: 'Assign Properties',
-        icon: BuildingOfficeIcon,
-        onClick: () => handleAssignProperties(cleaner.id),
-        variant: 'default'
-      },
-      {
-        label: 'Delete Cleaner',
-        icon: TrashIcon,
-        onClick: () => handleDeleteCleaner(cleaner.id),
-        variant: 'danger'
-      }
-    )
+    actions.push({
+      label: 'Delete Member',
+      icon: TrashIcon,
+      onClick: () => handleDeleteMember(member.id),
+      variant: 'danger'
+    })
 
     return actions
   }
 
-  const formatTurnaroundTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (hours === 0) return `${mins}m`
-    if (mins === 0) return `${hours}h`
-    return `${hours}h ${mins}m`
+  // Detect which permission template a member matches
+  const getPermissionTemplateName = (member: TeamMember): string => {
+    const templateEntries = Object.entries(PERMISSION_TEMPLATES)
+    for (const [key, template] of templateEntries) {
+      if (key === 'custom') continue
+      const match = PERMISSION_KEYS.every(
+        (pk) => member.permissions[pk] === template.permissions[pk]
+      )
+      if (match) return template.label
+    }
+    return 'Custom'
   }
 
   const formatDate = (dateString: string) => {
@@ -205,25 +193,35 @@ export default function PropertyManagerCleanersPage() {
     })
   }
 
-  // Filter and sort cleaners
-  const filteredCleaners = cleaners
-    .filter(cleaner => {
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Never'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Filter and sort members
+  const filteredMembers = members
+    .filter(member => {
       const matchesSearch =
-        cleaner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (cleaner.email && cleaner.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (cleaner.phone && cleaner.phone.includes(searchTerm))
+        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.phone && member.phone.includes(searchTerm))
 
       const matchesStatus =
-        statusFilter === 'all' || cleaner.status === statusFilter
+        statusFilter === 'all' || member.status === statusFilter
 
       return matchesSearch && matchesStatus
     })
     .sort((a, b) => {
-      // Active first, then invited, then inactive
       const statusOrder = { active: 0, invited: 1, inactive: 2 }
       const orderDiff = statusOrder[a.status] - statusOrder[b.status]
       if (orderDiff !== 0) return orderDiff
-      // Then by name
       return a.name.localeCompare(b.name)
     })
 
@@ -255,31 +253,22 @@ export default function PropertyManagerCleanersPage() {
 
   const statCards = [
     {
-      label: 'Total Cleaners',
+      label: 'Total Members',
       value: stats.total,
-      icon: UserCircleIcon,
+      icon: UsersIcon,
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
       iconColor: 'text-blue-600',
       borderColor: 'border-blue-100'
     },
     {
-      label: 'Active Cleaners',
+      label: 'Active',
       value: stats.active,
       icon: CheckCircleIcon,
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',
       iconColor: 'text-green-600',
       borderColor: 'border-green-100'
-    },
-    {
-      label: 'With Assignments',
-      value: stats.withAssignments,
-      icon: BuildingOfficeIcon,
-      bgColor: 'bg-purple-50',
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      borderColor: 'border-purple-100'
     },
     {
       label: 'Invited',
@@ -289,6 +278,15 @@ export default function PropertyManagerCleanersPage() {
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
       borderColor: 'border-amber-100'
+    },
+    {
+      label: 'Inactive',
+      value: stats.inactive,
+      icon: XCircleIcon,
+      bgColor: 'bg-gray-50',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-500',
+      borderColor: 'border-gray-200'
     }
   ]
 
@@ -297,14 +295,14 @@ export default function PropertyManagerCleanersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Cleaners</h1>
-            <p className="text-gray-500 mt-1">Manage your cleaning staff</p>
+            <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
+            <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading cleaners...</p>
+            <p className="text-sm text-gray-500">Loading team members...</p>
           </div>
         </div>
       </div>
@@ -316,8 +314,8 @@ export default function PropertyManagerCleanersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Cleaners</h1>
-            <p className="text-gray-500 mt-1">Manage your cleaning staff</p>
+            <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
+            <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -326,7 +324,7 @@ export default function PropertyManagerCleanersPage() {
               <XCircleIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading cleaners</h3>
+              <h3 className="font-semibold text-red-800">Error loading team members</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -340,21 +338,19 @@ export default function PropertyManagerCleanersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cleaners</h1>
-          <p className="text-gray-500 mt-1">Manage your cleaning staff</p>
+          <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
+          <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
         </div>
         <div className="flex items-center gap-3">
-          {canWrite('cleaners') && (
-            <motion.button
-              onClick={() => setShowCreateModal(true)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add Cleaner
-            </motion.button>
-          )}
+          <motion.button
+            onClick={() => setShowCreateModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Invite Team Member
+          </motion.button>
         </div>
       </div>
 
@@ -431,19 +427,19 @@ export default function PropertyManagerCleanersPage() {
             <thead>
               <tr className="bg-gray-50/50">
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">
-                  Cleaner
+                  Team Member
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">
-                  Contact
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
-                  Turnaround Time
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">
-                  Properties Assigned
+                  Email
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
+                  Permissions
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
+                  Last Active
                 </th>
                 <th className="sticky right-0 bg-gray-50/95 backdrop-blur-sm px-6 py-4 min-w-[60px] shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
                   <span className="sr-only">Actions</span>
@@ -451,56 +447,49 @@ export default function PropertyManagerCleanersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredCleaners.map((cleaner, index) => (
+              {filteredMembers.map((member, index) => (
                 <motion.tr
-                  key={cleaner.id}
+                  key={member.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
                   className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
-                  onClick={() => handleViewCleaner(cleaner.id)}
+                  onClick={() => handleViewMember(member.id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow flex-shrink-0">
                         <span className="text-white font-semibold text-sm">
-                          {cleaner.name.charAt(0).toUpperCase()}
+                          {member.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-gray-900">{cleaner.name}</div>
-                        <div className="text-sm text-gray-500">Added {formatDate(cleaner.createdAt)}</div>
+                        <div className="font-medium text-gray-900">{member.name}</div>
+                        <div className="text-sm text-gray-500">Joined {formatDate(member.createdAt)}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm">
-                      <div className="text-gray-700">{cleaner.email || '—'}</div>
-                      <div className="text-gray-500">{cleaner.phone || '—'}</div>
-                    </div>
+                    <div className="text-sm text-gray-700">{member.email}</div>
+                    {member.phone && (
+                      <div className="text-sm text-gray-500">{member.phone}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                      <ClockIcon className="h-4 w-4 text-gray-400" />
-                      {formatTurnaroundTime(cleaner.defaultTurnaroundMinutes)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleAssignProperties(cleaner.id)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors cursor-pointer"
-                    >
-                      <BuildingOfficeIcon className="h-3.5 w-3.5" />
-                      {cleaner.assignedProperties?.length || 0} Properties
-                    </button>
+                    {getStatusBadge(member.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(cleaner.status)}
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700">
+                      {getPermissionTemplateName(member)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDateTime(member.lastActiveAt)}
                   </td>
                   <td className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]" onClick={(e) => e.stopPropagation()}>
                     <TableActionsDropdown
-                      actions={getCleanerActions(cleaner)}
-                      itemId={cleaner.id}
+                      actions={getMemberActions(member)}
+                      itemId={member.id}
                     />
                   </td>
                 </motion.tr>
@@ -509,16 +498,16 @@ export default function PropertyManagerCleanersPage() {
           </table>
 
           {/* Empty State */}
-          {filteredCleaners.length === 0 && (
+          {filteredMembers.length === 0 && (
             <div className="text-center py-16 px-4">
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <UserCircleIcon className="w-8 h-8 text-gray-400" />
+                <UsersIcon className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">No cleaners found</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No team members found</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
                 {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by adding your first cleaner.'}
+                  : 'Get started by inviting your first team member.'}
               </p>
               {!searchTerm && statusFilter === 'all' && (
                 <motion.button
@@ -528,7 +517,7 @@ export default function PropertyManagerCleanersPage() {
                   className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
                 >
                   <PlusIcon className="h-5 w-5 mr-2" />
-                  Add Your First Cleaner
+                  Invite Your First Team Member
                 </motion.button>
               )}
             </div>
@@ -536,76 +525,55 @@ export default function PropertyManagerCleanersPage() {
         </div>
 
         {/* Results count */}
-        {filteredCleaners.length > 0 && (
+        {filteredMembers.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
             <p className="text-sm text-gray-500">
-              Showing <span className="font-medium text-gray-700">{filteredCleaners.length}</span> of{' '}
-              <span className="font-medium text-gray-700">{cleaners.length}</span> cleaners
+              Showing <span className="font-medium text-gray-700">{filteredMembers.length}</span> of{' '}
+              <span className="font-medium text-gray-700">{members.length}</span> team members
             </p>
           </div>
         )}
       </motion.div>
 
       {/* Modals */}
-      <CreateCleanerModal
+      <CreateTeamMemberModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onAdd={handleAddCleaner}
+        onAdd={handleAddMember}
       />
 
-      {selectedCleaner && (
-        <UpdateCleanerModal
+      {selectedMember && (
+        <UpdateTeamMemberModal
           isOpen={showUpdateModal}
           onClose={() => {
             setShowUpdateModal(false)
-            setSelectedCleaner(null)
+            setSelectedMember(null)
           }}
-          cleaner={selectedCleaner}
-          onUpdate={handleCleanerUpdated}
+          member={selectedMember}
+          onUpdate={handleMemberUpdated}
         />
       )}
 
-      {selectedCleaner && (
-        <DeleteCleanerModal
+      {selectedMember && (
+        <DeleteTeamMemberModal
           isOpen={showDeleteModal}
           onClose={() => {
             setShowDeleteModal(false)
-            setSelectedCleaner(null)
+            setSelectedMember(null)
           }}
-          cleaner={selectedCleaner}
-          onDeleted={handleCleanerDeleted}
+          member={selectedMember}
+          onDelete={handleMemberDeleted}
         />
       )}
 
-      {selectedCleaner && (
-        <PreviewCleanerModal
+      {selectedMember && (
+        <PreviewTeamMemberModal
           isOpen={showPreviewModal}
           onClose={() => {
             setShowPreviewModal(false)
-            setSelectedCleaner(null)
+            setSelectedMember(null)
           }}
-          cleaner={selectedCleaner}
-          onEditCleaner={() => {
-            setShowPreviewModal(false)
-            setShowUpdateModal(true)
-          }}
-          onAssignProperties={() => {
-            setShowPreviewModal(false)
-            setShowAssignModal(true)
-          }}
-          onResendInvite={() => handleResendInvite(selectedCleaner.id)}
-        />
-      )}
-
-      {selectedCleaner && (
-        <AssignPropertiesModal
-          isOpen={showAssignModal}
-          onClose={() => {
-            setShowAssignModal(false)
-            setSelectedCleaner(null)
-          }}
-          cleaner={selectedCleaner}
-          onUpdate={handleCleanerUpdated}
+          member={selectedMember}
         />
       )}
     </div>

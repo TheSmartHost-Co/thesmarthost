@@ -9,6 +9,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import { getCleaners } from '@/services/cleanerService'
 import type { Property } from '@/services/types/property'
@@ -55,6 +57,8 @@ function TurnoverCalendarWithDeepLink({
 export default function TurnoverPage() {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  usePermissionGuard('turnover')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   const [properties, setProperties] = useState<Property[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
@@ -64,15 +68,15 @@ export default function TurnoverPage() {
   // Fetch properties and cleaners on mount
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       setLoading(true)
       setError(null)
 
       try {
         const [propertiesRes, cleanersRes] = await Promise.all([
-          getProperties(profile.id),
-          getCleaners(profile.id),
+          getProperties(effectiveUserId),
+          getCleaners(effectiveUserId),
         ])
 
         if (propertiesRes.status === 'success') {
@@ -96,7 +100,7 @@ export default function TurnoverPage() {
     }
 
     fetchData()
-  }, [profile?.id, showNotification])
+  }, [effectiveUserId, showNotification])
 
   // Loading state
   if (loading) {

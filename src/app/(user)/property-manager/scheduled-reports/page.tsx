@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getSchedules, deleteSchedule, toggleSchedule, runScheduleNow, formatScheduleFrequency, formatNextRun } from '@/services/scheduleService'
 import type { Schedule } from '@/services/types/schedule'
 import { FORMAT_LABELS, REPORT_MODE_LABELS } from '@/services/types/schedule'
@@ -32,6 +34,8 @@ import ScheduleActionsModal from '@/components/scheduled-reports/actions/schedul
 export default function ScheduledReportsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('scheduled_reports')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -294,18 +298,20 @@ export default function ScheduledReportsPage() {
             <p className="text-gray-500">Automate report generation and distribution</p>
           </div>
         </div>
-        <motion.button
-          onClick={() => {
-            setSelectedSchedule(null)
-            setShowCreateModal(true)
-          }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Create Schedule
-        </motion.button>
+        {canWrite('scheduled_reports') && (
+          <motion.button
+            onClick={() => {
+              setSelectedSchedule(null)
+              setShowCreateModal(true)
+            }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Create Schedule
+          </motion.button>
+        )}
       </div>
 
       {/* Stats Cards */}

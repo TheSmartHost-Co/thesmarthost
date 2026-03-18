@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
 import {
   getDashboardAlerts,
@@ -34,6 +36,8 @@ export default function DashboardPage() {
   const router = useRouter()
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  usePermissionGuard('dashboard')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
@@ -58,10 +62,10 @@ export default function DashboardPage() {
 
   // Load all dashboard data
   useEffect(() => {
-    if (profile?.id) {
+    if (effectiveUserId) {
       loadAllData()
     }
-  }, [profile])
+  }, [profile, effectiveUserId])
 
   const loadAllData = async () => {
     await Promise.all([
@@ -75,7 +79,7 @@ export default function DashboardPage() {
   const loadProperties = async () => {
     try {
       setLoadingProperties(true)
-      const res = await getProperties(profile!.id)
+      const res = await getProperties(effectiveUserId!)
       if (res.status === 'success') {
         setProperties(res.data || [])
       } else {
@@ -225,12 +229,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Floating Action Button */}
-      <FloatingActionButton
-        onUploadCSV={() => router.push('/property-manager/upload-bookings')}
-        onGenerateReport={() => setShowGenerateModal(true)}
-        onNewClient={() => setShowCreateClientModal(true)}
-        onNewProperty={() => setShowCreatePropertyModal(true)}
-      />
+      {canWrite('dashboard') && (
+        <FloatingActionButton
+          onUploadCSV={() => router.push('/property-manager/upload-bookings')}
+          onGenerateReport={() => setShowGenerateModal(true)}
+          onNewClient={() => setShowCreateClientModal(true)}
+          onNewProperty={() => setShowCreatePropertyModal(true)}
+        />
+      )}
 
       {/* Modals */}
       <GenerateReportModal

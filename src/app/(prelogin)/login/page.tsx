@@ -13,6 +13,7 @@ import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
 import { useUserStore } from '@/store/useUserStore'
 import { getUserProfile } from '@/services/profileService'
+import { getTeamMemberByAuthUserId } from '@/services/teamMemberService'
 
 function LoginForm() {
   const router = useRouter()
@@ -74,16 +75,27 @@ function LoginForm() {
         const profileResponse = await getUserProfile(data.user.id)
 
         if (profileResponse.status === 'success' && profileResponse.data) {
-          setProfile({
-            ...profileResponse.data,
-            id: data.user.id,
-            email: data.user.email
-          })
+          const profileData = { ...profileResponse.data, id: data.user.id, email: data.user.email }
+
+          // If team member, fetch their team member record for pmUserId + permissions
+          if (profileData.role === 'TEAM_MEMBER') {
+            try {
+              const tmResponse = await getTeamMemberByAuthUserId(data.user.id)
+              if (tmResponse.status === 'success' && tmResponse.data) {
+                profileData.pmUserId = tmResponse.data.userId
+                profileData.permissions = tmResponse.data.permissions
+              }
+            } catch (tmError) {
+              console.error('Failed to fetch team member data:', tmError)
+            }
+          }
+
+          setProfile(profileData)
 
           notify("You've successfully signed in!", "success");
 
           console.log(`auth token: ${data.session.access_token}`)
-          
+
           // Get redirect path based on role
           const redirectPath = getRedirectPath()
           router.push(redirectPath)

@@ -26,6 +26,8 @@ import { Client } from '@/services/types/client'
 import { ClientStatusCode } from '@/services/types/clientCode'
 import { NoteCountsByClient } from '@/services/types/clientNote'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import { usePermissions } from '@/hooks/usePermissions'
 import CreateClientModal from '@/components/client/create/createClientModal'
 import UpdateClientModal from '@/components/client/update/updateClientModal'
 import DeleteClientModal from '@/components/client/delete/deleteClientModal'
@@ -58,19 +60,21 @@ export default function PropertyManagerClientsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const { profile } = useUserStore()
+  usePermissionGuard('clients')
+  const { effectiveUserId, canWrite } = usePermissions()
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         setLoading(true)
 
         // Fetch clients, status codes, and note counts in parallel
         const [clientsResponse, statusCodesResponse, noteCountsResponse] = await Promise.all([
-          getClientsByParentId(profile.id),
-          getStatusCodesByUserId(profile.id),
-          getNoteCountsByUserId(profile.id)
+          getClientsByParentId(effectiveUserId),
+          getStatusCodesByUserId(effectiveUserId),
+          getNoteCountsByUserId(effectiveUserId)
         ])
 
         setClients(clientsResponse.data)
@@ -103,7 +107,7 @@ export default function PropertyManagerClientsPage() {
     }
 
     fetchData()
-  }, [profile?.id])
+  }, [effectiveUserId])
 
 
   const handleAddClient = (newClient: Client) => {
@@ -168,9 +172,9 @@ export default function PropertyManagerClientsPage() {
 
   const handleNotesUpdated = async () => {
     // Refresh note counts when notes are added/edited/deleted
-    if (profile?.id) {
+    if (effectiveUserId) {
       try {
-        const noteCountsResponse = await getNoteCountsByUserId(profile.id)
+        const noteCountsResponse = await getNoteCountsByUserId(effectiveUserId)
         if (noteCountsResponse.status === 'success') {
           setNoteCounts(noteCountsResponse.data)
         }
@@ -182,8 +186,8 @@ export default function PropertyManagerClientsPage() {
 
   const handlePMSCredentialUpdate = () => {
     // Refresh clients data to get updated pms_credentials field
-    if (profile?.id) {
-      getClientsByParentId(profile.id).then(response => {
+    if (effectiveUserId) {
+      getClientsByParentId(effectiveUserId).then(response => {
         setClients(response.data)
       }).catch(err => {
         console.error('Error refreshing clients:', err)
@@ -211,32 +215,40 @@ export default function PropertyManagerClientsPage() {
     exportToCsv(filteredClients, columns, 'clients')
   }
 
-  const getClientActions = (client: Client): ActionItem[] => [
-    {
-      label: 'Edit Client',
-      icon: PencilIcon,
-      onClick: () => handleEditClient(client.id),
-      variant: 'default'
-    },
-    {
-      label: 'PMS Credentials',
-      icon: KeyIcon,
-      onClick: () => handlePMSCredentials(client.id),
-      variant: 'default'
-    },
-    {
-      label: 'Agreements',
-      icon: DocumentTextIcon,
-      onClick: () => handleAgreements(client.id),
-      variant: 'default'
-    },
-    {
-      label: 'Delete Client',
-      icon: TrashIcon,
-      onClick: () => handleDeleteClient(client.id),
-      variant: 'danger'
+  const getClientActions = (client: Client): ActionItem[] => {
+    const actions: ActionItem[] = []
+    if (canWrite('clients')) {
+      actions.push({
+        label: 'Edit Client',
+        icon: PencilIcon,
+        onClick: () => handleEditClient(client.id),
+        variant: 'default'
+      })
     }
-  ]
+    actions.push(
+      {
+        label: 'PMS Credentials',
+        icon: KeyIcon,
+        onClick: () => handlePMSCredentials(client.id),
+        variant: 'default'
+      },
+      {
+        label: 'Agreements',
+        icon: DocumentTextIcon,
+        onClick: () => handleAgreements(client.id),
+        variant: 'default'
+      }
+    )
+    if (canWrite('clients')) {
+      actions.push({
+        label: 'Delete Client',
+        icon: TrashIcon,
+        onClick: () => handleDeleteClient(client.id),
+        variant: 'danger'
+      })
+    }
+    return actions
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -425,24 +437,28 @@ export default function PropertyManagerClientsPage() {
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export CSV
           </motion.button>
-          <motion.button
-            onClick={() => setShowImportModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
-          >
-            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
-            Import CSV
-          </motion.button>
-          <motion.button
-            onClick={() => setShowCreateModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Add Client
-          </motion.button>
+          {canWrite('clients') && (
+            <motion.button
+              onClick={() => setShowImportModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
+            >
+              <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+              Import CSV
+            </motion.button>
+          )}
+          {canWrite('clients') && (
+            <motion.button
+              onClick={() => setShowCreateModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Add Client
+            </motion.button>
+          )}
         </div>
       </div>
 
@@ -516,15 +532,17 @@ export default function PropertyManagerClientsPage() {
                   </option>
                 ))}
               </select>
-              <motion.button
-                onClick={() => setShowStatusModal(true)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
-              >
-                <Cog6ToothIcon className="h-4 w-4 mr-2" />
-                Manage Status
-              </motion.button>
+              {canWrite('clients') && (
+                <motion.button
+                  onClick={() => setShowStatusModal(true)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
+                >
+                  <Cog6ToothIcon className="h-4 w-4 mr-2" />
+                  Manage Status
+                </motion.button>
+              )}
             </div>
           </div>
         </div>
@@ -714,9 +732,9 @@ export default function PropertyManagerClientsPage() {
         onClose={() => setShowStatusModal(false)}
         onStatusUpdate={async () => {
           // Refresh status codes when they're updated
-          if (profile?.id) {
+          if (effectiveUserId) {
             try {
-              const response = await getStatusCodesByUserId(profile.id)
+              const response = await getStatusCodesByUserId(effectiveUserId)
               if (response.status === 'success') {
                 setStatusCodes(response.data)
               }

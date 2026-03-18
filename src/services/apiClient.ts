@@ -174,14 +174,20 @@ async function apiClient<T, B = unknown>(
             console.log('❌ Error (no JSON):', response.statusText)
         }
 
-        // Handle auth errors with SessionError and trigger modal
-        if (response.status === 401 || response.status === 403) {
+        // Handle auth errors
+        if (response.status === 401) {
             console.log('🔒 Authentication error detected, triggering session modal')
-            // Set store state to trigger modal immediately
             getSessionStore().setSessionError(errorMessage || 'Authentication required - please sign in again')
             sessionEvents.emit('session-expired')
             console.groupEnd();
             throw new SessionError(errorMessage);
+        }
+
+        // Handle permission errors (403) - don't trigger session expired modal
+        if (response.status === 403) {
+            console.log('🚫 Permission denied (403)')
+            console.groupEnd();
+            throw new Error(errorMessage || 'You don\'t have permission to perform this action');
         }
 
         console.groupEnd();
