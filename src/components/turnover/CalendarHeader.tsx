@@ -52,6 +52,7 @@ interface CalendarHeaderProps {
   onOpenAllIssues?: () => void
   excludedPropertyCount?: number
   onOpenExclusions?: () => void
+  hideViewToggle?: boolean
 }
 
 export default function CalendarHeader({
@@ -83,6 +84,7 @@ export default function CalendarHeader({
   onOpenAllIssues,
   excludedPropertyCount,
   onOpenExclusions,
+  hideViewToggle = false,
 }: CalendarHeaderProps) {
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
@@ -720,7 +722,7 @@ export default function CalendarHeader({
         )}
 
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
+        {!hideViewToggle && <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
           <button
             onClick={() => onViewModeChange('property')}
             className={`
@@ -749,7 +751,7 @@ export default function CalendarHeader({
             <UserCircleIcon className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Cleaner</span>
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

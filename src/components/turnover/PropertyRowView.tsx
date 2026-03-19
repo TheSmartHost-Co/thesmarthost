@@ -57,6 +57,7 @@ interface PropertyRowViewProps {
   activatedItem?: ActivatedItem
   onOpenProjectModal?: (project: CleaningProject) => void
   onOpenBookingModal?: (booking: Booking) => void
+  disableDnd?: boolean
 }
 
 export default function PropertyRowView({
@@ -84,6 +85,7 @@ export default function PropertyRowView({
   activatedItem,
   onOpenProjectModal,
   onOpenBookingModal,
+  disableDnd = false,
 }: PropertyRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
@@ -126,20 +128,27 @@ export default function PropertyRowView({
     return generateDateRange(start, totalCols)
   }, [dateRange.start, bufferCols, visibleColumns])
 
-  // DnD hook
-  const {
-    sensors,
-    activeDragItem,
-    isDraggingRef,
-    handleDragStart,
-    handleDragCancel,
-  } = useCalendarDrag({
+  // DnD hook (skipped when DnD is disabled)
+  const dndHook = useCalendarDrag(disableDnd ? {
+    allDates: [],
+    expandedDate: null,
+    slotWidth: 0,
+    translateX: 0,
+    bufferCols: 0,
+  } : {
     allDates,
     expandedDate,
     slotWidth,
     translateX: -(bufferCols * slotWidth),
     bufferCols,
   })
+  const {
+    sensors,
+    activeDragItem,
+    isDraggingRef,
+    handleDragStart,
+    handleDragCancel,
+  } = dndHook
 
   const { scrollOffsetRef, pendingShiftRef, timelineRef, resetOffset } = useCalendarScroll({
     slotWidth,
@@ -364,14 +373,8 @@ export default function PropertyRowView({
     }
   }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, handleDragCancel, allBookingsForValidation])
 
-  return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEndForView}
-      onDragCancel={handleDragCancel}
-    >
-      <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
+  const calendarContent = (
+      <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: disableDnd ? 'default' : activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
         {/* Sticky Sidebar */}
         <div
           className="flex-shrink-0 border-r-2 border-gray-300 bg-white z-20 relative"
@@ -508,30 +511,51 @@ export default function PropertyRowView({
 
                     const isBookingActivated = activatedItem?.type === 'booking' && activatedItem.id === pb.booking.id
 
-                    return (
-                      <DraggableBooking
-                        key={`booking-${pb.booking.id}`}
-                        booking={pb.booking}
-                        className={`absolute z-[5] hover:z-[100] ${isBookingActivated ? 'z-[200]' : ''}`}
-                        style={{
-                          left: barLeft,
-                          width: barWidth,
-                          top: ROW_PADDING,
-                          height: BOOKING_BAR_HEIGHT,
-                        }}
-                        isActivated={isBookingActivated}
-                        onOpenModal={onOpenBookingModal ? () => onOpenBookingModal(pb.booking) : undefined}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onBookingClick?.(pb.booking)
-                        }}
-                      >
+                    const bookingBarContent = (
                         <BookingBar
                           booking={pb.booking}
                           isClippedLeft={pb.startColIndex < bufferCols}
                           isClippedRight={pb.endColIndex > allDates.length - bufferCols}
                           isActivated={isBookingActivated}
                         />
+                    )
+
+                    const bookingClassName = `absolute z-[5] hover:z-[100] ${isBookingActivated ? 'z-[200]' : ''}`
+                    const bookingStyle = {
+                      left: barLeft,
+                      width: barWidth,
+                      top: ROW_PADDING,
+                      height: BOOKING_BAR_HEIGHT,
+                    }
+                    const bookingOnClick = (e: React.MouseEvent) => {
+                      e.stopPropagation()
+                      onBookingClick?.(pb.booking)
+                    }
+
+                    if (disableDnd) {
+                      return (
+                        <div
+                          key={`booking-${pb.booking.id}`}
+                          className={bookingClassName}
+                          style={bookingStyle}
+                          onClick={bookingOnClick}
+                        >
+                          {bookingBarContent}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <DraggableBooking
+                        key={`booking-${pb.booking.id}`}
+                        booking={pb.booking}
+                        className={bookingClassName}
+                        style={bookingStyle}
+                        isActivated={isBookingActivated}
+                        onOpenModal={onOpenBookingModal ? () => onOpenBookingModal(pb.booking) : undefined}
+                        onClick={bookingOnClick}
+                      >
+                        {bookingBarContent}
                       </DraggableBooking>
                     )
                   })}
@@ -552,24 +576,7 @@ export default function PropertyRowView({
 
                     const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === pp.project.id
 
-                    return (
-                      <DraggableProject
-                        key={`project-${pp.project.id}`}
-                        project={pp.project}
-                        className={`absolute z-[6] hover:z-[100] ${isProjectActivated ? 'z-[200]' : ''}`}
-                        style={{
-                          left: projLeft,
-                          width: projWidth,
-                          top: stackTop,
-                          height: BAR_HEIGHT,
-                        }}
-                        isActivated={isProjectActivated}
-                        onOpenModal={onOpenProjectModal ? () => onOpenProjectModal(pp.project) : undefined}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onProjectClick(pp.project)
-                        }}
-                      >
+                    const projectEventContent = (
                         <ProjectEvent
                           project={pp.project}
                           openIssueCount={issueCountsMap[pp.project.id] || 0}
@@ -578,6 +585,44 @@ export default function PropertyRowView({
                           isExpanded={isExp}
                           isActivated={isProjectActivated}
                         />
+                    )
+
+                    const projectClassName = `absolute z-[6] hover:z-[100] ${isProjectActivated ? 'z-[200]' : ''}`
+                    const projectStyle = {
+                      left: projLeft,
+                      width: projWidth,
+                      top: stackTop,
+                      height: BAR_HEIGHT,
+                    }
+                    const projectOnClick = (e: React.MouseEvent) => {
+                      e.stopPropagation()
+                      onProjectClick(pp.project)
+                    }
+
+                    if (disableDnd) {
+                      return (
+                        <div
+                          key={`project-${pp.project.id}`}
+                          className={projectClassName}
+                          style={projectStyle}
+                          onClick={projectOnClick}
+                        >
+                          {projectEventContent}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <DraggableProject
+                        key={`project-${pp.project.id}`}
+                        project={pp.project}
+                        className={projectClassName}
+                        style={projectStyle}
+                        isActivated={isProjectActivated}
+                        onOpenModal={onOpenProjectModal ? () => onOpenProjectModal(pp.project) : undefined}
+                        onClick={projectOnClick}
+                      >
+                        {projectEventContent}
                       </DraggableProject>
                     )
                   })}
@@ -614,7 +659,20 @@ export default function PropertyRowView({
         )}
       </div>
 
-      {/* Drag Overlay */}
+  )
+
+  if (disableDnd) {
+    return calendarContent
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEndForView}
+      onDragCancel={handleDragCancel}
+    >
+      {calendarContent}
       <CalendarDragOverlay activeDragItem={activeDragItem} zoomLevel={zoomLevel} />
     </DndContext>
   )
