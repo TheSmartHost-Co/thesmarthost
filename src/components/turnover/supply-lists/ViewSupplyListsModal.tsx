@@ -278,8 +278,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} closable>
-      <div className="p-4 sm:p-6 max-w-2xl mx-auto w-full">
+    <Modal isOpen={isOpen} onClose={onClose} closable style="!overflow-y-hidden flex flex-col max-w-2xl w-[calc(100%-1rem)]">
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="p-4 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -374,7 +376,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               })()}
 
               {/* Items Checklist */}
-              <div className="bg-gray-50 rounded-xl p-4 max-h-80 overflow-y-auto">
+              <div className="bg-gray-50 rounded-xl p-4">
                 <div className="space-y-2">
                   {getStableItems(selectedList)
                     .filter(item => {
@@ -449,55 +451,6 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 </div>
               </div>
 
-              {/* Add new item (editable lists) */}
-              {selectedList.status !== 'fulfilled' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && newItemName.trim() && handleAddItem()}
-                    placeholder="Add new item..."
-                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <input
-                    type="number"
-                    value={newItemQuantity}
-                    onChange={(e) => setNewItemQuantity(e.target.value)}
-                    min="1"
-                    className="w-14 sm:w-16 flex-shrink-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <button
-                    onClick={handleAddItem}
-                    disabled={actionLoading || !newItemName.trim()}
-                    className="flex-shrink-0 px-3 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 disabled:opacity-50 transition-colors"
-                  >
-                    <PlusIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              {/* Actions (editable lists) */}
-              {selectedList.status !== 'fulfilled' && (
-                <div className="border-t pt-4 flex gap-3">
-                  <button
-                    onClick={handleFulfill}
-                    disabled={actionLoading}
-                    className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <CheckCircleIcon className="w-5 h-5" />
-                    Mark as Fulfilled
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={actionLoading}
-                    className="py-2.5 px-4 bg-red-100 text-red-700 rounded-xl font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
               {/* Fulfilled info */}
               {selectedList.status === 'fulfilled' && selectedList.fulfilledAt && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
@@ -553,7 +506,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                   <p className="text-gray-500">No supply requests</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                <div className="space-y-3">
                   {supplyLists.map((list) => {
                     const statusInfo = SUPPLY_LIST_STATUS_INFO[list.status]
                     const progress = getProgress(list)
@@ -616,7 +569,58 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
+
+      {/* Sticky bottom actions — outside scroll area */}
+      {selectedList && selectedList.status !== 'fulfilled' && (
+        <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4 sm:px-6 space-y-3">
+          {/* Add new item */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && newItemName.trim() && handleAddItem()}
+              placeholder="Add new item..."
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            />
+            <input
+              type="number"
+              value={newItemQuantity}
+              onChange={(e) => setNewItemQuantity(e.target.value)}
+              min="1"
+              className="w-14 sm:w-16 flex-shrink-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            />
+            <button
+              onClick={handleAddItem}
+              disabled={actionLoading || !newItemName.trim()}
+              className="flex-shrink-0 px-3 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 disabled:opacity-50 transition-colors"
+            >
+              <PlusIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Fulfill / Delete actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleFulfill}
+              disabled={actionLoading}
+              className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <CheckCircleIcon className="w-5 h-5" />
+              Mark as Fulfilled
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={actionLoading}
+              className="py-2.5 px-4 bg-red-100 text-red-700 rounded-xl font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+            >
+              <TrashIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }

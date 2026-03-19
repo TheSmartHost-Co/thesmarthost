@@ -44,7 +44,7 @@ export default function CleanerTurnoverCalendar() {
 
   // View state
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(isMobile ? 1 : 7)
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(7)
   const [isWeekPreset, setIsWeekPreset] = useState(true)
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
