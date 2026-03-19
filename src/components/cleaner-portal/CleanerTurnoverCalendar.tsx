@@ -718,11 +718,12 @@ export default function CleanerTurnoverCalendar() {
   const renderMobileDayView = () => (
     <div>
       {/* Day strip selector */}
-      <div className="grid grid-cols-7 border-b border-gray-100">
+      <div className="grid grid-cols-7 border-b border-gray-200">
         {weekDays.map(day => {
           const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
           const dateKey = formatLocalDate(day)
-          const hasTasks = (projectsByDate[dateKey] || []).length > 0
+          const taskCount = (projectsByDate[dateKey] || []).length
+          const hasTasks = taskCount > 0
           const selected = isSelectedDayFn(day)
           const today = isToday(day)
 
@@ -731,36 +732,43 @@ export default function CleanerTurnoverCalendar() {
               key={dateKey}
               onClick={() => setSelectedDay(new Date(day))}
               className={`
-                px-2 py-3 text-center border-r border-gray-100 last:border-r-0
-                cursor-pointer transition-colors
+                min-h-[68px] px-1 py-2.5 text-center border-r border-gray-100 last:border-r-0
+                cursor-pointer transition-colors active:scale-95
                 ${selected
-                  ? 'bg-amber-50 hover:bg-amber-100/70'
+                  ? 'bg-amber-50'
                   : today
-                    ? 'bg-purple-50 hover:bg-purple-100/70'
-                    : 'bg-white hover:bg-gray-50'
+                    ? 'bg-purple-50/60'
+                    : 'bg-white'
                 }
               `}
             >
-              <p className={`text-xs font-medium uppercase ${
-                selected ? 'text-amber-700' : today ? 'text-purple-600' : 'text-gray-500'
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${
+                selected ? 'text-amber-700' : today ? 'text-purple-600' : 'text-gray-400'
               }`}>
                 {dayNames[day.getDay()]}
               </p>
               <p className={`
-                text-lg font-bold mt-0.5
+                text-base font-bold mt-1
                 ${selected
-                  ? 'w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center mx-auto'
+                  ? 'w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center mx-auto shadow-sm'
                   : today
-                    ? 'w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto'
+                    ? 'w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto shadow-sm'
                     : 'text-gray-900'
                 }
               `}>
                 {day.getDate()}
               </p>
               {hasTasks && (
-                <div className={`w-1.5 h-1.5 rounded-full mt-1 mx-auto ${
-                  selected ? 'bg-amber-400' : 'bg-purple-400'
-                }`} />
+                <div className="flex items-center justify-center gap-0.5 mt-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    selected ? 'bg-amber-400' : 'bg-purple-400'
+                  }`} />
+                  {taskCount > 1 && (
+                    <span className={`text-[9px] font-bold ${
+                      selected ? 'text-amber-500' : 'text-purple-400'
+                    }`}>{taskCount}</span>
+                  )}
+                </div>
               )}
             </button>
           )
@@ -768,7 +776,12 @@ export default function CleanerTurnoverCalendar() {
       </div>
 
       {/* Project list for selected day */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
+        {/* Selected day label */}
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
+          {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={selectedDayKey}
@@ -795,11 +808,12 @@ export default function CleanerTurnoverCalendar() {
                 />
               ))
             ) : (
-              <div className="py-12 text-center">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto">
-                  <CalendarDaysIcon className="w-6 h-6 text-gray-400" />
+              <div className="py-10 text-center">
+                <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto">
+                  <CalendarDaysIcon className="w-7 h-7 text-gray-300" />
                 </div>
-                <p className="text-sm text-gray-500 mt-3">No projects scheduled</p>
+                <p className="text-sm font-medium text-gray-400 mt-3">No projects scheduled</p>
+                <p className="text-xs text-gray-300 mt-1">Tap another day to check</p>
               </div>
             )}
           </motion.div>
@@ -814,7 +828,7 @@ export default function CleanerTurnoverCalendar() {
       animate={{ opacity: 1, y: 0 }}
     >
       {/* Calendar Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: isMobile ? 'calc(100vh - 13rem)' : 'calc(100vh - 14rem)' }}>
+      <div className="bg-white flex flex-col" style={{ maxHeight: isMobile ? 'calc(100vh - 4rem)' : 'calc(100vh - 5rem)' }}>
         {/* Header */}
         <CalendarHeader
           viewMode="property"
@@ -839,7 +853,7 @@ export default function CleanerTurnoverCalendar() {
         />
 
         {/* Scroll container */}
-        <div ref={scrollContainerRef} className="overflow-y-auto flex-1 min-h-0 relative rounded-b-2xl" onClick={clearActivatedItem}>
+        <div ref={scrollContainerRef} className="overflow-y-auto flex-1 min-h-0 relative" onClick={clearActivatedItem}>
           {/* Sticky header portal */}
           <div className="sticky top-0 z-20 h-0">
             <div ref={stickyPortalRef} />
@@ -913,7 +927,6 @@ export default function CleanerTurnoverCalendar() {
           project={selectedProject}
           onProjectComplete={handleProjectComplete}
           onRequestTimeChange={() => {
-            setShowChecklistModal(false)
             if (selectedProject) handleRequestTimeChange(selectedProject)
           }}
           onAccept={handleAccept}

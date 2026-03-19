@@ -15,6 +15,7 @@ interface ProjectEventProps {
   zoomLevel?: ZoomLevel
   isExpanded?: boolean
   isActivated?: boolean
+  compact?: boolean
   /** @deprecated Use project.nextBookingCheckIn directly */
   nextCheckinDate?: string | null
 }
@@ -80,6 +81,7 @@ export default function ProjectEvent({
   zoomLevel = 7,
   isExpanded = false,
   isActivated = false,
+  compact = false,
   nextCheckinDate = null,
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
@@ -161,9 +163,7 @@ export default function ProjectEvent({
             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
           }}
         >
-          <div
-            className="absolute inset-0 flex items-center overflow-hidden px-2"
-          >
+          <div className="absolute inset-0 flex items-center overflow-hidden px-2">
             <span
               className="inline-block w-2 h-2 rounded-full flex-shrink-0 mr-1"
               style={{ backgroundColor: dotColor }}
@@ -174,14 +174,6 @@ export default function ProjectEvent({
             >
               {displayName}
             </span>
-            {timeStr && (
-              <span
-                className="text-[9px] ml-1 opacity-60 flex-shrink-0"
-                style={{ color: statusStyle.text }}
-              >
-                {timeStr}
-              </span>
-            )}
           </div>
         </div>
 
@@ -225,16 +217,77 @@ export default function ProjectEvent({
     )
   }
 
-  // Timeline views: vertical layout with 3px left border (~80px)
+  // Scheduled date formatted — used in both compact and full views
   const scheduledDateFormatted = project.projectDate
     ? (() => {
         const raw = project.projectDate
         const dateOnly = toLocalDateStr(raw)
         const [y, m, d] = dateOnly.split('-').map(Number)
-        return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       })()
     : null
 
+  // Compact mode: stacked layout (for mobile calendar grids)
+  if (compact) {
+    return (
+      <div
+        className="group relative w-full h-full"
+        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+      >
+        <div
+          className="absolute inset-0 rounded transition-opacity group-hover:opacity-85 overflow-hidden"
+          style={{
+            backgroundColor: statusStyle.bg,
+            borderLeft: `2px solid ${statusStyle.borderLeft}`,
+            boxShadow: activatedBoxShadow || `inset 0 0 0 1px rgba(0,0,0,0.1)`,
+            transform: isActivated ? 'scale(1.04)' : undefined,
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+          }}
+        >
+          <div className="absolute inset-0 flex flex-col justify-center overflow-hidden px-1 py-0.5" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>
+            <span
+              className="text-[10px] font-semibold leading-tight"
+              style={{ color: statusStyle.text }}
+            >
+              {displayName}
+            </span>
+            <span
+              className="text-[9px] leading-tight capitalize"
+              style={{ color: statusStyle.text, opacity: 0.75 }}
+            >
+              {statusLabel}
+            </span>
+            {timeStart && (
+              <span
+                className="text-[9px] leading-tight"
+                style={{ color: statusStyle.text, opacity: 0.7 }}
+              >
+                {timeStart} -
+              </span>
+            )}
+            {timeEnd && (
+              <span
+                className="text-[9px] leading-tight"
+                style={{ color: statusStyle.text, opacity: 0.7 }}
+              >
+                {timeEnd}
+              </span>
+            )}
+            {scheduledDateFormatted && (
+              <span
+                className="text-[9px] leading-tight"
+                style={{ color: statusStyle.text, opacity: 0.6 }}
+              >
+                {scheduledDateFormatted}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Timeline views: vertical layout with 3px left border (~80px)
   return (
     <div
       className="group relative w-full h-full"
@@ -274,34 +327,55 @@ export default function ProjectEvent({
             </div>
           </div>
         )}
-        {/* Content — vertical layout */}
-        <div className="absolute inset-0 flex flex-col justify-start px-2.5 py-1.5" style={{ overflow: 'hidden' }}>
-          {/* Line 1: [dot] Name (bold) */}
-          <div className="flex items-center gap-1" style={{ lineHeight: 1.2 }}>
+        {/* Content — vertical layout, everything wraps */}
+        <div className="absolute inset-0 flex flex-col justify-start px-2.5 py-1.5 overflow-hidden">
+          {/* Name */}
+          <div className="flex items-start gap-1" style={{ lineHeight: 1.2 }}>
             <span
-              className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+              className="inline-block w-2 h-2 rounded-full flex-shrink-0 mt-[3px]"
               style={{ backgroundColor: dotColor }}
             />
-            <span className="text-[12px] font-semibold" style={{ color: statusStyle.text }}>
+            <span className="text-[12px] font-semibold" style={{ color: statusStyle.text, overflowWrap: 'break-word', wordBreak: 'normal' }}>
               {displayName}
             </span>
           </div>
 
-          {/* Line 2: Status · Time range */}
+          {/* Status */}
           <div className="mt-0.5" style={{ lineHeight: 1.2 }}>
             <span className="text-[11px] capitalize" style={{ color: statusStyle.text, opacity: 0.75 }}>
               {statusLabel}
-              {timeStr && ` \u00b7 ${timeStr}`}
             </span>
           </div>
 
-          {/* Line 3: Scheduled date + gap until check-in */}
+          {/* Time — stacked */}
+          {timeStart && (
+            <div style={{ lineHeight: 1.2 }}>
+              <span className="text-[11px]" style={{ color: statusStyle.text, opacity: 0.7 }}>
+                {timeStart} -
+              </span>
+            </div>
+          )}
+          {timeEnd && (
+            <div style={{ lineHeight: 1.2 }}>
+              <span className="text-[11px]" style={{ color: statusStyle.text, opacity: 0.7 }}>
+                {timeEnd}
+              </span>
+            </div>
+          )}
+
+          {/* Date + next guest */}
           {(scheduledDateFormatted || nextGuestCountdown) && (
             <div className="mt-0.5" style={{ lineHeight: 1.2 }}>
               <span className="text-[11px]" style={{ color: statusStyle.text, opacity: 0.75 }}>
                 {scheduledDateFormatted}
-                {nextGuestCountdown && ` \u00b7 ${nextGuestCountdown}`}
               </span>
+              {nextGuestCountdown && (
+                <div style={{ lineHeight: 1.2 }}>
+                  <span className="text-[11px]" style={{ color: statusStyle.text, opacity: 0.75 }}>
+                    {nextGuestCountdown}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

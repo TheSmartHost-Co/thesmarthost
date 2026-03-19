@@ -11,12 +11,18 @@ import type { ActivatedItem } from './dnd/types'
 import { useStickyHeader } from './hooks/useStickyHeader'
 import { parseLocalDate, formatLocalDate, isToday, toLocalDateStr } from './utils/calendarDateUtils'
 import { timeToFraction } from './utils/calendarEventLayout'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const WEEKDAYS_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const WEEKDAYS_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const
 const MAX_EVENTS_PER_CELL = 3
-const PROJECT_ZONE_TOP = 24 + MAX_EVENTS_PER_CELL * 26 + 8 // fixed offset below booking lanes (each lane = 24px bar + 2px gap)
-const BOOKING_BAR_HEIGHT = 24
-const PROJECT_BAR_HEIGHT = 24
+const MAX_EVENTS_PER_CELL_MOBILE = 2
+const PROJECT_ZONE_TOP_DESKTOP = 24 + MAX_EVENTS_PER_CELL * 26 + 8
+const PROJECT_ZONE_TOP_MOBILE = 20 + MAX_EVENTS_PER_CELL_MOBILE * 20 + 4
+const BOOKING_BAR_HEIGHT_DESKTOP = 24
+const BOOKING_BAR_HEIGHT_MOBILE = 16
+const PROJECT_BAR_HEIGHT_DESKTOP = 24
+const PROJECT_BAR_HEIGHT_MOBILE = 18
 
 interface MonthGridViewProps {
   projects: CleaningProject[]
@@ -91,6 +97,14 @@ export default function MonthGridView({
   scrollContainer,
   activatedItem,
 }: MonthGridViewProps) {
+  const isMobile = useIsMobile()
+  const WEEKDAYS = isMobile ? WEEKDAYS_SHORT : WEEKDAYS_FULL
+  const maxEventsPerCell = isMobile ? MAX_EVENTS_PER_CELL_MOBILE : MAX_EVENTS_PER_CELL
+  const PROJECT_ZONE_TOP = isMobile ? PROJECT_ZONE_TOP_MOBILE : PROJECT_ZONE_TOP_DESKTOP
+  const BOOKING_BAR_HEIGHT = isMobile ? BOOKING_BAR_HEIGHT_MOBILE : BOOKING_BAR_HEIGHT_DESKTOP
+  const PROJECT_BAR_HEIGHT = isMobile ? PROJECT_BAR_HEIGHT_MOBILE : PROJECT_BAR_HEIGHT_DESKTOP
+  const cellMinHeight = isMobile ? 60 : 160
+
   const [popover, setPopover] = useState<{ dateStr: string; x: number; y: number } | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const { headerRef, isStuck } = useStickyHeader(scrollContainer)
@@ -225,8 +239,8 @@ export default function MonthGridView({
     <div className="relative select-none">
       {/* Weekday Header */}
       <div ref={headerRef} className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/80">
-        {WEEKDAYS.map(day => (
-          <div key={day} className="text-center py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+        {WEEKDAYS.map((day, i) => (
+          <div key={i} className={`text-center ${isMobile ? 'py-1.5 text-[9px]' : 'py-2 text-[11px]'} font-medium text-gray-500 uppercase tracking-wider`}>
             {day}
           </div>
         ))}
@@ -235,8 +249,8 @@ export default function MonthGridView({
       {/* Sticky weekday header portal */}
       {isStuck && stickyPortal?.current && createPortal(
         <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/95 backdrop-blur-sm shadow-sm">
-          {WEEKDAYS.map(day => (
-            <div key={day} className="text-center py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+          {WEEKDAYS.map((day, i) => (
+            <div key={i} className={`text-center ${isMobile ? 'py-1.5 text-[9px]' : 'py-2 text-[11px]'} font-medium text-gray-500 uppercase tracking-wider`}>
               {day}
             </div>
           ))}
@@ -249,16 +263,16 @@ export default function MonthGridView({
         const weekBookingItems = bookingsByWeek[weekIdx] || []
 
         return (
-          <div key={weekIdx} className="relative grid grid-cols-7 border-b border-gray-300" style={{ minHeight: 160 }}>
+          <div key={weekIdx} className="relative grid grid-cols-7 border-b border-gray-300" style={{ minHeight: cellMinHeight }}>
             {/* Booking bars — absolute positioned spanning across cells using BookingBar component */}
             <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
-              {weekBookingItems.slice(0, MAX_EVENTS_PER_CELL).map((gb, laneIdx) => {
+              {weekBookingItems.slice(0, maxEventsPerCell).map((gb, laneIdx) => {
                 const leftPct = (gb.startCol / 7) * 100
                 const fullWidthPct = (gb.spanCols / 7) * 100
-                // Reduce width for partial checkout day
                 const reductionPct = gb.isClippedRight ? 0 : ((1 - gb.checkoutFraction) / 7) * 100
                 const widthPct = fullWidthPct - reductionPct
                 const isBookingActivated = activatedItem?.type === 'booking' && activatedItem.id === gb.booking.id
+                const laneHeight = isMobile ? 18 : 26
 
                 return (
                   <div
@@ -267,7 +281,7 @@ export default function MonthGridView({
                     style={{
                       left: `calc(${leftPct}% + 2px)`,
                       width: `calc(${widthPct}% - 4px)`,
-                      top: 24 + laneIdx * 26,
+                      top: (isMobile ? 20 : 24) + laneIdx * laneHeight,
                       height: BOOKING_BAR_HEIGHT,
                     }}
                     onClick={() => onBookingClick(gb.booking)}
@@ -277,6 +291,7 @@ export default function MonthGridView({
                       isClippedLeft={gb.isClippedLeft}
                       isClippedRight={gb.isClippedRight}
                       isActivated={isBookingActivated}
+                      compact={isMobile}
                     />
                   </div>
                 )
@@ -298,10 +313,10 @@ export default function MonthGridView({
                 gb => colIdx >= gb.startCol && colIdx < gb.startCol + gb.spanCols
               )
 
-              const totalEvents = Math.min(bookingsInCell.length, MAX_EVENTS_PER_CELL) + dayProjects.length
+              const totalEvents = Math.min(bookingsInCell.length, maxEventsPerCell) + dayProjects.length
               const overflow = dayProjects.length > 3
 
-              const visibleProjectCount = 3
+              const visibleProjectCount = isMobile ? 2 : 3
 
               return (
                 <div
@@ -311,13 +326,13 @@ export default function MonthGridView({
                 >
                   {/* Day number */}
                   <div
-                    className={`text-right px-1.5 pt-1 cursor-pointer hover:underline ${today ? 'font-bold text-blue-600' : 'text-gray-500'}`}
+                    className={`text-right px-1 sm:px-1.5 pt-0.5 sm:pt-1 cursor-pointer hover:underline ${today ? 'font-bold text-blue-600' : 'text-gray-500'}`}
                     onClick={(e) => {
                       e.stopPropagation()
                       onDayClick(dateStr)
                     }}
                   >
-                    <span className={`text-xs inline-flex items-center justify-center ${today ? 'bg-blue-600 text-white rounded-full w-5 h-5' : ''}`}>
+                    <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} inline-flex items-center justify-center ${today ? 'bg-blue-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5' : ''}`}>
                       {date.getDate()}
                     </span>
                   </div>
@@ -371,8 +386,8 @@ export default function MonthGridView({
                         setPopover({ dateStr, x: rect.left, y: rect.bottom + 4 })
                       }}
                     >
-                      <span className="text-[10px] text-blue-600 font-medium">
-                        +{totalEvents - MAX_EVENTS_PER_CELL} more
+                      <span className={`${isMobile ? 'text-[9px]' : 'text-[10px]'} text-blue-600 font-medium`}>
+                        +{totalEvents - maxEventsPerCell} more
                       </span>
                     </div>
                   )}
@@ -389,9 +404,9 @@ export default function MonthGridView({
           ref={popoverRef}
           className="fixed bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50 max-h-64 overflow-y-auto"
           style={{
-            left: Math.min(popover.x, window.innerWidth - 280),
+            left: Math.min(popover.x, window.innerWidth - (isMobile ? 220 : 280)),
             top: popover.y,
-            width: 260,
+            width: Math.min(260, window.innerWidth - 32),
           }}
         >
           <div className="text-xs font-semibold text-gray-700 mb-1.5 px-1">

@@ -299,6 +299,10 @@ export default function ChecklistModal({
         progress={progress}
         onClose={onClose}
         completing={completing}
+        projectDate={project.projectDate}
+        projectStartTime={project.projectStartTime}
+        projectEndTime={project.projectEndTime}
+        status={project.status}
       />
       <ChecklistTabs
         activeTab={activeTab}

@@ -93,8 +93,8 @@ export default function CleanerPropertiesPage() {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Properties</h1>
-          <p className="text-gray-500 mt-1">Properties assigned to you for cleaning</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Properties</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Properties assigned to you for cleaning</p>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -124,25 +124,25 @@ export default function CleanerPropertiesPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Properties</h1>
-        <p className="text-gray-500 mt-1">Properties assigned to you for cleaning</p>
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Properties</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Properties assigned to you for cleaning</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-              <BuildingOfficeIcon className="h-6 w-6 text-purple-600" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <BuildingOfficeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Properties</p>
-              <p className="text-2xl font-bold text-gray-900">{totalProperties}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Properties</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalProperties}</p>
             </div>
           </div>
         </motion.div>
@@ -151,15 +151,15 @@ export default function CleanerPropertiesPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-              <StarIconSolid className="h-6 w-6 text-amber-500" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+              <StarIconSolid className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Primary Cleaner</p>
-              <p className="text-2xl font-bold text-gray-900">{primaryProperties}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Primary Cleaner</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{primaryProperties}</p>
             </div>
           </div>
         </motion.div>
@@ -171,7 +171,7 @@ export default function CleanerPropertiesPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="mb-6"
+          className="mb-5 sm:mb-6"
         >
           <div className="relative max-w-md">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -181,7 +181,7 @@ export default function CleanerPropertiesPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full pl-11 pr-4 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="Search properties..."
             />
           </div>
@@ -190,7 +190,7 @@ export default function CleanerPropertiesPage() {
 
       {/* Properties Grid */}
       {sortedProperties.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {sortedProperties.map((property, index) => (
             <PropertyCard
               key={property.id}
@@ -204,7 +204,7 @@ export default function CleanerPropertiesPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center"
         >
           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <MagnifyingGlassIcon className="w-8 h-8 text-gray-400" />
@@ -217,7 +217,7 @@ export default function CleanerPropertiesPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center"
         >
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BuildingOfficeIcon className="w-8 h-8 text-purple-600" />
@@ -285,9 +285,7 @@ function PropertyCard({
             inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold
             ${property.isDefault
               ? 'bg-amber-100 text-amber-700'
-              : property.priority === 1
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-600'
+              : 'bg-gray-100 text-gray-600'
             }
           `}>
             {property.isDefault ? (
@@ -298,7 +296,7 @@ function PropertyCard({
             ) : (
               <>
                 <StarIcon className="w-3.5 h-3.5" />
-                Backup #{property.priority}
+                Backup Cleaner
               </>
             )}
           </span>
@@ -308,7 +306,7 @@ function PropertyCard({
         <p className="text-xs text-gray-400 mt-3">
           {property.isDefault
             ? 'You are the primary cleaner for this property'
-            : `You are backup cleaner #${property.priority} for this property`
+            : 'You are a backup cleaner for this property'
           }
         </p>
       </div>

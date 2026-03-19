@@ -35,19 +35,25 @@ export default function RoomSection({
   sectionRef,
 }: RoomSectionProps) {
   const completedCount = items.filter(i => i.isCompleted).length
+  const allComplete = completedCount === items.length
 
   return (
-    <div ref={sectionRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div
+      ref={sectionRef}
+      className={`bg-white rounded-xl border overflow-hidden transition-colors ${
+        allComplete ? 'border-green-200 bg-green-50/30' : 'border-gray-200'
+      }`}
+    >
       {/* Room Header */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <h3 className="font-semibold text-gray-900">{roomName}</h3>
           <span className={`
             text-xs font-medium px-2 py-0.5 rounded-full
-            ${completedCount === items.length ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}
+            ${allComplete ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}
           `}>
             {completedCount}/{items.length}
           </span>

@@ -2,13 +2,33 @@
 
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
-import type { ChecklistProgress } from '@/services/types/cleaningProject'
+import type { ChecklistProgress, CleaningProjectStatus } from '@/services/types/cleaningProject'
+import { formatTime } from '@/services/cleaningProjectService'
 
 interface ChecklistHeaderProps {
   propertyName?: string
   progress: ChecklistProgress | null
   onClose: () => void
   completing: boolean
+  projectDate?: string
+  projectStartTime?: string | null
+  projectEndTime?: string | null
+  status?: CleaningProjectStatus
+}
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  pending: { label: 'Pending', className: 'bg-gray-400/20 text-gray-200' },
+  assigned: { label: 'Awaiting', className: 'bg-amber-400/20 text-amber-200' },
+  confirmed: { label: 'Confirmed', className: 'bg-blue-400/20 text-blue-200' },
+  in_progress: { label: 'In Progress', className: 'bg-emerald-400/20 text-emerald-200' },
+  completed: { label: 'Completed', className: 'bg-green-400/20 text-green-200' },
+  cancelled: { label: 'Cancelled', className: 'bg-red-400/20 text-red-200' },
+}
+
+function formatHeaderDate(dateStr?: string) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 export default function ChecklistHeader({
@@ -16,33 +36,59 @@ export default function ChecklistHeader({
   progress,
   onClose,
   completing,
+  projectDate,
+  projectStartTime,
+  projectEndTime,
+  status,
 }: ChecklistHeaderProps) {
   const completionPct = progress?.completionPercentage ?? 0
+  const statusInfo = status ? statusConfig[status] : null
+
+  const dateStr = formatHeaderDate(projectDate)
+  const timeStr = [
+    projectStartTime ? formatTime(projectStartTime) : '',
+    projectEndTime ? formatTime(projectEndTime) : '',
+  ].filter(Boolean).join(' - ')
+  const dateTimeStr = [dateStr, timeStr].filter(Boolean).join('  ·  ')
 
   return (
     <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-      <div className="flex items-center h-12 sm:h-13 px-3 sm:px-4">
-        {/* Back button */}
-        {!completing && (
-          <button
-            onClick={onClose}
-            className="p-1.5 -ml-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
+      <div className="px-3 sm:px-4 pt-2.5 pb-2">
+        {/* Line 1: Back arrow + property name */}
+        <div className="flex items-start gap-2">
+          {!completing && (
+            <button
+              onClick={onClose}
+              className="p-1.5 -ml-1 mt-0.5 hover:bg-white/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+          )}
+          <h2 className="flex-1 text-sm font-semibold text-white line-clamp-2 leading-snug">
+            {propertyName || 'Checklist'}
+          </h2>
+        </div>
+
+        {/* Line 2: Date + time range */}
+        {dateTimeStr && (
+          <p className="text-xs text-purple-200 mt-1 ml-8">
+            {dateTimeStr}
+          </p>
         )}
 
-        {/* Property name */}
-        <h2 className="flex-1 text-sm font-semibold text-white truncate mx-3">
-          {propertyName || 'Checklist'}
-        </h2>
-
-        {/* Completion count */}
-        {progress && (
-          <span className="text-sm font-medium text-purple-100 flex-shrink-0">
-            {progress.completedItems}/{progress.totalItems}
-          </span>
-        )}
+        {/* Line 3: Status pill + progress count */}
+        <div className="flex items-center gap-2 mt-1.5 ml-8">
+          {statusInfo && (
+            <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusInfo.className}`}>
+              {statusInfo.label}
+            </span>
+          )}
+          {progress && (
+            <span className="text-xs font-medium text-purple-200">
+              {progress.completedItems}/{progress.totalItems}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Progress bar */}

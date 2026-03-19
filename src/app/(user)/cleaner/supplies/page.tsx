@@ -139,15 +139,15 @@ export default function CleanerSuppliesPage() {
   if (supplyLists.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">My Supplies</h1>
-          <p className="text-gray-500 mt-1">Your supply requests</p>
+        <div className="mb-5 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Supplies</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Your supply requests</p>
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center"
         >
           <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto">
             <ShoppingCartIcon className="w-8 h-8 text-amber-600" />
@@ -164,13 +164,13 @@ export default function CleanerSuppliesPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Supplies</h1>
-        <p className="text-gray-500 mt-1">Track your supply requests</p>
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Supplies</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Track your supply requests</p>
       </div>
 
       {/* Filter Pills */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto">
+      <div className="flex items-center gap-2 mb-5 sm:mb-6 overflow-x-auto pb-1 -mx-1 px-1">
         {([
           { key: 'all' as const, label: 'All', count: supplyLists.length, color: 'gray' },
           { key: 'pending' as const, label: 'Pending', count: pendingCount, color: 'amber' },
@@ -188,7 +188,7 @@ export default function CleanerSuppliesPage() {
             <button
               key={key}
               onClick={() => setStatusFilter(key)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 sm:px-3 sm:py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap cursor-pointer active:scale-95 ${
                 isActive
                   ? activeStyles[color]
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'

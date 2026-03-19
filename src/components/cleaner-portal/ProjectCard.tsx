@@ -112,13 +112,13 @@ export default function ProjectCard({
             {/* Property Name */}
             <div className="flex items-center gap-2">
               <HomeModernIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />
-              <h3 className="font-semibold text-gray-900 truncate">
+              <h3 className="font-semibold text-gray-900 line-clamp-2">
                 {project.propertyName || 'Unknown Property'}
               </h3>
             </div>
             {/* Address */}
             {project.propertyAddress && (
-              <p className="text-sm text-gray-500 mt-1 ml-7 truncate">
+              <p className="text-sm text-gray-500 mt-1 ml-7 line-clamp-2">
                 {project.propertyAddress}
               </p>
             )}
@@ -134,74 +134,66 @@ export default function ProjectCard({
           </span>
         </div>
 
-        {/* Time and Details Row */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-sm text-gray-600">
-          {/* Date */}
+        {/* Date & Time */}
+        <div className="mt-2 text-sm text-gray-600">
           <div className="flex items-center gap-1.5">
-            <ClockIcon className="w-4 h-4 text-gray-400" />
+            <ClockIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <span>{formatDate(project.projectDate)}</span>
           </div>
-
-          {/* Time Window */}
           {(project.projectStartTime || project.projectEndTime) && (
-            <div className="flex items-center gap-1 text-gray-500">
+            <div className="ml-[22px] text-gray-500">
               <span>{formatTime(project.projectStartTime)}</span>
-              {project.projectStartTime && project.projectEndTime && <span>-</span>}
+              {project.projectStartTime && project.projectEndTime && <span> -</span>}
+              {project.projectEndTime && <br />}
               <span>{formatTime(project.projectEndTime)}</span>
             </div>
           )}
-
-          {/* Guest Count */}
           {project.guestCount && project.guestCount > 0 && (
-            <div className="flex items-center gap-1.5">
-              <UserGroupIcon className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-1.5 mt-1">
+              <UserGroupIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <span>{project.guestCount} guests</span>
             </div>
           )}
-
-          {/* Overdue Duration */}
-          {overdue && overdueLabel && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
-              <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-              {overdueLabel}
-            </span>
-          )}
-
-          {/* Same Day Turnover */}
-          {project.isSameDayTurnover && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
-              <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-              Same Day
-            </span>
-          )}
-
-          {/* Open Issues */}
-          {openIssueCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
-              <FlagIcon className="w-3.5 h-3.5" />
-              {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
-            </span>
-          )}
-
-          {/* Pending Supply Lists */}
-          {pendingSupplyListCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded">
-              <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
-              {pendingSupplyListCount} supply
-            </span>
-          )}
-
-          {/* Time Change Pending */}
-          {hasPendingTimeChange && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onViewPendingTimeChange?.(project) }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors cursor-pointer"
-            >
-              <ArrowPathIcon className="w-3.5 h-3.5" />
-              Time Change Pending
-            </button>
-          )}
         </div>
+
+        {/* Badges */}
+        {(overdue || project.isSameDayTurnover || openIssueCount > 0 || pendingSupplyListCount > 0 || hasPendingTimeChange) && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {overdue && overdueLabel && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                {overdueLabel}
+              </span>
+            )}
+            {project.isSameDayTurnover && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                Same Day
+              </span>
+            )}
+            {openIssueCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                <FlagIcon className="w-3.5 h-3.5" />
+                {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {pendingSupplyListCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded">
+                <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
+                {pendingSupplyListCount} supply
+              </span>
+            )}
+            {hasPendingTimeChange && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onViewPendingTimeChange?.(project) }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors cursor-pointer"
+              >
+                <ArrowPathIcon className="w-3.5 h-3.5" />
+                Time Change Pending
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Checklist Progress */}
         {project.checklistProgress && (
@@ -231,31 +223,31 @@ export default function ProjectCard({
 
       {/* Action Buttons */}
       {(showAcceptDecline || showStart || showComplete || showChecklist) && (
-        <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex flex-wrap gap-2">
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:flex-wrap gap-2">
           {/* Accept/Decline for assigned projects */}
           {showAcceptDecline && (
             <>
               <button
                 onClick={(e) => handleAction(e, 'accept', onAccept)}
                 disabled={isLoading !== null}
-                className="flex-1 min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 min-w-[100px] min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isLoading === 'accept' ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <CheckCircleIcon className="w-4 h-4" />
+                  <CheckCircleIcon className="w-5 h-5" />
                 )}
                 Accept
               </button>
               <button
                 onClick={(e) => handleAction(e, 'decline', onDecline)}
                 disabled={isLoading !== null}
-                className="flex-1 min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 min-w-[100px] min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isLoading === 'decline' ? (
                   <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
                 ) : (
-                  <XMarkIcon className="w-4 h-4" />
+                  <XMarkIcon className="w-5 h-5" />
                 )}
                 Decline
               </button>
@@ -267,12 +259,12 @@ export default function ProjectCard({
             <button
               onClick={(e) => handleAction(e, 'start', onStart)}
               disabled={isLoading !== null}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isLoading === 'start' ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <PlayCircleIcon className="w-4 h-4" />
+                <PlayCircleIcon className="w-5 h-5" />
               )}
               Start Cleaning
             </button>
@@ -282,9 +274,9 @@ export default function ProjectCard({
           {showChecklist && onViewChecklist && (
             <button
               onClick={(e) => { e.stopPropagation(); onViewChecklist(project) }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 rounded-xl transition-colors cursor-pointer"
             >
-              <ClipboardDocumentCheckIcon className="w-4 h-4" />
+              <ClipboardDocumentCheckIcon className="w-5 h-5" />
               View Checklist
             </button>
           )}
@@ -294,9 +286,9 @@ export default function ProjectCard({
             (project.status === 'assigned' || project.status === 'confirmed' || project.status === 'in_progress') && (
             <button
               onClick={(e) => { e.stopPropagation(); onRequestTimeChange(project) }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 rounded-xl transition-colors cursor-pointer"
             >
-              <ArrowPathIcon className="w-4 h-4" />
+              <ArrowPathIcon className="w-5 h-5" />
               Request Time Change
             </button>
           )}
@@ -305,9 +297,9 @@ export default function ProjectCard({
           {openIssueCount > 0 && onViewIssues && (
             <button
               onClick={(e) => { e.stopPropagation(); onViewIssues(project) }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-xl transition-colors cursor-pointer"
             >
-              <FlagIcon className="w-4 h-4" />
+              <FlagIcon className="w-5 h-5" />
               View Issues ({openIssueCount})
             </button>
           )}
@@ -317,12 +309,12 @@ export default function ProjectCard({
             <button
               onClick={(e) => handleAction(e, 'complete', onComplete)}
               disabled={isLoading !== null}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isLoading === 'complete' ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <CheckCircleIcon className="w-4 h-4" />
+                <CheckCircleIcon className="w-5 h-5" />
               )}
               Mark Complete
             </button>

@@ -107,10 +107,11 @@ export default function BottomActionBar({
           {/* Issue button */}
           <button
             onClick={issueCount > 0 ? onViewIssues : onReportIssue}
-            className="relative flex items-center justify-center w-12 h-12 sm:w-10 sm:h-10 text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
+            className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
             title={issueCount > 0 ? `View ${issueCount} issues` : 'Report issue'}
           >
             <FlagIcon className="w-5 h-5" />
+            <span className="text-[9px] sm:hidden">Issues</span>
             {issueCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-amber-600 rounded-full">
                 {issueCount}
@@ -141,10 +142,11 @@ export default function BottomActionBar({
           {/* Supply list button */}
           <button
             onClick={supplyListCount > 0 ? onViewSupplyLists : onSubmitSupplyList}
-            className="relative flex items-center justify-center w-12 h-12 sm:w-10 sm:h-10 text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
+            className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
             title={supplyListCount > 0 ? `View ${supplyListCount} supply lists` : 'Request supplies'}
           >
             <ClipboardDocumentListIcon className="w-5 h-5" />
+            <span className="text-[9px] sm:hidden">Supplies</span>
             {supplyListCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-teal-600 rounded-full">
                 {supplyListCount}

@@ -27,9 +27,12 @@ const DAY_SLOT_WIDTH = 110
 const BUFFER_DAYS = 3
 const SUB_ROW_GAP = 2
 const STACK_GAP = 2
-const BAR_HEIGHT = 80
-const BOOKING_BAR_HEIGHT = 36
-const NOTCH_PX = 10
+const BAR_HEIGHT_DESKTOP = 80
+const BAR_HEIGHT_MOBILE = 96
+const BOOKING_BAR_HEIGHT_DESKTOP = 36
+const BOOKING_BAR_HEIGHT_MOBILE = 44
+const NOTCH_PX_DESKTOP = 10
+const NOTCH_PX_MOBILE = 5
 const ROW_PADDING = 5
 
 interface PropertyRowViewProps {
@@ -89,6 +92,10 @@ export default function PropertyRowView({
 }: PropertyRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
+
+  const BAR_HEIGHT = isMobile ? BAR_HEIGHT_MOBILE : BAR_HEIGHT_DESKTOP
+  const BOOKING_BAR_HEIGHT = isMobile ? BOOKING_BAR_HEIGHT_MOBILE : BOOKING_BAR_HEIGHT_DESKTOP
+  const NOTCH_PX = isMobile ? NOTCH_PX_MOBILE : NOTCH_PX_DESKTOP
 
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -264,11 +271,11 @@ export default function PropertyRowView({
         >
           <div className="flex flex-col items-center">
             {!isMonthView && (
-              <span className={`text-[10px] font-medium uppercase ${today ? 'text-blue-500' : header.isWeekend ? 'text-gray-300' : 'text-gray-400'}`}>
-                {header.weekday}
+              <span className={`${isMobile ? 'text-[8px]' : 'text-[10px]'} font-medium uppercase ${today ? 'text-blue-500' : header.isWeekend ? 'text-gray-300' : 'text-gray-400'}`}>
+                {isMobile ? header.weekday.charAt(0) : header.weekday}
               </span>
             )}
-            <span className={`${isMonthView ? 'text-[10px]' : 'text-xs'} font-semibold ${today ? 'text-blue-600' : 'text-gray-600'}`}>
+            <span className={`${isMonthView ? 'text-[10px]' : isMobile ? 'text-[10px]' : 'text-xs'} font-semibold ${today ? 'text-blue-600' : 'text-gray-600'}`}>
               {header.day}
             </span>
           </div>
@@ -399,11 +406,11 @@ export default function PropertyRowView({
                 {isMobile ? (
                   <div className="flex items-center justify-center overflow-hidden" style={{ height: rowHeight }}>
                     <span
-                      className="text-[11px] font-semibold text-gray-600 whitespace-nowrap leading-none select-none"
+                      className="text-[9px] font-semibold text-gray-600 whitespace-nowrap leading-none select-none"
                       style={{
                         writingMode: 'vertical-rl',
                         textOrientation: 'mixed',
-                        maxHeight: rowHeight - 8,
+                        maxHeight: rowHeight - 4,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                       }}
@@ -517,6 +524,7 @@ export default function PropertyRowView({
                           isClippedLeft={pb.startColIndex < bufferCols}
                           isClippedRight={pb.endColIndex > allDates.length - bufferCols}
                           isActivated={isBookingActivated}
+                          compact={isMobile}
                         />
                     )
 
@@ -584,6 +592,7 @@ export default function PropertyRowView({
                           zoomLevel={zoomLevel}
                           isExpanded={isExp}
                           isActivated={isProjectActivated}
+                          compact={isMobile}
                         />
                     )
 

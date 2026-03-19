@@ -223,9 +223,9 @@ export default function CleanerSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 mt-1">Manage your account preferences</p>
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Manage your account preferences</p>
       </div>
 
       {/* Settings Sections */}
@@ -237,22 +237,22 @@ export default function CleanerSettingsPage() {
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
         >
-          <div className="px-6 py-5 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-                  <UserIcon className="h-6 w-6 text-white" />
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25 flex-shrink-0">
+                  <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Profile Settings</h3>
-                  <p className="text-sm text-gray-500">Update your personal information</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Profile Settings</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Update your personal information</p>
                 </div>
               </div>
               <motion.button
                 onClick={() => setShowProfileEdit(!showProfileEdit)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+                className="inline-flex items-center min-h-[44px] px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors cursor-pointer flex-shrink-0"
               >
                 <PencilIcon className="h-4 w-4 mr-2" />
                 {showProfileEdit ? 'Cancel' : 'Edit'}
@@ -260,10 +260,10 @@ export default function CleanerSettingsPage() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {!showProfileEdit ? (
               // View Mode
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                     Name
@@ -374,29 +374,29 @@ export default function CleanerSettingsPage() {
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
         >
-          <div className="px-6 py-5 border-b border-gray-100">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <BellIcon className="h-6 w-6 text-white" />
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
+                <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
-                <p className="text-sm text-gray-500">Choose how you want to receive notifications for task assignments and updates</p>
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Notifications</h3>
+                <p className="text-xs sm:text-sm text-gray-500">How you receive task and schedule alerts</p>
               </div>
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <div className="space-y-4">
               {/* Email Notifications Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <div className="flex items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <EnvelopeIcon className="h-5 w-5 text-blue-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
-                    <p className="text-sm text-gray-500">Receive email alerts for new task assignments, schedule changes, and issue updates</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Receive email alerts for task assignments and updates</p>
                   </div>
                 </div>
                 <button
@@ -405,31 +405,31 @@ export default function CleanerSettingsPage() {
                   aria-checked={profile?.emailNotificationsEnabled ?? true}
                   disabled={savingField === 'emailNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 mt-0.5 sm:mt-0 ${
                     (profile?.emailNotificationsEnabled ?? true) ? 'bg-purple-600' : 'bg-gray-200'
                   } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    className={`pointer-events-none inline-block h-6 w-6 sm:h-5 sm:w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5 sm:translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
               {/* SMS Notifications Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+              <div className="flex items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-sm font-semibold text-gray-900">SMS Notifications</h4>
-                    <p className="text-sm text-gray-500">
-                      Receive text message alerts for new task assignments, schedule changes, and urgent updates
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                      Text alerts for task assignments and urgent updates
                       {!(cleaner?.phone || profile?.phoneNumber) && (
                         <span className="block text-amber-600 text-xs mt-1">
-                          Add a phone number in your profile to enable SMS notifications
+                          Add a phone number to enable SMS
                         </span>
                       )}
                     </p>
@@ -441,13 +441,13 @@ export default function CleanerSettingsPage() {
                   aria-checked={profile?.smsNotificationsEnabled ?? true}
                   disabled={savingField === 'smsNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                  className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 mt-0.5 sm:mt-0 ${
                     (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
                   } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    className={`pointer-events-none inline-block h-6 w-6 sm:h-5 sm:w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5 sm:translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -471,22 +471,22 @@ export default function CleanerSettingsPage() {
             transition={{ delay: 0.3 }}
             className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
           >
-            <div className="px-6 py-5 border-b border-gray-100">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/25">
-                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/25 flex-shrink-0">
+                  <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Work Information</h3>
-                  <p className="text-sm text-gray-500">Your work details (managed by your property manager)</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Work Information</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">Managed by your property manager</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                     Hourly Rate

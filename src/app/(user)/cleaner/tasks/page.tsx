@@ -404,15 +404,15 @@ export default function CleanerTasksPage() {
   if (activeCount === 0 && groupedProjects.completed.length === 0) {
     return (
       <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-          <p className="text-gray-500 mt-1">Your assigned cleaning projects</p>
+        <div className="mb-5 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Tasks</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Your assigned cleaning projects</p>
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12 text-center"
         >
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
             <ClipboardDocumentListIcon className="w-8 h-8 text-purple-600" />
@@ -439,9 +439,9 @@ export default function CleanerTasksPage() {
       </Suspense>
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-        <p className="text-gray-500 mt-1">
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Tasks</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">
           {activeCount > 0
             ? `You have ${activeCount} active task${activeCount !== 1 ? 's' : ''}`
             : 'All caught up!'
@@ -450,7 +450,7 @@ export default function CleanerTasksPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
         <StatCard
           icon={ClockIcon}
           label="Today"
@@ -660,14 +660,14 @@ function StatCard({ icon: Icon, label, value, color, highlight }: StatCardProps)
 
   return (
     <div className={`
-      rounded-xl border p-3 ${colorClasses[color]}
+      rounded-xl border p-3 sm:p-3 ${colorClasses[color]}
       ${highlight ? 'ring-2 ring-purple-300 ring-offset-1' : ''}
     `}>
-      <div className="flex items-center gap-2">
-        <Icon className="w-5 h-5 opacity-70" />
-        <span className="text-xs font-medium opacity-70">{label}</span>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5 opacity-70" />
+        <span className="text-[11px] sm:text-xs font-medium opacity-70">{label}</span>
       </div>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+      <p className="text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">{value}</p>
     </div>
   )
 }

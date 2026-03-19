@@ -185,16 +185,16 @@ export default function CleanerDashboardPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
+        <div className="mb-5 sm:mb-8">
           <div className="h-8 w-64 bg-gray-200 rounded-lg animate-pulse" />
           <div className="h-5 w-96 bg-gray-100 rounded-lg animate-pulse mt-2" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-5 sm:mb-8">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 h-24 animate-pulse" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-64 animate-pulse" />
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-64 animate-pulse" />
         </div>
@@ -207,8 +207,8 @@ export default function CleanerDashboardPage() {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome, {firstName}!</h1>
-          <p className="mt-1 text-gray-600">Here&apos;s an overview of your cleaning assignments and tasks.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome, {firstName}!</h1>
+          <p className="mt-1 text-sm sm:text-base text-gray-600">Here&apos;s an overview of your cleaning assignments and tasks.</p>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -238,17 +238,17 @@ export default function CleanerDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Welcome Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
           Welcome, {firstName}!
         </h1>
-        <p className="mt-1 text-gray-600">
+        <p className="mt-0.5 sm:mt-1 text-sm sm:text-base text-gray-600">
           Here&apos;s an overview of your cleaning assignments and tasks.
         </p>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-5 sm:mb-8">
         <StatCard
           icon={HomeIcon}
           label="Assigned Properties"
@@ -279,7 +279,7 @@ export default function CleanerDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Today's Tasks */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -287,7 +287,7 @@ export default function CleanerDashboardPage() {
           transition={{ delay: 0.2 }}
           className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Tasks</h2>
             {todaysTasks.length > 0 && (
               <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg">
@@ -313,10 +313,10 @@ export default function CleanerDashboardPage() {
           )}
 
           {todaysTasks.length > 0 && (
-            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 border-t border-gray-100 bg-gray-50">
               <Link
                 href="/cleaner/tasks"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
                 View all tasks
                 <ArrowRightIcon className="w-4 h-4" />
@@ -332,7 +332,7 @@ export default function CleanerDashboardPage() {
           transition={{ delay: 0.3 }}
           className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Upcoming Schedule</h2>
             {upcomingSchedule.length > 0 && (
               <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg">
@@ -358,10 +358,10 @@ export default function CleanerDashboardPage() {
           )}
 
           {upcomingSchedule.length > 0 && (
-            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 border-t border-gray-100 bg-gray-50">
               <Link
                 href="/cleaner/schedule"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
                 View full schedule
                 <ArrowRightIcon className="w-4 h-4" />
@@ -378,7 +378,7 @@ export default function CleanerDashboardPage() {
         transition={{ delay: 0.4 }}
         className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
       >
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">My Assigned Properties</h2>
           {(cleaner?.assignedProperties?.length || 0) > 0 && (
             <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg">
@@ -389,15 +389,15 @@ export default function CleanerDashboardPage() {
 
         {(cleaner?.assignedProperties?.length || 0) > 0 ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4">
               {cleaner?.assignedProperties?.slice(0, 3).map((property, index) => (
                 <PropertyMiniCard key={property.id} property={property} index={index} />
               ))}
             </div>
-            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="px-4 sm:px-6 py-3 border-t border-gray-100 bg-gray-50">
               <Link
                 href="/cleaner/properties"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
                 View all properties
                 <ArrowRightIcon className="w-4 h-4" />
@@ -436,13 +436,13 @@ function StatCard({ icon: Icon, label, value, color, href }: StatCardProps) {
   }
 
   const content = (
-    <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
-        <Icon className="w-6 h-6" />
+    <div className="flex items-center gap-3 sm:gap-4">
+      <div className={`p-2.5 sm:p-3 rounded-xl ${colorClasses[color]}`}>
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
       </div>
       <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-xs sm:text-sm text-gray-500">{label}</p>
       </div>
     </div>
   )
@@ -491,7 +491,7 @@ function TaskRow({ task, index }: { task: CleaningProject; index: number }) {
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 + index * 0.05 }}
-        className="px-6 py-4 hover:bg-purple-50/50 transition-colors cursor-pointer"
+        className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-purple-50/50 transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -536,7 +536,7 @@ function ScheduleRow({
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 + index * 0.05 }}
-        className="px-6 py-4 hover:bg-blue-50/50 transition-colors cursor-pointer"
+        className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-blue-50/50 transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">

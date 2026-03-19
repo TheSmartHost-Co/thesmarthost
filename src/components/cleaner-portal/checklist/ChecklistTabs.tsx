@@ -31,16 +31,20 @@ export default function ChecklistTabs({
       </button>
       <button
         onClick={() => onTabChange('info')}
-        className={`flex-1 text-sm font-medium transition-colors cursor-pointer relative ${
+        className={`flex-1 text-sm font-medium transition-colors cursor-pointer ${
           activeTab === 'info'
             ? 'text-purple-700 border-b-2 border-purple-600 font-semibold'
             : 'text-gray-400 hover:text-gray-600'
         }`}
       >
-        Info
-        {showInfoDot && (
-          <span className="absolute top-2 ml-1 w-1.5 h-1.5 bg-amber-500 rounded-full" />
-        )}
+        <span className="inline-flex items-center gap-1">
+          Info
+          {showInfoDot && (
+            <span className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-amber-500 rounded-full">
+              {issueCount + supplyListCount}
+            </span>
+          )}
+        </span>
       </button>
     </div>
   )

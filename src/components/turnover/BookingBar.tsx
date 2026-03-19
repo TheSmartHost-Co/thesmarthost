@@ -6,13 +6,12 @@ import type { Booking } from '@/services/types/booking'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 
-const NOTCH = 10
-
 interface BookingBarProps {
   booking: Booking
   isClippedLeft?: boolean
   isClippedRight?: boolean
   isActivated?: boolean
+  compact?: boolean
 }
 
 function formatTime(timeStr: string): string {
@@ -56,7 +55,8 @@ function getPlatformStyle(platform: string): { bg: string; text: string; border:
   }
 }
 
-export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false }: BookingBarProps) {
+export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false, compact = false }: BookingBarProps) {
+  const NOTCH = compact ? 5 : 10
   const style = getPlatformStyle(booking.platform)
   const checkoutTime = booking.defaultCheckoutTime || '11:00'
   const checkinTime = booking.defaultCheckinTime || '15:00'
@@ -134,29 +134,49 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, isA
           </div>
         )}
         <div
-          className="absolute inset-0 flex items-center overflow-hidden"
+          className={`absolute inset-0 overflow-hidden ${compact ? 'flex flex-col justify-center' : 'flex items-center'}`}
           style={{
             paddingLeft: isClippedLeft ? 4 : NOTCH + 4,
             paddingRight: isClippedRight ? 4 : NOTCH + 4,
           }}
         >
-          <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
-            <span className="text-[12px] font-semibold truncate" style={{ color: style.text }}>
-              {!isReservedName(booking.guestName) && booking.guestName}
-            </span>
-            <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.7 }}>
-              &middot; {style.label}
-            </span>
-            <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
-              &middot; {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'}
-            </span>
-            <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
-              &middot; {formatShortTime(checkinTime)}&rarr;{formatShortTime(checkoutTime)}
-            </span>
-            <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
-              &middot; {nightsLabel}
-            </span>
-          </div>
+          {compact ? (
+            <>
+              {/* Line 1: guest name + platform */}
+              <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
+                <span className="text-[11px] font-semibold truncate" style={{ color: style.text }}>
+                  {!isReservedName(booking.guestName) && booking.guestName}
+                </span>
+                <span className="text-[10px] flex-shrink-0 opacity-70" style={{ color: style.text }}>
+                  &middot; {style.label}
+                </span>
+              </div>
+              {/* Line 2: dates + nights */}
+              <div className="whitespace-nowrap overflow-hidden min-w-0">
+                <span className="text-[10px]" style={{ color: style.text, opacity: 0.6 }}>
+                  {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {nightsLabel}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
+              <span className="text-[12px] font-semibold truncate" style={{ color: style.text }}>
+                {!isReservedName(booking.guestName) && booking.guestName}
+              </span>
+              <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.7 }}>
+                &middot; {style.label}
+              </span>
+              <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
+                &middot; {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'}
+              </span>
+              <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
+                &middot; {formatShortTime(checkinTime)}&rarr;{formatShortTime(checkoutTime)}
+              </span>
+              <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
+                &middot; {nightsLabel}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

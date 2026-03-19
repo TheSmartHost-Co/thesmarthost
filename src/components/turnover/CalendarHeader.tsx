@@ -92,9 +92,11 @@ export default function CalendarHeader({
   const [propertySearch, setPropertySearch] = useState('')
   const [cleanerSearch, setCleanerSearch] = useState('')
   const [showZoomDropdown, setShowZoomDropdown] = useState(false)
+  const [zoomDropdownAlign, setZoomDropdownAlign] = useState<'left' | 'right'>('right')
   const newMenuRef = useRef<HTMLDivElement>(null)
   const filtersRef = useRef<HTMLDivElement>(null)
   const zoomDropdownRef = useRef<HTMLDivElement>(null)
+  const zoomButtonRef = useRef<HTMLButtonElement>(null)
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -318,7 +320,7 @@ export default function CalendarHeader({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="fixed sm:absolute left-2 right-2 sm:left-0 sm:right-auto top-auto sm:top-full mt-1.5 sm:w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
+                  className="fixed sm:absolute left-2 right-2 sm:left-0 sm:right-auto top-auto sm:top-full mt-1.5 sm:w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-[calc(100vh-6rem)] overflow-y-auto"
                 >
                   {/* Sort By */}
                   {onSortChange && (
@@ -330,14 +332,14 @@ export default function CalendarHeader({
                         {sortOptions.map(opt => (
                           <label
                             key={opt.value}
-                            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                            className="flex items-center gap-2 px-2 py-2 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors min-h-[44px] sm:min-h-0"
                           >
                             <input
                               type="radio"
                               name="sort"
                               checked={sortOption === opt.value}
                               onChange={() => onSortChange(opt.value)}
-                              className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
                             />
                             <span className="text-sm text-gray-700">{opt.label}</span>
                           </label>
@@ -376,12 +378,12 @@ export default function CalendarHeader({
                           filteredProperties.map(p => {
                             const isChecked = selectedPropertyIds.includes(p.id)
                             return (
-                              <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                              <label key={p.id} className="flex items-center gap-2 px-3 py-2 sm:py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleToggleProperty(p.id)}
-                                  className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                                  className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
                                 />
                                 <span className="text-sm text-gray-700 truncate">{getPropertyName(p)}</span>
                               </label>
@@ -514,7 +516,14 @@ export default function CalendarHeader({
         {onZoomChange && (
           <div ref={zoomDropdownRef} className="relative">
             <button
-              onClick={() => setShowZoomDropdown(prev => !prev)}
+              ref={zoomButtonRef}
+              onClick={() => {
+                if (zoomButtonRef.current) {
+                  const rect = zoomButtonRef.current.getBoundingClientRect()
+                  setZoomDropdownAlign(rect.left < window.innerWidth * 0.4 ? 'left' : 'right')
+                }
+                setShowZoomDropdown(prev => !prev)
+              }}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-all cursor-pointer"
             >
               <CalendarDaysIcon className="w-3.5 h-3.5 text-gray-500" />
@@ -529,7 +538,7 @@ export default function CalendarHeader({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1.5 w-40 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-80 overflow-y-auto"
+                  className={`absolute ${zoomDropdownAlign === 'left' ? 'left-0' : 'right-0'} top-full mt-1.5 w-40 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-80 overflow-y-auto`}
                 >
                   {zoomItems.map((item) => {
                     const isActive = item.value === 'month'

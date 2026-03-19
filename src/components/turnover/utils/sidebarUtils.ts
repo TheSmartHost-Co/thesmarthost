@@ -1,5 +1,5 @@
 export const SIDEBAR_WIDTH_DESKTOP = 200
-export const SIDEBAR_WIDTH_MOBILE = 36
+export const SIDEBAR_WIDTH_MOBILE = 28
 
 export function getSidebarWidth(isMobile: boolean): number {
   return isMobile ? SIDEBAR_WIDTH_MOBILE : SIDEBAR_WIDTH_DESKTOP
