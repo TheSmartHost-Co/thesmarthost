@@ -279,7 +279,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} closable>
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -458,19 +458,19 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                     onChange={(e) => setNewItemName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && newItemName.trim() && handleAddItem()}
                     placeholder="Add new item..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                   <input
                     type="number"
                     value={newItemQuantity}
                     onChange={(e) => setNewItemQuantity(e.target.value)}
                     min="1"
-                    className="w-16 px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-14 sm:w-16 flex-shrink-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-xl text-sm text-center focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                   <button
                     onClick={handleAddItem}
                     disabled={actionLoading || !newItemName.trim()}
-                    className="px-3 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 disabled:opacity-50 transition-colors"
+                    className="flex-shrink-0 px-3 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 disabled:opacity-50 transition-colors"
                   >
                     <PlusIcon className="w-5 h-5" />
                   </button>

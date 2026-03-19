@@ -191,6 +191,15 @@ export default function PropertyRowView({
     handleScrollFrame(scrollOffsetRef.current)
   }, [dateRange.start, handleScrollFrame, scrollOffsetRef, pendingShiftRef])
 
+  // Measure container width synchronously before first paint to avoid layout flash
+  useLayoutEffect(() => {
+    const el = timelineRef.current
+    if (el && containerWidth === 0) {
+      const w = el.getBoundingClientRect().width
+      if (w > 0) setContainerWidth(w)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const el = timelineRef.current
     if (!el) return
