@@ -73,6 +73,8 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, isA
   const style = getPlatformStyle(booking.platform)
 
   // Display tier: determines how much text to show
+  // Booking bars span multiple columns so they always have enough horizontal space —
+  // no special mobile tier needed; compact (Tier 3) works well.
   const isNarrow = typeof zoomLevel === 'number' && zoomLevel >= 10
   const displayTier = compact
     ? (isNarrow ? 4 : 3)

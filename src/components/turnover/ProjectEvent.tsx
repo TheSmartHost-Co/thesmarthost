@@ -16,6 +16,7 @@ interface ProjectEventProps {
   isExpanded?: boolean
   isActivated?: boolean
   compact?: boolean
+  isMobile?: boolean
   /** @deprecated Use project.nextBookingCheckIn directly */
   nextCheckinDate?: string | null
 }
@@ -82,6 +83,7 @@ export default function ProjectEvent({
   isExpanded = false,
   isActivated = false,
   compact = false,
+  isMobile = false,
   nextCheckinDate = null,
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
@@ -214,6 +216,12 @@ export default function ProjectEvent({
                   Guest: {project.previousBookingGuestName}
                 </div>
               )}
+              {project.pmNotes && (
+                <div className="text-gray-300 mt-0.5 truncate">PM: {truncateText(project.pmNotes, 60)}</div>
+              )}
+              {project.cleanerNotes && (
+                <div className="text-gray-300 mt-0.5 truncate">Cleaner: {truncateText(project.cleanerNotes, 60)}</div>
+              )}
               {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
               {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} supply list{pendingSupplyListCount !== 1 ? 's' : ''}</div>}
               {nextGuestCountdown && <div className="text-blue-400 mt-0.5">{nextGuestCountdown}</div>}
@@ -238,9 +246,9 @@ export default function ProjectEvent({
 
   // Display tier logic
   const isNarrow = typeof zoomLevel === 'number' && zoomLevel >= 10
-  const displayTier = compact
-    ? (isNarrow ? 4 : 3)
-    : (isNarrow ? 2 : 1)
+  const displayTier = isMobile
+    ? 'mobile' as const
+    : compact ? (isNarrow ? 4 : 3) : (isNarrow ? 2 : 1)
 
   // Shared SDT overlay
   const sdtOverlay = project.isSameDayTurnover && (
@@ -254,7 +262,7 @@ export default function ProjectEvent({
   )
 
   // Shared SDT badge (displayed on tiers 1-2 where there's room)
-  const sdtBadge = project.isSameDayTurnover && (displayTier <= 2) && (
+  const sdtBadge = project.isSameDayTurnover && (typeof displayTier === 'number' && displayTier <= 2) && (
     <div className="absolute top-0.5 right-1 px-1 py-px rounded text-[8px] font-bold bg-amber-500 text-white leading-none z-10">
       SDT
     </div>
@@ -425,6 +433,64 @@ export default function ProjectEvent({
             )}
             {scheduledDateFormatted && (
               <span className="text-[9px] mt-0.5" style={{ color: statusStyle.text, opacity: 0.6 }}>{scheduledDateFormatted}</span>
+            )}
+          </div>
+        </div>
+        {tooltipContent}
+      </div>
+    )
+  }
+
+  // Mobile tier — vertical stack for narrow phone columns (~58px wide, 96px tall)
+  if (displayTier === 'mobile') {
+    return (
+      <div
+        className="group relative w-full h-full"
+        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setMousePos(null)}
+      >
+        <div
+          className="absolute inset-0 rounded transition-opacity group-hover:opacity-85 overflow-hidden"
+          style={{
+            backgroundColor: statusStyle.bg,
+            borderLeft: `2px solid ${statusStyle.borderLeft}`,
+            boxShadow: activatedBoxShadow || `inset 0 0 0 1px rgba(0,0,0,0.1)`,
+            transform: isActivated ? 'scale(1.04)' : undefined,
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+          }}
+        >
+          {sdtOverlay}
+          <div
+            className="absolute inset-0 flex flex-col justify-start overflow-hidden px-1 py-1"
+            style={{ lineHeight: 1.2 }}
+          >
+            <span
+              className="text-[10px] font-semibold"
+              style={{ color: statusStyle.text, overflowWrap: 'break-word', wordBreak: 'normal' }}
+            >
+              {displayName}
+            </span>
+            <span
+              className="text-[9px] capitalize mt-0.5"
+              style={{ color: statusStyle.text, opacity: 0.7 }}
+            >
+              {statusLabel}
+            </span>
+            {timeStart && (
+              <span className="text-[9px] mt-0.5" style={{ color: statusStyle.text, opacity: 0.7 }}>
+                {timeStart}
+              </span>
+            )}
+            {timeEnd && (
+              <span className="text-[9px]" style={{ color: statusStyle.text, opacity: 0.7 }}>
+                →{timeEnd}
+              </span>
+            )}
+            {scheduledDateFormatted && (
+              <span className="text-[9px] mt-0.5" style={{ color: statusStyle.text, opacity: 0.6 }}>
+                {scheduledDateFormatted}
+              </span>
             )}
           </div>
         </div>

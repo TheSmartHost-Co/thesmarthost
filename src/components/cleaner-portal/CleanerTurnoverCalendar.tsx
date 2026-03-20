@@ -926,6 +926,10 @@ export default function CleanerTurnoverCalendar() {
           }}
           project={selectedProject}
           onProjectComplete={handleProjectComplete}
+          onProjectUpdated={(updatedProject) => {
+            updateProjectInCache(updatedProject.id, updatedProject)
+            setSelectedProject(updatedProject)
+          }}
           onRequestTimeChange={() => {
             if (selectedProject) handleRequestTimeChange(selectedProject)
           }}

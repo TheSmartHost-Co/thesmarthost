@@ -865,6 +865,17 @@ export default function ProjectDetailModal({
             </div>
           )}
 
+          {/* Cleaner Notes (read-only for PM) */}
+          {project.cleanerNotes && (
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-2 text-teal-600 mb-2">
+                <PencilSquareIcon className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">Cleaner Notes</span>
+              </div>
+              <p className="text-sm text-gray-700 bg-teal-50 rounded-lg p-3 border-l-3 border-teal-400">{project.cleanerNotes}</p>
+            </div>
+          )}
+
           {/* Checklist Section */}
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-3">

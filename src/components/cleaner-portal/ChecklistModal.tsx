@@ -32,6 +32,7 @@ interface ChecklistModalProps {
   onClose: () => void
   project: CleaningProject
   onProjectComplete?: (project: CleaningProject) => void
+  onProjectUpdated?: (project: CleaningProject) => void
   onRequestTimeChange?: () => void
   onAccept?: (projectId: string) => Promise<void>
   onDecline?: (projectId: string) => Promise<void>
@@ -43,6 +44,7 @@ export default function ChecklistModal({
   onClose,
   project,
   onProjectComplete,
+  onProjectUpdated,
   onRequestTimeChange,
   onAccept,
   onDecline,
@@ -51,7 +53,11 @@ export default function ChecklistModal({
   const showNotification = useNotificationStore((state) => state.showNotification)
   const isMobile = useIsMobile()
 
-  const readOnly = project.status !== 'in_progress'
+  // Local copy of project so notes updates reflect immediately
+  const [localProject, setLocalProject] = useState(project)
+  useEffect(() => { setLocalProject(project) }, [project])
+
+  const readOnly = localProject.status !== 'in_progress'
 
   // Tab state: Info first for assigned/confirmed (cleaner en route), Checklist for in_progress/completed
   const [activeTab, setActiveTab] = useState<ChecklistTab>(
@@ -325,8 +331,12 @@ export default function ChecklistModal({
           />
         ) : (
           <InfoContent
-            project={project}
+            project={localProject}
             onRequestTimeChange={onRequestTimeChange}
+            onNotesUpdated={(updatedProject) => {
+              setLocalProject(updatedProject)
+              onProjectUpdated?.(updatedProject)
+            }}
           />
         )}
       </div>

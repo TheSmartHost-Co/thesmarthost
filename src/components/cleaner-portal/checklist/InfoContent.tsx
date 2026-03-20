@@ -13,22 +13,29 @@ import {
   ChatBubbleLeftIcon,
   EyeIcon,
   EyeSlashIcon,
+  PencilSquareIcon,
+  CheckIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { LuBath } from 'react-icons/lu'
 import { IoBedOutline } from 'react-icons/io5'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { CleaningProject } from '@/services/types/cleaningProject'
-import { formatTime } from '@/services/cleaningProjectService'
+import { formatTime, updateProjectNotes } from '@/services/cleaningProjectService'
 import PropertyMapEmbed from '@/components/shared/PropertyMapEmbed'
 
 interface InfoContentProps {
   project: CleaningProject
   onRequestTimeChange?: () => void
+  onNotesUpdated?: (updatedProject: CleaningProject) => void
 }
 
-export default function InfoContent({ project, onRequestTimeChange }: InfoContentProps) {
+export default function InfoContent({ project, onRequestTimeChange, onNotesUpdated }: InfoContentProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
   const [showPassword, setShowPassword] = useState(false)
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesValue, setNotesValue] = useState(project.cleanerNotes || '')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
@@ -39,6 +46,30 @@ export default function InfoContent({ project, onRequestTimeChange }: InfoConten
     if (!dateStr) return '—'
     const date = new Date(dateStr + 'T00:00:00')
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true)
+    try {
+      const res = await updateProjectNotes(project.id, notesValue.trim())
+      if (res.status === 'success') {
+        showNotification('Notes saved', 'success')
+        setEditingNotes(false)
+        onNotesUpdated?.(res.data)
+      } else {
+        showNotification(res.message || 'Failed to save notes', 'error')
+      }
+    } catch (err) {
+      console.error('Error saving notes:', err)
+      showNotification('Error saving notes', 'error')
+    } finally {
+      setSavingNotes(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setNotesValue(project.cleanerNotes || '')
+    setEditingNotes(false)
   }
 
   const hasSpecs = project.propertyNumBeds || project.propertyNumBedrooms || project.propertyNumBathrooms
@@ -216,6 +247,69 @@ export default function InfoContent({ project, onRequestTimeChange }: InfoConten
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.pmNotes}</p>
         </div>
       )}
+
+      {/* My Notes (Cleaner) */}
+      <div className="border-l-4 border-teal-500 bg-teal-50/40 rounded-r-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <PencilSquareIcon className="w-4 h-4 text-teal-600" />
+            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">My Notes</span>
+          </div>
+          {!editingNotes && project.status !== 'completed' && (
+            <button
+              type="button"
+              onClick={() => {
+                setNotesValue(project.cleanerNotes || '')
+                setEditingNotes(true)
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <PencilSquareIcon className="w-3 h-3" />
+              Edit
+            </button>
+          )}
+        </div>
+        {editingNotes ? (
+          <div className="space-y-2">
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              placeholder="Add notes about this cleaning..."
+              rows={3}
+              className="w-full text-sm text-gray-900 bg-white/80 border border-teal-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+              autoFocus
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={savingNotes}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNotes}
+                disabled={savingNotes}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {savingNotes ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <CheckIcon className="w-3.5 h-3.5" />
+                )}
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {project.cleanerNotes || <span className="text-gray-400 italic">No notes yet</span>}
+          </p>
+        )}
+      </div>
 
       {/* Property Specs */}
       {hasSpecs && (

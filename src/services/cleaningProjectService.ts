@@ -181,6 +181,20 @@ export function completeProject(
 }
 
 /**
+ * Update a cleaning project's notes via dedicated PATCH endpoint
+ * Role is auto-determined by the backend (PM → pmNotes, cleaner → cleanerNotes)
+ */
+export function updateProjectNotes(
+  projectId: string,
+  notes: string
+): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse, { notes: string }>(
+    `/cleaning-projects/${projectId}/notes`,
+    { method: 'PATCH', body: { notes } }
+  )
+}
+
+/**
  * Reschedule a cleaning project's date via dedicated PATCH endpoint
  */
 export function rescheduleProjectDate(

@@ -610,6 +610,7 @@ export default function PropertyRowView({
                           isExpanded={isExp}
                           isActivated={isProjectActivated}
                           compact={isMobile || compactDensity}
+                          isMobile={isMobile}
                         />
                     )
 
