@@ -55,7 +55,7 @@ export function useCalendarDrag({
 
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 5,
+      distance: 8,
     },
   })
   const keyboardSensor = useSensor(KeyboardSensor)

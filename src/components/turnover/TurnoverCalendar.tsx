@@ -49,6 +49,38 @@ export type ZoomLevel = number | 'month'
 export type SortOption = 'alpha-asc' | 'alpha-desc' | 'projects-desc' | 'next-project'
 export const UNASSIGNED_FILTER_ID = '__unassigned__'
 
+export type CalendarDensity = 'normal' | 'compact'
+
+export interface CalendarSizeConfig {
+  barHeightDesktop: number
+  bookingBarHeightDesktop: number
+  notchPxDesktop: number
+  rowPadding: number
+  subRowGap: number
+  stackGap: number
+  minRowHeight: number
+}
+
+export const NORMAL_SIZE_CONFIG: CalendarSizeConfig = {
+  barHeightDesktop: 80,
+  bookingBarHeightDesktop: 36,
+  notchPxDesktop: 10,
+  rowPadding: 5,
+  subRowGap: 2,
+  stackGap: 2,
+  minRowHeight: 90,
+}
+
+export const COMPACT_SIZE_CONFIG: CalendarSizeConfig = {
+  barHeightDesktop: 44,
+  bookingBarHeightDesktop: 22,
+  notchPxDesktop: 5,
+  rowPadding: 2,
+  subRowGap: 1,
+  stackGap: 1,
+  minRowHeight: 48,
+}
+
 interface TurnoverCalendarProps {
   initialProperties?: Property[]
   initialCleaners?: Cleaner[]
@@ -109,6 +141,23 @@ export default function TurnoverCalendar({
 
   // Sort state
   const [sortOption, setSortOption] = useState<SortOption>('next-project')
+
+  // Same-day turnover filter
+  const [showSameDayOnly, setShowSameDayOnly] = useState(false)
+
+  // Density state with localStorage persistence
+  const [density, setDensity] = useState<CalendarDensity>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('turnover-calendar-density')
+      if (saved === 'compact') return 'compact'
+    }
+    return 'normal'
+  })
+  const handleDensityChange = useCallback((d: CalendarDensity) => {
+    setDensity(d)
+    localStorage.setItem('turnover-calendar-density', d)
+  }, [])
+  const sizeConfig = density === 'compact' ? COMPACT_SIZE_CONFIG : NORMAL_SIZE_CONFIG
 
   // Loading state
   const [loading, setLoading] = useState(true)
@@ -560,8 +609,11 @@ export default function TurnoverCalendar({
         (p.cleanerId && cleanerIdsOnly.includes(p.cleanerId))
       )
     }
+    if (showSameDayOnly) {
+      result = result.filter(p => p.isSameDayTurnover)
+    }
     return result
-  }, [allCachedProjects, selectedPropertyIds, selectedCleanerIds])
+  }, [allCachedProjects, selectedPropertyIds, selectedCleanerIds, showSameDayOnly])
 
   const filteredProperties = useMemo(() => {
     let result = selectedPropertyIds.length === 0 ? [...properties] : properties.filter(p => selectedPropertyIds.includes(p.id))
@@ -636,10 +688,6 @@ export default function TurnoverCalendar({
     return visibleBookings.filter(b => selectedPropertyIds.includes(b.propertyId))
   }, [visibleBookings, selectedPropertyIds])
 
-  const isCleanerFilterActive = useMemo(() => {
-    const allCount = cleaners.length + 1 // +1 for UNASSIGNED_FILTER_ID
-    return selectedCleanerIds.length > 0 && selectedCleanerIds.length < allCount
-  }, [selectedCleanerIds, cleaners.length])
 
   // Click-to-activate: first click activates, second click opens modal
   const openProjectModal = useCallback((project: CleaningProject) => {
@@ -1201,34 +1249,21 @@ export default function TurnoverCalendar({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-2 sm:space-y-5"
     >
-      {/* Stats Cards */}
+      {/* Stats Bar */}
       {stats && (
-        <>
-          {/* Mobile: wrapping pills */}
-          <div className="flex flex-wrap gap-2 sm:hidden">
-            <StatPill label="Total" value={stats.total} color="blue" />
-            <StatPill label="Pending" value={stats.pending} color="yellow" />
-            <StatPill label="Assigned" value={stats.assigned} color="blue" />
-            <StatPill label="Confirmed" value={stats.confirmed} color="indigo" />
-            <StatPill label="In Progress" value={stats.inProgress} color="purple" />
-            <StatPill label="Completed" value={stats.completed} color="green" />
-            <StatPill label="Unassigned" value={stats.unassigned} color="amber" highlight />
-          </div>
-          {/* Desktop: existing grid */}
-          <div className="hidden sm:grid sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <StatCard label="Total" value={stats.total} color="blue" />
-            <StatCard label="Pending" value={stats.pending} color="yellow" />
-            <StatCard label="Assigned" value={stats.assigned} color="blue" />
-            <StatCard label="Confirmed" value={stats.confirmed} color="indigo" />
-            <StatCard label="In Progress" value={stats.inProgress} color="purple" />
-            <StatCard label="Completed" value={stats.completed} color="green" />
-            <StatCard label="Unassigned" value={stats.unassigned} color="amber" highlight />
-          </div>
-        </>
+        <div className="flex flex-wrap gap-2">
+          <StatPill label="Total" value={stats.total} color="blue" />
+          <StatPill label="Pending" value={stats.pending} color="yellow" />
+          <StatPill label="Assigned" value={stats.assigned} color="blue" />
+          <StatPill label="Confirmed" value={stats.confirmed} color="indigo" />
+          <StatPill label="In Progress" value={stats.inProgress} color="purple" />
+          <StatPill label="Completed" value={stats.completed} color="green" />
+          <StatPill label="Unassigned" value={stats.unassigned} color="amber" highlight />
+        </div>
       )}
 
       {/* Calendar Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: isMobile ? 'calc(100vh - 13rem)' : 'calc(100vh - 20rem)' }}>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ maxHeight: isMobile ? 'calc(100vh - 13rem)' : 'calc(100vh - 15rem)' }}>
         {/* Header with navigation and view toggle — stays outside scroll area */}
         <CalendarHeader
           viewMode={viewMode}
@@ -1241,9 +1276,9 @@ export default function TurnoverCalendar({
           onCreateProject={() => setShowCreateModal(true)}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
-          showBookings={viewMode === 'cleaner' || isCleanerFilterActive ? false : showBookings}
-          onToggleBookings={viewMode === 'cleaner' || isCleanerFilterActive ? undefined : handleToggleBookings}
-          bookingsLoading={viewMode === 'cleaner' || isCleanerFilterActive ? false : bookingsLoading}
+          showBookings={viewMode === 'cleaner' ? false : showBookings}
+          onToggleBookings={viewMode === 'cleaner' ? undefined : handleToggleBookings}
+          bookingsLoading={viewMode === 'cleaner' ? false : bookingsLoading}
           properties={properties}
           selectedPropertyIds={selectedPropertyIds}
           onPropertyFilterChange={setSelectedPropertyIds}
@@ -1259,6 +1294,10 @@ export default function TurnoverCalendar({
           onOpenAllIssues={() => setShowAllIssuesModal(true)}
           excludedPropertyCount={excludedPropertyCount}
           onOpenExclusions={() => setShowExclusionsModal(true)}
+          showSameDayOnly={showSameDayOnly}
+          onToggleSameDayOnly={setShowSameDayOnly}
+          density={density}
+          onDensityChange={handleDensityChange}
         />
 
         {/* Scroll container for calendar body */}
@@ -1283,7 +1322,7 @@ export default function TurnoverCalendar({
                 <MonthGridView
                   projects={filteredProjects}
                   properties={filteredProperties}
-                  bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
+                  bookings={showBookings ? filteredBookings : []}
                   dateRange={dateRange}
                   onProjectClick={handleProjectClick}
                   onBookingClick={handleBookingClick}
@@ -1303,7 +1342,7 @@ export default function TurnoverCalendar({
                   onBookingClick={handleBookingClick}
                   issueCountsMap={issueCountsMap}
                   supplyListCountsMap={supplyListCountsMap}
-                  bookings={showBookings && !isCleanerFilterActive ? filteredBookings : []}
+                  bookings={showBookings ? filteredBookings : []}
                   allBookingsForValidation={allCachedBookings}
                   zoomLevel={zoomLevel}
                   onRequestDateShift={handleRequestDateShift}
@@ -1318,6 +1357,7 @@ export default function TurnoverCalendar({
                   activatedItem={activatedItem}
                   onOpenProjectModal={openProjectModal}
                   onOpenBookingModal={openBookingModal}
+                  sizeConfig={sizeConfig}
                 />
               ) : (
                 <CleanerRowView
@@ -1333,6 +1373,7 @@ export default function TurnoverCalendar({
                   onInvalidDrop={handleInvalidDrop}
                   stickyPortal={stickyPortalRef}
                   expandedDate={expandedDate}
+                  sizeConfig={sizeConfig}
                   onExpandDate={setExpandedDate}
                   onDayClick={handleDayClick}
                   scrollContainer={scrollContainerRef}
@@ -1611,38 +1652,3 @@ function StatPill({
   )
 }
 
-// Stat Card Component
-function StatCard({
-  label,
-  value,
-  color,
-  highlight,
-}: {
-  label: string
-  value: number
-  color: string
-  highlight?: boolean
-}) {
-  const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
-    blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
-    yellow: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
-    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100' },
-    purple: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' },
-    green: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-100' },
-    amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100' },
-  }
-
-  const classes = colorClasses[color] || colorClasses.blue
-
-  return (
-    <div
-      className={`
-        ${classes.bg} ${classes.border} border rounded-xl p-3
-        ${highlight && value > 0 ? 'ring-2 ring-amber-300 ring-offset-1' : ''}
-      `}
-    >
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
-      <p className={`text-xl font-bold ${classes.text} mt-1`}>{value}</p>
-    </div>
-  )
-}

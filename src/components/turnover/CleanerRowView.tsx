@@ -2,10 +2,11 @@
 
 import { useMemo, useEffect, useLayoutEffect, useCallback, useState, useRef, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { DndContext, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, type DragEndEvent, type DragMoveEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
-import type { ZoomLevel } from './TurnoverCalendar'
+import type { ZoomLevel, CalendarSizeConfig } from './TurnoverCalendar'
+import { NORMAL_SIZE_CONFIG } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { validateProjectDrop, validateCleanerViewDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
@@ -25,6 +26,7 @@ const BUFFER_DAYS = 3
 const STACK_GAP = 2
 const BAR_HEIGHT = 80
 const ROW_PADDING = 5
+const MIN_ROW_HEIGHT = 90
 
 interface CleanerRowViewProps {
   projects: CleaningProject[]
@@ -46,6 +48,7 @@ interface CleanerRowViewProps {
   navigationEpoch?: number
   activatedItem?: ActivatedItem
   onOpenProjectModal?: (project: CleaningProject) => void
+  sizeConfig?: CalendarSizeConfig
 }
 
 export default function CleanerRowView({
@@ -68,9 +71,15 @@ export default function CleanerRowView({
   navigationEpoch = 0,
   activatedItem,
   onOpenProjectModal,
+  sizeConfig = NORMAL_SIZE_CONFIG,
 }: CleanerRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
+  const BAR_H = isMobile ? BAR_HEIGHT : sizeConfig.barHeightDesktop
+  const ROW_PAD = isMobile ? ROW_PADDING : sizeConfig.rowPadding
+  const STK_GAP = isMobile ? STACK_GAP : sizeConfig.stackGap
+  const MIN_ROW_H = isMobile ? MIN_ROW_HEIGHT : sizeConfig.minRowHeight
+  const compactDensity = !isMobile && sizeConfig.barHeightDesktop < 80
 
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -284,34 +293,53 @@ export default function CleanerRowView({
   // Compute effective row height per cleaner
   const getRowHeight = useCallback((cleanerId: string) => {
     const stackCount = maxStackByCleaner.get(cleanerId) ?? 1
-    const projectSubRowHeight = stackCount * BAR_HEIGHT + (stackCount - 1) * STACK_GAP
-    return Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PADDING * 2
-  }, [maxStackByCleaner])
+    const projectSubRowHeight = stackCount * BAR_H + (stackCount - 1) * STK_GAP
+    return Math.max(projectSubRowHeight + ROW_PAD * 2, MIN_ROW_H)
+  }, [maxStackByCleaner, BAR_H, STK_GAP, ROW_PAD, MIN_ROW_H])
 
-  // Resolve which row a drop landed on based on Y coordinate
-  const resolveDropRow = useCallback((event: DragEndEvent): string | undefined => {
-    if (!timelineRef.current) return undefined
-    const containerRect = timelineRef.current.getBoundingClientRect()
-    const pointerY = (event.activatorEvent as PointerEvent)?.clientY
-    const deltaY = event.delta.y
-    if (pointerY === undefined) return undefined
+  // Track real pointer position via native pointermove (immune to dnd-kit scroll compensation)
+  const pointerPosRef = useRef({ x: 0, y: 0 })
+  const pointerMoveHandler = useRef<((e: PointerEvent) => void) | null>(null)
 
-    const y = (pointerY + deltaY) - containerRect.top
-    const headerHeight = 40 // h-10
+  const cleanupPointerListener = useCallback(() => {
+    if (pointerMoveHandler.current) {
+      document.removeEventListener('pointermove', pointerMoveHandler.current)
+      pointerMoveHandler.current = null
+    }
+  }, [])
 
-    let cumY = headerHeight
-    for (const row of resourceRows) {
-      const rowH = getRowHeight(row.id)
-      if (y < cumY + rowH) {
-        return row.id
-      }
-      cumY += rowH
+  // Resolve which row a drop landed on using the DOM
+  const resolveDropRow = useCallback((): string | undefined => {
+    const { x: finalX, y: finalY } = pointerPosRef.current
+    const els = document.elementsFromPoint(finalX, finalY)
+    for (const el of els) {
+      const row = el.closest('[data-cleaner-id]')
+      if (row) return row.getAttribute('data-cleaner-id') || undefined
     }
     return undefined
-  }, [timelineRef, resourceRows, getRowHeight])
+  }, [])
+
+  // Visual row highlighting during drag
+  const [dragOverCleanerId, setDragOverCleanerId] = useState<string | null>(null)
+
+  const handleDragMove = useCallback(() => {
+    const { x: finalX, y: finalY } = pointerPosRef.current
+    const els = document.elementsFromPoint(finalX, finalY)
+    let found: string | null = null
+    for (const el of els) {
+      const row = el.closest('[data-cleaner-id]')
+      if (row) {
+        found = row.getAttribute('data-cleaner-id') || null
+        break
+      }
+    }
+    setDragOverCleanerId(found)
+  }, [])
 
   // DnD drag end handler
   const handleDragEndForView = useCallback((event: DragEndEvent) => {
+    setDragOverCleanerId(null)
+    cleanupPointerListener()
     const data = event.active.data.current as DragItem | undefined
     if (!data || data.type !== 'project') {
       isDraggingRef.current = false
@@ -368,7 +396,7 @@ export default function CleanerRowView({
     }
 
     // Resolve target row (cleaner)
-    const targetRowId = resolveDropRow(event)
+    const targetRowId = resolveDropRow()
     const targetCleanerId = targetRowId === 'unassigned' ? null : (targetRowId || null)
     const sourceCleanerId = project.cleanerId || null
 
@@ -385,14 +413,24 @@ export default function CleanerRowView({
         sourceCleanerId,
       })
     }
-  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, resolveDropRow, cleanerNameById])
+  }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, resolveDropRow, cleanerNameById, cleanupPointerListener])
 
   return (
     <DndContext
       sensors={sensors}
-      onDragStart={handleDragStart}
+      onDragStart={(event) => {
+        const handler = (e: PointerEvent) => {
+          pointerPosRef.current = { x: e.clientX, y: e.clientY }
+        }
+        pointerMoveHandler.current = handler
+        document.addEventListener('pointermove', handler)
+        const startEvent = event.activatorEvent as PointerEvent
+        pointerPosRef.current = { x: startEvent.clientX, y: startEvent.clientY }
+        handleDragStart(event)
+      }}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEndForView}
-      onDragCancel={handleDragCancel}
+      onDragCancel={(...args) => { setDragOverCleanerId(null); cleanupPointerListener(); handleDragCancel(...args) }}
     >
       <div className="flex overflow-x-hidden overflow-y-visible select-none" style={{ cursor: activeDragItem ? 'grabbing' : 'grab', overscrollBehaviorX: 'none' }}>
         {/* Sticky Sidebar */}
@@ -409,10 +447,13 @@ export default function CleanerRowView({
           </div>
           {resourceRows.map(row => {
             const rowHeight = getRowHeight(row.id)
+            const isDropTarget = dragOverCleanerId === row.id
             return (
               <div
                 key={row.id}
+                data-cleaner-id={row.id}
                 className={`border-b-2 transition-colors relative ${
+                  isDropTarget ? 'bg-blue-50/40 ring-2 ring-inset ring-blue-300' :
                   row.isUnassigned ? 'border-amber-200 bg-amber-50/30' : 'border-gray-300 hover:bg-gray-50/30'
                 }`}
                 style={{ height: rowHeight }}
@@ -433,16 +474,16 @@ export default function CleanerRowView({
                     </span>
                   </div>
                 ) : (
-                  <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
-                    <div className={`font-medium text-[13px] flex items-center gap-1.5 leading-tight ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
+                  <div className={`flex flex-col justify-center overflow-hidden ${compactDensity ? 'py-1 px-2' : 'py-2 px-3'}`} style={{ height: rowHeight }}>
+                    <div className={`font-medium flex items-center gap-1.5 leading-tight ${compactDensity ? 'text-[11px]' : 'text-[13px]'} ${row.isUnassigned ? 'text-amber-700' : 'text-gray-800'}`}>
                       {row.label}
                       {row.isUnassigned && row.count !== undefined && row.count > 0 && (
                         <span className="px-1 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded">{row.count}</span>
                       )}
                     </div>
-                    <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
+                    {!compactDensity && <div className={`text-[11px] truncate leading-tight ${row.isUnassigned ? 'text-amber-500' : 'text-gray-400'}`}>
                       {row.sublabel}
-                    </div>
+                    </div>}
                   </div>
                 )}
               </div>
@@ -469,11 +510,14 @@ export default function CleanerRowView({
             {resourceRows.map(row => {
               const rowProjects = projectsByResource.get(row.id) || []
               const rowHeight = getRowHeight(row.id)
+              const isDropTarget = dragOverCleanerId === row.id
 
               return (
                 <div
                   key={row.id}
+                  data-cleaner-id={row.id}
                   className={`relative border-b-2 transition-colors ${
+                    isDropTarget ? 'border-blue-300 bg-blue-50/40 ring-2 ring-inset ring-blue-300' :
                     row.isUnassigned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-300 hover:bg-gray-50/20'
                   }`}
                   style={{ height: rowHeight }}
@@ -526,7 +570,7 @@ export default function CleanerRowView({
                       : colLeft + pp.endOffset * colW
                     const projWidth = Math.max(projRight - projLeft, 20)
                     const isExp = allDates[pp.colIndex] === expandedDate
-                    const stackTop = ROW_PADDING + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
+                    const stackTop = ROW_PAD + pp.stackIndex * (BAR_H + STK_GAP)
 
                     const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === pp.project.id
 
@@ -539,7 +583,7 @@ export default function CleanerRowView({
                           left: projLeft,
                           width: projWidth,
                           top: stackTop,
-                          height: BAR_HEIGHT,
+                          height: BAR_H,
                         }}
                         isActivated={isProjectActivated}
                         onOpenModal={onOpenProjectModal ? () => onOpenProjectModal(pp.project) : undefined}
@@ -556,6 +600,7 @@ export default function CleanerRowView({
                           zoomLevel={zoomLevel}
                           isExpanded={isExp}
                           isActivated={isProjectActivated}
+                          compact={isMobile || compactDensity}
                         />
                       </DraggableProject>
                     )

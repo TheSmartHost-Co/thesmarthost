@@ -6,7 +6,8 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
-import type { ZoomLevel } from './TurnoverCalendar'
+import type { ZoomLevel, CalendarSizeConfig } from './TurnoverCalendar'
+import { NORMAL_SIZE_CONFIG } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { validateProjectDrop, validateBookingDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
@@ -61,6 +62,7 @@ interface PropertyRowViewProps {
   onOpenProjectModal?: (project: CleaningProject) => void
   onOpenBookingModal?: (booking: Booking) => void
   disableDnd?: boolean
+  sizeConfig?: CalendarSizeConfig
 }
 
 export default function PropertyRowView({
@@ -89,13 +91,18 @@ export default function PropertyRowView({
   onOpenProjectModal,
   onOpenBookingModal,
   disableDnd = false,
+  sizeConfig = NORMAL_SIZE_CONFIG,
 }: PropertyRowViewProps) {
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
 
-  const BAR_HEIGHT = isMobile ? BAR_HEIGHT_MOBILE : BAR_HEIGHT_DESKTOP
-  const BOOKING_BAR_HEIGHT = isMobile ? BOOKING_BAR_HEIGHT_MOBILE : BOOKING_BAR_HEIGHT_DESKTOP
-  const NOTCH_PX = isMobile ? NOTCH_PX_MOBILE : NOTCH_PX_DESKTOP
+  const BAR_HEIGHT = isMobile ? BAR_HEIGHT_MOBILE : sizeConfig.barHeightDesktop
+  const BOOKING_BAR_HEIGHT = isMobile ? BOOKING_BAR_HEIGHT_MOBILE : sizeConfig.bookingBarHeightDesktop
+  const NOTCH_PX = isMobile ? NOTCH_PX_MOBILE : sizeConfig.notchPxDesktop
+  const ROW_PAD = isMobile ? ROW_PADDING : sizeConfig.rowPadding
+  const SUB_GAP = isMobile ? SUB_ROW_GAP : sizeConfig.subRowGap
+  const STK_GAP = isMobile ? STACK_GAP : sizeConfig.stackGap
+  const compactDensity = !isMobile && sizeConfig.barHeightDesktop < 80
 
   const isMonthView = zoomLevel === 'month'
   const visibleColumns = isMonthView
@@ -303,9 +310,9 @@ export default function PropertyRowView({
   // Compute effective row height per property
   const getRowHeight = useCallback((propertyId: string) => {
     const stackCount = maxStackByProperty.get(propertyId) ?? 1
-    const projectSubRowHeight = stackCount * BAR_HEIGHT + (stackCount - 1) * STACK_GAP
-    return BOOKING_BAR_HEIGHT + SUB_ROW_GAP + Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PADDING * 2
-  }, [maxStackByProperty])
+    const projectSubRowHeight = stackCount * BAR_HEIGHT + (stackCount - 1) * STK_GAP
+    return BOOKING_BAR_HEIGHT + SUB_GAP + Math.max(projectSubRowHeight, BAR_HEIGHT) + ROW_PAD * 2
+  }, [maxStackByProperty, BAR_HEIGHT, STK_GAP, BOOKING_BAR_HEIGHT, SUB_GAP, ROW_PAD])
 
   // DnD drag end handler
   const handleDragEndForView = useCallback((event: DragEndEvent) => {
@@ -428,11 +435,11 @@ export default function PropertyRowView({
                     </span>
                   </div>
                 ) : (
-                  <div className="py-2 px-3 flex flex-col justify-center overflow-hidden" style={{ height: rowHeight }}>
-                    <div className="font-medium text-gray-800 text-[13px] truncate leading-tight">
+                  <div className={`flex flex-col justify-center overflow-hidden ${compactDensity ? 'py-1 px-2' : 'py-2 px-3'}`} style={{ height: rowHeight }}>
+                    <div className={`font-medium text-gray-800 truncate leading-tight ${compactDensity ? 'text-[11px]' : 'text-[13px]'}`}>
                       {displayName}
                     </div>
-                    <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>
+                    {!compactDensity && <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>}
                   </div>
                 )}
               </div>
@@ -509,7 +516,7 @@ export default function PropertyRowView({
                   <div
                     className="absolute left-0 right-0 pointer-events-none"
                     style={{
-                      top: ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP / 2,
+                      top: ROW_PAD + BOOKING_BAR_HEIGHT + SUB_GAP / 2,
                       height: 0,
                       borderTop: '1px dashed rgba(0,0,0,0.15)',
                     }}
@@ -533,7 +540,8 @@ export default function PropertyRowView({
                           isClippedLeft={pb.startColIndex < bufferCols}
                           isClippedRight={pb.endColIndex > allDates.length - bufferCols}
                           isActivated={isBookingActivated}
-                          compact={isMobile}
+                          compact={isMobile || compactDensity}
+                          zoomLevel={zoomLevel}
                         />
                     )
 
@@ -541,7 +549,7 @@ export default function PropertyRowView({
                     const bookingStyle = {
                       left: barLeft,
                       width: barWidth,
-                      top: ROW_PADDING,
+                      top: ROW_PAD,
                       height: BOOKING_BAR_HEIGHT,
                     }
                     const bookingOnClick = (e: React.MouseEvent) => {
@@ -589,7 +597,7 @@ export default function PropertyRowView({
                       : colLeft + pp.endOffset * colW
                     const projWidth = Math.max(projRight - projLeft, 20)
                     const isExp = allDates[pp.colIndex] === expandedDate
-                    const stackTop = ROW_PADDING + BOOKING_BAR_HEIGHT + SUB_ROW_GAP + pp.stackIndex * (BAR_HEIGHT + STACK_GAP)
+                    const stackTop = ROW_PAD + BOOKING_BAR_HEIGHT + SUB_GAP + pp.stackIndex * (BAR_HEIGHT + STK_GAP)
 
                     const isProjectActivated = activatedItem?.type === 'project' && activatedItem.id === pp.project.id
 
@@ -601,7 +609,7 @@ export default function PropertyRowView({
                           zoomLevel={zoomLevel}
                           isExpanded={isExp}
                           isActivated={isProjectActivated}
-                          compact={isMobile}
+                          compact={isMobile || compactDensity}
                         />
                     )
 

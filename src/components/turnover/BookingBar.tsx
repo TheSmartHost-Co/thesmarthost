@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Booking } from '@/services/types/booking'
+import type { ZoomLevel } from './TurnoverCalendar'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 
@@ -12,6 +13,18 @@ interface BookingBarProps {
   isClippedRight?: boolean
   isActivated?: boolean
   compact?: boolean
+  zoomLevel?: ZoomLevel
+}
+
+const PLATFORM_ABBREV: Record<string, string> = {
+  airbnb: 'Ab',
+  booking: 'Bk',
+  vrbo: 'VR',
+  direct: 'Dir',
+  'direct-etransfer': 'Dir',
+  google: 'Go',
+  wechalet: 'WC',
+  monsieurchalets: 'MC',
 }
 
 function formatTime(timeStr: string): string {
@@ -55,9 +68,15 @@ function getPlatformStyle(platform: string): { bg: string; text: string; border:
   }
 }
 
-export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false, compact = false }: BookingBarProps) {
+export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false, compact = false, zoomLevel = 7 }: BookingBarProps) {
   const NOTCH = compact ? 5 : 10
   const style = getPlatformStyle(booking.platform)
+
+  // Display tier: determines how much text to show
+  const isNarrow = typeof zoomLevel === 'number' && zoomLevel >= 10
+  const displayTier = compact
+    ? (isNarrow ? 4 : 3)
+    : (isNarrow ? 2 : 1)
   const checkoutTime = booking.defaultCheckoutTime || '11:00'
   const checkinTime = booking.defaultCheckinTime || '15:00'
 
@@ -134,31 +153,14 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, isA
           </div>
         )}
         <div
-          className={`absolute inset-0 overflow-hidden ${compact ? 'flex flex-col justify-center' : 'flex items-center'}`}
+          className={`absolute inset-0 overflow-hidden ${displayTier >= 3 ? 'flex items-center' : displayTier === 2 ? 'flex flex-col justify-center' : 'flex items-center'}`}
           style={{
             paddingLeft: isClippedLeft ? 4 : NOTCH + 4,
             paddingRight: isClippedRight ? 4 : NOTCH + 4,
           }}
         >
-          {compact ? (
-            <>
-              {/* Line 1: guest name + platform */}
-              <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
-                <span className="text-[11px] font-semibold truncate" style={{ color: style.text }}>
-                  {!isReservedName(booking.guestName) && booking.guestName}
-                </span>
-                <span className="text-[10px] flex-shrink-0 opacity-70" style={{ color: style.text }}>
-                  &middot; {style.label}
-                </span>
-              </div>
-              {/* Line 2: dates + nights */}
-              <div className="whitespace-nowrap overflow-hidden min-w-0">
-                <span className="text-[10px]" style={{ color: style.text, opacity: 0.6 }}>
-                  {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {nightsLabel}
-                </span>
-              </div>
-            </>
-          ) : (
+          {displayTier === 1 && (
+            /* Tier 1 — Full: name · platform · dates · times · nights */
             <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
               <span className="text-[12px] font-semibold truncate" style={{ color: style.text }}>
                 {!isReservedName(booking.guestName) && booking.guestName}
@@ -174,6 +176,49 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, isA
               </span>
               <span className="text-[11px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
                 &middot; {nightsLabel}
+              </span>
+            </div>
+          )}
+          {displayTier === 2 && (
+            /* Tier 2 — Tall-narrow: 2-line stacked (name · platform / dates · nights) */
+            <>
+              <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
+                <span className="text-[11px] font-semibold truncate" style={{ color: style.text }}>
+                  {!isReservedName(booking.guestName) && booking.guestName}
+                </span>
+                <span className="text-[10px] flex-shrink-0 opacity-70" style={{ color: style.text }}>
+                  &middot; {style.label}
+                </span>
+              </div>
+              <div className="whitespace-nowrap overflow-hidden min-w-0">
+                <span className="text-[10px]" style={{ color: style.text, opacity: 0.6 }}>
+                  {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {nightsLabel}
+                </span>
+              </div>
+            </>
+          )}
+          {displayTier === 3 && (
+            /* Tier 3 — Short-wide: single line (name · platform · nights) */
+            <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
+              <span className="text-[10px] font-semibold truncate" style={{ color: style.text }}>
+                {!isReservedName(booking.guestName) && booking.guestName}
+              </span>
+              <span className="text-[9px] flex-shrink-0 opacity-70" style={{ color: style.text }}>
+                &middot; {style.label}
+              </span>
+              <span className="text-[9px] flex-shrink-0" style={{ color: style.text, opacity: 0.6 }}>
+                &middot; {nightsLabel}
+              </span>
+            </div>
+          )}
+          {displayTier === 4 && (
+            /* Tier 4 — Minimal: truncated name · platform abbreviation */
+            <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden min-w-0">
+              <span className="text-[9px] font-semibold truncate" style={{ color: style.text }}>
+                {!isReservedName(booking.guestName) && booking.guestName}
+              </span>
+              <span className="text-[9px] flex-shrink-0 opacity-70" style={{ color: style.text }}>
+                &middot; {PLATFORM_ABBREV[booking.platform] || style.label}
               </span>
             </div>
           )}

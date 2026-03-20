@@ -14,14 +14,15 @@ import {
   ChevronDownIcon,
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
-  FunnelIcon,
+  AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
   NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
-import type { ViewMode, ZoomLevel, SortOption } from './TurnoverCalendar'
+import type { ViewMode, ZoomLevel, SortOption, CalendarDensity } from './TurnoverCalendar'
 import type { Property } from '@/services/types/property'
 import type { Cleaner } from '@/services/types/cleaner'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface CalendarHeaderProps {
   viewMode: ViewMode
@@ -53,6 +54,10 @@ interface CalendarHeaderProps {
   excludedPropertyCount?: number
   onOpenExclusions?: () => void
   hideViewToggle?: boolean
+  showSameDayOnly?: boolean
+  onToggleSameDayOnly?: (enabled: boolean) => void
+  density?: CalendarDensity
+  onDensityChange?: (density: CalendarDensity) => void
 }
 
 export default function CalendarHeader({
@@ -85,18 +90,19 @@ export default function CalendarHeader({
   excludedPropertyCount,
   onOpenExclusions,
   hideViewToggle = false,
+  showSameDayOnly = false,
+  onToggleSameDayOnly,
+  density = 'normal',
+  onDensityChange,
 }: CalendarHeaderProps) {
+  const isMobile = useIsMobile()
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
-  const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
+  const [showViewOptions, setShowViewOptions] = useState(false)
   const [propertySearch, setPropertySearch] = useState('')
   const [cleanerSearch, setCleanerSearch] = useState('')
-  const [showZoomDropdown, setShowZoomDropdown] = useState(false)
-  const [zoomDropdownAlign, setZoomDropdownAlign] = useState<'left' | 'right'>('right')
   const newMenuRef = useRef<HTMLDivElement>(null)
-  const filtersRef = useRef<HTMLDivElement>(null)
-  const zoomDropdownRef = useRef<HTMLDivElement>(null)
-  const zoomButtonRef = useRef<HTMLButtonElement>(null)
+  const viewOptionsRef = useRef<HTMLDivElement>(null)
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -105,13 +111,10 @@ export default function CalendarHeader({
         setShowNewMenu(false)
         setShowChecklistSub(false)
       }
-      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
-        setShowFiltersDropdown(false)
+      if (viewOptionsRef.current && !viewOptionsRef.current.contains(event.target as Node)) {
+        setShowViewOptions(false)
         setPropertySearch('')
         setCleanerSearch('')
-      }
-      if (zoomDropdownRef.current && !zoomDropdownRef.current.contains(event.target as Node)) {
-        setShowZoomDropdown(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -216,8 +219,6 @@ export default function CalendarHeader({
       ? 'Week'
       : `${zoomLevel}d`
 
-  // Whether hour labels are auto-shown (1-2 day zoom)
-
   // Sort options
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: 'alpha-asc', label: 'Alphabetical (A-Z)' },
@@ -226,16 +227,22 @@ export default function CalendarHeader({
     { value: 'next-project', label: 'Next project soonest' },
   ]
 
-  // Build flat zoom list: 1-6, Week, 8-14, divider, Month
-  const zoomItems: { label: string; value: ZoomLevel; isWeek?: boolean; dividerBefore?: boolean }[] = []
-  for (let d = 1; d <= 14; d++) {
-    if (d === 7) {
-      zoomItems.push({ label: 'Week', value: 7, isWeek: true })
-    } else {
-      zoomItems.push({ label: `${d} ${d === 1 ? 'day' : 'days'}`, value: d })
-    }
-  }
-  zoomItems.push({ label: 'Month', value: 'month', dividerBefore: true })
+  // Compact zoom presets for the button group
+  const zoomPresets: { label: string; value: ZoomLevel; isWeek?: boolean }[] = [
+    { label: '1D', value: 1 },
+    { label: '2D', value: 2 },
+    { label: '3D', value: 3 },
+    { label: '5D', value: 5 },
+    { label: 'Week', value: 7, isWeek: true },
+    { label: '2W', value: 14 },
+    { label: 'Month', value: 'month' },
+  ]
+
+  // Build summary label for the View Options trigger button
+  const summaryParts: string[] = [zoomLabel]
+  if (showBookings && onToggleBookings) summaryParts.push('Bookings')
+  if (showSameDayOnly) summaryParts.push('SDT')
+  if (activeFilterCount > 0) summaryParts.push(`${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''}`)
 
   return (
     <div className="px-2 py-2 sm:px-4 sm:py-3 border-b border-gray-100">
@@ -285,298 +292,322 @@ export default function CalendarHeader({
           </motion.button>
         </div>
 
-        {/* Filters Dropdown */}
-        {(onPropertyFilterChange || onCleanerFilterChange) && (
-          <div ref={filtersRef} className="relative">
-            <button
-              onClick={() => {
-                setShowFiltersDropdown(prev => !prev)
-                setPropertySearch('')
-                setCleanerSearch('')
-              }}
-              className={`
-                inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
-                transition-all cursor-pointer border
-                ${activeFilterCount > 0
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }
-              `}
-            >
-              <FunnelIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-600 text-white rounded-full leading-none">
-                  {activeFilterCount}
-                </span>
-              )}
-              <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${showFiltersDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {showFiltersDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="fixed sm:absolute left-2 right-2 sm:left-0 sm:right-auto top-auto sm:top-full mt-1.5 sm:w-80 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-[calc(100vh-6rem)] overflow-y-auto"
-                >
-                  {/* Sort By */}
-                  {onSortChange && (
-                    <div>
-                      <div className="px-3 pt-2.5 pb-1.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sort By</span>
-                      </div>
-                      <div className="px-2 pb-2">
-                        {sortOptions.map(opt => (
-                          <label
-                            key={opt.value}
-                            className="flex items-center gap-2 px-2 py-2 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors min-h-[44px] sm:min-h-0"
-                          >
-                            <input
-                              type="radio"
-                              name="sort"
-                              checked={sortOption === opt.value}
-                              onChange={() => onSortChange(opt.value)}
-                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
-                            />
-                            <span className="text-sm text-gray-700">{opt.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Properties */}
-                  {onPropertyFilterChange && properties.length > 0 && (
-                    <div className="border-t border-gray-100">
-                      <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Properties</span>
-                        <div className="flex items-center gap-2">
-                          <button onClick={handleSelectAllProperties} className="text-[10px] font-medium text-purple-600 hover:text-purple-700 cursor-pointer">Select All</button>
-                          <span className="text-[10px] text-gray-300">&middot;</span>
-                          <button onClick={handleClearAllProperties} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
-                        </div>
-                      </div>
-                      <div className="px-2 pb-1">
-                        <div className="relative">
-                          <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search..."
-                            value={propertySearch}
-                            onChange={e => setPropertySearch(e.target.value)}
-                            className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-36 overflow-y-auto">
-                        {filteredProperties.length === 0 ? (
-                          <div className="px-3 py-3 text-center text-sm text-gray-400">No properties found</div>
-                        ) : (
-                          filteredProperties.map(p => {
-                            const isChecked = selectedPropertyIds.includes(p.id)
-                            return (
-                              <label key={p.id} className="flex items-center gap-2 px-3 py-2 sm:py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handleToggleProperty(p.id)}
-                                  className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-700 truncate">{getPropertyName(p)}</span>
-                              </label>
-                            )
-                          })
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cleaners */}
-                  {onCleanerFilterChange && cleaners.length > 0 && (
-                    <div className="border-t border-gray-100">
-                      <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cleaners</span>
-                        <div className="flex items-center gap-2">
-                          <button onClick={handleSelectAllCleaners} className="text-[10px] font-medium text-teal-600 hover:text-teal-700 cursor-pointer">Select All</button>
-                          <span className="text-[10px] text-gray-300">&middot;</span>
-                          <button onClick={handleClearAllCleaners} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
-                        </div>
-                      </div>
-                      <div className="px-2 pb-1">
-                        <div className="relative">
-                          <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search..."
-                            value={cleanerSearch}
-                            onChange={e => setCleanerSearch(e.target.value)}
-                            className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-300"
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-36 overflow-y-auto">
-                        {/* Unassigned checkbox */}
-                        <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)}
-                            onChange={() => {
-                              if (selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)) {
-                                onCleanerFilterChange?.(selectedCleanerIds.filter(id => id !== UNASSIGNED_FILTER_ID))
-                              } else {
-                                onCleanerFilterChange?.([...selectedCleanerIds, UNASSIGNED_FILTER_ID])
-                              }
-                            }}
-                            className="w-3.5 h-3.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500/20 cursor-pointer"
-                          />
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm text-amber-700 font-medium">Unassigned</span>
-                            <span className="text-[10px] text-amber-500">(no cleaner)</span>
-                          </div>
-                        </label>
-                        {filteredCleaners.length === 0 ? (
-                          <div className="px-3 py-3 text-center text-sm text-gray-400">No cleaners found</div>
-                        ) : (
-                          filteredCleaners.map(c => {
-                            const isChecked = selectedCleanerIds.includes(c.id)
-                            return (
-                              <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handleToggleCleaner(c.id)}
-                                  className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
-                                />
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-sm text-gray-700 truncate">{getCleanerName(c)}</span>
-                                  {c.status !== 'active' && (
-                                    <span className={`text-xs ${c.status === 'invited' ? 'text-amber-500' : 'text-gray-400'}`}>{c.status}</span>
-                                  )}
-                                </div>
-                              </label>
-                            )
-                          })
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Global Clear All Filters */}
-                  {activeFilterCount > 0 && (
-                    <div className="border-t border-gray-100 px-3 py-2">
-                      <button
-                        onClick={() => {
-                          onPropertyFilterChange?.(properties.map(p => p.id))
-                          onCleanerFilterChange?.([UNASSIGNED_FILTER_ID, ...cleaners.map(c => c.id)])
-                          onSortChange?.('alpha-asc')
-                        }}
-                        className="w-full text-center text-xs font-medium text-red-500 hover:text-red-600 cursor-pointer"
-                      >
-                        Clear All Filters
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* Bookings Toggle */}
-        {onToggleBookings && (
+        {/* Consolidated View Options Dropdown */}
+        <div ref={viewOptionsRef} className="relative">
           <button
-            onClick={() => onToggleBookings(!showBookings)}
-            disabled={bookingsLoading}
+            onClick={() => {
+              setShowViewOptions(prev => !prev)
+              setPropertySearch('')
+              setCleanerSearch('')
+            }}
             className={`
               inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium
-              transition-all duration-200 cursor-pointer border
-              ${showBookings
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+              transition-all cursor-pointer border
+              ${(activeFilterCount > 0 || showSameDayOnly)
+                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
               }
-              ${bookingsLoading ? 'opacity-70 cursor-wait' : ''}
             `}
           >
-            {bookingsLoading ? (
-              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <CalendarDaysIcon className="w-3.5 h-3.5" />
+            <AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">View: {summaryParts.join(' · ')}</span>
+            <span className="sm:hidden">{zoomLabel}</span>
+            {(activeFilterCount > 0 || showSameDayOnly) && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-600 text-white rounded-full leading-none">
+                {activeFilterCount + (showSameDayOnly ? 1 : 0)}
+              </span>
             )}
-            <span className="hidden sm:inline">Bookings</span>
+            <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${showViewOptions ? 'rotate-180' : ''}`} />
           </button>
-        )}
 
-        {/* Zoom Dropdown — flat list */}
-        {onZoomChange && (
-          <div ref={zoomDropdownRef} className="relative">
-            <button
-              ref={zoomButtonRef}
-              onClick={() => {
-                if (zoomButtonRef.current) {
-                  const rect = zoomButtonRef.current.getBoundingClientRect()
-                  setZoomDropdownAlign(rect.left < window.innerWidth * 0.4 ? 'left' : 'right')
-                }
-                setShowZoomDropdown(prev => !prev)
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-all cursor-pointer"
-            >
-              <CalendarDaysIcon className="w-3.5 h-3.5 text-gray-500" />
-              {zoomLabel}
-              <ChevronDownIcon className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${showZoomDropdown ? 'rotate-180' : ''}`} />
-            </button>
+          <AnimatePresence>
+            {showViewOptions && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="fixed sm:absolute left-2 right-2 sm:left-0 sm:right-auto top-auto sm:top-full mt-1.5 w-[calc(100vw-1rem)] sm:w-[560px] bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-[calc(100vh-6rem)] overflow-y-auto"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2">
+                  {/* ═══ LEFT COLUMN: VIEW SETTINGS ═══ */}
+                  <div className="sm:border-r sm:border-gray-100">
+                    {/* Zoom Level */}
+                    {onZoomChange && (
+                      <div>
+                        <div className="px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Zoom Level</span>
+                        </div>
+                        <div className="px-3 pb-2.5 flex flex-wrap gap-1">
+                          {zoomPresets.map(preset => {
+                            const isActive = preset.value === 'month'
+                              ? zoomLevel === 'month'
+                              : preset.isWeek
+                                ? zoomLevel === 7 && isWeekPreset
+                                : zoomLevel === preset.value && !(preset.value === 7 && isWeekPreset)
 
-            <AnimatePresence>
-              {showZoomDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className={`absolute ${zoomDropdownAlign === 'left' ? 'left-0' : 'right-0'} top-full mt-1.5 w-40 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50 max-h-80 overflow-y-auto`}
-                >
-                  {zoomItems.map((item) => {
-                    const isActive = item.value === 'month'
-                      ? zoomLevel === 'month'
-                      : item.isWeek
-                        ? zoomLevel === 7 && isWeekPreset
-                        : zoomLevel === item.value && !(item.value === 7 && isWeekPreset)
+                            return (
+                              <button
+                                key={preset.label}
+                                onClick={() => {
+                                  if (preset.value === 'month') {
+                                    onZoomChange('month')
+                                  } else if (preset.isWeek) {
+                                    onZoomChange(7, true)
+                                  } else {
+                                    onZoomChange(preset.value as number, false)
+                                  }
+                                }}
+                                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                                  isActive
+                                    ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
 
-                    return (
-                      <div key={item.label}>
-                        {item.dividerBefore && <div className="border-t border-gray-100" />}
+                    {/* Display Toggles */}
+                    <div className="border-t border-gray-100">
+                      <div className="px-3 pt-2.5 pb-1.5">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Display</span>
+                      </div>
+                      <div className="px-3 pb-2.5 space-y-1">
+                        {onToggleBookings && (
+                          <label className="flex items-center gap-2 py-1 cursor-pointer min-h-[36px] sm:min-h-0">
+                            <input
+                              type="checkbox"
+                              checked={!!showBookings}
+                              onChange={() => onToggleBookings(!showBookings)}
+                              disabled={bookingsLoading}
+                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">Show Bookings</span>
+                            {bookingsLoading && (
+                              <svg className="w-3 h-3 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            )}
+                          </label>
+                        )}
+                        {onToggleSameDayOnly && (
+                          <label className="flex items-center gap-2 py-1 cursor-pointer min-h-[36px] sm:min-h-0">
+                            <input
+                              type="checkbox"
+                              checked={showSameDayOnly}
+                              onChange={() => onToggleSameDayOnly(!showSameDayOnly)}
+                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500/20 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">Same-Day Turnovers Only</span>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Density (desktop only) */}
+                    {onDensityChange && !isMobile && (
+                      <div className="border-t border-gray-100">
+                        <div className="px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Density</span>
+                        </div>
+                        <div className="px-3 pb-2.5 space-y-1">
+                          <label className="flex items-center gap-2 py-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="density"
+                              checked={density === 'normal'}
+                              onChange={() => onDensityChange('normal')}
+                              className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">Normal</span>
+                          </label>
+                          <label className="flex items-center gap-2 py-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="density"
+                              checked={density === 'compact'}
+                              onChange={() => onDensityChange('compact')}
+                              className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">Compact</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ═══ RIGHT COLUMN: FILTERS ═══ */}
+                  <div>
+                    {/* Sort By */}
+                    {onSortChange && (
+                      <div>
+                        <div className="px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sort By</span>
+                        </div>
+                        <div className="px-2 pb-2">
+                          {sortOptions.map(opt => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-2 px-2 py-2 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors min-h-[44px] sm:min-h-0"
+                            >
+                              <input
+                                type="radio"
+                                name="sort"
+                                checked={sortOption === opt.value}
+                                onChange={() => onSortChange(opt.value)}
+                                className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-700">{opt.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Properties */}
+                    {onPropertyFilterChange && properties.length > 0 && (
+                      <div className="border-t border-gray-100">
+                        <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Properties</span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={handleSelectAllProperties} className="text-[10px] font-medium text-purple-600 hover:text-purple-700 cursor-pointer">Select All</button>
+                            <span className="text-[10px] text-gray-300">&middot;</span>
+                            <button onClick={handleClearAllProperties} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
+                          </div>
+                        </div>
+                        <div className="px-2 pb-1">
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search..."
+                              value={propertySearch}
+                              onChange={e => setPropertySearch(e.target.value)}
+                              className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-36 overflow-y-auto">
+                          {filteredProperties.length === 0 ? (
+                            <div className="px-3 py-3 text-center text-sm text-gray-400">No properties found</div>
+                          ) : (
+                            filteredProperties.map(p => {
+                              const isChecked = selectedPropertyIds.includes(p.id)
+                              return (
+                                <label key={p.id} className="flex items-center gap-2 px-3 py-2 sm:py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleProperty(p.id)}
+                                    className="w-4 h-4 sm:w-3.5 sm:h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/20 cursor-pointer"
+                                  />
+                                  <span className="text-sm text-gray-700 truncate">{getPropertyName(p)}</span>
+                                </label>
+                              )
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cleaners */}
+                    {onCleanerFilterChange && cleaners.length > 0 && (
+                      <div className="border-t border-gray-100">
+                        <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cleaners</span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={handleSelectAllCleaners} className="text-[10px] font-medium text-teal-600 hover:text-teal-700 cursor-pointer">Select All</button>
+                            <span className="text-[10px] text-gray-300">&middot;</span>
+                            <button onClick={handleClearAllCleaners} className="text-[10px] font-medium text-gray-500 hover:text-gray-700 cursor-pointer">Clear</button>
+                          </div>
+                        </div>
+                        <div className="px-2 pb-1">
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search..."
+                              value={cleanerSearch}
+                              onChange={e => setCleanerSearch(e.target.value)}
+                              className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-300"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-36 overflow-y-auto">
+                          {/* Unassigned checkbox */}
+                          <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)}
+                              onChange={() => {
+                                if (selectedCleanerIds.includes(UNASSIGNED_FILTER_ID)) {
+                                  onCleanerFilterChange?.(selectedCleanerIds.filter(id => id !== UNASSIGNED_FILTER_ID))
+                                } else {
+                                  onCleanerFilterChange?.([...selectedCleanerIds, UNASSIGNED_FILTER_ID])
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500/20 cursor-pointer"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm text-amber-700 font-medium">Unassigned</span>
+                              <span className="text-[10px] text-amber-500">(no cleaner)</span>
+                            </div>
+                          </label>
+                          {filteredCleaners.length === 0 ? (
+                            <div className="px-3 py-3 text-center text-sm text-gray-400">No cleaners found</div>
+                          ) : (
+                            filteredCleaners.map(c => {
+                              const isChecked = selectedCleanerIds.includes(c.id)
+                              return (
+                                <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleCleaner(c.id)}
+                                    className="w-3.5 h-3.5 rounded border-gray-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-sm text-gray-700 truncate">{getCleanerName(c)}</span>
+                                    {c.status !== 'active' && (
+                                      <span className={`text-xs ${c.status === 'invited' ? 'text-amber-500' : 'text-gray-400'}`}>{c.status}</span>
+                                    )}
+                                  </div>
+                                </label>
+                              )
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Global Clear All Filters */}
+                    {(activeFilterCount > 0 || showSameDayOnly) && (
+                      <div className="border-t border-gray-100 px-3 py-2">
                         <button
                           onClick={() => {
-                            if (item.value === 'month') {
-                              onZoomChange('month')
-                            } else if (item.isWeek) {
-                              onZoomChange(7, true)
-                            } else {
-                              onZoomChange(item.value as number, false)
-                            }
-                            setShowZoomDropdown(false)
+                            onPropertyFilterChange?.(properties.map(p => p.id))
+                            onCleanerFilterChange?.([UNASSIGNED_FILTER_ID, ...cleaners.map(c => c.id)])
+                            onSortChange?.('alpha-asc')
+                            onToggleSameDayOnly?.(false)
                           }}
-                          className={`w-full text-left px-3 py-1.5 text-sm transition-colors cursor-pointer ${
-                            isActive
-                              ? 'bg-purple-50 text-purple-700 font-medium'
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
+                          className="w-full text-center text-xs font-medium text-red-500 hover:text-red-600 cursor-pointer"
                         >
-                          {item.label}
+                          Clear All Filters
                         </button>
                       </div>
-                    )
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Spacer */}
         <div className="flex-1" />

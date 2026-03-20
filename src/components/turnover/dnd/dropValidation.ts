@@ -73,8 +73,10 @@ export function validateBookingDrop(
   const newCheckOut = addDays(targetDate, bookingData.numNights)
 
   // Find sibling bookings on the same property (excluding self)
+  // Use String() to avoid type mismatch (numeric id from JSON vs string)
+  const draggedId = String(bookingData.booking.id)
   const siblings = allBookings.filter(
-    b => b.propertyId === bookingData.booking.propertyId && b.id !== bookingData.booking.id
+    b => b.propertyId === bookingData.booking.propertyId && String(b.id) !== draggedId
   )
 
   for (const sib of siblings) {
