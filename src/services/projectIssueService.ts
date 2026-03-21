@@ -1,4 +1,4 @@
-import apiClient from './apiClient'
+import apiClient, { getAuthHeaders } from './apiClient'
 import type {
   ProjectIssue,
   ProjectIssueResponse,
@@ -111,7 +111,7 @@ export function resolveIssue(
  * @param issueId - The issue ID
  * @param files - Array of photo files to upload (max 5)
  */
-export async function uploadIssuePhotos(
+export function uploadIssuePhotos(
   issueId: string,
   files: File[]
 ): Promise<ProjectIssueResponse> {
@@ -119,20 +119,10 @@ export async function uploadIssuePhotos(
   files.forEach(file => {
     formData.append('photos', file)
   })
-
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
-  const response = await fetch(`${baseUrl}/project-issues/${issueId}/photos`, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include'
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-    throw new Error(error.message || 'Failed to upload photos')
-  }
-
-  return response.json()
+  return apiClient<ProjectIssueResponse, FormData>(
+    `/project-issues/${issueId}/photos`,
+    { method: 'POST', body: formData }
+  )
 }
 
 /**
@@ -278,7 +268,8 @@ export function getIssuePhotoDownloadUrl(issueId: string, photoIndex: number): s
  */
 export async function downloadIssuePhotoWatermarked(issueId: string, photoIndex: number, filename?: string): Promise<void> {
   const url = getIssuePhotoDownloadUrl(issueId, photoIndex)
-  const response = await fetch(url, { credentials: 'include' })
+  const authHeaders = await getAuthHeaders()
+  const response = await fetch(url, { headers: authHeaders })
   if (!response.ok) throw new Error('Failed to download photo')
   const blob = await response.blob()
   const blobUrl = URL.createObjectURL(blob)

@@ -1,4 +1,4 @@
-import apiClient from './apiClient'
+import apiClient, { getAuthHeaders } from './apiClient'
 import type {
   CleaningProject,
   CleaningProjectResponse,
@@ -327,30 +327,17 @@ export function updateProjectChecklistItem(
  * @param itemId - The project checklist item ID
  * @param file - The photo file to upload
  */
-export async function uploadProjectChecklistItemPhoto(
+export function uploadProjectChecklistItemPhoto(
   projectId: string,
   itemId: string,
   file: File
 ): Promise<ProjectChecklistItemResponse> {
   const formData = new FormData()
   formData.append('photo', file)
-
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
-  const response = await fetch(
-    `${baseUrl}/cleaning-projects/${projectId}/checklist/${itemId}/photo`,
-    {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    }
+  return apiClient<ProjectChecklistItemResponse, FormData>(
+    `/cleaning-projects/${projectId}/checklist/${itemId}/photo`,
+    { method: 'POST', body: formData }
   )
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-    throw new Error(error.message || 'Failed to upload photo')
-  }
-
-  return response.json()
 }
 
 /**
@@ -521,7 +508,8 @@ export function getChecklistPhotoDownloadUrl(projectId: string, itemId: string):
  */
 export async function downloadChecklistPhotoWatermarked(projectId: string, itemId: string, filename?: string): Promise<void> {
   const url = getChecklistPhotoDownloadUrl(projectId, itemId)
-  const response = await fetch(url, { credentials: 'include' })
+  const authHeaders = await getAuthHeaders()
+  const response = await fetch(url, { headers: authHeaders })
   if (!response.ok) throw new Error('Failed to download photo')
   const blob = await response.blob()
   const blobUrl = URL.createObjectURL(blob)

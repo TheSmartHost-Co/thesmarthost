@@ -17,6 +17,17 @@ function getSupabaseClient() {
   return supabaseInstance
 }
 
+/**
+ * Get Authorization headers from the current Supabase session.
+ * Use this for raw fetch calls that can't go through apiClient (e.g. blob downloads).
+ */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const supabase = getSupabaseClient()
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
+
 // Event emitter for session events
 type SessionEventType = 'session-expired' | 'session-invalid'
 const sessionEventListeners: Record<SessionEventType, (() => void)[]> = {
