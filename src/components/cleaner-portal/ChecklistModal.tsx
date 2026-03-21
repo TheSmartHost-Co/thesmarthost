@@ -205,8 +205,8 @@ export default function ChecklistModal({
       showNotification('Invalid file type. Only images allowed.', 'error')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('File too large. Maximum 5MB.', 'error')
+    if (file.size > 20 * 1024 * 1024) {
+      showNotification('File too large. Maximum 20MB.', 'error')
       return
     }
 

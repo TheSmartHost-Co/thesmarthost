@@ -88,8 +88,8 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
       }
 
       // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showNotification(`File too large: ${file.name}. Maximum 5MB.`, 'error')
+      if (file.size > 20 * 1024 * 1024) {
+        showNotification(`File too large: ${file.name}. Maximum 20MB.`, 'error')
         continue
       }
 
@@ -97,12 +97,8 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
     }
 
     // Max 5 files total
-    const totalFiles = [...selectedFiles, ...validFiles].slice(0, 5)
+    const totalFiles = [...selectedFiles, ...validFiles]
     setSelectedFiles(totalFiles)
-
-    if (totalFiles.length >= 5 && validFiles.length > 0) {
-      showNotification('Maximum 5 photos allowed', 'info')
-    }
   }, [selectedFiles, showNotification])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
