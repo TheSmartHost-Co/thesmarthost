@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
-import Modal from './modal'
 
 interface ImagePreviewModalProps {
   isOpen: boolean
@@ -64,18 +64,27 @@ export default function ImagePreviewModal({
     onClose()
   }
 
-  return (
-    <Modal isOpen={isOpen} onClose={handleClose} style="p-0 max-w-4xl w-11/12">
-      <div>
+  if (!isOpen) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-60 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/10" onClick={handleClose} />
+      <div className="relative z-10 bg-white rounded-xl shadow-xl w-11/12 max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 truncate pr-4">
             {title || 'Image Preview'}
           </h3>
+          <button
+            onClick={handleClose}
+            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Image Container */}
-        <div className="relative bg-gray-100 min-h-[300px] flex items-center justify-center">
+        {/* Image Container — scrollable */}
+        <div className="flex-1 overflow-y-auto relative bg-gray-100 min-h-[200px] flex items-center justify-center">
           {isLoading && !imageError && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
@@ -117,7 +126,7 @@ export default function ImagePreviewModal({
 
         {/* Timestamps */}
         {(photoTakenAt || photoUploadedAt) && (
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+          <div className="flex-shrink-0 px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             {photoTakenAt && (
               <span>Photo taken: {new Date(photoTakenAt).toLocaleString('en-US', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })} ET</span>
             )}
@@ -127,8 +136,8 @@ export default function ImagePreviewModal({
           </div>
         )}
 
-        {/* Footer */}
-        <div className={`px-4 py-3 ${!(photoTakenAt || photoUploadedAt) ? 'border-t border-gray-100' : ''} flex items-center justify-between bg-gray-50`}>
+        {/* Footer — always visible */}
+        <div className={`flex-shrink-0 px-4 py-3 ${!(photoTakenAt || photoUploadedAt) ? 'border-t border-gray-100' : ''} flex items-center justify-between bg-gray-50 rounded-b-xl`}>
           <button
             onClick={handleClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
@@ -162,6 +171,7 @@ export default function ImagePreviewModal({
           </div>
         </div>
       </div>
-    </Modal>
+    </div>,
+    document.body
   )
 }
