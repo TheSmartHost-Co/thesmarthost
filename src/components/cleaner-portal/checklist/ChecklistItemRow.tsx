@@ -9,7 +9,6 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import type { ProjectChecklistItem } from '@/services/types/cleaningProject'
-import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface ChecklistItemRowProps {
   item: ProjectChecklistItem
@@ -32,7 +31,6 @@ export default function ChecklistItemRow({
   isToggling,
   readOnly,
 }: ChecklistItemRowProps) {
-  const isMobile = useIsMobile()
   const [imageError, setImageError] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,7 +159,6 @@ export default function ChecklistItemRow({
                 onChange={handleFileChange}
                 disabled={isUploading}
                 className="hidden"
-                {...(isMobile ? { capture: 'environment' as const } : {})}
               />
             </label>
           )}

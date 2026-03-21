@@ -119,10 +119,10 @@ export default function ImagePreviewModal({
         {(photoTakenAt || photoUploadedAt) && (
           <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             {photoTakenAt && (
-              <span>Photo taken: {new Date(photoTakenAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+              <span>Photo taken: {new Date(photoTakenAt).toLocaleString('en-US', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })} ET</span>
             )}
             {photoUploadedAt && (
-              <span>Uploaded: {new Date(photoUploadedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+              <span>Uploaded: {new Date(photoUploadedAt).toLocaleString('en-US', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })} ET</span>
             )}
           </div>
         )}

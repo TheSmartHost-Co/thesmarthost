@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
@@ -371,9 +370,15 @@ export default function ChecklistModal({
           document.body
         )
       ) : (
-        <Modal isOpen={isOpen} onClose={onClose} closable={false} style="p-0 max-w-3xl w-11/12 max-h-[90vh] overflow-hidden flex flex-col">
-          {innerContent}
-        </Modal>
+        createPortal(
+          <div className="fixed inset-0 z-60 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="relative z-10 bg-white rounded-xl shadow-xl w-11/12 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+              {innerContent}
+            </div>
+          </div>,
+          document.body
+        )
       )}
 
       {/* Nested modals */}

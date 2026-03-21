@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import ResponsiveSidebar from '@/components/navbar/ResponsiveSidebar'
 import UserNavbar from '@/components/navbar/UserNavbar'
+import RoleGuard from '@/components/shared/RoleGuard'
 import { managerSidebarItems, managerNavConfig } from '@/components/navbar/sidebarItems'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import { useNotificationPolling } from '@/hooks/useNotificationPolling'
@@ -32,7 +33,9 @@ export default function AdminLayout({
         navConfig={filteredNavConfig}
       />
       <main className={`pt-16 p-3 sm:pt-20 sm:p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
-        {children}
+        <RoleGuard portal="/property-manager">
+          {children}
+        </RoleGuard>
       </main>
     </div>
   )
