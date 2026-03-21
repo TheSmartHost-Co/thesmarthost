@@ -20,6 +20,7 @@ import { formatTime, isProjectOverdue, getOverdueMinutes, formatOverdueDuration 
 
 interface ProjectCardProps {
   project: CleaningProject
+  isImplicit?: boolean
   onAccept?: (projectId: string) => Promise<void>
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
@@ -35,6 +36,7 @@ interface ProjectCardProps {
 
 export default function ProjectCard({
   project,
+  isImplicit = false,
   onAccept,
   onDecline,
   onStart,
@@ -89,20 +91,25 @@ export default function ProjectCard({
   }
 
   // Determine which buttons to show based on status
-  const showAcceptDecline = project.status === 'assigned'
-  const showStart = project.status === 'confirmed'
-  const showComplete = project.status === 'in_progress'
-  const showChecklist = project.status === 'confirmed' || project.status === 'in_progress' || project.status === 'completed'
+  const showAcceptDecline = !isImplicit && project.status === 'assigned'
+  const showStart = !isImplicit && project.status === 'confirmed'
+  const showComplete = !isImplicit && project.status === 'in_progress'
+  const showChecklist = !isImplicit && (project.status === 'confirmed' || project.status === 'in_progress' || project.status === 'completed')
+
+  // Implicit label
+  const implicitLabel = isImplicit
+    ? (project.cleanerName ? 'Assigned to another cleaner' : 'Unassigned')
+    : null
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={() => onViewChecklist?.(project)}
+      onClick={isImplicit ? undefined : () => onViewChecklist?.(project)}
       className={`
-        bg-white rounded-xl border-l-4 shadow-sm hover:shadow-md transition-shadow
-        ${statusConfig.border}
-        ${onViewChecklist ? 'cursor-pointer' : ''}
+        bg-white rounded-xl border-l-4 shadow-sm transition-shadow
+        ${isImplicit ? 'border-gray-200 opacity-60 cursor-default' : `${statusConfig.border} hover:shadow-md`}
+        ${!isImplicit && onViewChecklist ? 'cursor-pointer' : ''}
       `}
     >
       {/* Header */}
@@ -125,13 +132,19 @@ export default function ProjectCard({
           </div>
 
           {/* Status Badge */}
-          <span className={`
-            inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg
-            ${statusConfig.badge}
-          `}>
-            {statusConfig.icon}
-            {statusConfig.label}
-          </span>
+          {isImplicit ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-500">
+              {implicitLabel}
+            </span>
+          ) : (
+            <span className={`
+              inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg
+              ${statusConfig.badge}
+            `}>
+              {statusConfig.icon}
+              {statusConfig.label}
+            </span>
+          )}
         </div>
 
         {/* Date & Time */}

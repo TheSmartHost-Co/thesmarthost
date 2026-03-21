@@ -107,6 +107,14 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                     <ArrowRightIcon className="w-2.5 h-2.5 inline mx-1" />
                     {formatDate(project.previousBookingCheckOut)}
                   </span>
+                  {project.previousBookingNumGuests != null && project.previousBookingNumGuests > 0 && (
+                    <span className="text-xs text-gray-500 flex-shrink-0">{project.previousBookingNumGuests} guest{project.previousBookingNumGuests !== 1 ? 's' : ''}</span>
+                  )}
+                  {project.previousBookingHasPets && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded flex-shrink-0">
+                      🐾 Pet
+                    </span>
+                  )}
                 </div>
               ) : (
                 <span className="text-sm text-gray-400">No booking linked</span>
@@ -122,6 +130,14 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                     <ArrowRightIcon className="w-2.5 h-2.5 inline mx-1" />
                     {formatDate(project.nextBookingCheckOut)}
                   </span>
+                  {project.nextBookingNumGuests != null && project.nextBookingNumGuests > 0 && (
+                    <span className="text-xs text-gray-500 flex-shrink-0">{project.nextBookingNumGuests} guest{project.nextBookingNumGuests !== 1 ? 's' : ''}</span>
+                  )}
+                  {project.nextBookingHasPets && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded flex-shrink-0">
+                      🐾 Pet
+                    </span>
+                  )}
                 </div>
               ) : (
                 <span className="text-sm text-gray-400">No booking linked</span>

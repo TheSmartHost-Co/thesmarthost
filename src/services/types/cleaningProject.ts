@@ -54,6 +54,13 @@ export interface CleaningProject {
   nextBookingGuestName?: string
   nextBookingCheckIn?: string
   nextBookingCheckOut?: string
+  // Schedule endpoint fields
+  assignmentType?: 'explicit' | 'implicit'
+  cleanerAccepted?: boolean
+  previousBookingNumGuests?: number | null
+  previousBookingHasPets?: boolean | null
+  nextBookingNumGuests?: number | null
+  nextBookingHasPets?: boolean | null
   // Checklist progress (included when fetching single project)
   checklistProgress?: ChecklistProgress
   checklistItemsInitialized?: number  // Included on create when checklist auto-initialized

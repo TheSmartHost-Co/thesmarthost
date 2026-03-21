@@ -11,9 +11,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getCleanerByAuthUserId } from '@/services/cleanerService'
+import { getCleanerSchedule } from '@/services/cleanerService'
 import {
-  getCleaningProjects,
   acceptProject,
   declineProject,
   startProject,
@@ -113,7 +112,7 @@ function CleanerDeepLinkHandler({
   const handleDeepLink = useCallback((result: DeepLinkResult) => {
     if (!result.projectId) return
     const project = projects.find(p => p.id === result.projectId)
-    if (project) {
+    if (project && project.assignmentType !== 'implicit') {
       onOpenChecklist(project)
     } else {
       showNotification('Task not found — it may have been reassigned.', 'info')
@@ -150,7 +149,7 @@ export default function CleanerTasksPage() {
   const [showViewPendingTimeChangeModal, setShowViewPendingTimeChangeModal] = useState(false)
   const [viewPendingProject, setViewPendingProject] = useState<CleaningProject | null>(null)
 
-  // Fetch cleaner data and projects
+  // Fetch cleaner data and projects using unified schedule endpoint
   const fetchData = useCallback(async () => {
     if (!profile?.id) return
 
@@ -158,76 +157,70 @@ export default function CleanerTasksPage() {
     setError(null)
 
     try {
-      // 1. Get cleaner record by auth user ID
-      const cleanerRes = await getCleanerByAuthUserId(profile.id)
-      if (cleanerRes.status !== 'success') {
-        throw new Error(cleanerRes.message || 'Could not find your cleaner profile')
-      }
-
-      const cleanerData = cleanerRes.data
-      setCleaner(cleanerData)
-
-      // 2. Get all projects for the PM (userId is the PM who manages this cleaner)
       const today = new Date()
       const startDate = new Date(today)
       startDate.setDate(startDate.getDate() - 7) // Include recent past
       const endDate = new Date(today)
       endDate.setDate(endDate.getDate() + 30) // Next 30 days
 
-      const projectsRes = await getCleaningProjects({
-        userId: cleanerData.userId, // PM's user ID
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-      })
+      // 1. Unified schedule endpoint — returns cleaner, properties, projects, bookings
+      const scheduleRes = await getCleanerSchedule(
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0],
+      )
+      if (scheduleRes.status !== 'success') {
+        throw new Error(scheduleRes.message || 'Could not load schedule')
+      }
 
-      if (projectsRes.status === 'success') {
-        // Filter projects assigned to this cleaner
-        const myProjects = projectsRes.data.filter(
-          p => p.cleanerId === cleanerData.id
-        )
-        setProjects(myProjects)
+      const cleanerData = {
+        ...scheduleRes.data.cleaner,
+        assignedProperties: scheduleRes.data.assignedProperties,
+      } as Cleaner
+      setCleaner(cleanerData)
 
-        // 3. Fetch open issues for badge display
-        const issuesRes = await getOpenIssues(cleanerData.userId)
-        if (issuesRes.status === 'success') {
-          const countsMap: Record<string, number> = {}
-          issuesRes.data.forEach(issue => {
-            if (myProjects.some(p => p.id === issue.projectId)) {
-              countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
-            }
-          })
-          setIssueCountsMap(countsMap)
-        }
+      // Projects come pre-scoped from backend (explicit + implicit)
+      const allProjects = scheduleRes.data.cleaningProjects
+      setProjects(allProjects)
 
-        // 4. Fetch pending supply lists for badge display
-        const supplyRes = await getPendingSupplyLists(cleanerData.userId)
-        if (supplyRes.status === 'success') {
-          const slCountsMap: Record<string, number> = {}
-          supplyRes.data.forEach(sl => {
-            if (myProjects.some(p => p.id === sl.projectId)) {
-              slCountsMap[sl.projectId] = (slCountsMap[sl.projectId] || 0) + 1
-            }
-          })
-          setSupplyListCountsMap(slCountsMap)
-        }
+      // 2. Fetch issue/supply badges only for explicit projects
+      const explicitProjects = allProjects.filter(p => p.assignmentType !== 'implicit')
 
-        // 5. Fetch pending time change requests for active projects
-        const activeProjects = myProjects.filter(p =>
-          ['assigned', 'confirmed', 'in_progress'].includes(p.status)
-        )
-        const tcResults = await Promise.all(
-          activeProjects.map(p => getPendingTimeChangeRequest(p.id).catch(() => null))
-        )
-        const tcIds = new Set<string>()
-        tcResults.forEach((res, idx) => {
-          if (res?.status === 'success' && res.data) {
-            tcIds.add(activeProjects[idx].id)
+      const issuesRes = await getOpenIssues(cleanerData.userId)
+      if (issuesRes.status === 'success') {
+        const countsMap: Record<string, number> = {}
+        issuesRes.data.forEach(issue => {
+          if (explicitProjects.some(p => p.id === issue.projectId)) {
+            countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
           }
         })
-        setPendingTimeChangeProjectIds(tcIds)
-      } else {
-        throw new Error(projectsRes.message || 'Failed to fetch tasks')
+        setIssueCountsMap(countsMap)
       }
+
+      const supplyRes = await getPendingSupplyLists(cleanerData.userId)
+      if (supplyRes.status === 'success') {
+        const slCountsMap: Record<string, number> = {}
+        supplyRes.data.forEach(sl => {
+          if (explicitProjects.some(p => p.id === sl.projectId)) {
+            slCountsMap[sl.projectId] = (slCountsMap[sl.projectId] || 0) + 1
+          }
+        })
+        setSupplyListCountsMap(slCountsMap)
+      }
+
+      // 3. Fetch pending time change requests for active explicit projects
+      const activeProjects = explicitProjects.filter(p =>
+        ['assigned', 'confirmed', 'in_progress'].includes(p.status)
+      )
+      const tcResults = await Promise.all(
+        activeProjects.map(p => getPendingTimeChangeRequest(p.id).catch(() => null))
+      )
+      const tcIds = new Set<string>()
+      tcResults.forEach((res, idx) => {
+        if (res?.status === 'success' && res.data) {
+          tcIds.add(activeProjects[idx].id)
+        }
+      })
+      setPendingTimeChangeProjectIds(tcIds)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load tasks'
       setError(message)
@@ -316,6 +309,7 @@ export default function CleanerTasksPage() {
   }
 
   const handleViewChecklist = (project: CleaningProject) => {
+    if (project.assignmentType === 'implicit') return
     setSelectedProject(project)
     setShowChecklistModal(true)
   }
@@ -717,23 +711,27 @@ function TaskGroup({
         </span>
       </div>
       <div className="space-y-3">
-        {projects.map(project => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            openIssueCount={issueCountsMap[project.id] || 0}
-            pendingSupplyListCount={supplyListCountsMap[project.id] || 0}
-            hasPendingTimeChange={pendingTimeChangeProjectIds.has(project.id)}
-            onAccept={onAccept}
-            onDecline={onDecline}
-            onStart={onStart}
-            onComplete={onComplete}
-            onViewChecklist={onViewChecklist}
-            onViewIssues={onViewIssues}
-            onRequestTimeChange={onRequestTimeChange}
-            onViewPendingTimeChange={onViewPendingTimeChange}
-          />
-        ))}
+        {projects.map(project => {
+          const implicit = project.assignmentType === 'implicit'
+          return (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              isImplicit={implicit}
+              openIssueCount={implicit ? 0 : (issueCountsMap[project.id] || 0)}
+              pendingSupplyListCount={implicit ? 0 : (supplyListCountsMap[project.id] || 0)}
+              hasPendingTimeChange={implicit ? false : pendingTimeChangeProjectIds.has(project.id)}
+              onAccept={implicit ? undefined : onAccept}
+              onDecline={implicit ? undefined : onDecline}
+              onStart={implicit ? undefined : onStart}
+              onComplete={implicit ? undefined : onComplete}
+              onViewChecklist={implicit ? undefined : onViewChecklist}
+              onViewIssues={implicit ? undefined : onViewIssues}
+              onRequestTimeChange={implicit ? undefined : onRequestTimeChange}
+              onViewPendingTimeChange={implicit ? undefined : onViewPendingTimeChange}
+            />
+          )
+        })}
       </div>
     </div>
   )

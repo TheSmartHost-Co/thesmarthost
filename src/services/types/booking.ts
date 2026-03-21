@@ -43,6 +43,8 @@ export interface Booking {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  numGuests?: number | null
+  hasPets?: boolean
   financialReadiness?: FinancialReadiness
   source?: BookingSource
   icalEventUid?: string
@@ -83,6 +85,8 @@ export interface CreateBookingPayload {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  numGuests?: number | null
+  hasPets?: boolean
 }
 
 /**
@@ -114,6 +118,8 @@ export interface UpdateBookingPayload {
   rentCollected?: number
   taxesCollected?: number
   cohostFee?: number
+  numGuests?: number | null
+  hasPets?: boolean
   financialReadiness?: FinancialReadiness
 }
 

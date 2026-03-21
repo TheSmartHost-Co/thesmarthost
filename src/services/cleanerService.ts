@@ -5,6 +5,7 @@ import type {
   CleanersResponse,
   CleanerStats,
   CleanerStatsResponse,
+  CleanerScheduleResponse,
   CreateCleanerPayload,
   UpdateCleanerPayload,
   AssignPropertiesPayload,
@@ -65,6 +66,21 @@ export function assignPropertiesToCleaner(
       body: data,
     }
   )
+}
+
+/**
+ * Unified schedule endpoint for cleaner portal.
+ * Returns cleaner data, assigned properties, bookings, and cleaning projects in one call.
+ */
+export function getCleanerSchedule(
+  startDate?: string,
+  endDate?: string
+): Promise<CleanerScheduleResponse> {
+  const params = new URLSearchParams()
+  if (startDate) params.append('startDate', startDate)
+  if (endDate) params.append('endDate', endDate)
+  const qs = params.toString()
+  return apiClient<CleanerScheduleResponse>(`/cleaners/schedule${qs ? `?${qs}` : ''}`)
 }
 
 export function resendCleanerInvite(cleanerId: string): Promise<{ status: 'success' | 'failed'; message: string }> {

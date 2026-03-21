@@ -96,3 +96,15 @@ export interface CleanerStatsResponse {
   data: CleanerStats
   message?: string
 }
+
+// Unified schedule endpoint response
+export interface CleanerScheduleResponse {
+  status: 'success' | 'failed'
+  data: {
+    cleaner: Omit<Cleaner, 'assignedProperties'>
+    assignedProperties: CleanerProperty[]
+    bookings: import('./booking').Booking[]
+    cleaningProjects: import('./cleaningProject').CleaningProject[]
+  }
+  message?: string
+}

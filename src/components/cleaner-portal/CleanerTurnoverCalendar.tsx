@@ -9,15 +9,14 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getCleanerByAuthUserId } from '@/services/cleanerService'
+import { getCleanerByAuthUserId, getCleanerSchedule } from '@/services/cleanerService'
 import {
-  getCleaningProjects,
   acceptProject,
   declineProject,
   startProject,
   completeProject,
 } from '@/services/cleaningProjectService'
-import { getBookings, getMonthKey, getMonthBounds } from '@/services/bookingService'
+import { getMonthKey, getMonthBounds } from '@/services/bookingService'
 import { getIssueCounts } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getPendingTimeChangeRequest } from '@/services/timeChangeRequestService'
@@ -32,6 +31,7 @@ import PropertyRowView from '@/components/turnover/PropertyRowView'
 import MonthGridView from '@/components/turnover/MonthGridView'
 import { useActivatedItem } from '@/components/turnover/hooks/useActivatedItem'
 import ProjectCard from './ProjectCard'
+import SimpleCalendarView from './SimpleCalendarView'
 import ChecklistModal from './ChecklistModal'
 import RequestTimeChangeModal from './RequestTimeChangeModal'
 import ViewPendingTimeChangeModal from './ViewPendingTimeChangeModal'
@@ -50,6 +50,8 @@ export default function CleanerTurnoverCalendar() {
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
   const [sortOption, setSortOption] = useState<SortOption>('next-project')
   const [selectedDay, setSelectedDay] = useState(new Date())
+  const [calendarMode, setCalendarMode] = useState<'timeline' | 'simple'>('simple')
+  const [simpleSelectedDay, setSimpleSelectedDay] = useState<string | null>(null)
 
   // Data state
   const [cleaner, setCleaner] = useState<Cleaner | null>(null)
@@ -121,8 +123,8 @@ export default function CleanerTurnoverCalendar() {
     return { start: formatLocalDate(start), end: formatLocalDate(end) }
   }, [currentDate, zoomLevel])
 
-  // Fetch months that buffer around centerDate touches
-  const fetchMonthsForRange = useCallback(async (centerDate: Date, userId: string) => {
+  // Fetch months that buffer around centerDate touches (using unified schedule endpoint)
+  const fetchMonthsForRange = useCallback(async (centerDate: Date, _userId?: string) => {
     const bufferStart = new Date(centerDate)
     bufferStart.setDate(bufferStart.getDate() - 17)
     const bufferEnd = new Date(centerDate)
@@ -153,19 +155,43 @@ export default function CleanerTurnoverCalendar() {
     const fetchPromises = neededMonths.map(async (monthKey) => {
       const { startDate, endDate } = getMonthBounds(monthKey)
       try {
-        const [bookingsRes, projectsRes] = await Promise.all([
-          currentBookingCache.has(monthKey)
-            ? Promise.resolve(null)
-            : getBookings({ userId, startDate, endDate }),
-          currentProjectCache.has(monthKey)
-            ? Promise.resolve(null)
-            : getCleaningProjects({ userId, startDate, endDate }),
-        ])
-        return {
-          monthKey,
-          bookings: bookingsRes?.status === 'success' ? bookingsRes.data : null,
-          projects: projectsRes?.status === 'success' ? projectsRes.data : null,
+        // Skip if both caches already have this month
+        if (currentBookingCache.has(monthKey) && currentProjectCache.has(monthKey)) {
+          return { monthKey, bookings: null, projects: null }
         }
+        const res = await getCleanerSchedule(startDate, endDate)
+        if (res.status === 'success') {
+          // On first fetch, set cleaner and properties from unified response
+          if (!cleanerRef.current) {
+            const cleanerData = { ...res.data.cleaner, assignedProperties: res.data.assignedProperties } as Cleaner
+            setCleaner(cleanerData)
+            cleanerRef.current = cleanerData
+            const assignedProps = (res.data.assignedProperties || []).map(ap => ({
+              id: ap.propertyId,
+              listingName: ap.propertyName || '',
+              internalName: ap.propertyName || '',
+              address: ap.propertyAddress || '',
+              postalCode: '',
+              province: '',
+              propertyType: 'STR' as const,
+              isActive: true,
+              createdAt: '',
+              updatedAt: '',
+              owners: [],
+              channels: [],
+              licenses: [],
+              cleaningManaged: true,
+            } satisfies Property))
+            setProperties(assignedProps)
+            setSelectedPropertyIds(assignedProps.map(p => p.id))
+          }
+          return {
+            monthKey,
+            bookings: !currentBookingCache.has(monthKey) ? res.data.bookings : null,
+            projects: !currentProjectCache.has(monthKey) ? res.data.cleaningProjects : null,
+          }
+        }
+        return { monthKey, bookings: null, projects: null }
       } catch (err) {
         console.error(`Error fetching month ${monthKey}:`, err)
         return { monthKey, bookings: null, projects: null }
@@ -197,6 +223,69 @@ export default function CleanerTurnoverCalendar() {
       }
       return next
     })
+
+    // Merge in extra properties discovered from implicit projects/bookings
+    const extraProps: Property[] = []
+    const seenExtra = new Set<string>()
+    for (const r of results) {
+      if (r.projects) {
+        for (const p of r.projects) {
+          if (!seenExtra.has(p.propertyId)) {
+            seenExtra.add(p.propertyId)
+            extraProps.push({
+              id: p.propertyId,
+              listingName: p.propertyName || '',
+              internalName: p.propertyName || '',
+              address: p.propertyAddress || '',
+              postalCode: '',
+              province: '',
+              propertyType: 'STR' as const,
+              isActive: true,
+              createdAt: '',
+              updatedAt: '',
+              owners: [],
+              channels: [],
+              licenses: [],
+              cleaningManaged: true,
+            } satisfies Property)
+          }
+        }
+      }
+      if (r.bookings) {
+        for (const b of r.bookings) {
+          if (!seenExtra.has(b.propertyId)) {
+            seenExtra.add(b.propertyId)
+            extraProps.push({
+              id: b.propertyId,
+              listingName: b.propertyName || '',
+              internalName: b.propertyName || '',
+              address: b.propertyAddress || '',
+              postalCode: '',
+              province: '',
+              propertyType: 'STR' as const,
+              isActive: true,
+              createdAt: '',
+              updatedAt: '',
+              owners: [],
+              channels: [],
+              licenses: [],
+              cleaningManaged: true,
+            } satisfies Property)
+          }
+        }
+      }
+    }
+    if (extraProps.length > 0) {
+      setProperties(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const newProps = extraProps.filter(p => !existingIds.has(p.id))
+        return newProps.length > 0 ? [...prev, ...newProps] : prev
+      })
+      setSelectedPropertyIds(prev => {
+        const newIds = extraProps.map(p => p.id).filter(id => !prev.includes(id))
+        return newIds.length > 0 ? [...prev, ...newIds] : prev
+      })
+    }
 
     setFetchingMonths(prev => {
       const next = new Set(prev)
@@ -230,7 +319,7 @@ export default function CleanerTurnoverCalendar() {
     return result
   }, [bookingCache])
 
-  // Initial data fetch
+  // Initial data fetch (unified schedule endpoint sets cleaner + properties on first call)
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!profile?.id) return
@@ -240,37 +329,39 @@ export default function CleanerTurnoverCalendar() {
       setError(null)
 
       try {
-        // 1. Get cleaner record
-        const cleanerRes = await getCleanerByAuthUserId(profile.id)
-        if (cleanerRes.status !== 'success') {
-          throw new Error(cleanerRes.message || 'Could not find your cleaner profile')
+        // Fetch initial month data — the unified endpoint will set cleaner & properties
+        await fetchMonthsForRange(currentDate)
+
+        if (!cleanerRef.current) {
+          // Fallback: if schedule endpoint didn't return cleaner (e.g. no data for this month),
+          // fetch cleaner record directly
+          const cleanerRes = await getCleanerByAuthUserId(profile.id)
+          if (cleanerRes.status !== 'success') {
+            throw new Error(cleanerRes.message || 'Could not find your cleaner profile')
+          }
+          const cleanerData = cleanerRes.data
+          setCleaner(cleanerData)
+          cleanerRef.current = cleanerData
+
+          const assignedProps = (cleanerData.assignedProperties || []).map(ap => ({
+            id: ap.propertyId,
+            listingName: ap.propertyName || '',
+            internalName: ap.propertyName || '',
+            address: ap.propertyAddress || '',
+            postalCode: '',
+            province: '',
+            propertyType: 'STR' as const,
+            isActive: true,
+            createdAt: '',
+            updatedAt: '',
+            owners: [],
+            channels: [],
+            licenses: [],
+            cleaningManaged: true,
+          } satisfies Property))
+          setProperties(assignedProps)
+          setSelectedPropertyIds(assignedProps.map(p => p.id))
         }
-        const cleanerData = cleanerRes.data
-        setCleaner(cleanerData)
-        cleanerRef.current = cleanerData
-
-        // 2. Build properties from assignedProperties (no PM-only API call)
-        const assignedProps = (cleanerData.assignedProperties || []).map(ap => ({
-          id: ap.propertyId,
-          listingName: ap.propertyName || '',
-          internalName: ap.propertyName || '',
-          address: ap.propertyAddress || '',
-          postalCode: '',
-          province: '',
-          propertyType: 'STR' as const,
-          isActive: true,
-          createdAt: '',
-          updatedAt: '',
-          owners: [],
-          channels: [],
-          licenses: [],
-          cleaningManaged: true,
-        } satisfies Property))
-        setProperties(assignedProps)
-        setSelectedPropertyIds(assignedProps.map(p => p.id))
-
-        // 3. Fetch month-based cache for projects
-        await fetchMonthsForRange(currentDate, cleanerData.userId)
 
         initialFetchDone.current = true
       } catch (err) {
@@ -287,38 +378,34 @@ export default function CleanerTurnoverCalendar() {
   // Fetch months when navigating (after initial load)
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useEffect(() => {
-    if (!cleaner?.userId || !initialFetchDone.current) return
+    if (!initialFetchDone.current) return
     if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current)
     fetchDebounceRef.current = setTimeout(() => {
-      fetchMonthsForRange(currentDate, cleaner.userId)
+      fetchMonthsForRange(currentDate)
     }, 150)
     return () => { if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current) }
-  }, [currentDate, cleaner?.userId, fetchMonthsForRange])
+  }, [currentDate, fetchMonthsForRange])
 
-  // Filter projects to only this cleaner's + non-cancelled
+  // Filter projects: backend already scopes to this cleaner's view (explicit + implicit)
   const filteredProjects = useMemo(() => {
-    const cId = cleanerRef.current?.id
-    if (!cId) return []
-    let result = allCachedProjects.filter(p => p.cleanerId === cId && p.status !== 'cancelled')
+    let result = allCachedProjects.filter(p => p.status !== 'cancelled')
     if (selectedPropertyIds.length > 0) {
       result = result.filter(p => selectedPropertyIds.includes(p.propertyId))
     }
     return result
   }, [allCachedProjects, selectedPropertyIds])
 
-  // Filter bookings to assigned properties + visible date range
+  // Filter bookings to visible date range (backend already scopes to cleaner's view)
   const visibleBookings = useMemo(() => {
     if (allCachedBookings.length === 0) return []
-    const assignedIds = new Set(properties.map(p => p.id))
     return allCachedBookings.filter(b => {
       if (!b.checkOutDate) return false
       if (b.bookingStatus === 'cancelled') return false
-      if (!assignedIds.has(b.propertyId)) return false
       const checkIn = toLocalDateStr(b.checkInDate)
       const checkOut = toLocalDateStr(b.checkOutDate)
       return checkIn <= dateRange.end && checkOut >= dateRange.start
     })
-  }, [allCachedBookings, dateRange.start, dateRange.end, properties])
+  }, [allCachedBookings, dateRange.start, dateRange.end])
 
   const filteredBookings = useMemo(() => {
     if (selectedPropertyIds.length === 0) return visibleBookings
@@ -364,6 +451,8 @@ export default function CleanerTurnoverCalendar() {
 
   // Click-to-activate (first click activates, second opens modal)
   const openProjectModal = useCallback((project: CleaningProject) => {
+    // Don't open modal for implicit (other cleaner's) projects
+    if (project.assignmentType === 'implicit') return
     setSelectedProject(project)
     setShowChecklistModal(true)
   }, [])
@@ -461,6 +550,42 @@ export default function CleanerTurnoverCalendar() {
     setExpandedDate(null)
     setNavigationEpoch(e => e + 1)
   }, [isWeekPreset, zoomLevel])
+
+  // Calendar style toggle handler
+  const handleCalendarStyleChange = useCallback((style: 'timeline' | 'simple') => {
+    setCalendarMode(style)
+    if (style === 'simple') {
+      // Clamp zoom to week or month only
+      if (zoomLevel !== 'month' && zoomLevel !== 7) {
+        setZoomLevel(7)
+        setIsWeekPreset(true)
+      }
+    }
+  }, [zoomLevel])
+
+  // Simple view zoom presets (week + month only)
+  const simpleZoomPresets = useMemo(() => [
+    { label: 'Week', value: 7 as ZoomLevel, isWeek: true },
+    { label: 'Month', value: 'month' as ZoomLevel },
+  ], [])
+
+  // Simple view day click handler
+  const handleSimpleDayClick = useCallback((dateStr: string) => {
+    setSimpleSelectedDay(prev => prev === dateStr ? null : dateStr)
+  }, [])
+
+  // Projects for the selected simple-view day
+  const simpleSelectedDayProjects = useMemo(() => {
+    if (!simpleSelectedDay) return []
+    return filteredProjects
+      .filter(p => {
+        const dateKey = p.projectDate.split('T')[0]
+        return dateKey === simpleSelectedDay && p.assignmentType !== 'implicit'
+      })
+      .sort((a, b) =>
+        (a.projectStartTime || '00:00:00').localeCompare(b.projectStartTime || '00:00:00')
+      )
+  }, [simpleSelectedDay, filteredProjects])
 
   // Project action handlers
   const handleAccept = async (projectId: string) => {
@@ -578,11 +703,11 @@ export default function CleanerTurnoverCalendar() {
     }
   }
 
-  // Fetch pending time change requests for visible projects
+  // Fetch pending time change requests for visible explicit projects
   useEffect(() => {
     if (!cleaner?.id || filteredProjects.length === 0) return
     const activeProjects = filteredProjects.filter(p =>
-      ['assigned', 'confirmed', 'in_progress'].includes(p.status)
+      p.assignmentType !== 'implicit' && ['assigned', 'confirmed', 'in_progress'].includes(p.status)
     )
     if (activeProjects.length === 0) return
 
@@ -599,10 +724,11 @@ export default function CleanerTurnoverCalendar() {
     })
   }, [cleaner?.id, filteredProjects])
 
-  // Fetch issue counts and supply list counts per project (cleaner-accessible endpoints)
+  // Fetch issue counts and supply list counts per explicit project only
   useEffect(() => {
-    if (filteredProjects.length === 0) return
-    const uniqueProjectIds = [...new Set(filteredProjects.map(p => p.id))]
+    const explicitProjects = filteredProjects.filter(p => p.assignmentType !== 'implicit')
+    if (explicitProjects.length === 0) return
+    const uniqueProjectIds = [...new Set(explicitProjects.map(p => p.id))]
 
     // Issue counts
     Promise.all(
@@ -792,21 +918,25 @@ export default function CleanerTurnoverCalendar() {
             className="space-y-3"
           >
             {selectedDayProjects.length > 0 ? (
-              selectedDayProjects.map(project => (
+              selectedDayProjects.map(project => {
+                const implicit = project.assignmentType === 'implicit'
+                return (
                 <ProjectCard
                   key={project.id}
                   project={project}
-                  openIssueCount={issueCountsMap[project.id] || 0}
-                  hasPendingTimeChange={pendingTimeChangeProjectIds.has(project.id)}
-                  onAccept={handleAccept}
-                  onDecline={handleDecline}
-                  onStart={handleStart}
-                  onComplete={handleComplete}
-                  onViewChecklist={(p) => { setSelectedProject(p); setShowChecklistModal(true) }}
-                  onRequestTimeChange={handleRequestTimeChange}
-                  onViewPendingTimeChange={handleViewPendingTimeChange}
+                  isImplicit={implicit}
+                  openIssueCount={implicit ? 0 : (issueCountsMap[project.id] || 0)}
+                  hasPendingTimeChange={implicit ? false : pendingTimeChangeProjectIds.has(project.id)}
+                  onAccept={implicit ? undefined : handleAccept}
+                  onDecline={implicit ? undefined : handleDecline}
+                  onStart={implicit ? undefined : handleStart}
+                  onComplete={implicit ? undefined : handleComplete}
+                  onViewChecklist={implicit ? undefined : (p) => { setSelectedProject(p); setShowChecklistModal(true) }}
+                  onRequestTimeChange={implicit ? undefined : handleRequestTimeChange}
+                  onViewPendingTimeChange={implicit ? undefined : handleViewPendingTimeChange}
                 />
-              ))
+                )
+              })
             ) : (
               <div className="py-10 text-center">
                 <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto">
@@ -838,18 +968,21 @@ export default function CleanerTurnoverCalendar() {
           onPrevWeek={handlePrevWeek}
           onNextWeek={handleNextWeek}
           onToday={handleToday}
-          showBookings={showBookings}
-          onToggleBookings={(enabled) => setShowBookings(enabled)}
-          bookingsLoading={bookingsLoading}
+          showBookings={calendarMode === 'timeline' ? showBookings : undefined}
+          onToggleBookings={calendarMode === 'timeline' ? (enabled) => setShowBookings(enabled) : undefined}
+          bookingsLoading={calendarMode === 'timeline' ? bookingsLoading : undefined}
           properties={properties}
           selectedPropertyIds={selectedPropertyIds}
           onPropertyFilterChange={setSelectedPropertyIds}
           zoomLevel={zoomLevel}
           onZoomChange={handleZoomChange}
           isWeekPreset={isWeekPreset}
-          sortOption={sortOption}
-          onSortChange={setSortOption}
+          sortOption={calendarMode === 'timeline' ? sortOption : undefined}
+          onSortChange={calendarMode === 'timeline' ? setSortOption : undefined}
           hideViewToggle
+          calendarStyle={calendarMode}
+          onCalendarStyleChange={handleCalendarStyleChange}
+          allowedZoomPresets={calendarMode === 'simple' ? simpleZoomPresets : undefined}
         />
 
         {/* Scroll container */}
@@ -860,6 +993,70 @@ export default function CleanerTurnoverCalendar() {
           </div>
 
           {/* Calendar body */}
+          {calendarMode === 'simple' ? (
+            <div>
+              <SimpleCalendarView
+                projects={filteredProjects}
+                currentDate={currentDate}
+                zoomLevel={zoomLevel === 'month' ? 'month' : 7}
+                selectedDay={simpleSelectedDay}
+                onDayClick={handleSimpleDayClick}
+                onProjectClick={openProjectModal}
+                issueCountsMap={issueCountsMap}
+              />
+
+              {/* Selected day detail section */}
+              {simpleSelectedDay && (
+                <div className="p-3 sm:p-4 border-t border-gray-200">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
+                    {(() => {
+                      const [y, m, d] = simpleSelectedDay.split('-').map(Number)
+                      const date = new Date(y, m - 1, d)
+                      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+                    })()}
+                  </p>
+
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={simpleSelectedDay}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-3"
+                    >
+                      {simpleSelectedDayProjects.length > 0 ? (
+                        simpleSelectedDayProjects.map(project => (
+                          <ProjectCard
+                            key={project.id}
+                            project={project}
+                            isImplicit={false}
+                            openIssueCount={issueCountsMap[project.id] || 0}
+                            hasPendingTimeChange={pendingTimeChangeProjectIds.has(project.id)}
+                            onAccept={handleAccept}
+                            onDecline={handleDecline}
+                            onStart={handleStart}
+                            onComplete={handleComplete}
+                            onViewChecklist={(p) => { setSelectedProject(p); setShowChecklistModal(true) }}
+                            onRequestTimeChange={handleRequestTimeChange}
+                            onViewPendingTimeChange={handleViewPendingTimeChange}
+                          />
+                        ))
+                      ) : (
+                        <div className="py-10 text-center">
+                          <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto">
+                            <CalendarDaysIcon className="w-7 h-7 text-gray-300" />
+                          </div>
+                          <p className="text-sm font-medium text-gray-400 mt-3">No projects scheduled</p>
+                          <p className="text-xs text-gray-300 mt-1">Tap another day to check</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          ) : (
           <AnimatePresence mode="wait">
             <motion.div
               key={zoomLevel === 'month' ? 'month' : zoomLevel === 1 && isMobile ? 'mobile-day' : 'grid'}
@@ -913,6 +1110,7 @@ export default function CleanerTurnoverCalendar() {
               )}
             </motion.div>
           </AnimatePresence>
+          )}
         </div>
       </div>
 

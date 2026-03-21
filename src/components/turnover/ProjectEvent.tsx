@@ -17,6 +17,7 @@ interface ProjectEventProps {
   isActivated?: boolean
   compact?: boolean
   isMobile?: boolean
+  isImplicit?: boolean
   /** @deprecated Use project.nextBookingCheckIn directly */
   nextCheckinDate?: string | null
 }
@@ -84,6 +85,7 @@ export default function ProjectEvent({
   isActivated = false,
   compact = false,
   isMobile = false,
+  isImplicit = false,
   nextCheckinDate = null,
 }: ProjectEventProps) {
   const isUnassigned = !project.cleanerId
@@ -92,11 +94,18 @@ export default function ProjectEvent({
   const overdueMinutes = getOverdueMinutes(project)
   const overdueLabel = overdue && overdueMinutes !== null ? formatOverdueDuration(overdueMinutes) : null
 
-  const dotColor = overdue ? '#ef4444' : getStatusDotColor(project.status, isUnassigned, isAwaiting)
-  const statusStyle = overdue
-    ? { bg: '#fca5a5', text: '#7f1d1d', borderLeft: '#dc2626' }
-    : getStatusStyle(project.status, isUnassigned, isAwaiting)
-  const statusLabel = overdue && overdueLabel ? overdueLabel : getStatusLabel(project.status, isAwaiting)
+  const dotColor = isImplicit ? '#9ca3af' : overdue ? '#ef4444' : getStatusDotColor(project.status, isUnassigned, isAwaiting)
+  const statusStyle = isImplicit
+    ? { bg: '#e5e7eb', text: '#6b7280', borderLeft: '#9ca3af' }
+    : overdue
+      ? { bg: '#fca5a5', text: '#7f1d1d', borderLeft: '#dc2626' }
+      : getStatusStyle(project.status, isUnassigned, isAwaiting)
+  const statusLabel = isImplicit ? 'Other' : overdue && overdueLabel ? overdueLabel : getStatusLabel(project.status, isAwaiting)
+
+  // Implicit projects: muted, non-interactive
+  const implicitStyle: React.CSSProperties | undefined = isImplicit
+    ? { opacity: 0.5, pointerEvents: 'none', cursor: 'default' }
+    : undefined
 
   const isMonth = zoomLevel === 'month'
 
@@ -149,7 +158,7 @@ export default function ProjectEvent({
     return (
       <div
         className="group relative w-full h-full"
-        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -157,7 +166,7 @@ export default function ProjectEvent({
           className="absolute inset-0 rounded-lg transition-opacity group-hover:opacity-85"
           style={{
             backgroundColor: statusStyle.bg,
-            borderLeft: `3px solid ${statusStyle.borderLeft}`,
+            borderLeft: `3px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
             boxShadow: activatedBoxShadow || (statusStyle.border
               ? `inset 0 0 0 1px ${statusStyle.border}`
               : `inset 0 0 0 1px rgba(0,0,0,0.1)`),
@@ -344,7 +353,7 @@ export default function ProjectEvent({
     return (
       <div
         className="group relative w-full h-full"
-        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -352,7 +361,7 @@ export default function ProjectEvent({
           className="absolute inset-0 rounded-lg transition-opacity group-hover:opacity-90"
           style={{
             backgroundColor: statusStyle.bg,
-            borderLeft: `3px solid ${statusStyle.borderLeft}`,
+            borderLeft: `3px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
             boxShadow: activatedBoxShadow || (statusStyle.border
               ? `inset 0 0 0 1px ${statusStyle.border}`
               : `inset 0 0 0 1px rgba(0,0,0,0.1)`),
@@ -401,7 +410,7 @@ export default function ProjectEvent({
     return (
       <div
         className="group relative w-full h-full"
-        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -409,7 +418,7 @@ export default function ProjectEvent({
           className="absolute inset-0 rounded-lg transition-opacity group-hover:opacity-90"
           style={{
             backgroundColor: statusStyle.bg,
-            borderLeft: `3px solid ${statusStyle.borderLeft}`,
+            borderLeft: `3px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
             boxShadow: activatedBoxShadow || (statusStyle.border
               ? `inset 0 0 0 1px ${statusStyle.border}`
               : `inset 0 0 0 1px rgba(0,0,0,0.1)`),
@@ -446,7 +455,7 @@ export default function ProjectEvent({
     return (
       <div
         className="group relative w-full h-full"
-        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -454,7 +463,7 @@ export default function ProjectEvent({
           className="absolute inset-0 rounded transition-opacity group-hover:opacity-85 overflow-hidden"
           style={{
             backgroundColor: statusStyle.bg,
-            borderLeft: `2px solid ${statusStyle.borderLeft}`,
+            borderLeft: `2px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
             boxShadow: activatedBoxShadow || `inset 0 0 0 1px rgba(0,0,0,0.1)`,
             transform: isActivated ? 'scale(1.04)' : undefined,
             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
@@ -504,7 +513,7 @@ export default function ProjectEvent({
     return (
       <div
         className="group relative w-full h-full"
-        style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+        style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={() => setMousePos(null)}
       >
@@ -512,7 +521,7 @@ export default function ProjectEvent({
           className="absolute inset-0 rounded transition-opacity group-hover:opacity-85 overflow-hidden"
           style={{
             backgroundColor: statusStyle.bg,
-            borderLeft: `2px solid ${statusStyle.borderLeft}`,
+            borderLeft: `2px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
             boxShadow: activatedBoxShadow || `inset 0 0 0 1px rgba(0,0,0,0.1)`,
             transform: isActivated ? 'scale(1.04)' : undefined,
             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
@@ -547,7 +556,7 @@ export default function ProjectEvent({
   return (
     <div
       className="group relative w-full h-full"
-      style={isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined}
+      style={implicitStyle || (isActivated ? { zIndex: 200, transition: 'all 0.15s ease' } : undefined)}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
       onMouseLeave={() => setMousePos(null)}
     >
@@ -555,7 +564,7 @@ export default function ProjectEvent({
         className="absolute inset-0 rounded transition-opacity group-hover:opacity-85 overflow-hidden"
         style={{
           backgroundColor: statusStyle.bg,
-          borderLeft: `2px solid ${statusStyle.borderLeft}`,
+          borderLeft: `2px ${isImplicit ? 'dashed' : 'solid'} ${statusStyle.borderLeft}`,
           boxShadow: activatedBoxShadow || `inset 0 0 0 1px rgba(0,0,0,0.1)`,
           transform: isActivated ? 'scale(1.04)' : undefined,
           transition: 'transform 0.15s ease, box-shadow 0.15s ease',

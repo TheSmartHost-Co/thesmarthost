@@ -17,6 +17,7 @@ import {
   AdjustmentsHorizontalIcon,
   ExclamationTriangleIcon,
   NoSymbolIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
 import type { ViewMode, ZoomLevel, SortOption, CalendarDensity } from './TurnoverCalendar'
@@ -58,6 +59,9 @@ interface CalendarHeaderProps {
   onToggleSameDayOnly?: (enabled: boolean) => void
   density?: CalendarDensity
   onDensityChange?: (density: CalendarDensity) => void
+  calendarStyle?: 'timeline' | 'simple'
+  onCalendarStyleChange?: (style: 'timeline' | 'simple') => void
+  allowedZoomPresets?: { label: string; value: ZoomLevel; isWeek?: boolean }[]
 }
 
 export default function CalendarHeader({
@@ -94,6 +98,9 @@ export default function CalendarHeader({
   onToggleSameDayOnly,
   density = 'normal',
   onDensityChange,
+  calendarStyle,
+  onCalendarStyleChange,
+  allowedZoomPresets,
 }: CalendarHeaderProps) {
   const isMobile = useIsMobile()
   const [showNewMenu, setShowNewMenu] = useState(false)
@@ -228,7 +235,7 @@ export default function CalendarHeader({
   ]
 
   // Compact zoom presets for the button group
-  const zoomPresets: { label: string; value: ZoomLevel; isWeek?: boolean }[] = [
+  const defaultZoomPresets: { label: string; value: ZoomLevel; isWeek?: boolean }[] = [
     { label: '1D', value: 1 },
     { label: '2D', value: 2 },
     { label: '3D', value: 3 },
@@ -237,6 +244,7 @@ export default function CalendarHeader({
     { label: '2W', value: 14 },
     { label: 'Month', value: 'month' },
   ]
+  const zoomPresets = allowedZoomPresets || defaultZoomPresets
 
   // Build summary label for the View Options trigger button
   const summaryParts: string[] = [zoomLabel]
@@ -761,8 +769,42 @@ export default function CalendarHeader({
           </div>
         )}
 
+        {/* Calendar Style Toggle (Timeline / Simple) */}
+        {onCalendarStyleChange && (
+          <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
+            <button
+              onClick={() => onCalendarStyleChange('timeline')}
+              className={`
+                inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium
+                transition-all duration-200 cursor-pointer
+                ${calendarStyle === 'timeline'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <CalendarDaysIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Timeline</span>
+            </button>
+            <button
+              onClick={() => onCalendarStyleChange('simple')}
+              className={`
+                inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium
+                transition-all duration-200 cursor-pointer
+                ${calendarStyle === 'simple'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <Squares2X2Icon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Simple</span>
+            </button>
+          </div>
+        )}
+
         {/* View Mode Toggle */}
-        {!hideViewToggle && <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
+        {!hideViewToggle && !onCalendarStyleChange && <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
           <button
             onClick={() => onViewModeChange('property')}
             className={`
