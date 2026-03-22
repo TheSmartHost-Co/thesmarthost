@@ -238,3 +238,54 @@ export interface InitializeChecklistResponse {
   }
   message?: string
 }
+
+// =============================================
+// PHOTO GALLERY TYPES
+// =============================================
+
+export interface ChecklistPhotoItem {
+  itemId: string
+  roomName: string
+  taskDescription: string
+  photoUrl: string
+  photoTakenAt: string | null
+  photoUploadedAt: string | null
+}
+
+export interface IssuePhotoItem {
+  issueId: string
+  issueType: string
+  description: string
+  status: string
+  photoUrls: string[]
+  photoUploadedAt: string | null
+  photoTakenAt: string | null
+}
+
+export interface ProjectWithPhotos {
+  projectId: string
+  projectDate: string
+  projectStartTime: string | null
+  projectEndTime: string | null
+  status: CleaningProjectStatus
+  propertyName: string
+  propertyAddress: string
+  cleanerName: string
+  checklistPhotos: ChecklistPhotoItem[]
+  issuePhotos: IssuePhotoItem[]
+  totalPhotos: number
+}
+
+export interface ProjectPhotosResponse {
+  status: 'success' | 'failed'
+  data: {
+    projects: ProjectWithPhotos[]
+    pagination: {
+      page: number
+      limit: number
+      totalProjects: number
+      totalPages: number
+    }
+  }
+  message?: string
+}

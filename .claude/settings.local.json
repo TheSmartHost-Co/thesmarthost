@@ -19,7 +19,9 @@
       "Skill(update-config)",
       "Bash(python3 /root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/.claude/skills/ui-ux-pro-max/scripts/search.py \"property management cleaner portal mobile task scheduling\" --design-system -p \"HostMetrics Cleaner Portal\")",
       "Bash(python3 /root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/.claude/skills/ui-ux-pro-max/scripts/search.py \"mobile touch calendar task list\" --domain ux)",
-      "Bash(ls /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/cleaner/)"
+      "Bash(ls /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/cleaner/)",
+      "Read(//root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/**)",
+      "Bash(python3 skills/ui-ux-pro-max/scripts/search.py \"photo gallery modal dashboard property management\" --design-system -p \"HostMetrics Photo Gallery\")"
     ],
     "deny": []
   }

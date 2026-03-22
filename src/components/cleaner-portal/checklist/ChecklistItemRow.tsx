@@ -1,13 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   CheckCircleIcon,
   CameraIcon,
   TrashIcon,
   MagnifyingGlassPlusIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
+import { AnimatePresence, motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import type { ProjectChecklistItem } from '@/services/types/cleaningProject'
 
 interface ChecklistItemRowProps {
@@ -32,6 +36,51 @@ export default function ChecklistItemRow({
   readOnly,
 }: ChecklistItemRowProps) {
   const [imageError, setImageError] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const openDropdown = () => {
+    if (isUploading) return
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setDropdownPos({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      })
+    }
+    setIsDropdownOpen(prev => !prev)
+  }
+
+  useEffect(() => {
+    if (!isDropdownOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false)
+      }
+    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isDropdownOpen])
+
+  const handleOptionSelect = (inputRef: React.RefObject<HTMLInputElement | null>) => {
+    setIsDropdownOpen(false)
+    setTimeout(() => inputRef.current?.click(), 50)
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -135,32 +184,77 @@ export default function ChecklistItemRow({
               Photo Required
             </span>
           ) : (
-            <label className={`
-              inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer transition-colors
-              ${isUploading
-                ? 'bg-gray-100 text-gray-400'
-                : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-              }
-            `}>
-              {isUploading ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <CameraIcon className="w-3.5 h-3.5" />
-                  Add Photo
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
-                onChange={handleFileChange}
+            <div className="relative">
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={openDropdown}
                 disabled={isUploading}
-                className="hidden"
-              />
-            </label>
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer
+                  ${isUploading
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                  }
+                `}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <CameraIcon className="w-3.5 h-3.5" />
+                    Add Photo
+                  </>
+                )}
+              </button>
+
+              {isDropdownOpen && createPortal(
+                <AnimatePresence>
+                  <motion.div
+                    ref={dropdownRef}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right }}
+                    className="z-[9999] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 origin-top-right"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleOptionSelect(cameraInputRef)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                    >
+                      <CameraIcon className="w-4 h-4" />
+                      Take Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOptionSelect(galleryInputRef)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                    >
+                      <PhotoIcon className="w-4 h-4" />
+                      Choose Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOptionSelect(fileInputRef)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                    >
+                      <ArrowUpTrayIcon className="w-4 h-4" />
+                      Upload File
+                    </button>
+                  </motion.div>
+                </AnimatePresence>,
+                document.body
+              )}
+
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+              <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/heic" onChange={handleFileChange} className="hidden" />
+            </div>
           )}
         </div>
       )}

@@ -256,7 +256,7 @@ export default function SimpleCalendarView({
                   >
                     {project && (
                       <div
-                        className="relative cursor-pointer h-[80px] sm:h-[100px]"
+                        className="relative cursor-pointer h-[120px] sm:h-[100px]"
                         onClick={(e) => { e.stopPropagation(); onProjectClick(project) }}
                       >
                         <ProjectEvent

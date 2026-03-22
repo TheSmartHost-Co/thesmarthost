@@ -18,6 +18,7 @@ import {
   ExclamationTriangleIcon,
   NoSymbolIcon,
   Squares2X2Icon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
 import type { ViewMode, ZoomLevel, SortOption, CalendarDensity } from './TurnoverCalendar'
@@ -62,6 +63,7 @@ interface CalendarHeaderProps {
   calendarStyle?: 'timeline' | 'simple'
   onCalendarStyleChange?: (style: 'timeline' | 'simple') => void
   allowedZoomPresets?: { label: string; value: ZoomLevel; isWeek?: boolean }[]
+  onOpenPhotoGallery?: () => void
 }
 
 export default function CalendarHeader({
@@ -101,6 +103,7 @@ export default function CalendarHeader({
   calendarStyle,
   onCalendarStyleChange,
   allowedZoomPresets,
+  onOpenPhotoGallery,
 }: CalendarHeaderProps) {
   const isMobile = useIsMobile()
   const [showNewMenu, setShowNewMenu] = useState(false)
@@ -640,6 +643,17 @@ export default function CalendarHeader({
                 {openIssueCount}
               </span>
             )}
+          </button>
+        )}
+
+        {/* Photos Button */}
+        {onOpenPhotoGallery && (
+          <button
+            onClick={onOpenPhotoGallery}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer border bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+          >
+            <CameraIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Photos</span>
           </button>
         )}
 

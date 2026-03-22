@@ -189,10 +189,7 @@ export default function ProjectEvent({
           {project.isSameDayTurnover && (
             <div
               className="absolute inset-0 rounded-lg pointer-events-none"
-              style={{
-                backgroundImage: 'repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.25) 6px, transparent 6px, transparent 12px)',
-                borderTop: '2px solid #f59e0b',
-              }}
+              style={{ borderTop: '2px solid #f59e0b' }}
             />
           )}
         </div>
@@ -263,17 +260,18 @@ export default function ProjectEvent({
   const sdtOverlay = project.isSameDayTurnover && (
     <div
       className="absolute inset-0 rounded-lg pointer-events-none"
-      style={{
-        backgroundImage: 'repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0.25) 6px, transparent 6px, transparent 12px)',
-        borderTop: '2px solid #f59e0b',
-      }}
+      style={{ borderTop: '2px solid #f59e0b' }}
     />
   )
 
   // Shared SDT badge (displayed on tiers 1-2 where there's room)
-  const sdtBadge = project.isSameDayTurnover && (typeof displayTier === 'number' && displayTier <= 2) && (
-    <div className="absolute top-0.5 right-1 px-1 py-px rounded text-[8px] font-bold bg-amber-500 text-white leading-none z-10">
-      SDT
+  const sdtBadge = project.isSameDayTurnover && (
+    <div className={`absolute top-0.5 right-0.5 px-1 py-px rounded font-bold bg-amber-500 text-white leading-none z-10 ${
+      typeof displayTier === 'number' && displayTier <= 2 ? 'text-[8px]' : 'text-[7px]'
+    }`}>
+      {(typeof displayTier === 'number' && displayTier <= 2) || displayTier === 'mobile'
+        ? '★ SDT'
+        : '★'}
     </div>
   )
 

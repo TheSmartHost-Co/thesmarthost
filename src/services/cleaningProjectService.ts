@@ -20,6 +20,8 @@ import type {
   InitializeChecklistPayload,
   InitializeChecklistResponse,
   ChecklistProgress,
+  // Photo gallery
+  ProjectPhotosResponse,
 } from './types/cleaningProject'
 
 /**
@@ -56,6 +58,25 @@ export function getCleaningProjectStats(
  */
 export function getCleaningProjectById(id: string): Promise<CleaningProjectResponse> {
   return apiClient<CleaningProjectResponse>(`/cleaning-projects/${id}`)
+}
+
+/**
+ * Get cleaning project photos with pagination (for Photo Gallery)
+ */
+export function getProjectPhotos(
+  userId: string,
+  startDate: string,
+  endDate: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<ProjectPhotosResponse> {
+  const params = new URLSearchParams()
+  params.append('userId', userId)
+  params.append('startDate', startDate)
+  params.append('endDate', endDate)
+  params.append('page', String(page))
+  params.append('limit', String(limit))
+  return apiClient<ProjectPhotosResponse>(`/cleaning-projects/photos?${params}`)
 }
 
 /**

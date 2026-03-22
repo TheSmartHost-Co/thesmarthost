@@ -37,6 +37,7 @@ import CreateChecklistModal from '@/components/checklist/create/CreateChecklistM
 import DuplicateChecklistModal from '@/components/checklist/duplicate/DuplicateChecklistModal'
 import CleaningExclusionsModal from './CleaningExclusionsModal'
 import { AllIssuesModal } from '@/components/turnover/issues'
+import PhotoGalleryModal from './PhotoGalleryModal'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 import ConfirmDragModal, { InvalidDropModal } from './dnd/ConfirmDragModal'
@@ -183,6 +184,7 @@ export default function TurnoverCalendar({
   const [showBookingPreview, setShowBookingPreview] = useState(false)
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
   const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
+  const [showPhotoGalleryModal, setShowPhotoGalleryModal] = useState(false)
   const [showExclusionsModal, setShowExclusionsModal] = useState(false)
 
   // Booking cancel/delete confirmation state
@@ -1292,6 +1294,7 @@ export default function TurnoverCalendar({
           onSortChange={setSortOption}
           openIssueCount={openIssueCount}
           onOpenAllIssues={() => setShowAllIssuesModal(true)}
+          onOpenPhotoGallery={() => setShowPhotoGalleryModal(true)}
           excludedPropertyCount={excludedPropertyCount}
           onOpenExclusions={() => setShowExclusionsModal(true)}
           showSameDayOnly={showSameDayOnly}
@@ -1583,6 +1586,17 @@ export default function TurnoverCalendar({
         issues={allIssues}
         onIssuesChanged={() => { refreshIssueCounts(); refreshSupplyListCounts() }}
       />
+
+      {/* Photo Gallery Modal */}
+      {effectiveUserId && (
+        <PhotoGalleryModal
+          isOpen={showPhotoGalleryModal}
+          onClose={() => setShowPhotoGalleryModal(false)}
+          userId={effectiveUserId}
+          initialStartDate={dateRange.start}
+          initialEndDate={dateRange.end}
+        />
+      )}
 
       {/* Cleaning Exclusions Modal */}
       <CleaningExclusionsModal
