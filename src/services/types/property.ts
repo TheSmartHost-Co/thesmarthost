@@ -49,6 +49,8 @@ export interface Property {
   defaultCheckinTime?: string | null
   // Cleaning management
   cleaningManaged: boolean
+  // Default cleaning duration (minutes) for invoice calculations
+  defaultCleaningDurationMinutes?: number | null
 }
 
 /**
@@ -113,6 +115,8 @@ export interface CreatePropertyPayload {
   defaultCheckinTime?: string
   // Cleaning management
   cleaningManaged?: boolean
+  // Default cleaning duration (minutes) for invoice calculations
+  defaultCleaningDurationMinutes?: number
 }
 
 /**
@@ -145,6 +149,8 @@ export interface UpdatePropertyPayload {
   defaultCheckinTime?: string | null
   // Cleaning management
   cleaningManaged?: boolean
+  // Default cleaning duration (minutes) for invoice calculations
+  defaultCleaningDurationMinutes?: number | null
 }
 
 /**

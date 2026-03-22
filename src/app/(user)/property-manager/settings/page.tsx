@@ -612,11 +612,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingField === 'emailNotificationsEnabled' || !canWrite('settings')}
+                  disabled={savingField === 'emailNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     (profile?.emailNotificationsEnabled ?? true) ? 'bg-blue-600' : 'bg-gray-200'
-                  } ${savingField === 'emailNotificationsEnabled' || !canWrite('settings') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -648,11 +648,11 @@ export default function PropertyManagerSettingsPage() {
                   type="button"
                   role="switch"
                   aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingField === 'smsNotificationsEnabled' || !canWrite('settings')}
+                  disabled={savingField === 'smsNotificationsEnabled'}
                   onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                     (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingField === 'smsNotificationsEnabled' || !canWrite('settings') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${

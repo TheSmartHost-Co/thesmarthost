@@ -51,6 +51,13 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
   const [defaultCheckinTime, setDefaultCheckinTime] = useState(property.defaultCheckinTime || '')
   // Cleaning management
   const [cleaningManaged, setCleaningManaged] = useState(property.cleaningManaged ?? true)
+  // Default cleaning duration (split into hours + minutes for UX)
+  const [cleaningDurationHours, setCleaningDurationHours] = useState(
+    property.defaultCleaningDurationMinutes ? Math.floor(property.defaultCleaningDurationMinutes / 60).toString() : ''
+  )
+  const [cleaningDurationMins, setCleaningDurationMins] = useState(
+    property.defaultCleaningDurationMinutes ? (property.defaultCleaningDurationMinutes % 60).toString() : ''
+  )
 
   // Helper to check if province is Quebec
   const isQuebecProperty = () => {
@@ -84,6 +91,8 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
       setDefaultCheckoutTime(property.defaultCheckoutTime || '')
       setDefaultCheckinTime(property.defaultCheckinTime || '')
       setCleaningManaged(property.cleaningManaged ?? true)
+      setCleaningDurationHours(property.defaultCleaningDurationMinutes ? Math.floor(property.defaultCleaningDurationMinutes / 60).toString() : '')
+      setCleaningDurationMins(property.defaultCleaningDurationMinutes ? (property.defaultCleaningDurationMinutes % 60).toString() : '')
     }
   }, [isOpen, property])
 
@@ -147,6 +156,10 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         defaultCheckinTime: defaultCheckinTime || null,
         // Cleaning management
         cleaningManaged,
+        // Default cleaning duration (combine hours + minutes)
+        defaultCleaningDurationMinutes: (cleaningDurationHours || cleaningDurationMins)
+          ? (parseInt(cleaningDurationHours || '0', 10) * 60) + parseInt(cleaningDurationMins || '0', 10)
+          : null,
       }
 
       const res = await updateProperty(property.id, payload)
@@ -492,6 +505,42 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                 />
                 <p className="text-xs text-gray-500 mt-1">When guests check in (default: 3:00 PM)</p>
               </div>
+            </div>
+            {/* Default Cleaning Duration */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Default Cleaning Duration</label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="23"
+                    step="1"
+                    value={cleaningDurationHours}
+                    onChange={(e) => setCleaningDurationHours(e.target.value)}
+                    className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">hr</span>
+                </div>
+                <span className="text-gray-400 font-medium">:</span>
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    step="1"
+                    value={cleaningDurationMins}
+                    onChange={(e) => setCleaningDurationMins(e.target.value)}
+                    className="w-full px-3 py-2.5 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">min</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                If set, invoices will use this as the standard cleaning time instead of actual clock-in/out times.
+              </p>
             </div>
           </div>
 

@@ -1,10 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Modal from '../../shared/modal'
-import { Cleaner } from '@/services/types/cleaner'
+import { Cleaner, CleanerProperty } from '@/services/types/cleaner'
+import { assignPropertiesToCleaner } from '@/services/cleanerService'
+import { useNotificationStore } from '@/store/useNotificationStore'
 import {
-  UserCircleIcon,
   EnvelopeIcon,
   PhoneIcon,
   ClockIcon,
@@ -13,6 +14,8 @@ import {
   PencilIcon,
   CheckCircleIcon,
   PaperAirplaneIcon,
+  CheckIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 
 interface PreviewCleanerModalProps {
@@ -22,6 +25,7 @@ interface PreviewCleanerModalProps {
   onEditCleaner?: () => void
   onAssignProperties?: () => void
   onResendInvite?: () => void
+  onUpdate?: (updatedCleaner: Cleaner) => void
 }
 
 const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
@@ -31,7 +35,15 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
   onEditCleaner,
   onAssignProperties,
   onResendInvite,
+  onUpdate,
 }) => {
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
+  const [editRateType, setEditRateType] = useState<'flat' | 'hourly' | null>(null)
+  const [editRateAmount, setEditRateAmount] = useState<string>('')
+  const [isSavingRate, setIsSavingRate] = useState(false)
+
+  const showNotification = useNotificationStore((state) => state.showNotification)
+
   const formatTurnaroundTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
@@ -75,8 +87,89 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
     }
   }
 
+  const getRateBadge = (property: CleanerProperty) => {
+    if (property.rateType === 'flat' && property.rateAmount != null) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+          <CurrencyDollarIcon className="h-3 w-3" />
+          ${property.rateAmount.toFixed(2)}/cleaning
+        </span>
+      )
+    }
+    if (property.rateType === 'hourly' && property.rateAmount != null) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          <CurrencyDollarIcon className="h-3 w-3" />
+          ${property.rateAmount.toFixed(2)}/hr
+        </span>
+      )
+    }
+    if (cleaner.hourlyRate) {
+      return (
+        <span className="text-xs text-gray-400">
+          Global: ${cleaner.hourlyRate.toFixed(2)}/hr
+        </span>
+      )
+    }
+    return <span className="text-xs text-amber-500">Rate not set</span>
+  }
+
+  const startEditingRate = (property: CleanerProperty) => {
+    setEditingPropertyId(property.propertyId)
+    setEditRateType(property.rateType || null)
+    setEditRateAmount(property.rateAmount != null ? property.rateAmount.toString() : '')
+  }
+
+  const cancelEditingRate = () => {
+    setEditingPropertyId(null)
+    setEditRateType(null)
+    setEditRateAmount('')
+  }
+
+  const saveRate = async () => {
+    if (!cleaner.assignedProperties) return
+    setIsSavingRate(true)
+
+    try {
+      // Build full assignments array, updating only the edited property's rate
+      const assignments = cleaner.assignedProperties.map((prop) => {
+        if (prop.propertyId === editingPropertyId) {
+          const parsedAmount = editRateAmount.trim() ? parseFloat(editRateAmount) : null
+          return {
+            propertyId: prop.propertyId,
+            isDefault: prop.isDefault,
+            priority: prop.priority,
+            rateType: editRateType,
+            rateAmount: editRateType === null ? null : parsedAmount,
+          }
+        }
+        return {
+          propertyId: prop.propertyId,
+          isDefault: prop.isDefault,
+          priority: prop.priority,
+          rateType: prop.rateType || null,
+          rateAmount: prop.rateAmount ?? null,
+        }
+      })
+
+      const res = await assignPropertiesToCleaner(cleaner.id, { assignments })
+
+      if (res.status === 'success') {
+        onUpdate?.(res.data)
+        showNotification('Rate updated', 'success')
+        cancelEditingRate()
+      } else {
+        showNotification(res.message || 'Failed to update rate', 'error')
+      }
+    } catch (err) {
+      console.error('Error updating rate:', err)
+      showNotification('Error updating rate', 'error')
+    } finally {
+      setIsSavingRate(false)
+    }
+  }
+
   const assignedCount = cleaner.assignedProperties?.length || 0
-  const defaultProperty = cleaner.assignedProperties?.find(p => p.isDefault)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-2xl w-11/12">
@@ -151,7 +244,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
               <CurrencyDollarIcon className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Hourly Rate</p>
+              <p className="text-xs text-gray-500">Global Hourly Rate</p>
               <p className="text-sm font-medium text-gray-900">
                 {cleaner.hourlyRate ? `$${cleaner.hourlyRate.toFixed(2)}/hr` : <span className="text-gray-400">Not set</span>}
               </p>
@@ -166,30 +259,117 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
           Property Assignments ({assignedCount})
         </h3>
         {assignedCount > 0 ? (
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <div className="space-y-2 max-h-52 overflow-y-auto">
             {cleaner.assignedProperties?.map((property) => (
               <div
                 key={property.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="p-3 bg-gray-50 rounded-lg"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <BuildingOfficeIcon className="h-4 w-4 text-purple-600" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <BuildingOfficeIcon className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {property.propertyName || 'Unknown Property'}
+                      </p>
+                      {property.propertyAddress && (
+                        <p className="text-xs text-gray-500 truncate">{property.propertyAddress}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {property.propertyName || 'Unknown Property'}
-                    </p>
-                    {property.propertyAddress && (
-                      <p className="text-xs text-gray-500">{property.propertyAddress}</p>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {getRateBadge(property)}
+                    {property.isDefault && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        <CheckCircleIcon className="h-3 w-3" />
+                        Default
+                      </span>
+                    )}
+                    {onUpdate && (
+                      <button
+                        onClick={() => editingPropertyId === property.propertyId ? cancelEditingRate() : startEditingRate(property)}
+                        className="p-1 rounded hover:bg-gray-200 transition-colors"
+                        title="Edit rate"
+                      >
+                        <PencilIcon className="h-3.5 w-3.5 text-gray-400" />
+                      </button>
                     )}
                   </div>
                 </div>
-                {property.isDefault && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                    <CheckCircleIcon className="h-3 w-3" />
-                    Default
-                  </span>
+
+                {/* Inline Rate Editor */}
+                {editingPropertyId === property.propertyId && (
+                  <div className="flex items-center gap-2 mt-2 ml-11">
+                    {/* Rate Type Toggle */}
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                      <button
+                        onClick={() => setEditRateType(null)}
+                        className={`px-2 py-1 text-xs font-medium transition-colors ${
+                          editRateType === null
+                            ? 'bg-gray-600 text-white'
+                            : 'bg-white text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        Global
+                      </button>
+                      <button
+                        onClick={() => setEditRateType('flat')}
+                        className={`px-2 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                          editRateType === 'flat'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-white text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        Flat
+                      </button>
+                      <button
+                        onClick={() => setEditRateType('hourly')}
+                        className={`px-2 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                          editRateType === 'hourly'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        Hourly
+                      </button>
+                    </div>
+
+                    {editRateType !== null && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editRateAmount}
+                          onChange={(e) => setEditRateAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-400">
+                          {editRateType === 'flat' ? '/cleaning' : '/hr'}
+                        </span>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={saveRate}
+                      disabled={isSavingRate}
+                      className="p-1 rounded bg-green-100 hover:bg-green-200 transition-colors disabled:opacity-50"
+                      title="Save rate"
+                    >
+                      <CheckIcon className="h-3.5 w-3.5 text-green-700" />
+                    </button>
+                    <button
+                      onClick={cancelEditingRate}
+                      className="p-1 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
+                      title="Cancel"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5 text-gray-500" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

@@ -11,6 +11,8 @@ export interface ProjectIssue {
   issueType: IssueType
   description: string
   photoUrls: string[]
+  photoUploadedAt: (string | null)[]
+  photoTakenAt: (string | null)[]
   status: IssueStatus
   pmNotes: string | null
   createdAt: string

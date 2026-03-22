@@ -14,6 +14,10 @@ import {
   BuildingOfficeIcon,
   MapPinIcon,
   PlayCircleIcon,
+  BanknotesIcon,
+  CurrencyDollarIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { useUserStore } from '@/store/useUserStore'
@@ -24,6 +28,8 @@ import {
   formatTime,
   getStatusDisplay,
 } from '@/services/cleaningProjectService'
+import { getMonthlyEarnings } from '@/services/cleanerInvoiceService'
+import type { MonthlyEarnings } from '@/services/types/cleanerInvoice'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner, CleanerProperty } from '@/services/types/cleaner'
 
@@ -36,6 +42,7 @@ export default function CleanerDashboardPage() {
   const [projects, setProjects] = useState<CleaningProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [earnings, setEarnings] = useState<MonthlyEarnings | null>(null)
 
   const firstName = profile?.fullName?.split(' ')[0] || 'there'
 
@@ -76,6 +83,11 @@ export default function CleanerDashboardPage() {
         )
         setProjects(myProjects)
       }
+
+      // 3. Get earnings data (fire-and-forget — don't block dashboard if this fails)
+      getMonthlyEarnings(cleanerData.id).then(earningsRes => {
+        if (earningsRes.status === 'success') setEarnings(earningsRes.data)
+      }).catch(() => {})
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard')
@@ -277,6 +289,86 @@ export default function CleanerDashboardPage() {
           color="green"
         />
       </div>
+
+      {/* Earnings */}
+      {earnings && (earnings.currentMonth.paid > 0 || earnings.currentMonth.pending > 0 || earnings.lastMonth.paid > 0 || earnings.allTime.paid > 0) && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-5 sm:mb-8"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Earnings</h2>
+            <Link
+              href="/cleaner/invoices"
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
+            >
+              View Invoices <ArrowRightIcon className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {/* Current Month */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <CurrencyDollarIcon className="h-4 w-4 text-emerald-600" />
+                </div>
+                <p className="text-xs text-gray-500">{earnings.currentMonth.label}</p>
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                ${(earnings.currentMonth.paid + earnings.currentMonth.approved + earnings.currentMonth.pending).toFixed(2)}
+              </p>
+              {(() => {
+                const currentTotal = earnings.currentMonth.paid + earnings.currentMonth.approved + earnings.currentMonth.pending
+                const lastTotal = earnings.lastMonth.paid + earnings.lastMonth.approved + earnings.lastMonth.pending
+                if (lastTotal > 0) {
+                  const pctChange = Math.round(((currentTotal - lastTotal) / lastTotal) * 100)
+                  const isUp = pctChange >= 0
+                  return (
+                    <div className={`flex items-center gap-1 mt-1 text-xs ${isUp ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {isUp ? <ArrowTrendingUpIcon className="h-3.5 w-3.5" /> : <ArrowTrendingDownIcon className="h-3.5 w-3.5" />}
+                      {Math.abs(pctChange)}% vs last month
+                    </div>
+                  )
+                }
+                return null
+              })()}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                {earnings.currentMonth.paid > 0 && <span className="text-[11px] text-green-600">Paid: ${earnings.currentMonth.paid.toFixed(2)}</span>}
+                {earnings.currentMonth.approved > 0 && <span className="text-[11px] text-blue-600">Approved: ${earnings.currentMonth.approved.toFixed(2)}</span>}
+                {earnings.currentMonth.pending > 0 && <span className="text-[11px] text-amber-600">Pending: ${earnings.currentMonth.pending.toFixed(2)}</span>}
+              </div>
+            </div>
+
+            {/* Last Month */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <BanknotesIcon className="h-4 w-4 text-gray-500" />
+                </div>
+                <p className="text-xs text-gray-500">{earnings.lastMonth.label}</p>
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                ${(earnings.lastMonth.paid + earnings.lastMonth.approved + earnings.lastMonth.pending).toFixed(2)}
+              </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                {earnings.lastMonth.paid > 0 && <span className="text-[11px] text-green-600">Paid: ${earnings.lastMonth.paid.toFixed(2)}</span>}
+                {earnings.lastMonth.approved > 0 && <span className="text-[11px] text-blue-600">Approved: ${earnings.lastMonth.approved.toFixed(2)}</span>}
+                {earnings.lastMonth.pending > 0 && <span className="text-[11px] text-amber-600">Pending: ${earnings.lastMonth.pending.toFixed(2)}</span>}
+                {earnings.lastMonth.paid === 0 && earnings.lastMonth.approved === 0 && earnings.lastMonth.pending === 0 && (
+                  <span className="text-[11px] text-gray-400">No invoices</span>
+                )}
+              </div>
+            </div>
+          </div>
+          {earnings.allTime.paid > 0 && (
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              All time paid: <span className="font-medium text-gray-600">${earnings.allTime.paid.toFixed(2)}</span>
+            </p>
+          )}
+        </motion.div>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">

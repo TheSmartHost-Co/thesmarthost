@@ -1,6 +1,6 @@
 // Notification Center Types
 
-export type NotificationCategory = 'cleaning' | 'issues' | 'supplies' | 'schedule' | 'bookings'
+export type NotificationCategory = 'cleaning' | 'issues' | 'supplies' | 'schedule' | 'bookings' | 'invoices'
 
 export type NotificationEventType =
   | 'cleaner_assigned'
@@ -18,6 +18,10 @@ export type NotificationEventType =
   | 'time_change_approved'
   | 'time_change_rejected'
   | 'incoming_booking'
+  | 'invoice_submitted'
+  | 'invoice_approved'
+  | 'invoice_rejected'
+  | 'invoice_paid'
 
 export interface InAppNotification {
   id: string

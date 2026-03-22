@@ -8,6 +8,7 @@ import {
   StarIcon,
   ExclamationCircleIcon,
   MagnifyingGlassIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { useUserStore } from '@/store/useUserStore'
@@ -196,6 +197,7 @@ export default function CleanerPropertiesPage() {
               key={property.id}
               property={property}
               index={index}
+              cleanerHourlyRate={cleaner?.hourlyRate}
             />
           ))}
         </div>
@@ -236,9 +238,11 @@ export default function CleanerPropertiesPage() {
 function PropertyCard({
   property,
   index,
+  cleanerHourlyRate,
 }: {
   property: CleanerProperty
   index: number
+  cleanerHourlyRate?: number
 }) {
   return (
     <motion.div
@@ -279,8 +283,8 @@ function PropertyCard({
           </div>
         )}
 
-        {/* Priority Badge */}
-        <div className="flex items-center gap-2">
+        {/* Badges */}
+        <div className="flex flex-wrap items-center gap-2">
           <span className={`
             inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold
             ${property.isDefault
@@ -300,6 +304,29 @@ function PropertyCard({
               </>
             )}
           </span>
+
+          {/* Rate Badge */}
+          {property.rateType === 'flat' && property.rateAmount != null ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700">
+              <CurrencyDollarIcon className="w-3.5 h-3.5" />
+              ${property.rateAmount.toFixed(2)} / cleaning
+            </span>
+          ) : property.rateType === 'hourly' && property.rateAmount != null ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700">
+              <CurrencyDollarIcon className="w-3.5 h-3.5" />
+              ${property.rateAmount.toFixed(2)} / hr
+            </span>
+          ) : cleanerHourlyRate ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600">
+              <CurrencyDollarIcon className="w-3.5 h-3.5" />
+              ${cleanerHourlyRate.toFixed(2)} / hr (default)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-600">
+              <CurrencyDollarIcon className="w-3.5 h-3.5" />
+              Rate not set
+            </span>
+          )}
         </div>
 
         {/* Info text */}

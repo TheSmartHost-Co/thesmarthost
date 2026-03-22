@@ -7,6 +7,8 @@ import {
   ShoppingCartIcon,
   ClockIcon,
   CalendarDaysIcon,
+  DocumentTextIcon,
+  BellIcon,
 } from '@heroicons/react/24/outline'
 import { TimeAgo } from '@/components/dashboard/shared/TimeAgo'
 import type { InAppNotification, NotificationCategory } from '@/services/types/notificationCenter'
@@ -25,12 +27,15 @@ const categoryConfig: Record<
   supplies: { icon: ShoppingCartIcon, iconColor: 'bg-amber-100 text-amber-600' },
   schedule: { icon: ClockIcon, iconColor: 'bg-blue-100 text-blue-600' },
   bookings: { icon: CalendarDaysIcon, iconColor: 'bg-green-100 text-green-600' },
+  invoices: { icon: DocumentTextIcon, iconColor: 'bg-teal-100 text-teal-600' },
 }
+
+const fallbackConfig = { icon: BellIcon, iconColor: 'bg-gray-100 text-gray-600' }
 
 export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { icon: Icon, iconColor } = categoryConfig[notification.category]
+  const { icon: Icon, iconColor } = categoryConfig[notification.category] ?? fallbackConfig
 
   const handleClick = () => {
     if (!notification.isRead) {

@@ -24,6 +24,9 @@ export interface CleanerProperty {
   propertyAddress?: string // Joined from properties
   isDefault: boolean       // Primary cleaner for this property
   priority: number         // Backup order (1 = highest)
+  rateType?: 'flat' | 'hourly' | null   // null = use cleaner's global hourlyRate
+  rateAmount?: number | null             // Dollar amount (per cleaning or per hour)
+  cleaningDurationMinutes?: number | null // Per-cleaner override for cleaning duration
   createdAt: string
   // Property specifications (joined from properties)
   numBeds?: number | null
@@ -61,6 +64,9 @@ export interface AssignPropertiesPayload {
     propertyId: string
     isDefault: boolean
     priority: number
+    rateType?: 'flat' | 'hourly' | null
+    rateAmount?: number | null
+    cleaningDurationMinutes?: number | null
   }[]
 }
 

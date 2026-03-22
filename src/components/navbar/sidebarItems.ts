@@ -99,6 +99,7 @@ export const managerNavConfig: SidebarNavConfig = {
           { name: 'Checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
           { name: 'Supply Lists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
           { name: 'Cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
+          { name: 'Invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
         ],
       },
     },
@@ -136,6 +137,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'Checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'Supply Lists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
   { name: 'Cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
+  { name: 'Invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
   { name: 'Analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
   { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
   { name: 'Settings', href: '/property-manager/settings', icon: CogIcon },
@@ -147,5 +149,6 @@ export const cleanerSidebarItems: SidebarItem[] = [
   { name: 'Tasks', href: '/cleaner/tasks', icon: ClipboardDocumentListIcon },
   { name: 'My Supplies', href: '/cleaner/supplies', icon: ShoppingCartIcon },
   { name: 'Schedule', href: '/cleaner/schedule', icon: CalendarDaysIcon },
+  { name: 'Invoices', href: '/cleaner/invoices', icon: BanknotesIcon },
   { name: 'Settings', href: '/cleaner/settings', icon: CogIcon },
 ]

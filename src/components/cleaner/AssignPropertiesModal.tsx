@@ -28,6 +28,9 @@ interface PropertyAssignment {
   isAssigned: boolean
   isDefault: boolean
   priority: number
+  rateType: 'flat' | 'hourly' | null
+  rateAmount: number | null
+  cleaningDurationMinutes: number | null
 }
 
 const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
@@ -67,6 +70,9 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
               isAssigned: !!existingAssignment,
               isDefault: existingAssignment?.isDefault || false,
               priority: existingAssignment?.priority || 1,
+              rateType: existingAssignment?.rateType || null,
+              rateAmount: existingAssignment?.rateAmount ?? null,
+              cleaningDurationMinutes: existingAssignment?.cleaningDurationMinutes ?? null,
             })
           })
           setAssignments(assignmentMap)
@@ -97,8 +103,11 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
         const newAssignment = {
           ...current,
           isAssigned: !current.isAssigned,
-          // Reset default when unassigning
+          // Reset default and rate when unassigning
           isDefault: !current.isAssigned ? current.isDefault : false,
+          rateType: !current.isAssigned ? current.rateType : null as 'flat' | 'hourly' | null,
+          rateAmount: !current.isAssigned ? current.rateAmount : null,
+          cleaningDurationMinutes: !current.isAssigned ? current.cleaningDurationMinutes : null,
         }
         newMap.set(propertyId, newAssignment)
       }
@@ -117,6 +126,72 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
     })
   }
 
+  const handleRateTypeChange = (propertyId: string, newType: 'flat' | 'hourly' | null) => {
+    setAssignments((prev) => {
+      const newMap = new Map(prev)
+      const current = newMap.get(propertyId)
+      if (current && current.isAssigned) {
+        newMap.set(propertyId, {
+          ...current,
+          rateType: newType,
+          rateAmount: newType === null ? null : current.rateAmount,
+        })
+      }
+      return newMap
+    })
+  }
+
+  const handleDurationHoursChange = (propertyId: string, value: string) => {
+    setAssignments((prev) => {
+      const newMap = new Map(prev)
+      const current = newMap.get(propertyId)
+      if (current && current.isAssigned) {
+        const hours = value.trim() ? parseInt(value, 10) : 0
+        const existingMins = (current.cleaningDurationMinutes || 0) % 60
+        const total = hours * 60 + existingMins
+        newMap.set(propertyId, {
+          ...current,
+          cleaningDurationMinutes: total > 0 ? total : null,
+        })
+      }
+      return newMap
+    })
+  }
+
+  const handleDurationMinsChange = (propertyId: string, value: string) => {
+    setAssignments((prev) => {
+      const newMap = new Map(prev)
+      const current = newMap.get(propertyId)
+      if (current && current.isAssigned) {
+        const mins = value.trim() ? parseInt(value, 10) : 0
+        const existingHours = Math.floor((current.cleaningDurationMinutes || 0) / 60)
+        const total = existingHours * 60 + mins
+        newMap.set(propertyId, {
+          ...current,
+          cleaningDurationMinutes: total > 0 ? total : null,
+        })
+      }
+      return newMap
+    })
+  }
+
+  const handleRateAmountChange = (propertyId: string, value: string) => {
+    setAssignments((prev) => {
+      const newMap = new Map(prev)
+      const current = newMap.get(propertyId)
+      if (current && current.isAssigned) {
+        const numValue = value.trim() ? parseFloat(value) : null
+        newMap.set(propertyId, {
+          ...current,
+          rateAmount: numValue,
+          // Auto-set to 'flat' if user starts typing but hasn't chosen a type
+          rateType: numValue !== null && !current.rateType ? 'flat' : current.rateType,
+        })
+      }
+      return newMap
+    })
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true)
 
@@ -128,6 +203,9 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
           propertyId: a.propertyId,
           isDefault: a.isDefault,
           priority: a.priority,
+          rateType: a.rateType,
+          rateAmount: a.rateAmount,
+          cleaningDurationMinutes: a.cleaningDurationMinutes,
         }))
 
       const payload: AssignPropertiesPayload = {
@@ -220,62 +298,163 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
             return (
               <div
                 key={property.id}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                className={`p-4 rounded-xl border transition-all ${
                   isAssigned
                     ? 'border-purple-300 bg-purple-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Checkbox */}
-                  <button
-                    onClick={() => toggleAssignment(property.id)}
-                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                      isAssigned
-                        ? 'bg-purple-600 border-purple-600'
-                        : 'border-gray-300 hover:border-purple-400'
-                    }`}
-                  >
-                    {isAssigned && <CheckIcon className="h-4 w-4 text-white" />}
-                  </button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleAssignment(property.id)}
+                      className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        isAssigned
+                          ? 'bg-purple-600 border-purple-600'
+                          : 'border-gray-300 hover:border-purple-400'
+                      }`}
+                    >
+                      {isAssigned && <CheckIcon className="h-4 w-4 text-white" />}
+                    </button>
 
-                  {/* Property Info */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <BuildingOfficeIcon className="h-5 w-5 text-gray-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
-                        {getPropertyDisplayName(property)}
-                      </p>
-                      <p className="text-sm text-gray-500 truncate">{property.address}</p>
+                    {/* Property Info */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <BuildingOfficeIcon className="h-5 w-5 text-gray-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {getPropertyDisplayName(property)}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">{property.address}</p>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Default Toggle */}
+                  {isAssigned && (
+                    <button
+                      onClick={() => toggleDefault(property.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        isDefault
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                      title={isDefault ? 'Remove as default cleaner' : 'Set as default cleaner'}
+                    >
+                      {isDefault ? (
+                        <>
+                          <StarIconSolid className="h-4 w-4" />
+                          Default
+                        </>
+                      ) : (
+                        <>
+                          <StarIcon className="h-4 w-4" />
+                          Set Default
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                {/* Default Toggle */}
+                {/* Rate & Duration Configuration - shown when assigned */}
                 {isAssigned && (
-                  <button
-                    onClick={() => toggleDefault(property.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      isDefault
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                    title={isDefault ? 'Remove as default cleaner' : 'Set as default cleaner'}
-                  >
-                    {isDefault ? (
-                      <>
-                        <StarIconSolid className="h-4 w-4" />
-                        Default
-                      </>
-                    ) : (
-                      <>
-                        <StarIcon className="h-4 w-4" />
-                        Set Default
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <div className="flex items-center gap-2 mt-3 ml-9">
+                      {/* Rate Type Toggle */}
+                      <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                        <button
+                          onClick={() => handleRateTypeChange(property.id, null)}
+                          className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                            assignment?.rateType === null
+                              ? 'bg-gray-600 text-white'
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          Global
+                        </button>
+                        <button
+                          onClick={() => handleRateTypeChange(property.id, 'flat')}
+                          className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                            assignment?.rateType === 'flat'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          Flat
+                        </button>
+                        <button
+                          onClick={() => handleRateTypeChange(property.id, 'hourly')}
+                          className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                            assignment?.rateType === 'hourly'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          Hourly
+                        </button>
+                      </div>
+
+                      {/* Amount Input - only when not using global rate */}
+                      {assignment?.rateType !== null && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={assignment?.rateAmount ?? ''}
+                            onChange={(e) => handleRateAmountChange(property.id, e.target.value)}
+                            placeholder="0.00"
+                            className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <span className="text-xs text-gray-400">
+                            {assignment?.rateType === 'flat' ? '/cleaning' : '/hr'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Fallback info when using global rate */}
+                      {assignment?.rateType === null && (
+                        <span className="text-xs text-gray-400">
+                          {cleaner.hourlyRate
+                            ? `$${cleaner.hourlyRate.toFixed(2)}/hr`
+                            : 'No global rate set'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Cleaning Duration Override */}
+                    <div className="flex items-center gap-2 mt-2 ml-9">
+                      <span className="text-xs text-gray-500">Duration:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="23"
+                        step="1"
+                        value={assignment?.cleaningDurationMinutes ? Math.floor(assignment.cleaningDurationMinutes / 60) || '' : ''}
+                        onChange={(e) => handleDurationHoursChange(property.id, e.target.value)}
+                        placeholder={property.defaultCleaningDurationMinutes ? `${Math.floor(property.defaultCleaningDurationMinutes / 60)}` : '0'}
+                        className="w-12 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                      />
+                      <span className="text-xs text-gray-400">hr</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        step="1"
+                        value={assignment?.cleaningDurationMinutes ? (assignment.cleaningDurationMinutes % 60) || '' : ''}
+                        onChange={(e) => handleDurationMinsChange(property.id, e.target.value)}
+                        placeholder={property.defaultCleaningDurationMinutes ? `${property.defaultCleaningDurationMinutes % 60}` : '0'}
+                        className="w-12 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                      />
+                      <span className="text-xs text-gray-400">min</span>
+                      {!assignment?.cleaningDurationMinutes && property.defaultCleaningDurationMinutes && (
+                        <span className="text-xs text-gray-400">(property default)</span>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )
@@ -287,7 +466,8 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
           <strong>Default cleaner</strong> will be automatically assigned when a new cleaning
-          project is created for that property.
+          project is created for that property. Property-specific rates override the
+          cleaner&apos;s global hourly rate.
         </p>
       </div>
 

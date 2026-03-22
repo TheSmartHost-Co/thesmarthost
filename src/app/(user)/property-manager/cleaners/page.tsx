@@ -15,6 +15,7 @@ import {
   ClockIcon,
   EyeIcon,
   EnvelopeIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import { getCleaners, calculateCleanerStats, resendCleanerInvite } from '@/services/cleanerService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -445,6 +446,9 @@ export default function PropertyManagerCleanersPage() {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">
                   Properties Assigned
                 </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  Rates
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Status
                 </th>
@@ -496,6 +500,22 @@ export default function PropertyManagerCleanersPage() {
                       <BuildingOfficeIcon className="h-3.5 w-3.5" />
                       {cleaner.assignedProperties?.length || 0} Properties
                     </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      const total = cleaner.assignedProperties?.length || 0
+                      const withRates = cleaner.assignedProperties?.filter(p => p.rateType != null).length || 0
+                      if (total === 0) return <span className="text-xs text-gray-400">—</span>
+                      return (
+                        <button
+                          onClick={() => handleAssignProperties(cleaner.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors cursor-pointer"
+                        >
+                          <CurrencyDollarIcon className="h-3.5 w-3.5" />
+                          {withRates} of {total} set
+                        </button>
+                      )
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(cleaner.status)}
@@ -597,6 +617,10 @@ export default function PropertyManagerCleanersPage() {
             setShowAssignModal(true)
           } : undefined}
           onResendInvite={canWrite('cleaners') ? () => handleResendInvite(selectedCleaner.id) : undefined}
+          onUpdate={canWrite('cleaners') ? (updatedCleaner: Cleaner) => {
+            handleCleanerUpdated(updatedCleaner)
+            setSelectedCleaner(updatedCleaner)
+          } : undefined}
         />
       )}
 
