@@ -397,7 +397,7 @@ export default function TurnoverCalendar({
           initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(effectiveUserId!),
           getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end),
           getAllIssues(effectiveUserId!),
-          getAllSupplyLists(effectiveUserId!),
+          getAllSupplyLists(),
         ])
 
         if (propertiesRes.status === 'success') setProperties(propertiesRes.data)
@@ -540,7 +540,7 @@ export default function TurnoverCalendar({
   const refreshSupplyListCounts = async () => {
     if (!effectiveUserId) return
     try {
-      const supplyRes = await getAllSupplyLists(effectiveUserId!)
+      const supplyRes = await getAllSupplyLists()
       if (supplyRes.status === 'success') {
         const countsMap: Record<string, number> = {}
         supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {

@@ -13,16 +13,20 @@ import {
   uploadProjectChecklistItemPhoto,
   deleteProjectChecklistItemPhoto,
   completeProject,
+  getWalkthroughStatus,
+  uploadWalkthroughPhotos,
+  deleteWalkthroughPhoto,
 } from '@/services/cleaningProjectService'
-import type { CleaningProject, ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
+import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
-import { SubmitSupplyListModal, ViewSupplyListsModal } from '@/components/turnover/supply-lists'
+import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getIssueCounts } from '@/services/projectIssueService'
 
 import ChecklistHeader from './checklist/ChecklistHeader'
 import ChecklistTabs, { type ChecklistTab } from './checklist/ChecklistTabs'
 import ChecklistContent from './checklist/ChecklistContent'
+import WalkthroughContent from './checklist/WalkthroughContent'
 import InfoContent from './checklist/InfoContent'
 import BottomActionBar from './checklist/BottomActionBar'
 
@@ -36,6 +40,7 @@ interface ChecklistModalProps {
   onAccept?: (projectId: string) => Promise<void>
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
+  initialTab?: ChecklistTab
 }
 
 export default function ChecklistModal({
@@ -48,6 +53,7 @@ export default function ChecklistModal({
   onAccept,
   onDecline,
   onStart,
+  initialTab,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
   const isMobile = useIsMobile()
@@ -59,9 +65,8 @@ export default function ChecklistModal({
   const readOnly = localProject.status !== 'in_progress'
 
   // Tab state: Info first for assigned/confirmed (cleaner en route), Checklist for in_progress/completed
-  const [activeTab, setActiveTab] = useState<ChecklistTab>(
-    project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info'
-  )
+  const defaultTab = initialTab || (project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info')
+  const [activeTab, setActiveTab] = useState<ChecklistTab>(defaultTab)
 
   // Checklist state
   const [items, setItems] = useState<ProjectChecklistItem[]>([])
@@ -71,11 +76,15 @@ export default function ChecklistModal({
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
   const [completing, setCompleting] = useState(false)
 
+  // Walkthrough state
+  const [walkthroughStatus, setWalkthroughStatus] = useState<WalkthroughStatus | null>(null)
+  const [walkthroughLoading, setWalkthroughLoading] = useState(false)
+  const [uploadingRooms, setUploadingRooms] = useState<Set<string>>(new Set())
+
   // Nested modal state
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
-  const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
-  const [showViewSupplyListsModal, setShowViewSupplyListsModal] = useState(false)
+  const [showSupplyListsModal, setShowSupplyListsModal] = useState(false)
   const [supplyListCount, setSupplyListCount] = useState(0)
   const [issueCount, setIssueCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
@@ -92,10 +101,10 @@ export default function ChecklistModal({
   useEffect(() => {
     if (isOpen) {
       setActiveTab(
-        project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info'
+        initialTab || (project.status === 'in_progress' || project.status === 'completed' ? 'checklist' : 'info')
       )
     }
-  }, [isOpen, project.status])
+  }, [isOpen, project.status, initialTab])
 
   // Fetch checklist data
   const fetchChecklist = useCallback(async () => {
@@ -149,13 +158,29 @@ export default function ChecklistModal({
     }
   }, [project.id])
 
+  const fetchWalkthrough = useCallback(async () => {
+    if (!project.id || !project.checklistId) return
+    setWalkthroughLoading(true)
+    try {
+      const res = await getWalkthroughStatus(project.id)
+      if (res.status === 'success') {
+        setWalkthroughStatus(res.data)
+      }
+    } catch (err) {
+      console.error('Error fetching walkthrough status:', err)
+    } finally {
+      setWalkthroughLoading(false)
+    }
+  }, [project.id, project.checklistId])
+
   useEffect(() => {
     if (isOpen) {
       fetchChecklist()
       fetchSupplyListCount()
       fetchIssueCount()
+      fetchWalkthrough()
     }
-  }, [isOpen, fetchChecklist, fetchSupplyListCount, fetchIssueCount])
+  }, [isOpen, fetchChecklist, fetchSupplyListCount, fetchIssueCount, fetchWalkthrough])
 
   // Handlers
   const handleToggleItem = async (item: ProjectChecklistItem) => {
@@ -266,6 +291,56 @@ export default function ChecklistModal({
     }
   }
 
+  const handleWalkthroughUpload = async (roomName: string, files: File[]) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
+    const validFiles = files.filter(f => allowedTypes.includes(f.type) && f.size <= 20 * 1024 * 1024)
+    if (validFiles.length === 0) {
+      showNotification('No valid image files selected', 'error')
+      return
+    }
+
+    setUploadingRooms(prev => new Set(prev).add(roomName))
+    try {
+      const res = await uploadWalkthroughPhotos(project.id, roomName, validFiles)
+      if (res.status === 'success') {
+        showNotification(`${validFiles.length} photo${validFiles.length > 1 ? 's' : ''} uploaded`, 'success')
+        await fetchWalkthrough()
+      } else {
+        showNotification(res.message || 'Failed to upload photos', 'error')
+      }
+    } catch (err) {
+      console.error('Error uploading walkthrough photos:', err)
+      showNotification('Error uploading photos', 'error')
+    } finally {
+      setUploadingRooms(prev => {
+        const next = new Set(prev)
+        next.delete(roomName)
+        return next
+      })
+    }
+  }
+
+  const handleWalkthroughDeletePhoto = async (photoId: string) => {
+    try {
+      const res = await deleteWalkthroughPhoto(project.id, photoId)
+      if (res.status === 'success') {
+        showNotification('Photo deleted', 'success')
+        await fetchWalkthrough()
+      } else {
+        showNotification(res.message || 'Failed to delete photo', 'error')
+      }
+    } catch (err) {
+      console.error('Error deleting walkthrough photo:', err)
+      showNotification('Error deleting photo', 'error')
+    }
+  }
+
+  // Walkthrough computed values
+  const showWalkthroughTab = !!project.checklistId
+  const walkthroughBadge = walkthroughStatus?.requiresWalkthrough
+    ? `${walkthroughStatus.rooms.filter(r => r.hasPhotos).length}/${walkthroughStatus.rooms.length}`
+    : null
+
   const handleComplete = async () => {
     if (completing) return
     if (progress && progress.completedItems < progress.totalItems) {
@@ -274,6 +349,12 @@ export default function ChecklistModal({
     }
     if (progress && progress.photosUploaded < progress.photoRequired) {
       showNotification(`Please upload all required photos (${progress.photosUploaded}/${progress.photoRequired})`, 'error')
+      return
+    }
+    if (walkthroughStatus?.requiresWalkthrough && !walkthroughStatus.isComplete) {
+      const missing = walkthroughStatus.rooms.filter(r => !r.hasPhotos).map(r => r.roomName)
+      showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
+      setActiveTab('walkthrough')
       return
     }
 
@@ -314,6 +395,8 @@ export default function ChecklistModal({
         onTabChange={setActiveTab}
         issueCount={issueCount}
         supplyListCount={supplyListCount}
+        showWalkthrough={showWalkthroughTab}
+        walkthroughBadge={walkthroughBadge}
       />
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'checklist' ? (
@@ -327,6 +410,17 @@ export default function ChecklistModal({
             uploadingItems={uploadingItems}
             togglingItems={togglingItems}
             readOnly={readOnly}
+          />
+        ) : activeTab === 'walkthrough' ? (
+          <WalkthroughContent
+            projectId={project.id}
+            walkthroughStatus={walkthroughStatus}
+            loading={walkthroughLoading}
+            onPhotoUpload={handleWalkthroughUpload}
+            onPhotoDelete={handleWalkthroughDeletePhoto}
+            onViewPhoto={setViewingImage}
+            uploadingRooms={uploadingRooms}
+            hasChecklist={!!project.checklistId}
           />
         ) : (
           <InfoContent
@@ -352,9 +446,11 @@ export default function ChecklistModal({
         onClose={onClose}
         onReportIssue={() => setShowReportIssueModal(true)}
         onViewIssues={() => setShowViewIssuesModal(true)}
-        onSubmitSupplyList={() => setShowSubmitSupplyListModal(true)}
-        onViewSupplyLists={() => setShowViewSupplyListsModal(true)}
+        onSubmitSupplyList={() => setShowSupplyListsModal(true)}
+        onViewSupplyLists={() => setShowSupplyListsModal(true)}
         projectId={project.id}
+        walkthroughComplete={!walkthroughStatus?.requiresWalkthrough || walkthroughStatus.isComplete}
+        walkthroughRequired={walkthroughStatus?.requiresWalkthrough ?? false}
       />
     </>
   )
@@ -407,25 +503,14 @@ export default function ChecklistModal({
         onIssuesChanged={fetchIssueCount}
       />
 
-      <SubmitSupplyListModal
-        isOpen={showSubmitSupplyListModal}
-        onClose={() => setShowSubmitSupplyListModal(false)}
-        projectId={project.id}
-        cleanerId={project.cleanerId}
-        onSubmitted={() => {
-          setShowSubmitSupplyListModal(false)
-          fetchSupplyListCount()
-          showNotification('Supply list submitted successfully', 'success')
-        }}
-      />
-
-      <ViewSupplyListsModal
-        isOpen={showViewSupplyListsModal}
-        onClose={() => setShowViewSupplyListsModal(false)}
+      <CleanerSupplyListModal
+        isOpen={showSupplyListsModal}
+        onClose={() => setShowSupplyListsModal(false)}
         projectId={project.id}
         projectName={project.propertyName}
-        onSupplyListsChanged={fetchSupplyListCount}
-        fulfilledBy={project.cleanerId ?? undefined}
+        cleanerId={project.cleanerId || ''}
+        pmUserId={project.userId}
+        onChanged={fetchSupplyListCount}
       />
 
       {/* Image Viewer Lightbox */}

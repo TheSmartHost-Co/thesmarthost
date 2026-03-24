@@ -310,7 +310,8 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return parseLocalDate(dateString).toLocaleDateString()
+    const dateOnly = dateString.split('T')[0]
+    return parseLocalDate(dateOnly).toLocaleDateString()
   }
   
   const handleSaveFinancialEdits = async () => {

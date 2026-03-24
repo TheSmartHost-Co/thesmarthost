@@ -94,6 +94,8 @@ export interface Expense {
   taxTotal?: number
   ocrProcessed?: boolean
   ocrConfidence?: OcrConfidence
+  receiptId?: string | null
+  supplyListId?: string | null
   createdAt: string
   updatedAt: string
 }

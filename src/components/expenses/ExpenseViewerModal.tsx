@@ -17,6 +17,8 @@ import {
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
+import { getExpenseLineItems, getSupplyListById } from '@/services/supplyListService'
+import type { ExpenseLineItem } from '@/services/types/supplyList'
 import type {
   Expense,
   UpdateExpensePayload,
@@ -44,8 +46,11 @@ import {
   CurrencyDollarIcon,
   TagIcon,
   ChevronDownIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  ClipboardDocumentListIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline'
+import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 
 interface ExpenseViewerModalProps {
   isOpen: boolean
@@ -53,6 +58,7 @@ interface ExpenseViewerModalProps {
   expenseId: string
   onExpenseUpdated?: () => void
   onExpenseDeleted?: (expenseId: string) => void
+  hideSupplyListLink?: boolean
 }
 
 type ModalMode = 'view' | 'edit' | 'receipt'
@@ -80,6 +86,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   expenseId,
   onExpenseUpdated,
   onExpenseDeleted,
+  hideSupplyListLink = false,
 }) => {
   const [expense, setExpense] = useState<Expense | null>(null)
   const [loading, setLoading] = useState(false)
@@ -113,6 +120,14 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
+
+  // Supply list origin state
+  const [supplyLineItems, setSupplyLineItems] = useState<ExpenseLineItem[]>([])
+  const [supplyLineItemsLoading, setSupplyLineItemsLoading] = useState(false)
+  const [lineItemsExpanded, setLineItemsExpanded] = useState(true)
+  const [showSupplyListModal, setShowSupplyListModal] = useState(false)
+  const [supplyListProjectId, setSupplyListProjectId] = useState('')
+  const [supplyListProjectName, setSupplyListProjectName] = useState('')
 
   // Reference data
   const [properties, setProperties] = useState<Property[]>([])
@@ -149,6 +164,20 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       if (response.status === 'success') {
         setExpense(response.data)
         initializeEditForm(response.data)
+        // Fetch supply list line items if this expense came from a supply list receipt
+        if (response.data.receiptId && response.data.supplyListId) {
+          setSupplyLineItemsLoading(true)
+          try {
+            const liRes = await getExpenseLineItems(response.data.supplyListId, response.data.receiptId)
+            if (liRes.status === 'success') setSupplyLineItems(liRes.data || [])
+          } catch {
+            // Non-critical, silently fail
+          } finally {
+            setSupplyLineItemsLoading(false)
+          }
+        } else {
+          setSupplyLineItems([])
+        }
       } else {
         showNotification(response.message || 'Failed to load expense', 'error')
       }
@@ -553,7 +582,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         </div>
 
         {/* Tax Breakdown Display */}
-        {(expense.subtotal || expense.taxGst || expense.taxPst || expense.taxHst || expense.taxTotal) && (
+        {!!(expense.subtotal || expense.taxGst || expense.taxPst || expense.taxHst || expense.taxTotal) && (
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="text-sm font-medium text-gray-900 mb-3">Tax Breakdown</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -592,6 +621,81 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
                 <span className="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
                 Extracted via OCR
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supply List Origin */}
+        {expense.receiptId && expense.supplyListId && !hideSupplyListLink && (
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ClipboardDocumentListIcon className="w-5 h-5 text-teal-500" />
+                <span className="text-sm font-medium text-gray-900">Supply List Origin</span>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await getSupplyListById(expense.supplyListId!)
+                    if (res.status === 'success') {
+                      setSupplyListProjectId(res.data.projectId)
+                      setSupplyListProjectName(res.data.propertyName || 'Unknown Property')
+                      setShowSupplyListModal(true)
+                    } else {
+                      showNotification('Could not load supply list', 'error')
+                    }
+                  } catch {
+                    showNotification('Error loading supply list', 'error')
+                  }
+                }}
+                className="cursor-pointer inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-800"
+              >
+                View Supply List
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {supplyLineItemsLoading ? (
+              <div className="flex items-center justify-center py-3">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+              </div>
+            ) : supplyLineItems.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setLineItemsExpanded(!lineItemsExpanded)}
+                  className="cursor-pointer flex items-center justify-between w-full text-sm"
+                >
+                  <div className="flex items-center gap-1 text-gray-700 font-medium">
+                    {lineItemsExpanded ? (
+                      <ChevronDownIcon className="w-4 h-4" />
+                    ) : (
+                      <ChevronRightIcon className="w-4 h-4" />
+                    )}
+                    Line Items ({supplyLineItems.length})
+                  </div>
+                  <span className="text-sm font-medium text-teal-600">
+                    {formatCurrency(supplyLineItems.reduce((sum, li) => sum + li.totalCost, 0), expense.currency)}
+                  </span>
+                </button>
+
+                {lineItemsExpanded && (
+                  <div className="mt-2 space-y-1.5">
+                    {supplyLineItems.map((li) => (
+                      <div key={li.id} className="flex items-center justify-between text-sm py-1 px-2 bg-gray-50 rounded">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-900">{li.description}</span>
+                          {li.supplyListItemId && (
+                            <LinkIcon className="w-3.5 h-3.5 text-teal-400" title="Linked to supply list item" />
+                          )}
+                        </div>
+                        <span className="text-gray-600 text-xs">
+                          {li.quantity} × {formatCurrency(li.unitCost, expense.currency)} = {formatCurrency(li.totalCost, expense.currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1127,6 +1231,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12">
       {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6 border-b border-gray-200">
@@ -1188,6 +1293,16 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         </button>
       </div>
     </Modal>
+
+    {showSupplyListModal && supplyListProjectId && (
+      <ViewSupplyListsModal
+        isOpen={showSupplyListModal}
+        onClose={() => setShowSupplyListModal(false)}
+        projectId={supplyListProjectId}
+        projectName={supplyListProjectName}
+      />
+    )}
+    </>
   )
 }
 

@@ -17,14 +17,16 @@ import {
   declineProject,
   startProject,
   completeProject,
+  getWalkthroughStatus,
 } from '@/services/cleaningProjectService'
 import { getOpenIssues } from '@/services/projectIssueService'
-import { getPendingSupplyLists } from '@/services/supplyListService'
+import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getPendingTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import ProjectCard from '@/components/cleaner-portal/ProjectCard'
 import ChecklistModal from '@/components/cleaner-portal/ChecklistModal'
+import type { ChecklistTab } from '@/components/cleaner-portal/checklist/ChecklistTabs'
 import RequestTimeChangeModal from '@/components/cleaner-portal/RequestTimeChangeModal'
 import ViewPendingTimeChangeModal from '@/components/cleaner-portal/ViewPendingTimeChangeModal'
 import ViewIssuesModal from '@/components/turnover/issues/ViewIssuesModal'
@@ -139,6 +141,7 @@ export default function CleanerTasksPage() {
   // Modal state
   const [selectedProject, setSelectedProject] = useState<CleaningProject | null>(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
+  const [checklistInitialTab, setChecklistInitialTab] = useState<ChecklistTab | undefined>(undefined)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
   const [issuesProject, setIssuesProject] = useState<CleaningProject | null>(null)
 
@@ -196,16 +199,20 @@ export default function CleanerTasksPage() {
         setIssueCountsMap(countsMap)
       }
 
-      const supplyRes = await getPendingSupplyLists(cleanerData.userId)
-      if (supplyRes.status === 'success') {
-        const slCountsMap: Record<string, number> = {}
-        supplyRes.data.forEach(sl => {
-          if (explicitProjects.some(p => p.id === sl.projectId)) {
-            slCountsMap[sl.projectId] = (slCountsMap[sl.projectId] || 0) + 1
+      // Fetch supply lists per-project (cleaner-safe endpoint)
+      const supplyResults = await Promise.all(
+        explicitProjects.map(p => getSupplyListsByProject(p.id).catch(() => null))
+      )
+      const slCountsMap: Record<string, number> = {}
+      supplyResults.forEach((res, idx) => {
+        if (res?.status === 'success') {
+          const pendingCount = res.data.filter((sl: { status: string }) => sl.status === 'pending').length
+          if (pendingCount > 0) {
+            slCountsMap[explicitProjects[idx].id] = pendingCount
           }
-        })
-        setSupplyListCountsMap(slCountsMap)
-      }
+        }
+      })
+      setSupplyListCountsMap(slCountsMap)
 
       // 3. Fetch pending time change requests for active explicit projects
       const activeProjects = explicitProjects.filter(p =>
@@ -293,6 +300,21 @@ export default function CleanerTasksPage() {
 
   const handleComplete = async (projectId: string) => {
     try {
+      // Pre-check walkthrough requirement
+      const walkthrough = await getWalkthroughStatus(projectId)
+      if (walkthrough.status === 'success' && walkthrough.data.requiresWalkthrough && !walkthrough.data.isComplete) {
+        const missing = walkthrough.data.rooms.filter(r => !r.hasPhotos).map(r => r.roomName)
+        showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
+        // Open the ChecklistModal on walkthrough tab for this project
+        const proj = projects.find(p => p.id === projectId)
+        if (proj) {
+          setSelectedProject(proj)
+          setChecklistInitialTab('walkthrough')
+          setShowChecklistModal(true)
+        }
+        return
+      }
+
       const res = await completeProject(projectId)
       if (res.status === 'success') {
         setProjects(prev => prev.map(p =>
@@ -311,6 +333,7 @@ export default function CleanerTasksPage() {
   const handleViewChecklist = (project: CleaningProject) => {
     if (project.assignmentType === 'implicit') return
     setSelectedProject(project)
+    setChecklistInitialTab(undefined)
     setShowChecklistModal(true)
   }
 
@@ -571,8 +594,10 @@ export default function CleanerTasksPage() {
           onClose={() => {
             setShowChecklistModal(false)
             setSelectedProject(null)
+            setChecklistInitialTab(undefined)
           }}
           project={selectedProject}
+          initialTab={checklistInitialTab}
           onProjectComplete={handleProjectComplete}
           onRequestTimeChange={() => {
             setShowChecklistModal(false)

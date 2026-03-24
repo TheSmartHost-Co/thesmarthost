@@ -21,7 +21,8 @@
       "Bash(python3 /root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/.claude/skills/ui-ux-pro-max/scripts/search.py \"mobile touch calendar task list\" --domain ux)",
       "Bash(ls /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/cleaner/)",
       "Read(//root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/**)",
-      "Bash(python3 skills/ui-ux-pro-max/scripts/search.py \"photo gallery modal dashboard property management\" --design-system -p \"HostMetrics Photo Gallery\")"
+      "Bash(python3 skills/ui-ux-pro-max/scripts/search.py \"photo gallery modal dashboard property management\" --design-system -p \"HostMetrics Photo Gallery\")",
+      "Bash(cat /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/property-manager/client-portal/page.tsx | head -80)"
     ],
     "deny": []
   }

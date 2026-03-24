@@ -15,6 +15,7 @@ import {
   declineProject,
   startProject,
   completeProject,
+  getCleaningProjectById,
 } from '@/services/cleaningProjectService'
 import { getMonthKey, getMonthBounds } from '@/services/bookingService'
 import { getIssueCounts } from '@/services/projectIssueService'
@@ -36,6 +37,14 @@ import ChecklistModal from './ChecklistModal'
 import RequestTimeChangeModal from './RequestTimeChangeModal'
 import ViewPendingTimeChangeModal from './ViewPendingTimeChangeModal'
 import CleanerBookingPreviewModal from '@/components/booking/preview/CleanerBookingPreviewModal'
+
+// Read ?projectId from URL synchronously on first render so we can
+// skip the calendar entirely and go straight to the checklist on reload.
+function getInitialProjectId(): string | null {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  return params.get('projectId') || null
+}
 
 export default function CleanerTurnoverCalendar() {
   const { profile } = useUserStore()
@@ -88,6 +97,38 @@ export default function CleanerTurnoverCalendar() {
   const [viewPendingProject, setViewPendingProject] = useState<CleaningProject | null>(null)
   const [pendingTimeChangeProjectIds, setPendingTimeChangeProjectIds] = useState<Set<string>>(new Set())
 
+  // Deep-link: read projectId from URL synchronously so we can skip calendar on reload
+  const [restoringProjectId] = useState<string | null>(getInitialProjectId)
+  const restoredRef = useRef(false)
+
+  // Fetch the project from URL and open checklist immediately (before calendar renders)
+  useEffect(() => {
+    if (!restoringProjectId || restoredRef.current) return
+    restoredRef.current = true
+
+    const clearUrl = () => {
+      if (typeof window === 'undefined') return
+      const url = new URL(window.location.href)
+      url.searchParams.delete('projectId')
+      window.history.replaceState({}, '', url.toString())
+    }
+
+    const fetchAndOpen = async () => {
+      try {
+        const res = await getCleaningProjectById(restoringProjectId)
+        if (res.status === 'success' && res.data.assignmentType !== 'implicit') {
+          setSelectedProject(res.data)
+          setShowChecklistModal(true)
+        } else {
+          clearUrl()
+        }
+      } catch {
+        clearUrl()
+      }
+    }
+    fetchAndOpen()
+  }, [restoringProjectId])
+
   // Bookings toggle
   const [showBookings, setShowBookings] = useState(true)
 
@@ -118,10 +159,14 @@ export default function CleanerTurnoverCalendar() {
     }
     const start = new Date(currentDate)
     start.setHours(0, 0, 0, 0)
+    // For week preset, normalize to Sunday start (matching SimpleCalendarView)
+    if (isWeekPreset && zoomLevel === 7) {
+      start.setDate(start.getDate() - start.getDay())
+    }
     const end = new Date(start)
     end.setDate(end.getDate() + (zoomLevel as number) - 1)
     return { start: formatLocalDate(start), end: formatLocalDate(end) }
-  }, [currentDate, zoomLevel])
+  }, [currentDate, zoomLevel, isWeekPreset])
 
   // Fetch months that buffer around centerDate touches (using unified schedule endpoint)
   const fetchMonthsForRange = useCallback(async (centerDate: Date, _userId?: string) => {
@@ -449,13 +494,27 @@ export default function CleanerTurnoverCalendar() {
     return result
   }, [properties, selectedPropertyIds, sortOption, filteredProjects])
 
+  // Persist projectId in URL so page reload re-opens the checklist
+  const setProjectIdInUrl = useCallback((projectId: string | null) => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (projectId) {
+      url.searchParams.set('projectId', projectId)
+    } else {
+      url.searchParams.delete('projectId')
+    }
+    window.history.replaceState({}, '', url.toString())
+  }, [])
+
   // Click-to-activate (first click activates, second opens modal)
   const openProjectModal = useCallback((project: CleaningProject) => {
     // Don't open modal for implicit (other cleaner's) projects
     if (project.assignmentType === 'implicit') return
     setSelectedProject(project)
     setShowChecklistModal(true)
-  }, [])
+    setProjectIdInUrl(project.id)
+  }, [setProjectIdInUrl])
+
 
   const openBookingModal = useCallback((booking: Booking) => {
     setSelectedBooking(booking)
@@ -629,6 +688,7 @@ export default function CleanerTurnoverCalendar() {
         } else {
           setSelectedProject(res.data)
           setShowChecklistModal(true)
+          setProjectIdInUrl(res.data.id)
         }
         showNotification('Task started! Good luck!', 'success')
       } else {
@@ -931,7 +991,7 @@ export default function CleanerTurnoverCalendar() {
                   onDecline={implicit ? undefined : handleDecline}
                   onStart={implicit ? undefined : handleStart}
                   onComplete={implicit ? undefined : handleComplete}
-                  onViewChecklist={implicit ? undefined : (p) => { setSelectedProject(p); setShowChecklistModal(true) }}
+                  onViewChecklist={implicit ? undefined : (p) => { setSelectedProject(p); setShowChecklistModal(true); setProjectIdInUrl(p.id) }}
                   onRequestTimeChange={implicit ? undefined : handleRequestTimeChange}
                   onViewPendingTimeChange={implicit ? undefined : handleViewPendingTimeChange}
                 />
@@ -1037,7 +1097,7 @@ export default function CleanerTurnoverCalendar() {
                             onDecline={handleDecline}
                             onStart={handleStart}
                             onComplete={handleComplete}
-                            onViewChecklist={(p) => { setSelectedProject(p); setShowChecklistModal(true) }}
+                            onViewChecklist={(p) => { setSelectedProject(p); setShowChecklistModal(true); setProjectIdInUrl(p.id) }}
                             onRequestTimeChange={handleRequestTimeChange}
                             onViewPendingTimeChange={handleViewPendingTimeChange}
                           />
@@ -1121,6 +1181,7 @@ export default function CleanerTurnoverCalendar() {
           onClose={() => {
             setShowChecklistModal(false)
             setSelectedProject(null)
+            setProjectIdInUrl(null)
           }}
           project={selectedProject}
           onProjectComplete={handleProjectComplete}
@@ -1136,6 +1197,7 @@ export default function CleanerTurnoverCalendar() {
             await handleDecline(projectId)
             setShowChecklistModal(false)
             setSelectedProject(null)
+            setProjectIdInUrl(null)
           }}
           onStart={handleStart}
         />

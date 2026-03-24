@@ -26,6 +26,8 @@ interface BottomActionBarProps {
   onSubmitSupplyList: () => void
   onViewSupplyLists: () => void
   projectId: string
+  walkthroughComplete?: boolean
+  walkthroughRequired?: boolean
 }
 
 export default function BottomActionBar({
@@ -44,12 +46,15 @@ export default function BottomActionBar({
   onSubmitSupplyList,
   onViewSupplyLists,
   projectId,
+  walkthroughComplete,
+  walkthroughRequired,
 }: BottomActionBarProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const canComplete = progress &&
     progress.completedItems === progress.totalItems &&
-    progress.photosUploaded >= progress.photoRequired
+    progress.photosUploaded >= progress.photoRequired &&
+    (walkthroughComplete !== false)
 
   const handleAction = async (action: string, fn?: (id: string) => Promise<void>) => {
     if (!fn || actionLoading) return
@@ -103,7 +108,7 @@ export default function BottomActionBar({
 
       {/* In Progress: Issues icon + Complete + Supply icon */}
       {status === 'in_progress' && (
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2">
           {/* Issue button */}
           <button
             onClick={issueCount > 0 ? onViewIssues : onReportIssue}
@@ -138,6 +143,12 @@ export default function BottomActionBar({
             )}
             {completing ? 'Completing...' : 'Complete Project'}
           </button>
+
+          {walkthroughRequired && !walkthroughComplete && (
+            <p className="absolute -top-6 left-0 right-0 text-xs text-amber-600 text-center">
+              Upload walkthrough photos for all rooms first
+            </p>
+          )}
 
           {/* Supply list button */}
           <button

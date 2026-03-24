@@ -273,7 +273,61 @@ export interface ProjectWithPhotos {
   cleanerName: string
   checklistPhotos: ChecklistPhotoItem[]
   issuePhotos: IssuePhotoItem[]
+  walkthroughPhotos: WalkthroughPhotoItem[]
   totalPhotos: number
+}
+
+// =============================================
+// WALKTHROUGH TYPES
+// =============================================
+
+export interface WalkthroughPhoto {
+  id: string
+  projectId: string
+  roomName: string
+  photoUrl: string
+  photoTakenAt: string | null
+  photoUploadedAt: string
+  createdAt: string
+}
+
+export interface WalkthroughRoom {
+  roomName: string
+  photos: WalkthroughPhoto[]
+  hasPhotos: boolean
+}
+
+export interface WalkthroughStatus {
+  requiresWalkthrough: boolean
+  isComplete: boolean
+  rooms: WalkthroughRoom[]
+}
+
+export interface WalkthroughStatusResponse {
+  status: 'success' | 'failed'
+  data: WalkthroughStatus
+  message?: string
+}
+
+export interface WalkthroughPhotoUploadResponse {
+  status: 'success' | 'failed'
+  data: WalkthroughPhoto[]
+  message?: string
+}
+
+export interface WalkthroughPhotoDeleteResponse {
+  status: 'success' | 'failed'
+  message: string
+}
+
+export interface WalkthroughPhotoItem {
+  id: string
+  projectId: string
+  roomName: string
+  photoUrl: string
+  photoTakenAt: string | null
+  photoUploadedAt: string | null
+  createdAt: string
 }
 
 export interface ProjectPhotosResponse {

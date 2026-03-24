@@ -45,13 +45,15 @@ import {
   groupChecklistItemsByRoom,
   getCompletionPercentage,
   downloadChecklistPhotoWatermarked,
+  getWalkthroughStatus,
+  downloadWalkthroughPhotoWatermarked,
 } from '@/services/cleaningProjectService'
 import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
-import type { ProjectChecklistItem, ChecklistProgress } from '@/services/types/cleaningProject'
+import type { ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -132,6 +134,9 @@ export default function ProjectDetailModal({
 
   // Project issues (for photo gallery)
   const [projectIssues, setProjectIssues] = useState<ProjectIssue[]>([])
+
+  // Walkthrough photos state
+  const [walkthroughStatus, setWalkthroughStatus] = useState<WalkthroughStatus | null>(null)
 
   // Time change request state
   const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
@@ -331,6 +336,19 @@ export default function ProjectDetailModal({
     }
   }
 
+  // Fetch walkthrough status
+  const fetchWalkthroughStatus = useCallback(async () => {
+    if (!project.id || !project.checklistId) return
+    try {
+      const res = await getWalkthroughStatus(project.id)
+      if (res.status === 'success') {
+        setWalkthroughStatus(res.data)
+      }
+    } catch (err) {
+      console.error('Error fetching walkthrough status:', err)
+    }
+  }, [project.id, project.checklistId])
+
   useEffect(() => {
     if (isOpen) {
       fetchIssueCounts()
@@ -338,8 +356,9 @@ export default function ProjectDetailModal({
       fetchSupplyListCount()
       fetchPendingRequest()
       fetchProjectIssues()
+      fetchWalkthroughStatus()
     }
-  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest, fetchProjectIssues])
+  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest, fetchProjectIssues, fetchWalkthroughStatus])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -986,6 +1005,53 @@ export default function ProjectDetailModal({
               </div>
             )}
           </div>
+
+          {/* Walkthrough Photos Section */}
+          {walkthroughStatus && walkthroughStatus.rooms.some(r => r.hasPhotos) && (
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-2 text-gray-500 mb-3">
+                <CameraIcon className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">Walkthrough Photos</span>
+                <span className="text-xs font-semibold text-purple-600">
+                  {walkthroughStatus.rooms.reduce((sum, r) => sum + r.photos.length, 0)}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {walkthroughStatus.rooms.filter(r => r.hasPhotos).map(room => (
+                  <div key={room.roomName}>
+                    <p className="text-xs font-medium text-gray-600 mb-2">{room.roomName}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                      {room.photos.map(photo => (
+                        <button
+                          key={photo.id}
+                          onClick={() => setPreviewImage({
+                            url: photo.photoUrl,
+                            task: `Walkthrough: ${room.roomName}`,
+                            photoTakenAt: photo.photoTakenAt,
+                            photoUploadedAt: photo.photoUploadedAt,
+                            downloadFn: () => downloadWalkthroughPhotoWatermarked(project.id, photo.id),
+                          })}
+                          className="relative group cursor-pointer"
+                        >
+                          <img
+                            src={photo.photoUrl}
+                            alt={`${room.roomName} walkthrough`}
+                            className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <CameraIcon className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-purple-500/70 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
+                            {room.roomName}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Photos Gallery Section */}
           {(() => {

@@ -4,13 +4,20 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import {
   getSupplyListsByProject,
+  getSupplyListById,
   updateSupplyList,
   deleteSupplyList,
   fulfillSupplyList,
   toggleSupplyListItem,
   formatSupplyListAge,
+  getSupplyListReceipts,
+  deleteSupplyListReceipt,
+  getExpenseLineItems,
+  createExpenseLineItem,
+  updateExpenseLineItem,
+  deleteExpenseLineItem,
 } from '@/services/supplyListService'
-import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
+import type { SupplyList, SupplyListItem, Receipt, ExpenseLineItem } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -22,8 +29,17 @@ import {
   CheckIcon,
   UserCircleIcon,
   ClockIcon,
+  DocumentTextIcon,
+  CameraIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  LinkIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
+import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
+import ReviewReceiptModal from '@/components/supply-hub/ReviewReceiptModal'
 
 interface ViewSupplyListsModalProps {
   isOpen: boolean
@@ -32,6 +48,8 @@ interface ViewSupplyListsModalProps {
   projectName?: string
   onSupplyListsChanged?: () => void
   fulfilledBy?: string
+  onScanReceipt?: (supplyList: SupplyList) => void
+  initialSupplyList?: SupplyList | null
 }
 
 // Inline progress bar component
@@ -65,6 +83,8 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   projectName,
   onSupplyListsChanged,
   fulfilledBy,
+  onScanReceipt,
+  initialSupplyList,
 }) => {
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +94,35 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [itemFilter, setItemFilter] = useState<'all' | 'remaining' | 'purchased'>('all')
+  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [receiptsLoading, setReceiptsLoading] = useState(false)
+  const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null)
+  const [confirmDeleteReceiptId, setConfirmDeleteReceiptId] = useState<string | null>(null)
+
+  // Inline item editing state
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editQuantity, setEditQuantity] = useState('1')
+
+  // List-level notes state
+  const [listNotes, setListNotes] = useState('')
+
+  // Whether we opened directly to a specific supply list (skip list view)
+  const isDirectDetail = !!initialSupplyList
+
+  // Line items state
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
+  const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([])
+  const [lineItemsLoading, setLineItemsLoading] = useState(false)
+  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
+  const [addingLineItem, setAddingLineItem] = useState(false)
+  const [lineItemForm, setLineItemForm] = useState({ description: '', quantity: '1', unitCost: '', totalCost: '' })
+  const [savingLineItem, setSavingLineItem] = useState(false)
+  const [deletingLineItemId, setDeletingLineItemId] = useState<string | null>(null)
+  const [reviewReceiptId, setReviewReceiptId] = useState<string | null>(null)
+  const [confirmDeleteLineItemId, setConfirmDeleteLineItemId] = useState<string | null>(null)
+  const [expenseAmount, setExpenseAmount] = useState<number | null>(null)
+  const [viewingExpenseId, setViewingExpenseId] = useState<string | null>(null)
 
   // Preserve item order: capture the order when a list is first selected
   const itemOrderRef = useRef<string[]>([])
@@ -98,11 +147,35 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }, [projectId, showNotification])
 
-  useEffect(() => {
-    if (isOpen && projectId) {
-      fetchSupplyLists()
+  // When opened with initialSupplyList, go straight to detail view
+  const fetchInitialSupplyList = useCallback(async () => {
+    if (!initialSupplyList) return
+    setLoading(true)
+    try {
+      const res = await getSupplyListById(initialSupplyList.id)
+      if (res.status === 'success') {
+        selectList(res.data)
+      } else {
+        // Fall back to the passed-in data
+        selectList(initialSupplyList)
+      }
+    } catch {
+      selectList(initialSupplyList)
+    } finally {
+      setLoading(false)
     }
-  }, [isOpen, projectId, fetchSupplyLists])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSupplyList])
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialSupplyList) {
+        fetchInitialSupplyList()
+      } else if (projectId) {
+        fetchSupplyLists()
+      }
+    }
+  }, [isOpen, projectId, initialSupplyList, fetchSupplyLists, fetchInitialSupplyList])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -112,15 +185,42 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       setNewItemQuantity('1')
       setShowDeleteConfirm(false)
       setItemFilter('all')
+      setReceipts([])
+      setReceiptsLoading(false)
+      setDeletingReceiptId(null)
+      setConfirmDeleteReceiptId(null)
+      setExpandedReceiptId(null)
+      setLineItems([])
+      setEditingLineItemId(null)
+      setAddingLineItem(false)
+      setConfirmDeleteLineItemId(null)
+      setExpenseAmount(null)
+      setEditingItemId(null)
+      setEditName('')
+      setEditQuantity('1')
+      setListNotes('')
       itemOrderRef.current = []
     }
   }, [isOpen])
 
   // Capture item order when a list is first selected
-  const selectList = (list: SupplyList) => {
+  const selectList = async (list: SupplyList) => {
     itemOrderRef.current = list.items.map(i => i.id)
     setItemFilter('all')
     setSelectedList(list)
+    setListNotes(list.notes || '')
+    setEditingItemId(null)
+
+    // Fetch receipts for this list
+    setReceiptsLoading(true)
+    try {
+      const res = await getSupplyListReceipts(list.id)
+      if (res.status === 'success') setReceipts(res.data || [])
+    } catch {
+      // Non-critical, silently fail
+    } finally {
+      setReceiptsLoading(false)
+    }
   }
 
   // Sort items by their original order, putting new items at the end
@@ -144,7 +244,6 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     try {
       const res = await toggleSupplyListItem(selectedList.id, item.id, {
         isPurchased: !item.isPurchased,
-        fulfilledBy: fulfilledBy,
       })
       if (res.status === 'success') {
         setSelectedList(res.data)
@@ -173,6 +272,53 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       }
     } catch (err) {
       console.error('Error updating PM notes:', err)
+    }
+  }
+
+  // Start inline editing of an item's name/quantity
+  const startEditItem = (item: SupplyListItem) => {
+    setEditingItemId(item.id)
+    setEditName(item.name)
+    setEditQuantity(item.quantity.toString())
+  }
+
+  // Save inline edit of item name/quantity
+  const handleSaveItemEdit = async () => {
+    if (!selectedList || !editingItemId || !editName.trim()) return
+    setActionLoading(true)
+    try {
+      const res = await updateSupplyList(selectedList.id, {
+        items: [{ id: editingItemId, name: editName.trim(), quantity: parseInt(editQuantity, 10) || 1 }],
+      })
+      if (res.status === 'success') {
+        setSelectedList(res.data)
+        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
+        onSupplyListsChanged?.()
+      } else {
+        showNotification(res.message || 'Failed to update item', 'error')
+      }
+    } catch {
+      showNotification('Failed to update item', 'error')
+    } finally {
+      setActionLoading(false)
+      setEditingItemId(null)
+    }
+  }
+
+  // Update list-level notes on blur
+  const handleUpdateListNotes = async () => {
+    if (!selectedList) return
+    // Skip if unchanged
+    if (listNotes === (selectedList.notes || '')) return
+    try {
+      const res = await updateSupplyList(selectedList.id, { notes: listNotes })
+      if (res.status === 'success') {
+        setSelectedList(res.data)
+        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
+        onSupplyListsChanged?.()
+      }
+    } catch {
+      console.error('Error updating list notes')
     }
   }
 
@@ -257,9 +403,13 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       if (res.status === 'success') {
         showNotification('Supply list deleted', 'success')
         setSupplyLists(prev => prev.filter(sl => sl.id !== selectedList.id))
-        setSelectedList(null)
         setShowDeleteConfirm(false)
         onSupplyListsChanged?.()
+        if (isDirectDetail) {
+          onClose()
+        } else {
+          setSelectedList(null)
+        }
       } else {
         showNotification(res.message || 'Failed to delete', 'error')
       }
@@ -270,6 +420,192 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
+  // Delete receipt
+  const handleDeleteReceipt = async (receiptId: string) => {
+    if (!selectedList) return
+    setDeletingReceiptId(receiptId)
+    try {
+      const res = await deleteSupplyListReceipt(selectedList.id, receiptId)
+      if (res.status === 'success') {
+        showNotification('Receipt deleted', 'success')
+        setReceipts(prev => prev.filter(r => r.id !== receiptId))
+        setConfirmDeleteReceiptId(null)
+        // Refetch supply list to get updated item statuses
+        if (isDirectDetail) {
+          const slRes = await getSupplyListById(selectedList.id)
+          if (slRes.status === 'success') {
+            setSelectedList(slRes.data)
+          }
+        } else {
+          const slRes = await getSupplyListsByProject(projectId)
+          if (slRes.status === 'success') {
+            setSupplyLists(slRes.data)
+            const updated = slRes.data.find(sl => sl.id === selectedList.id)
+            if (updated) setSelectedList(updated)
+          }
+        }
+        onSupplyListsChanged?.()
+      } else {
+        showNotification(res.message || 'Failed to delete receipt', 'error')
+      }
+    } catch {
+      showNotification('Error deleting receipt', 'error')
+    } finally {
+      setDeletingReceiptId(null)
+    }
+  }
+
+  // Line items: expand/collapse receipt
+  const handleExpandReceipt = async (receiptId: string) => {
+    if (expandedReceiptId === receiptId) {
+      setExpandedReceiptId(null)
+      setLineItems([])
+      setEditingLineItemId(null)
+      setAddingLineItem(false)
+      setConfirmDeleteLineItemId(null)
+      setExpenseAmount(null)
+      return
+    }
+    if (!selectedList) return
+    setExpandedReceiptId(receiptId)
+    setLineItemsLoading(true)
+    setEditingLineItemId(null)
+    setAddingLineItem(false)
+    setConfirmDeleteLineItemId(null)
+    try {
+      const res = await getExpenseLineItems(selectedList.id, receiptId)
+      if (res.status === 'success') {
+        setLineItems(res.data || [])
+      }
+    } catch {
+      // Non-critical
+    } finally {
+      setLineItemsLoading(false)
+    }
+  }
+
+  // Refresh the selected supply list after line item mutations (backend cascades cost changes to items)
+  const refreshSelectedList = async () => {
+    if (!selectedList) return
+    try {
+      const res = await getSupplyListById(selectedList.id)
+      if (res.status === 'success') {
+        setSelectedList(res.data)
+        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
+      }
+    } catch {
+      // Non-critical — items will refresh on next navigation
+    }
+  }
+
+  const handleSaveLineItem = async (isNew: boolean, lineItemId?: string) => {
+    if (!selectedList || !expandedReceiptId) return
+    const { description, quantity, unitCost, totalCost } = lineItemForm
+    if (!description.trim() || !totalCost) return
+
+    setSavingLineItem(true)
+    try {
+      if (isNew) {
+        const res = await createExpenseLineItem(selectedList.id, expandedReceiptId, {
+          description: description.trim(),
+          totalCost: parseFloat(totalCost),
+          quantity: quantity ? parseInt(quantity, 10) : undefined,
+          unitCost: unitCost ? parseFloat(unitCost) : undefined,
+        })
+        if (res.status === 'success') {
+          setLineItems(prev => [...prev, res.data])
+          if (res.expenseAmount != null) setExpenseAmount(res.expenseAmount)
+          setAddingLineItem(false)
+          setLineItemForm({ description: '', quantity: '1', unitCost: '', totalCost: '' })
+          showNotification('Line item added', 'success')
+          await refreshSelectedList()
+        } else {
+          showNotification(res.message || 'Failed to add line item', 'error')
+        }
+      } else if (lineItemId) {
+        const res = await updateExpenseLineItem(selectedList.id, expandedReceiptId, lineItemId, {
+          description: description.trim(),
+          totalCost: parseFloat(totalCost),
+          quantity: quantity ? parseInt(quantity, 10) : undefined,
+          unitCost: unitCost ? parseFloat(unitCost) : undefined,
+        })
+        if (res.status === 'success') {
+          setLineItems(prev => prev.map(li => li.id === lineItemId ? res.data : li))
+          if (res.expenseAmount != null) setExpenseAmount(res.expenseAmount)
+          setEditingLineItemId(null)
+          showNotification('Line item updated', 'success')
+          await refreshSelectedList()
+        } else {
+          showNotification(res.message || 'Failed to update line item', 'error')
+        }
+      }
+    } catch {
+      showNotification('Error saving line item', 'error')
+    } finally {
+      setSavingLineItem(false)
+    }
+  }
+
+  const handleDeleteLineItem = async (lineItemId: string) => {
+    if (!selectedList || !expandedReceiptId) return
+    setDeletingLineItemId(lineItemId)
+    try {
+      const res = await deleteExpenseLineItem(selectedList.id, expandedReceiptId, lineItemId)
+      if (res.status === 'success') {
+        setLineItems(prev => prev.filter(li => li.id !== lineItemId))
+        setConfirmDeleteLineItemId(null)
+        showNotification('Line item deleted', 'success')
+        await refreshSelectedList()
+      } else {
+        showNotification(res.message || 'Failed to delete line item', 'error')
+      }
+    } catch {
+      showNotification('Error deleting line item', 'error')
+    } finally {
+      setDeletingLineItemId(null)
+    }
+  }
+
+  const startEditLineItem = (li: ExpenseLineItem) => {
+    setEditingLineItemId(li.id)
+    setAddingLineItem(false)
+    setLineItemForm({
+      description: li.description,
+      quantity: li.quantity.toString(),
+      unitCost: li.unitCost ? li.unitCost.toString() : '',
+      totalCost: li.totalCost.toString(),
+    })
+  }
+
+  const startAddLineItem = () => {
+    setAddingLineItem(true)
+    setEditingLineItemId(null)
+    setLineItemForm({ description: '', quantity: '1', unitCost: '', totalCost: '' })
+  }
+
+  // Auto-calculate: qty × unitCost = totalCost
+  const updateLineItemField = (field: 'quantity' | 'unitCost' | 'totalCost', value: string) => {
+    setLineItemForm(prev => {
+      const next = { ...prev, [field]: value }
+      const qty = parseFloat(field === 'quantity' ? value : next.quantity) || 0
+      const unit = parseFloat(field === 'unitCost' ? value : next.unitCost) || 0
+      const total = parseFloat(field === 'totalCost' ? value : next.totalCost) || 0
+
+      if (field === 'quantity' || field === 'unitCost') {
+        // Recalculate total from qty × unit
+        if (qty > 0 && unit > 0) {
+          next.totalCost = (qty * unit).toFixed(2)
+        }
+      } else if (field === 'totalCost') {
+        // Recalculate unitCost from total / qty
+        if (qty > 0 && total > 0) {
+          next.unitCost = (total / qty).toFixed(2)
+        }
+      }
+      return next
+    })
+  }
+
   const getProgress = (list: SupplyList) => {
     if (list.progress) return list.progress
     const totalItems = list.items.length
@@ -278,6 +614,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   }
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} closable style="!overflow-y-hidden flex flex-col max-w-2xl w-[calc(100%-1rem)]">
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto min-h-0">
@@ -287,7 +624,14 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
           <div className="flex items-center gap-3">
             {selectedList ? (
               <button
-                onClick={() => { setSelectedList(null); setShowDeleteConfirm(false) }}
+                onClick={() => {
+                  if (isDirectDetail) {
+                    onClose()
+                  } else {
+                    setSelectedList(null)
+                    setShowDeleteConfirm(false)
+                  }
+                }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
@@ -336,6 +680,22 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* List-level Notes */}
+              {selectedList.status !== 'fulfilled' ? (
+                <textarea
+                  value={listNotes}
+                  onChange={(e) => setListNotes(e.target.value)}
+                  onBlur={handleUpdateListNotes}
+                  placeholder="Add notes for this supply list..."
+                  rows={2}
+                  className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded-lg focus:ring-1 focus:ring-teal-300 bg-gray-50 focus:bg-white resize-none transition-colors"
+                />
+              ) : selectedList.notes ? (
+                <div className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                  {selectedList.notes}
+                </div>
+              ) : null}
 
               {/* Progress Bar (detail view) */}
               {selectedList.items.length > 0 && (
@@ -386,6 +746,54 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                     })
                     .map(item => {
                     const isEditable = selectedList.status !== 'fulfilled'
+                    const isEditingThis = editingItemId === item.id
+
+                    if (isEditingThis && isEditable) {
+                      return (
+                        <div key={item.id} className="p-2.5 bg-teal-50 rounded-lg space-y-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveItemEdit()
+                                if (e.key === 'Escape') setEditingItemId(null)
+                              }}
+                            />
+                            <input
+                              type="number"
+                              value={editQuantity}
+                              onChange={(e) => setEditQuantity(e.target.value)}
+                              min="1"
+                              className="w-16 px-2 py-1.5 text-sm text-center border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveItemEdit()
+                                if (e.key === 'Escape') setEditingItemId(null)
+                              }}
+                            />
+                          </div>
+                          <div className="flex gap-1.5 justify-end">
+                            <button
+                              onClick={() => setEditingItemId(null)}
+                              className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveItemEdit}
+                              disabled={actionLoading || !editName.trim()}
+                              className="px-2.5 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
+                            >
+                              {actionLoading ? 'Saving...' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div
                         key={item.id}
@@ -406,12 +814,37 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                         </button>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                              {item.name}
-                            </p>
+                            {isEditable ? (
+                              <button
+                                onClick={() => startEditItem(item)}
+                                className="text-sm font-medium text-left hover:text-teal-700 transition-colors cursor-pointer"
+                              >
+                                <span className={item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}>
+                                  {item.name}
+                                </span>
+                              </button>
+                            ) : (
+                              <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                {item.name}
+                              </p>
+                            )}
                             {item.quantity > 1 && (
-                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                x{item.quantity}
+                              isEditable ? (
+                                <button
+                                  onClick={() => startEditItem(item)}
+                                  className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded hover:bg-gray-200 transition-colors cursor-pointer"
+                                >
+                                  x{item.quantity}
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  x{item.quantity}
+                                </span>
+                              )
+                            )}
+                            {item.isPurchased && item.totalCost != null && item.totalCost > 0 && (
+                              <span className="text-teal-600 text-[10px] font-medium">
+                                ${item.totalCost.toFixed(2)}
                               </span>
                             )}
                           </div>
@@ -449,6 +882,330 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                     )
                   })}
                 </div>
+              </div>
+
+              {/* Receipts Section */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <DocumentTextIcon className="w-4 h-4 text-gray-400" />
+                    Receipts
+                  </h4>
+                  {selectedList.status !== 'fulfilled' && onScanReceipt && (
+                    <button
+                      onClick={() => onScanReceipt(selectedList)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <CameraIcon className="w-3.5 h-3.5" /> Scan Receipt
+                    </button>
+                  )}
+                </div>
+                {receiptsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                  </div>
+                ) : receipts.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3">No receipts scanned yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {receipts.map(receipt => {
+                      const receiptStatusColors: Record<string, string> = {
+                        pending: 'bg-gray-100 text-gray-600',
+                        matched: 'bg-amber-100 text-amber-700',
+                        applied: 'bg-green-100 text-green-700',
+                        error: 'bg-red-100 text-red-700',
+                        failed: 'bg-red-100 text-red-700',
+                      }
+                      const isConfirmingDelete = confirmDeleteReceiptId === receipt.id
+                      const isExpanded = expandedReceiptId === receipt.id
+                      const canExpand = receipt.status === 'applied'
+                      return (
+                        <div key={receipt.id}>
+                          <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {canExpand ? (
+                                <button
+                                  onClick={() => handleExpandReceipt(receipt.id)}
+                                  className="flex-shrink-0 p-0.5 text-gray-400 hover:text-teal-600 cursor-pointer"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronRightIcon className="w-4 h-4" />
+                                  )}
+                                </button>
+                              ) : (
+                                <CameraIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-900 truncate">{receipt.originalName}</p>
+                                <p className="text-[10px] text-gray-400">
+                                  {new Date(receipt.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${receiptStatusColors[receipt.status] || 'bg-gray-100 text-gray-700'}`}>
+                                {receipt.status}
+                              </span>
+                              {receipt.status === 'matched' && (
+                                <button
+                                  onClick={() => setReviewReceiptId(receipt.id)}
+                                  className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors cursor-pointer"
+                                >
+                                  Review
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
+                                disabled={deletingReceiptId === receipt.id}
+                                className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
+                                title="Delete receipt"
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Line Items Panel (expanded applied receipts) */}
+                          {isExpanded && (
+                            <div className="border-l-2 border-teal-300 ml-2 pl-3 mt-1">
+                              {lineItemsLoading ? (
+                                <div className="flex items-center justify-center py-3">
+                                  <div className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-medium text-gray-700">
+                                      Line Items ({lineItems.length})
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      {lineItems.length > 0 && lineItems[0].expenseId && (
+                                        <button
+                                          onClick={() => setViewingExpenseId(lineItems[0].expenseId)}
+                                          className="inline-flex items-center gap-0.5 text-[10px] font-medium text-teal-600 hover:text-teal-800 cursor-pointer"
+                                        >
+                                          <CurrencyDollarIcon className="w-3 h-3" /> View Expense
+                                        </button>
+                                      )}
+                                      {expenseAmount != null && (
+                                        <p className="text-[11px] font-medium text-teal-600">
+                                          Total: ${expenseAmount.toFixed(2)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {lineItems.map(li => {
+                                    const isEditing = editingLineItemId === li.id
+                                    const isConfirmingLiDelete = confirmDeleteLineItemId === li.id
+
+                                    if (isEditing) {
+                                      return (
+                                        <div key={li.id} className="p-2 bg-teal-50 rounded-lg space-y-1.5">
+                                          <input
+                                            type="text"
+                                            value={lineItemForm.description}
+                                            onChange={(e) => setLineItemForm(f => ({ ...f, description: e.target.value }))}
+                                            placeholder="Description"
+                                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                          />
+                                          <div className="flex gap-1.5">
+                                            <input
+                                              type="number"
+                                              value={lineItemForm.quantity}
+                                              onChange={(e) => updateLineItemField('quantity', e.target.value)}
+                                              placeholder="Qty"
+                                              min="1"
+                                              className="w-14 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                            />
+                                            <input
+                                              type="number"
+                                              value={lineItemForm.unitCost}
+                                              onChange={(e) => updateLineItemField('unitCost', e.target.value)}
+                                              placeholder="Unit $"
+                                              step="0.01"
+                                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                            />
+                                            <input
+                                              type="number"
+                                              value={lineItemForm.totalCost}
+                                              onChange={(e) => updateLineItemField('totalCost', e.target.value)}
+                                              placeholder="Total $"
+                                              step="0.01"
+                                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                            />
+                                          </div>
+                                          <div className="flex gap-1.5 justify-end">
+                                            <button
+                                              onClick={() => setEditingLineItemId(null)}
+                                              className="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded cursor-pointer"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              onClick={() => handleSaveLineItem(false, li.id)}
+                                              disabled={savingLineItem || !lineItemForm.description.trim() || !lineItemForm.totalCost}
+                                              className="px-2 py-0.5 text-[10px] font-medium bg-teal-500 text-white rounded hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
+                                            >
+                                              {savingLineItem ? 'Saving...' : 'Save'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )
+                                    }
+
+                                    return (
+                                      <div key={li.id}>
+                                        <div className="flex items-center justify-between p-1.5 bg-white rounded-lg text-[11px]">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            {li.supplyListItemId && (
+                                              <LinkIcon className="w-3 h-3 text-teal-500 flex-shrink-0" title="Linked to supply item" />
+                                            )}
+                                            <span className="text-gray-800 truncate">{li.description}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2 flex-shrink-0">
+                                            <span className="text-gray-500">
+                                              {li.quantity > 1 && `${li.quantity} × $${li.unitCost.toFixed(2)} = `}
+                                              ${li.totalCost.toFixed(2)}
+                                            </span>
+                                            <button
+                                              onClick={() => startEditLineItem(li)}
+                                              className="p-0.5 text-gray-400 hover:text-teal-600 cursor-pointer"
+                                            >
+                                              <PencilIcon className="w-3 h-3" />
+                                            </button>
+                                            <button
+                                              onClick={() => setConfirmDeleteLineItemId(isConfirmingLiDelete ? null : li.id)}
+                                              disabled={deletingLineItemId === li.id}
+                                              className="p-0.5 text-gray-400 hover:text-red-500 cursor-pointer disabled:opacity-50"
+                                            >
+                                              <TrashIcon className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                        {isConfirmingLiDelete && (
+                                          <div className="mt-0.5 p-1.5 bg-red-50 border border-red-200 rounded text-[10px]">
+                                            <p className="text-red-700 mb-1">
+                                              {li.supplyListItemId ? 'This item is linked to a supply item.' : 'Delete this line item?'}
+                                            </p>
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() => setConfirmDeleteLineItemId(null)}
+                                                className="flex-1 py-0.5 font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                              >
+                                                Cancel
+                                              </button>
+                                              <button
+                                                onClick={() => handleDeleteLineItem(li.id)}
+                                                disabled={!!deletingLineItemId}
+                                                className="flex-1 py-0.5 font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                                              >
+                                                {deletingLineItemId === li.id ? '...' : 'Delete'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+
+                                  {/* Add line item form */}
+                                  {addingLineItem ? (
+                                    <div className="p-2 bg-teal-50 rounded-lg space-y-1.5">
+                                      <input
+                                        type="text"
+                                        value={lineItemForm.description}
+                                        onChange={(e) => setLineItemForm(f => ({ ...f, description: e.target.value }))}
+                                        placeholder="Description"
+                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                        autoFocus
+                                      />
+                                      <div className="flex gap-1.5">
+                                        <input
+                                          type="number"
+                                          value={lineItemForm.quantity}
+                                          onChange={(e) => updateLineItemField('quantity', e.target.value)}
+                                          placeholder="Qty"
+                                          min="1"
+                                          className="w-14 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                        />
+                                        <input
+                                          type="number"
+                                          value={lineItemForm.unitCost}
+                                          onChange={(e) => updateLineItemField('unitCost', e.target.value)}
+                                          placeholder="Unit $"
+                                          step="0.01"
+                                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                        />
+                                        <input
+                                          type="number"
+                                          value={lineItemForm.totalCost}
+                                          onChange={(e) => updateLineItemField('totalCost', e.target.value)}
+                                          placeholder="Total $"
+                                          step="0.01"
+                                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                        />
+                                      </div>
+                                      <div className="flex gap-1.5 justify-end">
+                                        <button
+                                          onClick={() => setAddingLineItem(false)}
+                                          className="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded cursor-pointer"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          onClick={() => handleSaveLineItem(true)}
+                                          disabled={savingLineItem || !lineItemForm.description.trim() || !lineItemForm.totalCost}
+                                          className="px-2 py-0.5 text-[10px] font-medium bg-teal-500 text-white rounded hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
+                                        >
+                                          {savingLineItem ? 'Saving...' : 'Add'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={startAddLineItem}
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-teal-600 hover:bg-teal-50 rounded cursor-pointer"
+                                    >
+                                      <PlusIcon className="w-3 h-3" /> Add Item
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {isConfirmingDelete && (
+                            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
+                              <p className="text-[10px] text-red-700 mb-1.5">
+                                {receipt.status === 'applied'
+                                  ? 'This will delete the linked expense and revert matched items to unpurchased.'
+                                  : 'Delete this receipt?'}
+                              </p>
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => setConfirmDeleteReceiptId(null)}
+                                  className="flex-1 py-1 text-[10px] font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteReceipt(receipt.id)}
+                                  disabled={!!deletingReceiptId}
+                                  className="flex-1 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                                >
+                                  {deletingReceiptId === receipt.id ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Fulfilled info */}
@@ -622,6 +1379,34 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         </div>
       )}
     </Modal>
+
+    {viewingExpenseId && (
+      <ExpenseViewerModal
+        isOpen={!!viewingExpenseId}
+        onClose={() => setViewingExpenseId(null)}
+        expenseId={viewingExpenseId}
+        hideSupplyListLink={true}
+      />
+    )}
+    {reviewReceiptId && selectedList && (
+      <ReviewReceiptModal
+        isOpen={true}
+        onClose={() => setReviewReceiptId(null)}
+        supplyListId={selectedList.id}
+        receiptId={reviewReceiptId}
+        supplyList={selectedList}
+        onReceiptApplied={() => {
+          setReviewReceiptId(null)
+          // Reload receipts
+          getSupplyListReceipts(selectedList.id).then(res => {
+            if (res.status === 'success') setReceipts(res.data || [])
+          })
+          onSupplyListsChanged?.()
+        }}
+        zIndex={70}
+      />
+    )}
+    </>
   )
 }
 

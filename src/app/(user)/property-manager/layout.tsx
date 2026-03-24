@@ -7,6 +7,7 @@ import RoleGuard from '@/components/shared/RoleGuard'
 import { managerSidebarItems, managerNavConfig } from '@/components/navbar/sidebarItems'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import { useNotificationPolling } from '@/hooks/useNotificationPolling'
+import { usePendingSupplyCount } from '@/hooks/usePendingSupplyCount'
 import { useFilteredNavConfig } from '@/hooks/useFilteredNavConfig'
 
 export default function AdminLayout({
@@ -17,6 +18,7 @@ export default function AdminLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const isCollapsed = useSidebarStore((s) => s.isCollapsed)
   useNotificationPolling()
+  usePendingSupplyCount()
   const { filteredNavConfig, filteredItems } = useFilteredNavConfig(managerNavConfig, managerSidebarItems)
 
   return (

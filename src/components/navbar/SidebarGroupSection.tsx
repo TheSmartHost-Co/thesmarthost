@@ -43,6 +43,7 @@ export default function SidebarGroupSection({
   const toggleGroup = useSidebarStore((s) => s.toggleGroup)
   const setGroupExpanded = useSidebarStore((s) => s.setGroupExpanded)
   const setCollapsed = useSidebarStore((s) => s.setCollapsed)
+  const pendingSupplyCount = useSidebarStore((s) => s.pendingSupplyCount)
 
   // Default all groups to expanded; user collapses are persisted to localStorage
   const isExpanded = expandedGroups[group.label] ?? true
@@ -108,6 +109,7 @@ export default function SidebarGroupSection({
               {group.items.map((item) => {
                 const isActive = isRouteActive(pathname, item.href)
                 const Icon = item.icon
+                const isSupplyLists = item.href === '/property-manager/supply-lists'
                 return (
                   <Link
                     key={item.href}
@@ -120,6 +122,11 @@ export default function SidebarGroupSection({
                   >
                     <Icon className="w-4 h-4 mr-2.5 flex-shrink-0" />
                     {item.name}
+                    {isSupplyLists && pendingSupplyCount > 0 && (
+                      <span className="ml-auto min-w-[16px] h-[16px] text-[9px] bg-amber-500 text-white rounded-full flex items-center justify-center font-semibold px-1 tabular-nums">
+                        {pendingSupplyCount}
+                      </span>
+                    )}
                   </Link>
                 )
               })}
@@ -164,6 +171,7 @@ export default function SidebarGroupSection({
               {group.items.map((item) => {
                 const isActive = isRouteActive(pathname, item.href)
                 const Icon = item.icon
+                const isSupplyLists = item.href === '/property-manager/supply-lists'
                 return (
                   <Link
                     key={item.href}
@@ -176,6 +184,11 @@ export default function SidebarGroupSection({
                   >
                     <Icon className="w-4 h-4 mr-2.5 flex-shrink-0" />
                     {item.name}
+                    {isSupplyLists && pendingSupplyCount > 0 && (
+                      <span className="ml-auto min-w-[16px] h-[16px] text-[9px] bg-amber-500 text-white rounded-full flex items-center justify-center font-semibold px-1 tabular-nums">
+                        {pendingSupplyCount}
+                      </span>
+                    )}
                   </Link>
                 )
               })}

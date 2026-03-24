@@ -5,6 +5,7 @@ export interface ChecklistTemplate {
   name: string
   description?: string | null
   tags: string[]
+  requiresWalkthrough?: boolean
   createdAt: string
   updatedAt: string
   // Aggregate field
@@ -30,6 +31,7 @@ export interface CreateChecklistTemplatePayload {
   name: string
   description?: string | null
   tags?: string[]
+  requiresWalkthrough?: boolean
   items?: {
     roomName?: string | null
     taskDescription: string
@@ -43,6 +45,7 @@ export interface UpdateChecklistTemplatePayload {
   name?: string
   description?: string | null
   tags?: string[]
+  requiresWalkthrough?: boolean
 }
 
 // Template item payload

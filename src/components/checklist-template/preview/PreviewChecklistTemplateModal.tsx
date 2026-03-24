@@ -107,6 +107,13 @@ export default function PreviewChecklistTemplateModal({
               </div>
             </div>
 
+            {template.requiresWalkthrough && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg">
+                <CameraIcon className="w-4 h-4" />
+                Walkthrough Required
+              </div>
+            )}
+
             {/* Items by Room */}
             {template.items && template.items.length > 0 ? (
               <div className="bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">

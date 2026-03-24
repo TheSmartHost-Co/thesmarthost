@@ -8,6 +8,17 @@ import type {
   UpdateSupplyListPayload,
   DeleteSupplyListResponse,
   ToggleItemPayload,
+  SupplyListSummaryResponse,
+  ScanReceiptResponse,
+  ApplyReceiptPayload,
+  ApplyReceiptResponse,
+  ReceiptsResponse,
+  ReceiptDetailResponse,
+  CreateExpenseLineItemPayload,
+  UpdateExpenseLineItemPayload,
+  ExpenseLineItemResponse,
+  ExpenseLineItemsResponse,
+  DeleteExpenseLineItemResponse,
 } from './types/supplyList'
 
 // =============================================
@@ -23,18 +34,21 @@ export function getSupplyListsByProject(projectId: string): Promise<SupplyListsR
 
 /**
  * Get all pending supply lists for a PM (dashboard view)
+ * Auth: userId derived from JWT token server-side
  */
-export function getPendingSupplyLists(userId: string): Promise<SupplyListsResponse> {
-  return apiClient<SupplyListsResponse>(`/supply-lists?userId=${userId}&status=pending`)
+export function getPendingSupplyLists(): Promise<SupplyListsResponse> {
+  return apiClient<SupplyListsResponse>(`/supply-lists?status=pending`)
 }
 
 /**
  * Get all supply lists for a user (overview page - supports optional status filter)
+ * Auth: userId derived from JWT token server-side
  */
-export function getAllSupplyLists(userId: string, status?: SupplyListStatus): Promise<SupplyListsResponse> {
-  const params = new URLSearchParams({ userId })
+export function getAllSupplyLists(status?: SupplyListStatus): Promise<SupplyListsResponse> {
+  const params = new URLSearchParams()
   if (status) params.append('status', status)
-  return apiClient<SupplyListsResponse>(`/supply-lists?${params.toString()}`)
+  const qs = params.toString()
+  return apiClient<SupplyListsResponse>(`/supply-lists${qs ? `?${qs}` : ''}`)
 }
 
 /**
@@ -110,6 +124,147 @@ export function fulfillSupplyList(supplyListId: string, fulfilledBy?: string): P
     method: 'POST',
     body: fulfilledBy ? { fulfilledBy } : {},
   })
+}
+
+// =============================================
+// RECEIPT & SUMMARY OPERATIONS
+// =============================================
+
+/**
+ * Get supply list summary (totals + by-property breakdown)
+ */
+export function getSupplyListSummary(
+  propertyId?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<SupplyListSummaryResponse> {
+  const params = new URLSearchParams()
+  if (propertyId) params.append('propertyId', propertyId)
+  if (startDate) params.append('startDate', startDate)
+  if (endDate) params.append('endDate', endDate)
+  const qs = params.toString()
+  return apiClient<SupplyListSummaryResponse>(`/supply-lists/summary${qs ? `?${qs}` : ''}`)
+}
+
+/**
+ * Scan a receipt image for a supply list (OCR + fuzzy matching)
+ */
+export function scanSupplyListReceipt(
+  supplyListId: string,
+  file: File
+): Promise<ScanReceiptResponse> {
+  const formData = new FormData()
+  formData.append('receipt', file)
+  return apiClient<ScanReceiptResponse, FormData>(
+    `/supply-lists/${supplyListId}/receipts/scan`,
+    { method: 'POST', body: formData }
+  )
+}
+
+/**
+ * Apply a scanned receipt to create an expense from supply list
+ */
+export function applySupplyListReceipt(
+  supplyListId: string,
+  receiptId: string,
+  payload: ApplyReceiptPayload
+): Promise<ApplyReceiptResponse> {
+  return apiClient<ApplyReceiptResponse, ApplyReceiptPayload>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}/apply`,
+    { method: 'POST', body: payload }
+  )
+}
+
+/**
+ * Get all receipts for a supply list
+ */
+export function getSupplyListReceipts(supplyListId: string): Promise<ReceiptsResponse> {
+  return apiClient<ReceiptsResponse>(`/supply-lists/${supplyListId}/receipts`)
+}
+
+/**
+ * Get a single receipt by ID with OCR data and match preview
+ */
+export function getSupplyListReceiptById(
+  supplyListId: string,
+  receiptId: string
+): Promise<ReceiptDetailResponse> {
+  return apiClient<ReceiptDetailResponse>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}`
+  )
+}
+
+/**
+ * Delete a receipt from a supply list
+ * If the receipt was applied, this also deletes the linked expense and reverts matched items to unpurchased.
+ */
+export function deleteSupplyListReceipt(
+  supplyListId: string,
+  receiptId: string
+): Promise<DeleteSupplyListResponse> {
+  return apiClient<DeleteSupplyListResponse>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}`,
+    { method: 'DELETE' }
+  )
+}
+
+// =============================================
+// EXPENSE LINE ITEM CRUD
+// =============================================
+
+/**
+ * Get all expense line items for a receipt
+ */
+export function getExpenseLineItems(
+  supplyListId: string,
+  receiptId: string
+): Promise<ExpenseLineItemsResponse> {
+  return apiClient<ExpenseLineItemsResponse>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items`
+  )
+}
+
+/**
+ * Create an expense line item for a receipt
+ */
+export function createExpenseLineItem(
+  supplyListId: string,
+  receiptId: string,
+  data: CreateExpenseLineItemPayload
+): Promise<ExpenseLineItemResponse> {
+  return apiClient<ExpenseLineItemResponse, CreateExpenseLineItemPayload>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items`,
+    { method: 'POST', body: data }
+  )
+}
+
+/**
+ * Update an expense line item
+ */
+export function updateExpenseLineItem(
+  supplyListId: string,
+  receiptId: string,
+  lineItemId: string,
+  data: UpdateExpenseLineItemPayload
+): Promise<ExpenseLineItemResponse> {
+  return apiClient<ExpenseLineItemResponse, UpdateExpenseLineItemPayload>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items/${lineItemId}`,
+    { method: 'PUT', body: data }
+  )
+}
+
+/**
+ * Delete an expense line item
+ */
+export function deleteExpenseLineItem(
+  supplyListId: string,
+  receiptId: string,
+  lineItemId: string
+): Promise<DeleteExpenseLineItemResponse> {
+  return apiClient<DeleteExpenseLineItemResponse>(
+    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items/${lineItemId}`,
+    { method: 'DELETE' }
+  )
 }
 
 // =============================================

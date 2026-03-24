@@ -11,10 +11,10 @@ import {
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
-import { getProjectPhotos, downloadChecklistPhotoWatermarked, getStatusDisplay } from '@/services/cleaningProjectService'
+import { getProjectPhotos, downloadChecklistPhotoWatermarked, downloadWalkthroughPhotoWatermarked, getStatusDisplay } from '@/services/cleaningProjectService'
 import { downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { parseLocalDate } from '@/utils/dateUtils'
-import type { ProjectWithPhotos, ChecklistPhotoItem, IssuePhotoItem } from '@/services/types/cleaningProject'
+import type { ProjectWithPhotos, ChecklistPhotoItem, IssuePhotoItem, WalkthroughPhotoItem } from '@/services/types/cleaningProject'
 
 interface PhotoGalleryModalProps {
   isOpen: boolean
@@ -30,11 +30,13 @@ interface FlatPhoto {
   roomName?: string
   photoTakenAt: string | null
   photoUploadedAt: string | null
-  type: 'checklist' | 'issue'
+  type: 'checklist' | 'issue' | 'walkthrough'
   projectId: string
   itemId?: string
   issueId?: string
   photoIndex?: number
+  walkthroughPhotoId?: string
+  walkthroughProjectId?: string
 }
 
 function getThirtyDaysAgo(): string {
@@ -95,7 +97,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   // Photo type filter
-  const [photoFilter, setPhotoFilter] = useState<'all' | 'checklist' | 'issue'>('all')
+  const [photoFilter, setPhotoFilter] = useState<'all' | 'checklist' | 'issue' | 'walkthrough'>('all')
 
   // Preview (replaces lightbox)
   const [previewImage, setPreviewImage] = useState<{
@@ -164,17 +166,19 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
   const totalPhotoCount = useMemo(() => {
     return projects.reduce((sum, p) => {
       let count = 0
-      if (photoFilter !== 'issue') count += p.checklistPhotos.length
-      if (photoFilter !== 'checklist') count += p.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0)
+      if (photoFilter === 'all' || photoFilter === 'checklist') count += p.checklistPhotos.length
+      if (photoFilter === 'all' || photoFilter === 'issue') count += p.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0)
+      if (photoFilter === 'all' || photoFilter === 'walkthrough') count += (p.walkthroughPhotos?.length || 0)
       return sum + count
     }, 0)
   }, [projects, photoFilter])
 
   // Per-project filtered photo counts (checklist vs issue)
-  const getProjectPhotoCounts = (project: ProjectWithPhotos): { checklist: number; issue: number; total: number } => {
-    const checklist = photoFilter !== 'issue' ? project.checklistPhotos.length : 0
-    const issue = photoFilter !== 'checklist' ? project.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0) : 0
-    return { checklist, issue, total: checklist + issue }
+  const getProjectPhotoCounts = (project: ProjectWithPhotos): { checklist: number; issue: number; walkthrough: number; total: number } => {
+    const checklist = (photoFilter === 'all' || photoFilter === 'checklist') ? project.checklistPhotos.length : 0
+    const issue = (photoFilter === 'all' || photoFilter === 'issue') ? project.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0) : 0
+    const walkthrough = (photoFilter === 'all' || photoFilter === 'walkthrough') ? (project.walkthroughPhotos?.length || 0) : 0
+    return { checklist, issue, walkthrough, total: checklist + issue + walkthrough }
   }
 
   const getProjectPhotoCount = (project: ProjectWithPhotos): number => getProjectPhotoCounts(project).total
@@ -182,11 +186,11 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
   // "By Property" grouping
   const byPropertyGroups = useMemo(() => {
     if (activeTab !== 'property') return []
-    const map = new Map<string, { propertyName: string; propertyAddress: string; projects: ProjectWithPhotos[]; totalPhotos: number; totalChecklist: number; totalIssue: number }>()
+    const map = new Map<string, { propertyName: string; propertyAddress: string; projects: ProjectWithPhotos[]; totalPhotos: number; totalChecklist: number; totalIssue: number; totalWalkthrough: number }>()
     for (const p of projects) {
       const key = p.propertyName
       if (!map.has(key)) {
-        map.set(key, { propertyName: p.propertyName, propertyAddress: p.propertyAddress, projects: [], totalPhotos: 0, totalChecklist: 0, totalIssue: 0 })
+        map.set(key, { propertyName: p.propertyName, propertyAddress: p.propertyAddress, projects: [], totalPhotos: 0, totalChecklist: 0, totalIssue: 0, totalWalkthrough: 0 })
       }
       const group = map.get(key)!
       group.projects.push(p)
@@ -194,6 +198,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
       group.totalPhotos += counts.total
       group.totalChecklist += counts.checklist
       group.totalIssue += counts.issue
+      group.totalWalkthrough += counts.walkthrough
     }
     return Array.from(map.values()).sort((a, b) => a.propertyName.localeCompare(b.propertyName))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,16 +216,20 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
 
   // Open preview (replaces openLightbox)
   const openPreview = (photo: FlatPhoto) => {
+    let downloadFn: (() => Promise<void>) | undefined
+    if (photo.type === 'checklist' && photo.itemId) {
+      downloadFn = () => downloadChecklistPhotoWatermarked(photo.projectId, photo.itemId!)
+    } else if (photo.type === 'issue' && photo.issueId && photo.photoIndex !== undefined) {
+      downloadFn = () => downloadIssuePhotoWatermarked(photo.issueId!, photo.photoIndex!)
+    } else if (photo.type === 'walkthrough' && photo.walkthroughProjectId && photo.walkthroughPhotoId) {
+      downloadFn = () => downloadWalkthroughPhotoWatermarked(photo.walkthroughProjectId!, photo.walkthroughPhotoId!)
+    }
     setPreviewImage({
       url: photo.url,
       title: photo.roomName || photo.label,
       photoTakenAt: photo.photoTakenAt,
       photoUploadedAt: photo.photoUploadedAt,
-      downloadFn: photo.type === 'checklist' && photo.itemId
-        ? () => downloadChecklistPhotoWatermarked(photo.projectId, photo.itemId!)
-        : photo.type === 'issue' && photo.issueId && photo.photoIndex !== undefined
-          ? () => downloadIssuePhotoWatermarked(photo.issueId!, photo.photoIndex!)
-          : undefined,
+      downloadFn,
     })
   }
 
@@ -292,7 +301,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
     return (
       <div className="space-y-3">
         {/* Checklist photos */}
-        {photoFilter !== 'issue' && project.checklistPhotos.length > 0 && (
+        {(photoFilter === 'all' || photoFilter === 'checklist') && project.checklistPhotos.length > 0 && (
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">
               Checklist Photos ({project.checklistPhotos.length})
@@ -319,7 +328,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
           </div>
         )}
         {/* Issue photos */}
-        {photoFilter !== 'checklist' && project.issuePhotos.length > 0 && (
+        {(photoFilter === 'all' || photoFilter === 'issue') && project.issuePhotos.length > 0 && (
           <div>
             <p className="text-xs font-medium text-amber-600 mb-2 flex items-center gap-1">
               <ExclamationTriangleIcon className="w-3.5 h-3.5" />
@@ -349,6 +358,35 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
             </div>
           </div>
         )}
+        {/* Walkthrough photos */}
+        {(photoFilter === 'all' || photoFilter === 'walkthrough') && project.walkthroughPhotos && project.walkthroughPhotos.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
+              <CameraIcon className="w-3.5 h-3.5" />
+              Walkthrough Photos ({project.walkthroughPhotos.length})
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {project.walkthroughPhotos.map((wp) =>
+                renderPhotoCard(
+                  wp.photoUrl,
+                  `Walkthrough: ${wp.roomName}`,
+                  wp.roomName,
+                  () => openPreview({
+                    url: wp.photoUrl,
+                    label: `Walkthrough: ${wp.roomName}`,
+                    roomName: wp.roomName,
+                    photoTakenAt: wp.photoTakenAt,
+                    photoUploadedAt: wp.photoUploadedAt,
+                    type: 'walkthrough',
+                    projectId: project.projectId,
+                    walkthroughPhotoId: wp.id,
+                    walkthroughProjectId: wp.projectId,
+                  }),
+                )
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -361,7 +399,8 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
     photoCount: number,
     checklistCount: number,
     issueCount: number,
-    extra?: React.ReactNode
+    extra?: React.ReactNode,
+    walkthroughCount?: number,
   ) => {
     const isCollapsed = collapsedGroups.has(key)
     return (
@@ -388,6 +427,11 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
           {issueCount > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">
               {issueCount} issue{issueCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {(walkthroughCount ?? 0) > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 font-medium">
+              {walkthroughCount} walkthrough
             </span>
           )}
           <span className="text-xs text-gray-400">{photoCount} photo{photoCount !== 1 ? 's' : ''}</span>
@@ -516,10 +560,11 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 { value: 'all', label: 'All Photos' },
                 { value: 'checklist', label: 'Checklist' },
                 { value: 'issue', label: 'Issues' },
+                { value: 'walkthrough', label: 'Walkthrough' },
               ].map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setPhotoFilter(opt.value as 'all' | 'checklist' | 'issue')}
+                  onClick={() => setPhotoFilter(opt.value as 'all' | 'checklist' | 'issue' | 'walkthrough')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     photoFilter === opt.value
                       ? 'bg-purple-100 text-purple-700'
@@ -572,6 +617,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                       counts.checklist,
                       counts.issue,
                       statusBadge(project.status),
+                      counts.walkthrough,
                     )}
                     <AnimatePresence initial={false}>
                       {!isCollapsed && (
@@ -607,6 +653,8 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                       group.totalPhotos,
                       group.totalChecklist,
                       group.totalIssue,
+                      undefined,
+                      group.totalWalkthrough,
                     )}
                     <AnimatePresence initial={false}>
                       {!isCollapsed && (

@@ -328,7 +328,8 @@ export default function IncomingBookingsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
-    return parseLocalDate(dateString).toLocaleDateString('en-US', {
+    const dateOnly = dateString.split('T')[0]
+    return parseLocalDate(dateOnly).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

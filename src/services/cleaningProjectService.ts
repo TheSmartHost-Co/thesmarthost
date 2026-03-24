@@ -22,6 +22,10 @@ import type {
   ChecklistProgress,
   // Photo gallery
   ProjectPhotosResponse,
+  // Walkthrough
+  WalkthroughStatusResponse,
+  WalkthroughPhotoUploadResponse,
+  WalkthroughPhotoDeleteResponse,
 } from './types/cleaningProject'
 
 /**
@@ -537,6 +541,73 @@ export async function downloadChecklistPhotoWatermarked(projectId: string, itemI
   const a = document.createElement('a')
   a.href = blobUrl
   a.download = filename || 'photo_watermarked.jpg'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(blobUrl)
+}
+
+// =============================================
+// WALKTHROUGH PHOTOS
+// =============================================
+
+/**
+ * Get walkthrough status for a project (rooms + photo completion)
+ */
+export function getWalkthroughStatus(projectId: string): Promise<WalkthroughStatusResponse> {
+  return apiClient<WalkthroughStatusResponse>(`/cleaning-projects/${projectId}/walkthrough`)
+}
+
+/**
+ * Upload walkthrough photos for a specific room
+ * @param projectId - The cleaning project ID
+ * @param roomName - The room name (will be URL-encoded)
+ * @param files - Array of photo files to upload
+ */
+export function uploadWalkthroughPhotos(
+  projectId: string,
+  roomName: string,
+  files: File[]
+): Promise<WalkthroughPhotoUploadResponse> {
+  const formData = new FormData()
+  files.forEach(f => formData.append('photos', f))
+  return apiClient<WalkthroughPhotoUploadResponse, FormData>(
+    `/cleaning-projects/${projectId}/walkthrough/${encodeURIComponent(roomName)}/photos`,
+    { method: 'POST', body: formData }
+  )
+}
+
+/**
+ * Delete a walkthrough photo
+ */
+export function deleteWalkthroughPhoto(
+  projectId: string,
+  photoId: string
+): Promise<WalkthroughPhotoDeleteResponse> {
+  return apiClient<WalkthroughPhotoDeleteResponse>(
+    `/cleaning-projects/${projectId}/walkthrough/photos/${photoId}`,
+    { method: 'DELETE' }
+  )
+}
+
+/**
+ * Download a watermarked walkthrough photo via fetch (handles cross-origin credentials)
+ */
+export async function downloadWalkthroughPhotoWatermarked(
+  projectId: string,
+  photoId: string,
+  filename?: string
+): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''
+  const url = `${baseUrl}/cleaning-projects/${projectId}/walkthrough/photos/${photoId}/download`
+  const authHeaders = await getAuthHeaders()
+  const response = await fetch(url, { headers: authHeaders })
+  if (!response.ok) throw new Error('Failed to download photo')
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = filename || 'walkthrough_photo_watermarked.jpg'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
