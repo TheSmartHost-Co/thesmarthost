@@ -19,6 +19,8 @@ export interface Client {
   statusId?: string;
   pmsCredentials: boolean;
   isActive: boolean;
+  authUserId?: string | null;
+  portalStatus?: 'not_invited' | 'invited' | 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
   statusInfo?: ClientStatusInfo | null;

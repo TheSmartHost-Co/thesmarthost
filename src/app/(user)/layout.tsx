@@ -15,6 +15,7 @@ export default function UserLayout({
   const pathname = usePathname()
   const isPropertyManagerRoute = pathname?.startsWith('/property-manager')
   const isCleanerRoute = pathname?.startsWith('/cleaner')
+  const isClientRoute = pathname?.startsWith('/client')
   
   // Session monitoring for all authenticated pages
   const {
@@ -28,7 +29,7 @@ export default function UserLayout({
   } = useSessionMonitor()
 
   // Skip rendering navbar/padding for routes with their own layout (property-manager, cleaner)
-  const hasOwnLayout = isPropertyManagerRoute || isCleanerRoute
+  const hasOwnLayout = isPropertyManagerRoute || isCleanerRoute || isClientRoute
 
   return (
     <>

@@ -116,6 +116,7 @@ export const managerNavConfig: SidebarNavConfig = {
     },
   ],
   bottom: [
+    { name: 'Client Portal', href: '/property-manager/client-portal', icon: UserGroupIcon },
     { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
     { name: 'Settings', href: '/property-manager/settings', icon: CogIcon },
   ],
@@ -151,4 +152,13 @@ export const cleanerSidebarItems: SidebarItem[] = [
   { name: 'Schedule', href: '/cleaner/schedule', icon: CalendarDaysIcon },
   { name: 'Invoices', href: '/cleaner/invoices', icon: BanknotesIcon },
   { name: 'Settings', href: '/cleaner/settings', icon: CogIcon },
+]
+
+export const clientSidebarItems: SidebarItem[] = [
+  { name: 'Dashboard', href: '/client/dashboard', icon: HomeIcon },
+  { name: 'My Properties', href: '/client/properties', icon: BuildingOfficeIcon },
+  { name: 'Bookings', href: '/client/bookings', icon: CalendarDaysIcon },
+  { name: 'Cleaning', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
+  { name: 'Checklists', href: '/client/checklists', icon: ClipboardDocumentCheckIcon },
+  { name: 'Settings', href: '/client/settings', icon: CogIcon },
 ]

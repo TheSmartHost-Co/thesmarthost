@@ -42,3 +42,12 @@ export function getOrCreateTeamMemberProfile(authUserId: string, fullName: strin
     body: { authUserId, fullName },
   });
 }
+
+// Get or create a client (property owner) profile when they log in via magic link
+// Returns profile + pmUserId from clients row
+export function getOrCreateClientProfile(authUserId: string, fullName: string): Promise<ProfileResponse> {
+  return apiClient<ProfileResponse>('/profile/client', {
+    method: 'POST',
+    body: { authUserId, fullName },
+  });
+}

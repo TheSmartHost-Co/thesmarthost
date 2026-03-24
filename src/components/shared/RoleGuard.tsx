@@ -12,6 +12,7 @@ import { useUserStore } from '@/store/useUserStore'
 const PORTAL_ROLES: Record<string, string[]> = {
   '/property-manager': ['PROPERTY-MANAGER', 'TEAM_MEMBER', 'ADMIN'],
   '/cleaner': ['CLEANER'],
+  '/client': ['CLIENT'],
 }
 
 interface RoleGuardProps {
@@ -53,8 +54,8 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
   }, [profile, userRole, allowedRoles, router, getRedirectPath])
 
   if (blocked) {
-    const portalLabel = portal === '/cleaner' ? 'cleaner' : 'property manager'
-    const roleLabel = userRole === 'CLEANER' ? 'cleaner' : 'property manager'
+    const portalLabel = portal === '/cleaner' ? 'cleaner' : portal === '/client' ? 'property owner' : 'property manager'
+    const roleLabel = userRole === 'CLEANER' ? 'cleaner' : userRole === 'CLIENT' ? 'property owner' : 'property manager'
 
     return (
       <div className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 5rem)' }}>

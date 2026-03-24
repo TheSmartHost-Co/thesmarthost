@@ -7,7 +7,7 @@ import { EyeIcon, EyeSlashIcon, LockClosedIcon, CheckCircleIcon } from '@heroico
 import { createClient } from '@/utils/supabase/component'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getOrCreateCleanerProfile, getOrCreateTeamMemberProfile } from '@/services/profileService'
+import { getOrCreateCleanerProfile, getOrCreateTeamMemberProfile, getOrCreateClientProfile } from '@/services/profileService'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Notification from '@/components/shared/notification'
 
@@ -93,9 +93,12 @@ export default function SetPasswordPage() {
 
       // Create profile based on role
       const isTeamMember = userRole === 'TEAM_MEMBER'
+      const isClient = userRole === 'CLIENT'
       const profileResponse = isTeamMember
         ? await getOrCreateTeamMemberProfile(userId, userName)
-        : await getOrCreateCleanerProfile(userId, userName)
+        : isClient
+          ? await getOrCreateClientProfile(userId, userName)
+          : await getOrCreateCleanerProfile(userId, userName)
 
       if (profileResponse.status === 'success' && profileResponse.data) {
         const profileData = profileResponse.data
@@ -111,6 +114,16 @@ export default function SetPasswordPage() {
           })
           notify('Account setup complete! Welcome to TheSmartHost.', 'success')
           router.push('/property-manager/dashboard')
+        } else if (isClient) {
+          setProfile({
+            ...profileData,
+            id: userId,
+            role: 'CLIENT',
+            email: userEmail,
+            pmUserId: profileData.pmUserId ?? null,
+          })
+          notify('Account setup complete! Welcome to your Owner Portal.', 'success')
+          router.push('/client/dashboard')
         } else {
           setProfile({
             ...profileData,

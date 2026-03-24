@@ -14,6 +14,7 @@ import Footer from '@/components/footer/Footer'
 import { useUserStore } from '@/store/useUserStore'
 import { getUserProfile } from '@/services/profileService'
 import { getTeamMemberByAuthUserId } from '@/services/teamMemberService'
+import { getClientByAuthUserId } from '@/services/clientService'
 
 function LoginForm() {
   const router = useRouter()
@@ -87,6 +88,18 @@ function LoginForm() {
               }
             } catch (tmError) {
               console.error('Failed to fetch team member data:', tmError)
+            }
+          }
+
+          // If client (property owner), fetch their client record for pmUserId
+          if (profileData.role === 'CLIENT') {
+            try {
+              const clientResponse = await getClientByAuthUserId(data.user.id)
+              if (clientResponse.status === 'success' && clientResponse.data) {
+                profileData.pmUserId = clientResponse.data.pmUserId
+              }
+            } catch (clientError) {
+              console.error('Failed to fetch client data:', clientError)
             }
           }
 

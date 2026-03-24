@@ -15,7 +15,7 @@ function isRouteActive(pathname: string, href: string): boolean {
 }
 
 interface ResponsiveSidebarProps {
-  variant: 'manager' | 'cleaner'
+  variant: 'manager' | 'cleaner' | 'client'
   isOpen: boolean
   onClose: () => void
   items: SidebarItem[]
@@ -73,6 +73,10 @@ export default function ResponsiveSidebar({
     },
     cleaner: {
       active: 'bg-purple-50 text-purple-700 border-r-2 border-purple-700',
+      hover: 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+    },
+    client: {
+      active: 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-700',
       hover: 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
     },
   }

@@ -58,3 +58,25 @@ export function bulkImportClients(
     }
   );
 }
+
+// Client Portal invitation management (PM-side)
+export function inviteClientToPortal(clientId: string): Promise<{ status: string; message: string; data?: { authUserId: string; portalStatus: string } }> {
+  return apiClient(`/client/${clientId}/invite`, { method: 'POST' });
+}
+
+export function resendClientPortalInvite(clientId: string): Promise<{ status: string; message: string }> {
+  return apiClient(`/client/${clientId}/resend-invite`, { method: 'POST' });
+}
+
+export function revokeClientPortalAccess(clientId: string): Promise<{ status: string; message: string }> {
+  return apiClient(`/client/${clientId}/revoke-access`, { method: 'POST' });
+}
+
+export function restoreClientPortalAccess(clientId: string): Promise<{ status: string; message: string }> {
+  return apiClient(`/client/${clientId}/restore-access`, { method: 'POST' });
+}
+
+// Get client by Supabase auth user ID (used during login flow)
+export function getClientByAuthUserId(authUserId: string): Promise<{ status: string; data: { id: string; pmUserId: string; name: string; email: string; portalStatus: string } }> {
+  return apiClient(`/client/by-auth-user/${authUserId}`);
+}
