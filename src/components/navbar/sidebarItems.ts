@@ -20,6 +20,7 @@ import {
   CurrencyDollarIcon,
   WrenchScrewdriverIcon,
   UsersIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 
 export interface SidebarItem {
@@ -158,7 +159,8 @@ export const clientSidebarItems: SidebarItem[] = [
   { name: 'Dashboard', href: '/client/dashboard', icon: HomeIcon },
   { name: 'My Properties', href: '/client/properties', icon: BuildingOfficeIcon },
   { name: 'Bookings', href: '/client/bookings', icon: CalendarDaysIcon },
-  { name: 'Cleaning', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
+  { name: 'Schedule', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
   { name: 'Checklists', href: '/client/checklists', icon: ClipboardDocumentCheckIcon },
+  { name: 'Issues', href: '/client/issues', icon: ExclamationTriangleIcon },
   { name: 'Settings', href: '/client/settings', icon: CogIcon },
 ]

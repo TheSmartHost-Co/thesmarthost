@@ -97,6 +97,27 @@ export interface ClientPortalChecklist {
   updatedAt: string;
 }
 
+export interface ClientPortalIssue {
+  id: string;
+  issueType: string;
+  description: string;
+  photoUrls: string[];
+  status: string;
+  pmNotes?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  reporterName?: string;
+  projectDate: string;
+  propertyId: string;
+  propertyName: string;
+  propertyAddress?: string;
+}
+
+export interface ClientPortalIssuesResponse {
+  status: string;
+  data: ClientPortalIssue[];
+}
+
 export interface ClientPortalChecklistItem {
   id: string;
   roomName: string;
@@ -111,6 +132,12 @@ export interface ClientPortalDashboardStats {
   upcomingBookings: number;
   activeCleaningProjects: number;
   openIssues: number;
+  bookingsThisMonth: number;
+  bookingsLastMonth: number;
+  revenueThisMonth: number;
+  revenueLastMonth: number;
+  totalRevenue: number;
+  totalNights: number;
 }
 
 export interface ClientPortalBookingSummary {
