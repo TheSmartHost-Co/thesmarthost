@@ -216,3 +216,102 @@ export interface ClientPortalChecklistResponse {
   status: string;
   data: ClientPortalChecklist;
 }
+
+// Project detail types (for GET /client-portal/cleaning-projects/:id)
+
+export interface ClientPortalProjectChecklistItem {
+  id: string;
+  projectId: string;
+  checklistItemId: string;
+  isCompleted: boolean;
+  completedAt?: string | null;
+  photoUrl?: string | null;
+  photoTakenAt?: string | null;
+  photoUploadedAt?: string | null;
+  notes?: string | null;
+  roomName: string;
+  taskDescription: string;
+  requiresPhoto: boolean;
+  sortOrder: number;
+}
+
+export interface ClientPortalChecklistProgress {
+  totalItems: number;
+  completedItems: number;
+  photoRequired: number;
+  photosUploaded: number;
+  completionPercentage: number;
+}
+
+export interface ClientPortalWalkthroughPhoto {
+  id: string;
+  projectId: string;
+  roomName: string;
+  photoUrl: string;
+  photoTakenAt?: string | null;
+  photoUploadedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ClientPortalWalkthroughRoom {
+  roomName: string;
+  photos: ClientPortalWalkthroughPhoto[];
+  hasPhotos: boolean;
+}
+
+export interface ClientPortalProjectIssue {
+  id: string;
+  issueType: string;
+  description: string;
+  photoUrls: string[];
+  status: string;
+  pmNotes?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+  reporterName?: string;
+  projectDate: string;
+  propertyId: string;
+  propertyName: string;
+  propertyAddress?: string;
+}
+
+export interface ClientPortalProjectDetail {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  propertyAddress?: string;
+  cleanerId?: string;
+  cleanerName?: string;
+  checklistId?: string | null;
+  checklistName?: string | null;
+  projectDate: string;
+  projectStartTime?: string;
+  projectEndTime?: string;
+  estimatedDurationMinutes?: number;
+  actualStart?: string | null;
+  actualEnd?: string | null;
+  status: string;
+  cleanerAccepted?: boolean;
+  pmNotes?: string | null;
+  source?: string;
+  guestName?: string;
+  previousBookingCheckOut?: string;
+  nextBookingCheckIn?: string;
+  nextBookingGuestName?: string;
+  createdAt: string;
+  checklist: {
+    items: ClientPortalProjectChecklistItem[];
+    progress: ClientPortalChecklistProgress | null;
+  };
+  walkthrough: {
+    requiresWalkthrough: boolean;
+    isComplete: boolean;
+    rooms: ClientPortalWalkthroughRoom[];
+  };
+  issues: ClientPortalProjectIssue[];
+}
+
+export interface ClientPortalProjectDetailResponse {
+  status: string;
+  data: ClientPortalProjectDetail;
+}

@@ -160,6 +160,7 @@ export const clientSidebarItems: SidebarItem[] = [
   { name: 'My Properties', href: '/client/properties', icon: BuildingOfficeIcon },
   { name: 'Bookings', href: '/client/bookings', icon: CalendarDaysIcon },
   { name: 'Schedule', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
+  { name: 'Projects', href: '/client/projects', icon: WrenchScrewdriverIcon },
   { name: 'Checklists', href: '/client/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'Issues', href: '/client/issues', icon: ExclamationTriangleIcon },
   { name: 'Settings', href: '/client/settings', icon: CogIcon },

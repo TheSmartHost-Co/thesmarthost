@@ -9,6 +9,7 @@ import {
   ClientPortalChecklistsResponse,
   ClientPortalChecklistResponse,
   ClientPortalIssuesResponse,
+  ClientPortalProjectDetailResponse,
 } from './types/clientPortal';
 
 // No userId parameter needed — the backend determines scoping from the JWT + auth middleware
@@ -55,4 +56,8 @@ export function getClientPortalChecklistById(id: string): Promise<ClientPortalCh
 
 export function getClientPortalIssues(): Promise<ClientPortalIssuesResponse> {
   return apiClient<ClientPortalIssuesResponse>('/client-portal/issues');
+}
+
+export function getClientPortalProjectById(id: string): Promise<ClientPortalProjectDetailResponse> {
+  return apiClient<ClientPortalProjectDetailResponse>(`/client-portal/cleaning-projects/${id}`);
 }
