@@ -1403,31 +1403,6 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       </div>
 
-      {/* Override Existing Bookings Toggle */}
-      <div className="mx-6 mb-4 mt-2">
-        <label className="flex items-start gap-3 cursor-pointer group">
-          <input
-            type="checkbox"
-            checked={overrideExisting ?? false}
-            onChange={(e) => onOverrideExistingChange?.(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-          />
-          <div>
-            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-              Override existing bookings
-            </span>
-            <p className="text-xs text-gray-500 mt-0.5">
-              When enabled, bookings with matching reservation codes will be fully replaced with the CSV data.
-            </p>
-            {overrideExisting && (
-              <p className="text-xs text-amber-600 mt-1 font-medium">
-                Existing bookings with matching reservation codes will be fully replaced.
-              </p>
-            )}
-          </div>
-        </label>
-      </div>
-
       {/* Fixed Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-50">
         <div className="flex justify-between">
@@ -1454,6 +1429,25 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Override Existing Bookings Toggle */}
+            <div className="relative group/tooltip">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={overrideExisting ?? false}
+                  onChange={(e) => onOverrideExistingChange?.(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className={`text-sm font-medium ${overrideExisting ? 'text-amber-600' : 'text-gray-600'} group-hover:text-gray-900`}>
+                  Override existing
+                </span>
+              </label>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg w-64 text-center opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 pointer-events-none">
+                If bookings with the same reservation code already exist, they will be fully replaced with the values from this CSV upload.
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+              </div>
+            </div>
+
             {hasValidMappings && (
               <div className="text-sm text-gray-600">
                 Ready to import {bookingPreviews.length} bookings
