@@ -40,6 +40,61 @@ import PreviewBookingModal from '@/components/booking/preview/previewBookingModa
 import ImportHostawayBookingsModal from '@/components/booking/import/ImportHostawayBookingsModal'
 import Modal from '@/components/shared/modal'
 
+// Date filter type options
+type DateFilterField = 'checkInDate' | 'checkOutDate' | 'createdAt'
+
+const DATE_FILTER_OPTIONS: { value: DateFilterField; label: string }[] = [
+  { value: 'checkInDate', label: 'Check-in Date' },
+  { value: 'checkOutDate', label: 'Check-out Date' },
+  { value: 'createdAt', label: 'Created Date' },
+]
+
+// Date preset helpers
+function getPresetRange(preset: string): { start: string; end: string } {
+  const today = new Date()
+  const yyyy = (d: Date) => d.getFullYear()
+  const mm = (d: Date) => String(d.getMonth() + 1).padStart(2, '0')
+  const dd = (d: Date) => String(d.getDate()).padStart(2, '0')
+  const fmt = (d: Date) => `${yyyy(d)}-${mm(d)}-${dd(d)}`
+
+  switch (preset) {
+    case 'thisMonth': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      return { start: fmt(start), end: fmt(end) }
+    }
+    case 'lastMonth': {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const end = new Date(today.getFullYear(), today.getMonth(), 0)
+      return { start: fmt(start), end: fmt(end) }
+    }
+    case 'last30': {
+      const start = new Date(today)
+      start.setDate(start.getDate() - 30)
+      return { start: fmt(start), end: fmt(today) }
+    }
+    case 'last90': {
+      const start = new Date(today)
+      start.setDate(start.getDate() - 90)
+      return { start: fmt(start), end: fmt(today) }
+    }
+    case 'ytd': {
+      const start = new Date(today.getFullYear(), 0, 1)
+      return { start: fmt(start), end: fmt(today) }
+    }
+    default:
+      return { start: '', end: '' }
+  }
+}
+
+const DATE_PRESETS = [
+  { key: 'thisMonth', label: 'This Month' },
+  { key: 'lastMonth', label: 'Last Month' },
+  { key: 'last30', label: 'Last 30 Days' },
+  { key: 'last90', label: 'Last 90 Days' },
+  { key: 'ytd', label: 'Year to Date' },
+]
+
 // Sort configuration type
 type SortField = 'guestName' | 'propertyName' | 'checkInDate' | 'checkOutDate' | 'platform' | 'numNights' | 'totalPayout'
 type SortDirection = 'asc' | 'desc'
@@ -67,6 +122,10 @@ export default function BookingsPage() {
   const [readinessFilter, setReadinessFilter] = useState('All')
   const [sourceFilter, setSourceFilter] = useState('All Sources')
   const [statusFilter, setStatusFilter] = useState('Active')
+  const [dateFilterType, setDateFilterType] = useState<DateFilterField>('checkInDate')
+  const [dateFilterStart, setDateFilterStart] = useState('')
+  const [dateFilterEnd, setDateFilterEnd] = useState('')
+  const [activeDatePreset, setActiveDatePreset] = useState<string | null>(null)
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const [showSortPopover, setShowSortPopover] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -333,7 +392,28 @@ export default function BookingsPage() {
         (statusFilter === 'Active' && booking.bookingStatus !== 'cancelled') ||
         (statusFilter === 'Cancelled' && booking.bookingStatus === 'cancelled')
 
-      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness && matchesSource && matchesStatus
+      // Date filtering
+      let matchesDate = true
+      if (dateFilterStart || dateFilterEnd) {
+        let bookingDateStr: string | undefined
+        if (dateFilterType === 'checkInDate') {
+          bookingDateStr = booking.checkInDate
+        } else if (dateFilterType === 'checkOutDate') {
+          bookingDateStr = booking.checkOutDate
+        } else if (dateFilterType === 'createdAt') {
+          // createdAt is ISO datetime — extract YYYY-MM-DD
+          bookingDateStr = booking.createdAt?.split('T')[0]
+        }
+
+        if (!bookingDateStr) {
+          matchesDate = false
+        } else {
+          if (dateFilterStart && bookingDateStr < dateFilterStart) matchesDate = false
+          if (dateFilterEnd && bookingDateStr > dateFilterEnd) matchesDate = false
+        }
+      }
+
+      return matchesSearch && matchesPlatform && matchesProperty && matchesReadiness && matchesSource && matchesStatus && matchesDate
     })
     .sort((a, b) => {
       const { field, direction } = sortConfig
@@ -385,7 +465,7 @@ export default function BookingsPage() {
 
   const propertyOptions = ['All Properties', ...uniqueProperties]
 
-  // Count active filters
+  // Count active filters (excluding date — date has its own clear)
   const activeFiltersCount = [
     platformFilter !== 'All Platforms',
     propertyFilter !== 'All Properties',
@@ -394,6 +474,8 @@ export default function BookingsPage() {
     statusFilter !== 'Active'
   ].filter(Boolean).length
 
+  const isDateFilterActive = dateFilterStart !== '' || dateFilterEnd !== ''
+
   // Clear all filters
   const clearAllFilters = () => {
     setPlatformFilter('All Platforms')
@@ -401,6 +483,34 @@ export default function BookingsPage() {
     setReadinessFilter('All')
     setSourceFilter('All Sources')
     setStatusFilter('Active')
+  }
+
+  const clearDateFilter = () => {
+    setDateFilterStart('')
+    setDateFilterEnd('')
+    setActiveDatePreset(null)
+  }
+
+  const applyDatePreset = (presetKey: string) => {
+    if (activeDatePreset === presetKey) {
+      // Toggle off
+      clearDateFilter()
+      return
+    }
+    const { start, end } = getPresetRange(presetKey)
+    setDateFilterStart(start)
+    setDateFilterEnd(end)
+    setActiveDatePreset(presetKey)
+  }
+
+  // When user manually changes date inputs, clear the preset highlight
+  const handleDateStartChange = (value: string) => {
+    setDateFilterStart(value)
+    setActiveDatePreset(null)
+  }
+  const handleDateEndChange = (value: string) => {
+    setDateFilterEnd(value)
+    setActiveDatePreset(null)
   }
 
   const formatDate = (dateString: string) => {
@@ -816,6 +926,80 @@ export default function BookingsPage() {
           </div>
         </div>
 
+        {/* Date Filter Section */}
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/30">
+          <div className="flex flex-col gap-3">
+            {/* Row 1: Date type selector + Presets */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <CalendarDaysIcon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                <select
+                  value={dateFilterType}
+                  onChange={(e) => setDateFilterType(e.target.value as DateFilterField)}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                  {DATE_FILTER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {DATE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.key}
+                    onClick={() => applyDatePreset(preset.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      activeDatePreset === preset.key
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 2: Custom date range inputs + Clear */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <CalendarDaysIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateFilterStart}
+                    onChange={(e) => handleDateStartChange(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[155px]"
+                    placeholder="Start date"
+                  />
+                </div>
+                <span className="text-gray-400 text-sm">to</span>
+                <div className="relative">
+                  <CalendarDaysIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateFilterEnd}
+                    onChange={(e) => handleDateEndChange(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[155px]"
+                    placeholder="End date"
+                  />
+                </div>
+              </div>
+
+              {isDateFilterActive && (
+                <button
+                  onClick={clearDateFilter}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <XMarkIcon className="h-3.5 w-3.5" />
+                  Clear dates
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Table */}
         <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
           <table className="w-full">
@@ -846,11 +1030,8 @@ export default function BookingsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredBookings.map((booking, index) => (
-                <motion.tr
+                <tr
                   key={booking.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.03 }}
                   className={`hover:bg-blue-50/50 cursor-pointer transition-colors group ${booking.bookingStatus === 'cancelled' ? 'opacity-60' : ''}`}
                   onClick={() => handleViewBooking(booking.id)}
                 >
@@ -935,7 +1116,7 @@ export default function BookingsPage() {
                       itemId={booking.id}
                     />
                   </td>
-                </motion.tr>
+                </tr>
               ))}
             </tbody>
           </table>

@@ -128,6 +128,7 @@ export interface UpdateBookingPayload {
  */
 export interface CreateMultipleBookingsPayload {
   bookings: CreateBookingPayload[]
+  overrideExisting?: boolean
 }
 
 /**
@@ -261,6 +262,7 @@ export interface BulkBookingResponse {
   data: {
     inserted: number
     enriched: number
+    overridden: number
     duplicates: number
     cleaningProjectsCreated: number
     bookings: Array<{
@@ -271,6 +273,7 @@ export interface BulkBookingResponse {
       platform: Platform
     }>
     enrichedBookings?: DuplicateBookingInfo[]
+    overriddenBookings?: DuplicateBookingInfo[]
     duplicateBookings?: DuplicateBookingInfo[]
   }
   message?: string

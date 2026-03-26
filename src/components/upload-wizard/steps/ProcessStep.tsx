@@ -26,6 +26,7 @@ interface ProcessStepProps {
   processingState?: any
   onProcessingUpdate?: (state: any) => void
   onProcessingComplete?: (state: any) => void
+  overrideExisting?: boolean
 }
 
 const ProcessStep: React.FC<ProcessStepProps> = ({
@@ -40,7 +41,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   uploadedFile,
   processingState,
   onProcessingUpdate,
-  onProcessingComplete
+  onProcessingComplete,
+  overrideExisting
 }) => {
   const [currentStatus, setCurrentStatus] = useState<ProcessingStatus>(ProcessingStatus.UPLOADING)
   const [progress, setProgress] = useState(0)
@@ -175,19 +177,28 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 70, 'Saving bookings to database...')
 
       const bulkResult = await createMultipleBookings({
-        bookings: bookingPayloads
+        bookings: bookingPayloads,
+        overrideExisting: overrideExisting ?? false
       })
 
       if (bulkResult.status !== 'success') {
         throw new Error(bulkResult.message || 'Failed to save bookings')
       }
 
-      const createdBookings = Array.isArray(bulkResult.data) 
-        ? bulkResult.data 
+      const createdBookings = Array.isArray(bulkResult.data)
+        ? bulkResult.data
         : (bulkResult.data.bookings || [])
-      
-      console.log('Multi-property bookings created:', createdBookings)
-      updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 80, 'Multi-property bookings saved', `${createdBookings.length} bookings created`)
+      const overriddenBookings = bulkResult.data?.overriddenBookings || []
+      const allAffectedBookings = [...createdBookings, ...overriddenBookings]
+
+      const insertedCount = bulkResult.data?.inserted ?? createdBookings.length
+      const overriddenCount = bulkResult.data?.overridden ?? 0
+      const statusMsg = overriddenCount > 0
+        ? `${insertedCount} new, ${overriddenCount} overridden`
+        : `${insertedCount} bookings created`
+
+      console.log('Multi-property bookings created:', createdBookings, 'overridden:', overriddenBookings)
+      updateProgress(ProcessingStatus.SAVING_TO_DATABASE, 80, 'Multi-property bookings saved', statusMsg)
 
       // Step 5: Save field value changes if any edits were made (80-90%)
       if (previewState?.fieldEdits && previewState.fieldEdits.length > 0) {
@@ -198,7 +209,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
             const originalBookingPayload = bookingPayloads[edit.bookingIndex]
             if (!originalBookingPayload) return null
             
-            const createdBooking = createdBookings.find((booking: any) => {
+            const createdBooking = allAffectedBookings.find((booking: any) => {
               const bookingCode = String(booking.reservationCode || booking.reservation_code || '').trim()
               const payloadCode = String(originalBookingPayload.reservationCode || '').trim()
               return bookingCode === payloadCode
@@ -234,7 +245,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       updateProgress(ProcessingStatus.CALCULATING_METRICS, 95, 'Calculating multi-property statistics...')
       
       const fieldEditCount = previewState?.fieldEdits?.length || 0
-      const stats = generateMultiPropertyImportStats(bookingPayloads, createdBookings, propertyIdMap, fieldEditCount)
+      const stats = generateMultiPropertyImportStats(bookingPayloads, createdBookings, propertyIdMap, fieldEditCount, overriddenCount)
       setImportStats(stats)
 
       updateProgress(ProcessingStatus.COMPLETE, 100, 'Multi-property import completed successfully!', 'Statistics calculated')
@@ -272,7 +283,7 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
   // ProcessStep now only handles the upload process
 
   // Multi-property import statistics
-  const generateMultiPropertyImportStats = (bookingPayloads: CreateBookingPayload[], createdBookings: any[], propertyIdMap: Record<string, string>, fieldEditCount: number = 0) => {
+  const generateMultiPropertyImportStats = (bookingPayloads: CreateBookingPayload[], createdBookings: any[], propertyIdMap: Record<string, string>, fieldEditCount: number = 0, bookingsOverridden: number = 0) => {
     const totalBookings = bookingPayloads.length
     const totalRevenue = bookingPayloads.reduce((sum, booking) => 
       sum + (booking.totalPayout || 0), 0)
@@ -305,7 +316,8 @@ const ProcessStep: React.FC<ProcessStepProps> = ({
       },
       platformBreakdown,
       propertyBreakdown,
-      fieldEditsApplied: fieldEditCount
+      fieldEditsApplied: fieldEditCount,
+      ...(bookingsOverridden > 0 && { bookingsOverridden })
     }
   }
 

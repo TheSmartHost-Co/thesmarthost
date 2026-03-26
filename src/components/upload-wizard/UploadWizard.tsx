@@ -70,6 +70,7 @@ const initialState: WizardState = {
   fieldMappings: undefined,
   completeFieldMappingState: undefined,
   propertyMappings: undefined,
+  overrideExisting: false,
 }
 
 // Wizard state reducer
@@ -232,6 +233,9 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         canGoBack: false,
       }
 
+    case WizardActionType.SET_OVERRIDE_EXISTING:
+      return { ...state, overrideExisting: action.payload }
+
     case WizardActionType.RESET_WIZARD:
       return initialState
 
@@ -355,6 +359,14 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
         })
       }
 
+      // Restore override toggle
+      if (draft.overrideExisting) {
+        dispatch({
+          type: WizardActionType.SET_OVERRIDE_EXISTING,
+          payload: draft.overrideExisting,
+        })
+      }
+
       // Navigate to the saved step
       dispatch({
         type: WizardActionType.SET_STEP,
@@ -381,6 +393,11 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
       saveDraft(state, csvText)
     }
   }, [saveDraft, state, csvText])
+
+  // Override existing bookings toggle handler
+  const handleOverrideExistingChange = useCallback((value: boolean) => {
+    dispatch({ type: WizardActionType.SET_OVERRIDE_EXISTING, payload: value })
+  }, [])
 
   // Navigation handlers
   const handleNext = useCallback(() => {
@@ -554,6 +571,8 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             propertyIdentificationState={state.propertyIdentificationState}
             propertyMappingState={state.propertyMappingState || state.propertyIdentificationState}
             onPreviewComplete={handlePreviewComplete}
+            overrideExisting={state.overrideExisting}
+            onOverrideExistingChange={handleOverrideExistingChange}
           />
         )
 
@@ -570,6 +589,7 @@ const UploadWizard: React.FC<UploadWizardProps> = ({ onComplete, onCancel }) => 
             processingState={state.processingState}
             onProcessingUpdate={handleProcessingUpdate}
             onProcessingComplete={handleProcessingComplete}
+            overrideExisting={state.overrideExisting}
           />
         )
 

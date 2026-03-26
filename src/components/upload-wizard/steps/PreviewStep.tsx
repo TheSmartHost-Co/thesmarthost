@@ -43,6 +43,8 @@ interface PreviewStepProps {
   propertyIdentificationState?: any
   propertyMappingState?: any
   onPreviewComplete?: (state: any) => void
+  overrideExisting?: boolean
+  onOverrideExistingChange?: (value: boolean) => void
 }
 
 interface BookingPreview {
@@ -100,7 +102,9 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   fieldMappingState,
   propertyIdentificationState,
   propertyMappingState,
-  onPreviewComplete
+  onPreviewComplete,
+  overrideExisting,
+  onOverrideExistingChange
 }) => {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [bookingPreviews, setBookingPreviews] = useState<BookingPreview[]>([])
@@ -1397,6 +1401,31 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         )}
       </div>
 
+      </div>
+
+      {/* Override Existing Bookings Toggle */}
+      <div className="mx-6 mb-4 mt-2">
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={overrideExisting ?? false}
+            onChange={(e) => onOverrideExistingChange?.(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+          />
+          <div>
+            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+              Override existing bookings
+            </span>
+            <p className="text-xs text-gray-500 mt-0.5">
+              When enabled, bookings with matching reservation codes will be fully replaced with the CSV data.
+            </p>
+            {overrideExisting && (
+              <p className="text-xs text-amber-600 mt-1 font-medium">
+                Existing bookings with matching reservation codes will be fully replaced.
+              </p>
+            )}
+          </div>
+        </label>
       </div>
 
       {/* Fixed Action Buttons */}

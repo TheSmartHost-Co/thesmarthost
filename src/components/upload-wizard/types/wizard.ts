@@ -217,6 +217,7 @@ export interface ProcessingState {
  */
 export interface ImportStats {
   bookingsImported: number
+  bookingsOverridden?: number
   propertiesUpdated: number
   totalRevenue: number
   calculationStatus: string // e.g., "100%"
@@ -332,6 +333,9 @@ export interface WizardState {
   
   // Property mappings to persist between steps
   propertyMappings?: PropertyMapping[] // Persisted property mappings from property mapping step
+
+  // Override toggle for CSV re-upload
+  overrideExisting?: boolean
 }
 
 /**
@@ -354,6 +358,7 @@ export enum WizardActionType {
   SET_COMPLETE_FIELD_MAPPING_STATE = 'SET_COMPLETE_FIELD_MAPPING_STATE',
   SET_PROPERTY_MAPPINGS = 'SET_PROPERTY_MAPPINGS',
   SET_COMPLETED_STEPS = 'SET_COMPLETED_STEPS',
+  SET_OVERRIDE_EXISTING = 'SET_OVERRIDE_EXISTING',
   RESET_WIZARD = 'RESET_WIZARD',
 }
 
@@ -377,6 +382,7 @@ export type WizardAction =
   | { type: WizardActionType.SET_COMPLETE_FIELD_MAPPING_STATE; payload: any }
   | { type: WizardActionType.SET_PROPERTY_MAPPINGS; payload: PropertyMapping[] }
   | { type: WizardActionType.SET_COMPLETED_STEPS; payload: WizardStep[] }
+  | { type: WizardActionType.SET_OVERRIDE_EXISTING; payload: boolean }
   | { type: WizardActionType.RESET_WIZARD }
 
 /**

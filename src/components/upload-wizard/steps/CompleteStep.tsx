@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { CheckCircleIcon, CalendarIcon, CurrencyDollarIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, CalendarIcon, CurrencyDollarIcon, BuildingOfficeIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
 
 interface CompleteStepProps {
@@ -83,6 +83,19 @@ const CompleteStep: React.FC<CompleteStepProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Bookings Overridden */}
+            {stats.bookingsOverridden > 0 && (
+              <div className="bg-white rounded-lg p-4 border border-amber-200">
+                <div className="flex items-center">
+                  <ArrowPathIcon className="h-8 w-8 text-amber-600 mr-3" />
+                  <div>
+                    <p className="text-sm text-amber-700">Bookings Overridden</p>
+                    <p className="text-2xl font-bold text-amber-900">{stats.bookingsOverridden}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Total Revenue */}
             <div className="bg-white rounded-lg p-4 border border-green-200">

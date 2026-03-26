@@ -575,6 +575,15 @@ export default function ReportsPage() {
                     <div className="text-sm text-gray-500">
                       to {formatDate(report.endDate)}
                     </div>
+                    {report.sourceFilter && report.sourceFilter.length > 0 && report.sourceFilter.length < 4 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {report.sourceFilter.map(source => (
+                          <span key={source} className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600">
+                            {source === 'csv' ? 'CSV' : source === 'manual' ? 'Manual' : source === 'webhook' ? 'Webhook' : 'iCal'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-2">

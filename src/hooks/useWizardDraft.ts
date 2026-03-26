@@ -35,6 +35,9 @@ export interface WizardDraft {
   propertyMappings?: PropertyMapping[]
   fieldMappings?: any[]
   completeFieldMappingState?: any
+
+  // Override toggle
+  overrideExisting?: boolean
 }
 
 export interface DraftInfo {
@@ -152,6 +155,7 @@ export function useWizardDraft(): UseWizardDraftReturn {
         propertyMappings: state.propertyMappings,
         fieldMappings: state.fieldMappings,
         completeFieldMappingState: state.completeFieldMappingState,
+        overrideExisting: state.overrideExisting,
       }
 
       const serialized = JSON.stringify(draft)

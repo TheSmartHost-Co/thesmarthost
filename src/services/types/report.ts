@@ -1,5 +1,7 @@
 // Report Types for HostMetrics Frontend
 
+import { BookingSource } from './booking'
+
 export type ReportFormat = 'pdf' | 'csv' | 'excel'
 
 export type DateFilterMode = 'checkIn' | 'checkOut' | 'reservationCreated' | 'calendar'
@@ -41,6 +43,7 @@ export interface Report {
   isMultiProperty: boolean
   startDate: string
   endDate: string
+  sourceFilter?: BookingSource[] | null
   createdAt: string
   updatedAt: string | null
   availableFormats: ReportFormat[]
@@ -71,6 +74,7 @@ export interface ReportGenerationPayload {
   logoId?: string
   templateIds?: string[]  // Array of template IDs (PDF: 0-1, Excel/CSV: 0+)
   dateFilterMode?: DateFilterMode  // How to filter bookings by date (defaults to 'checkIn' on backend)
+  sourcesFilter?: BookingSource[]  // Which booking sources to include (defaults to all on backend)
 }
 
 /**

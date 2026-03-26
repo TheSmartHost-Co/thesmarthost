@@ -16,6 +16,7 @@ import type {
   Logo,
   DateFilterMode,
 } from '@/services/types/report'
+import type { BookingSource } from '@/services/types/booking'
 import type { ReportTemplate, FullReportTemplate } from '@/services/types/reportTemplate'
 import { useUserStore } from '@/store/useUserStore'
 import {
@@ -115,6 +116,15 @@ const DATE_FILTER_MODE_OPTIONS: { value: DateFilterMode; label: string; descript
   { value: 'calendar', label: 'Calendar', description: 'Any bookings overlapping this period' },
 ]
 
+const ALL_BOOKING_SOURCES: BookingSource[] = ['csv', 'manual', 'webhook', 'ical']
+
+const SOURCE_FILTER_OPTIONS: { value: BookingSource; label: string }[] = [
+  { value: 'csv', label: 'CSV Upload' },
+  { value: 'manual', label: 'Manual' },
+  { value: 'webhook', label: 'Webhook (PMS)' },
+  { value: 'ical', label: 'iCal' },
+]
+
 const FORMAT_OPTIONS: {
   format: ReportFormat
   label: string
@@ -172,6 +182,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [selectedPreset, setSelectedPreset] = useState<string>('')
   const [selectedLogoId, setSelectedLogoId] = useState<string>('')
   const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('checkIn')
+  const [sourcesFilter, setSourcesFilter] = useState<BookingSource[]>(['webhook'])
 
   // UI state
   const [propertySearch, setPropertySearch] = useState<string>('')
@@ -236,8 +247,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     if (!startDate || !endDate) return false
     if (format === 'pdf' && selectedPropertyIds.length !== 1) return false
     if (format !== 'pdf' && selectedPropertyIds.length === 0) return false
+    if (sourcesFilter.length === 0) return false
     return new Date(startDate) <= new Date(endDate)
-  }, [format, selectedPropertyIds, startDate, endDate])
+  }, [format, selectedPropertyIds, startDate, endDate, sourcesFilter])
 
   // Load logos when modal opens
   useEffect(() => {
@@ -383,6 +395,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setSelectedPreset('')
     setSelectedLogoId('')
     setDateFilterMode('checkIn')
+    setSourcesFilter(['webhook'])
     setPropertySearch('')
     setIsPropertyDropdownOpen(false)
     setIsLogoDropdownOpen(false)
@@ -516,6 +529,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         logoId: selectedLogoId || undefined,
         templateIds: selectedTemplateIds.length > 0 ? selectedTemplateIds : [],
         dateFilterMode,
+        sourcesFilter,
       }
 
       const res = await generateReport(payload)
@@ -745,6 +759,62 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                 <p className="mt-1.5 text-xs text-gray-500">
                   {DATE_FILTER_MODE_OPTIONS.find(o => o.value === dateFilterMode)?.description}
                 </p>
+              </div>
+
+              {/* Booking Source Filter */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Booking Sources
+                  </label>
+                  <button
+                    onClick={() => {
+                      if (sourcesFilter.length === ALL_BOOKING_SOURCES.length) {
+                        setSourcesFilter([])
+                      } else {
+                        setSourcesFilter([...ALL_BOOKING_SOURCES])
+                      }
+                    }}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {sourcesFilter.length === ALL_BOOKING_SOURCES.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SOURCE_FILTER_OPTIONS.map((option) => {
+                    const isSelected = sourcesFilter.includes(option.value)
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSourcesFilter(prev => prev.filter(s => s !== option.value))
+                          } else {
+                            setSourcesFilter(prev => [...prev, option.value])
+                          }
+                        }}
+                        className={`
+                          px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5
+                          ${isSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }
+                        `}
+                      >
+                        {isSelected && <CheckIcon className="w-3.5 h-3.5" />}
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {sourcesFilter.length === 0 && (
+                  <p className="mt-1.5 text-xs text-red-500">Select at least one booking source</p>
+                )}
+                {sourcesFilter.length > 0 && sourcesFilter.length < ALL_BOOKING_SOURCES.length && (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Only {sourcesFilter.map(s => SOURCE_FILTER_OPTIONS.find(o => o.value === s)?.label).join(', ')} bookings will be included
+                  </p>
+                )}
               </div>
 
               {/* Properties */}
