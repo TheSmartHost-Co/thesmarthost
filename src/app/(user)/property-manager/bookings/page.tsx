@@ -927,75 +927,59 @@ export default function BookingsPage() {
         </div>
 
         {/* Date Filter Section */}
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/30">
-          <div className="flex flex-col gap-3">
-            {/* Row 1: Date type selector + Presets */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <CalendarDaysIcon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                <select
-                  value={dateFilterType}
-                  onChange={(e) => setDateFilterType(e.target.value as DateFilterField)}
-                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                >
-                  {DATE_FILTER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/30">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <CalendarDaysIcon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+            <select
+              value={dateFilterType}
+              onChange={(e) => setDateFilterType(e.target.value as DateFilterField)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              {DATE_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                {DATE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.key}
-                    onClick={() => applyDatePreset(preset.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      activeDatePreset === preset.key
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <input
+              type="date"
+              value={dateFilterStart}
+              onChange={(e) => handleDateStartChange(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[150px]"
+            />
+            <span className="text-gray-400 text-sm">to</span>
+            <input
+              type="date"
+              value={dateFilterEnd}
+              onChange={(e) => handleDateEndChange(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[150px]"
+            />
 
-            {/* Row 2: Custom date range inputs + Clear */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <CalendarDaysIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    type="date"
-                    value={dateFilterStart}
-                    onChange={(e) => handleDateStartChange(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[155px]"
-                    placeholder="Start date"
-                  />
-                </div>
-                <span className="text-gray-400 text-sm">to</span>
-                <div className="relative">
-                  <CalendarDaysIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    type="date"
-                    value={dateFilterEnd}
-                    onChange={(e) => handleDateEndChange(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-[155px]"
-                    placeholder="End date"
-                  />
-                </div>
-              </div>
+            {isDateFilterActive && (
+              <button
+                onClick={clearDateFilter}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="h-3.5 w-3.5" />
+                Clear
+              </button>
+            )}
 
-              {isDateFilterActive && (
+            <div className="flex-1" />
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {DATE_PRESETS.map((preset) => (
                 <button
-                  onClick={clearDateFilter}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                  key={preset.key}
+                  onClick={() => applyDatePreset(preset.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeDatePreset === preset.key
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                  }`}
                 >
-                  <XMarkIcon className="h-3.5 w-3.5" />
-                  Clear dates
+                  {preset.label}
                 </button>
-              )}
+              ))}
             </div>
           </div>
         </div>
