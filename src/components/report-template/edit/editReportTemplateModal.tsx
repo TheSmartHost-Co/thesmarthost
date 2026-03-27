@@ -207,7 +207,6 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
             if ((field.fieldMode || 'field') !== (origField.fieldMode || 'field')) changedFields.push('fieldMode')
             if (field.columnType !== origField.columnType) changedFields.push('columnType')
             if (field.totalsFunction !== origField.totalsFunction) changedFields.push('totalsFunction')
-            if (field.totalsFormula !== origField.totalsFormula) changedFields.push('totalsFormula')
 
             if (changedFields.length > 0) {
               fieldChanges[fieldId] = {
@@ -434,7 +433,6 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
               fieldMode: field.fieldMode,
               columnType: field.columnType,
               totalsFunction: field.totalsFunction,
-              totalsFormula: field.totalsFormula || undefined,
               // Only include id if it's a real UUID (not temp_)
               id: field.id && !field.id.startsWith('temp_') ? field.id : undefined,
             })),
@@ -463,6 +461,18 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         }
         setOriginalTemplate(JSON.parse(JSON.stringify(savedTemplate)))
         setLocalTemplate(savedTemplate)
+
+        // Map selectedSectionId from old (possibly temp) ID to new real ID
+        if (selectedSectionId && localTemplate) {
+          const oldIndex = localTemplate.sections.findIndex(s => s.id === selectedSectionId)
+          if (oldIndex >= 0 && oldIndex < savedTemplate.sections.length) {
+            setSelectedSectionId(savedTemplate.sections[oldIndex].id)
+          } else if (savedTemplate.sections.length > 0) {
+            setSelectedSectionId(savedTemplate.sections[0].id)
+          } else {
+            setSelectedSectionId(null)
+          }
+        }
 
         // Update property assignments from response
         if (res.data.assignedProperties && res.data.assignedProperties.length > 0) {
@@ -582,7 +592,6 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
               fieldMode: 'field' as const,
               columnType: undefined,
               totalsFunction: undefined,
-              totalsFormula: undefined,
             }))
           }
 
@@ -653,7 +662,6 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
       fieldMode: isTableMode ? 'table_column' : 'field',
       columnType: data.columnType,
       totalsFunction: data.totalsFunction,
-      totalsFormula: data.totalsFormula,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }

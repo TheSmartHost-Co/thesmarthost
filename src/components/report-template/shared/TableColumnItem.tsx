@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type {
   ReportField,
+  ReportFieldFormat,
   ColumnType,
   TotalsFunction,
   SectionFieldReference,
@@ -21,6 +22,7 @@ import {
   DocumentTextIcon,
   CalendarDaysIcon,
   CalculatorIcon,
+  CurrencyDollarIcon,
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
@@ -36,6 +38,7 @@ const toLogicalName = (displayName: string): string => {
 const COLUMN_TYPE_OPTIONS: { value: ColumnType; label: string; icon: typeof DocumentTextIcon }[] = [
   { value: 'text', label: 'Text', icon: DocumentTextIcon },
   { value: 'numeric', label: 'Numeric', icon: HashtagIcon },
+  { value: 'currency', label: 'Currency', icon: CurrencyDollarIcon },
   { value: 'date', label: 'Date', icon: CalendarDaysIcon },
   { value: 'calculated', label: 'Calculated', icon: CalculatorIcon },
 ]
@@ -45,7 +48,6 @@ const TOTALS_FUNCTION_OPTIONS: { value: TotalsFunction; label: string }[] = [
   { value: 'SUM', label: 'Sum' },
   { value: 'AVG', label: 'Average' },
   { value: 'COUNT', label: 'Count' },
-  { value: 'CUSTOM', label: 'Custom Formula' },
 ]
 
 // Change info type
@@ -90,7 +92,7 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
   const [editSourceColumn, setEditSourceColumn] = useState(field.formula || '')
   const [editFormula, setEditFormula] = useState(field.formula || '')
   const [editTotalsFunction, setEditTotalsFunction] = useState<TotalsFunction>(field.totalsFunction || 'NONE')
-  const [editTotalsFormula, setEditTotalsFormula] = useState(field.totalsFormula || '')
+  const [editFormat, setEditFormat] = useState<ReportFieldFormat>(field.format || 'text')
 
   // Validation state for source column (non-calculated types)
   const [validationState, setValidationState] = useState<{
@@ -127,8 +129,8 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
     setEditSourceColumn(field.formula || '')
     setEditFormula(field.formula || '')
     setEditTotalsFunction(field.totalsFunction || 'NONE')
-    setEditTotalsFormula(field.totalsFormula || '')
-  }, [field.id, field.name, field.logicalName, field.columnType, field.formula, field.totalsFunction, field.totalsFormula])
+    setEditFormat(field.format || 'text')
+  }, [field.id, field.name, field.logicalName, field.columnType, field.formula, field.totalsFunction, field.format])
 
   // Validate source column for non-calculated types (local validation)
   useEffect(() => {
@@ -170,13 +172,18 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
 
   const handleSave = () => {
     const finalLogicalName = editLogicalName.trim() || toLogicalName(editName.trim())
+    // Derive format: for calculated columns use the user-chosen format, otherwise derive from columnType
+    const derivedFormat: ReportFieldFormat =
+      editColumnType === 'calculated' ? editFormat :
+      editColumnType === 'currency' ? 'currency' :
+      editColumnType === 'numeric' ? 'numeric' : 'text'
     onEdit({
       name: editName.trim(),
       logicalName: finalLogicalName,
       columnType: editColumnType,
       formula: editColumnType === 'calculated' ? editFormula.trim() : editSourceColumn,
+      format: derivedFormat,
       totalsFunction: editTotalsFunction,
-      totalsFormula: editTotalsFunction === 'CUSTOM' ? editTotalsFormula.trim() : undefined,
     })
     onToggleExpand()
   }
@@ -189,7 +196,7 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
     setEditSourceColumn(field.formula || '')
     setEditFormula(field.formula || '')
     setEditTotalsFunction(field.totalsFunction || 'NONE')
-    setEditTotalsFormula(field.totalsFormula || '')
+    setEditFormat(field.format || 'text')
     onToggleExpand()
   }
 
@@ -234,8 +241,8 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
     // Set default totals function based on type
     if (newType === 'text' || newType === 'date') {
       setEditTotalsFunction('NONE')
-    } else if (newType === 'numeric' || newType === 'calculated') {
-      // Default to SUM for numeric/calculated columns
+    } else if (newType === 'numeric' || newType === 'currency' || newType === 'calculated') {
+      // Default to SUM for numeric/currency/calculated columns
       setEditTotalsFunction('SUM')
     }
   }
@@ -454,8 +461,35 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
             </div>
           )}
 
-          {/* Totals Function (only for numeric/calculated) */}
-          {(editColumnType === 'numeric' || editColumnType === 'calculated') && (
+          {/* Format picker (only for calculated columns) */}
+          {editColumnType === 'calculated' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Display Format</label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'currency' as ReportFieldFormat, label: 'Currency ($)', icon: CurrencyDollarIcon },
+                  { value: 'numeric' as ReportFieldFormat, label: 'Numeric', icon: HashtagIcon },
+                ]).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setEditFormat(option.value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                      editFormat === option.value
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <option.icon className="w-4 h-4" />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Totals Function (only for numeric/currency/calculated) */}
+          {(editColumnType === 'numeric' || editColumnType === 'currency' || editColumnType === 'calculated') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Totals Row</label>
               <div className="flex flex-wrap gap-2">
@@ -474,22 +508,6 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Custom Totals Formula */}
-          {editTotalsFunction === 'CUSTOM' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Totals Formula</label>
-              <FormulaBuilderInput
-                value={editTotalsFormula}
-                onChange={setEditTotalsFormula}
-                allSections={allSections}
-                currentSectionId={currentSectionId}
-                placeholder="e.g. SUM(totalPayout) - SUM(channelFee)"
-                dataSource={dataSource}
-                externalDataSourceColumns={dataSourceColumns}
-              />
             </div>
           )}
 

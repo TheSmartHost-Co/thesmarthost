@@ -28,7 +28,6 @@ import {
   CheckIcon,
   XMarkIcon,
   CurrencyDollarIcon,
-  CalculatorIcon,
   HashtagIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline'
@@ -50,9 +49,8 @@ const toLogicalName = (displayName: string): string => {
 }
 
 const FORMAT_OPTIONS: { value: ReportFieldFormat; label: string; icon: typeof CurrencyDollarIcon }[] = [
-  { value: 'currency', label: 'Currency', icon: CurrencyDollarIcon },
-  { value: 'percentage', label: 'Percentage', icon: CalculatorIcon },
-  { value: 'number', label: 'Number', icon: HashtagIcon },
+  { value: 'currency', label: 'Currency ($)', icon: CurrencyDollarIcon },
+  { value: 'numeric', label: 'Numeric', icon: HashtagIcon },
   { value: 'text', label: 'Text', icon: DocumentTextIcon },
 ]
 

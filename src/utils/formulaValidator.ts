@@ -3,6 +3,7 @@
  * Validates header fields, table columns, and aggregate field formulas
  */
 
+import type { ColumnType } from '@/services/types/reportTemplate'
 
 export interface ValidationResult {
   valid: boolean
@@ -13,10 +14,15 @@ export interface ValidationResult {
 // Regex patterns for formula parsing
 const VARIABLE_PATTERN = /\{([^}]+)\}/g
 const FUNCTION_PATTERN = /^(SUM|AVG|COUNT|MIN|MAX|SUMIF|AVGIF|COUNTIF|MINIF|MAXIF)\s*\(/i
-const BALANCED_PARENS_PATTERN = /\([^()]*\)/g
+
+// Bare identifier pattern: valid column/field name (no braces, no operators)
+const BARE_IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+// Calculated column formula: only {refs}, numbers, operators, parens, whitespace
+const CALCULATED_FORMULA_PATTERN = /^[\s\d+\-*/().{}a-zA-Z0-9_]+$/
 
 /**
- * Validate header field value - only allow metadata variables
+ * Validate header field value - only allow metadata variables (substitution only, no math)
  * Variables can be standalone like {propertyName} or embedded in text
  * {logo} is only valid alone (not mixed with text)
  */
@@ -35,6 +41,14 @@ export function validateHeaderField(value: string, validVariableKeys: string[] =
   // If no variables, check if it's plain text (allowed)
   if (variables.length === 0) {
     return { valid: true }
+  }
+
+  // Reject arithmetic operators when variables are present (header = substitution only)
+  if (/[+\-*/]/.test(value.replace(/\{[^}]*\}/g, ''))) {
+    return {
+      valid: false,
+      error: 'Header fields support variable substitution only — arithmetic operators (+, -, *, /) are not allowed',
+    }
   }
 
   // Validate each variable
@@ -73,16 +87,66 @@ export function validateHeaderField(value: string, validVariableKeys: string[] =
 
 /**
  * Validate table column formula - check that formula references valid columns for the data source
+ * For non-calculated types (text, date, numeric, currency): must be a bare identifier matching an available column
+ * For calculated type: must contain at least one {ref} and only use {refs}, numbers, operators, parens
  */
 export function validateTableColumn(
   formula: string,
   availableColumns: string[],
-  sectionColumns: string[] = []
+  sectionColumns: string[] = [],
+  columnType?: ColumnType
 ): ValidationResult {
   if (!formula.trim()) {
     return { valid: false, error: 'Formula cannot be empty' }
   }
 
+  // For non-calculated types, enforce bare identifier only
+  if (columnType && columnType !== 'calculated') {
+    const trimmed = formula.trim()
+    if (!BARE_IDENTIFIER_PATTERN.test(trimmed)) {
+      return { valid: false, error: 'Source column must be a simple column name (no operators or braces)' }
+    }
+    if (!availableColumns.includes(trimmed)) {
+      return { valid: false, error: `Unknown column: ${trimmed}` }
+    }
+    return { valid: true }
+  }
+
+  // For calculated columns: require at least one {ref}
+  if (columnType === 'calculated') {
+    const bracedRefs: string[] = []
+    let bracedMatch
+    const bracedPattern = new RegExp(VARIABLE_PATTERN.source, 'g')
+    while ((bracedMatch = bracedPattern.exec(formula)) !== null) {
+      bracedRefs.push(bracedMatch[1])
+    }
+
+    if (bracedRefs.length === 0) {
+      return { valid: false, error: 'Calculated columns must reference other columns using {braces}, e.g. {nightlyRate} + {cleaningFee}' }
+    }
+
+    // Validate braced references against available columns and same-section columns
+    const allValidRefs = new Set([...availableColumns, ...sectionColumns])
+    const unknownColumns = bracedRefs.filter(col => !allValidRefs.has(col))
+    if (unknownColumns.length > 0) {
+      return { valid: false, error: `Unknown column(s): ${unknownColumns.join(', ')}` }
+    }
+
+    // Check that formula only contains valid characters ({refs}, numbers, operators, parens, whitespace)
+    if (!CALCULATED_FORMULA_PATTERN.test(formula)) {
+      return { valid: false, error: 'Calculated formula can only contain {column references}, numbers, and operators (+, -, *, /)' }
+    }
+
+    // Check balanced parens/braces
+    const syntaxResult = validateFormulaSyntax(formula)
+    if (!syntaxResult.valid) {
+      return syntaxResult
+    }
+
+    return { valid: true }
+  }
+
+  // Default path (no columnType specified — legacy/field-mode usage)
   const warnings: string[] = []
 
   // First check syntax

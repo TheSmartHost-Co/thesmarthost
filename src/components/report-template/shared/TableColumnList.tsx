@@ -33,6 +33,7 @@ import {
   DocumentTextIcon,
   CalendarDaysIcon,
   CalculatorIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 
 // Helper function to convert display name to logical name
@@ -54,6 +55,7 @@ interface ChangeInfo {
 const COLUMN_TYPE_OPTIONS: { value: ColumnType; label: string; icon: typeof DocumentTextIcon }[] = [
   { value: 'text', label: 'Text', icon: DocumentTextIcon },
   { value: 'numeric', label: 'Numeric', icon: HashtagIcon },
+  { value: 'currency', label: 'Currency', icon: CurrencyDollarIcon },
   { value: 'date', label: 'Date', icon: CalendarDaysIcon },
   { value: 'calculated', label: 'Calculated', icon: CalculatorIcon },
 ]
@@ -63,7 +65,6 @@ const TOTALS_FUNCTION_OPTIONS: { value: TotalsFunction; label: string }[] = [
   { value: 'SUM', label: 'Sum' },
   { value: 'AVG', label: 'Average' },
   { value: 'COUNT', label: 'Count' },
-  { value: 'CUSTOM', label: 'Custom Formula' },
 ]
 
 interface TableColumnListProps {
@@ -98,15 +99,17 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
 
   // Build column maps from dataSourceColumns prop
   const columnsByType = useMemo(() => {
-    const result: { text: DataSourceColumn[]; numeric: DataSourceColumn[]; date: DataSourceColumn[] } = {
+    const result: { text: DataSourceColumn[]; numeric: DataSourceColumn[]; date: DataSourceColumn[]; currency: DataSourceColumn[] } = {
       text: [],
       numeric: [],
       date: [],
+      currency: [],
     }
     for (const col of dataSourceColumns) {
       if (col.columnType === 'text') result.text.push(col)
       if (col.columnType === 'numeric') result.numeric.push(col)
       if (col.columnType === 'date') result.date.push(col)
+      if (col.columnType === 'currency') result.currency.push(col)
     }
     return result
   }, [dataSourceColumns])
@@ -126,12 +129,21 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
         return columnsByType.text
       case 'numeric':
         return columnsByType.numeric
+      case 'currency':
+        return columnsByType.currency
       case 'date':
         return columnsByType.date
       default:
         return []
     }
   }
+
+  // Compute section column names for formula validation (same pattern as TableColumnItem)
+  const currentSectionColumnNames = useMemo(() =>
+    allSections.find(s => s.sectionId === currentSectionId)
+      ?.fields.map(f => f.logicalName) || [],
+    [allSections, currentSectionId]
+  )
 
   // New column form state
   const [newName, setNewName] = useState('')
@@ -141,7 +153,6 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
   const [newSourceColumn, setNewSourceColumn] = useState('')
   const [newFormula, setNewFormula] = useState('')
   const [newTotalsFunction, setNewTotalsFunction] = useState<TotalsFunction>('NONE')
-  const [newTotalsFormula, setNewTotalsFormula] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -187,9 +198,8 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
       columnType: newColumnType,
       sourceColumn: newColumnType !== 'calculated' ? newSourceColumn : undefined,
       formula: newColumnType === 'calculated' ? newFormula.trim() : '',
-      format: newColumnType === 'numeric' || newColumnType === 'calculated' ? 'number' : 'text',
+      format: newColumnType === 'currency' ? 'currency' : (newColumnType === 'numeric' || newColumnType === 'calculated') ? 'numeric' : 'text',
       totalsFunction: newTotalsFunction,
-      totalsFormula: newTotalsFunction === 'CUSTOM' ? newTotalsFormula.trim() : undefined,
     })
 
     resetNewColumnForm()
@@ -203,7 +213,6 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
     setNewSourceColumn('')
     setNewFormula('')
     setNewTotalsFunction('NONE')
-    setNewTotalsFormula('')
     setIsAddingColumn(false)
   }
 
@@ -228,6 +237,8 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
     }
     if (newType === 'text' || newType === 'date') {
       setNewTotalsFunction('NONE')
+    } else if (newType === 'currency' || newType === 'numeric' || newType === 'calculated') {
+      setNewTotalsFunction('SUM')
     }
   }
 
@@ -320,13 +331,15 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
             placeholder="e.g. nightlyRate + cleaningFee"
             dataSource={dataSource}
             validationMode="table"
+            columnType={newColumnType === 'calculated' ? 'calculated' : undefined}
+            sectionColumns={currentSectionColumnNames}
             externalDataSourceColumns={dataSourceColumns}
           />
         </div>
       )}
 
-      {/* Totals Function (only for numeric/calculated) */}
-      {(newColumnType === 'numeric' || newColumnType === 'calculated') && (
+      {/* Totals Function (only for numeric/integer/calculated) */}
+      {(newColumnType === 'numeric' || newColumnType === 'currency' || newColumnType === 'calculated') && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Totals Row</label>
           <div className="flex flex-wrap gap-2">
@@ -345,22 +358,6 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Custom Totals Formula */}
-      {newTotalsFunction === 'CUSTOM' && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Totals Formula</label>
-          <FormulaBuilderInput
-            value={newTotalsFormula}
-            onChange={setNewTotalsFormula}
-            allSections={allSections}
-            currentSectionId={currentSectionId}
-            placeholder="e.g. SUM(totalPayout) - SUM(channelFee)"
-            dataSource={dataSource}
-            externalDataSourceColumns={dataSourceColumns}
-          />
         </div>
       )}
 

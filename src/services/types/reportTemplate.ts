@@ -1,6 +1,6 @@
 // Report Template Types for HostMetrics Frontend
 
-export type ReportFieldFormat = 'currency' | 'percentage' | 'number' | 'text'
+export type ReportFieldFormat = 'currency' | 'numeric' | 'text'
 
 // Section mode types - now includes 'header' for metadata sections
 export type SectionMode = 'field' | 'table' | 'header'
@@ -34,17 +34,16 @@ export const LOGO_VARIABLE: HeaderVariableInfo = {
 }
 
 // Table column types for table mode sections
-export type ColumnType = 'text' | 'numeric' | 'date' | 'calculated'
-export type TotalsFunction = 'SUM' | 'AVG' | 'COUNT' | 'NONE' | 'CUSTOM'
+export type ColumnType = 'text' | 'numeric' | 'date' | 'currency' | 'calculated'
+export type TotalsFunction = 'SUM' | 'AVG' | 'COUNT' | 'NONE'
 
 // Available booking columns for table mode
 export const BOOKING_COLUMNS = {
-  numeric: [
+  currency: [
     'nightlyRate',
     'extraGuestFees',
     'cleaningFee',
     'bedLinenFee',
-    'numNights',
     'gst',
     'qst',
     'lodgingTax',
@@ -57,6 +56,10 @@ export const BOOKING_COLUMNS = {
     'netEarnings',
     'rentCollected',
     'taxesCollected',
+  ],
+  numeric: [
+    'numNights',
+    'numGuests',
   ],
   text: ['guestName', 'platform', 'reservationCode', 'listingName'],
   date: ['checkInDate', 'checkOutDate'],
@@ -87,6 +90,7 @@ export const BOOKING_COLUMN_LABELS: Record<string, string> = {
   listingName: 'Listing Name',
   checkInDate: 'Check-In Date',
   checkOutDate: 'Check-Out Date',
+  numGuests: 'Number of Guests',
 }
 
 /**
@@ -135,8 +139,7 @@ export interface ReportField {
   fieldMode?: 'field' | 'table_column'  // Defaults to 'field'
   columnType?: ColumnType               // text, numeric, date, calculated
   sourceColumn?: string                 // Booking column to display (for non-calculated columns)
-  totalsFunction?: TotalsFunction       // SUM, AVG, COUNT, NONE, CUSTOM
-  totalsFormula?: string                // Custom formula for totals (when totalsFunction is CUSTOM)
+  totalsFunction?: TotalsFunction       // SUM, AVG, COUNT, NONE
   createdAt: string
   updatedAt: string
 }
@@ -209,6 +212,7 @@ export interface CategorizedAvailableColumns {
   // Table-mode specific fields from backend
   tableColumnTypes?: {
     numeric: TableColumnTypeInfo[]
+    currency: TableColumnTypeInfo[]
     text: TableColumnTypeInfo[]
     date: TableColumnTypeInfo[]
   }
@@ -333,7 +337,6 @@ export interface BatchUpdateFieldPayload {
   columnType?: ColumnType
   sourceColumn?: string
   totalsFunction?: TotalsFunction
-  totalsFormula?: string
   _delete?: boolean        // Mark for deletion
 }
 

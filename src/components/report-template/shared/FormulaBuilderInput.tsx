@@ -25,11 +25,11 @@ const FUNCTION_SYNTAX: Record<string, string> = {
   COUNT: 'COUNT()',
   MIN: 'MIN(column)',
   MAX: 'MAX(column)',
-  SUMIF: 'SUMIF(column, "operator", value)',
-  AVGIF: 'AVGIF(column, "operator", value)',
-  COUNTIF: 'COUNTIF(column, "operator", value)',
-  MINIF: 'MINIF(column, "operator", value)',
-  MAXIF: 'MAXIF(column, "operator", value)',
+  SUMIF: 'SUMIF(column, filterField, "operator", "value")',
+  AVGIF: 'AVGIF(column, filterField, "operator", "value")',
+  COUNTIF: 'COUNTIF(column, filterField, "operator", "value")',
+  MINIF: 'MINIF(column, filterField, "operator", "value")',
+  MAXIF: 'MAXIF(column, filterField, "operator", "value")',
 }
 
 // Function descriptions
@@ -348,7 +348,7 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [value, validationMode, availableColumnFormulas, tableSections])
+  }, [value, validationMode, availableColumnFormulas, tableSections, sectionColumns, columnType])
 
   // Auto-resize textarea when value changes (handles programmatic changes)
   useEffect(() => {
