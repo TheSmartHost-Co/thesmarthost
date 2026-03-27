@@ -1,5 +1,5 @@
 // Invoice statuses
-export type InvoiceStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'paid'
+export type InvoiceStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'paid' | 'archived'
 
 // Main invoice entity
 export interface CleanerInvoice {
@@ -87,6 +87,7 @@ export interface InvoiceSummary {
   approved: number
   rejected: number
   paid: number
+  archived: number
   pendingTotal: number
   approvedTotal: number
   paidTotal: number
@@ -211,4 +212,5 @@ export const INVOICE_STATUS_INFO: Record<InvoiceStatus, { label: string; color: 
   approved: { label: 'Approved', color: 'blue' },
   rejected: { label: 'Rejected', color: 'red' },
   paid: { label: 'Paid', color: 'green' },
+  archived: { label: 'Archived', color: 'slate' },
 }

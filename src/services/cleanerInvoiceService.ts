@@ -14,16 +14,19 @@ import type {
   InvoiceFilesResponse,
   InvoiceFileDownloadResponse,
   MonthlyEarningsResponse,
+  InvoiceStatus,
 } from './types/cleanerInvoice'
 
 // List invoices with optional filters
 export function getCleanerInvoices(
   cleanerId?: string,
-  status?: string
+  status?: string,
+  includeArchived?: boolean
 ): Promise<CleanerInvoicesResponse> {
   const params = new URLSearchParams()
   if (cleanerId) params.append('cleanerId', cleanerId)
   if (status) params.append('status', status)
+  if (includeArchived) params.append('includeArchived', 'true')
   const qs = params.toString()
   return apiClient<CleanerInvoicesResponse>(`/cleaner-invoices${qs ? `?${qs}` : ''}`)
 }
@@ -153,6 +156,15 @@ export function markInvoicePaid(id: string, notes?: string): Promise<CleanerInvo
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: { notes } as unknown as Record<string, unknown>,
+  })
+}
+
+// PM: Change invoice status to any value
+export function changeInvoiceStatus(id: string, status: InvoiceStatus): Promise<CleanerInvoiceResponse> {
+  return apiClient<CleanerInvoiceResponse, { status: InvoiceStatus }>(`/cleaner-invoices/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: { status },
   })
 }
 

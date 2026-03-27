@@ -9,24 +9,21 @@ import {
   CheckCircleIcon,
   CurrencyDollarIcon,
   EyeIcon,
-  CheckIcon,
-  XMarkIcon,
   ExclamationCircleIcon,
   MagnifyingGlassIcon,
   DocumentArrowDownIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
+  ArchiveBoxIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
-import { useUserStore } from '@/store/useUserStore'
-import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getCleanerInvoices,
   getInvoiceSummary,
-  approveInvoice,
-  rejectInvoice,
-  markInvoicePaid,
+  changeInvoiceStatus,
   generateInvoicePDF,
   getInvoiceFiles,
   downloadInvoiceFile,
@@ -36,7 +33,11 @@ import type {
   InvoiceSummary,
   InvoiceStatus,
 } from '@/services/types/cleanerInvoice'
+import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
 import ViewInvoiceModal from '@/components/cleaner-invoice/view/ViewInvoiceModal'
+import DeleteInvoiceModal from '@/components/cleaner-invoice/delete/DeleteInvoiceModal'
+import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
+import type { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }> = {
   draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
@@ -44,6 +45,7 @@ const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: str
   approved: { label: 'Approved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
   rejected: { label: 'Rejected', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   paid: { label: 'Paid', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  archived: { label: 'Archived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
 }
 
 const STATUS_FILTERS: { value: InvoiceStatus | 'all'; label: string }[] = [
@@ -52,7 +54,18 @@ const STATUS_FILTERS: { value: InvoiceStatus | 'all'; label: string }[] = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'paid', label: 'Paid' },
+  { value: 'archived', label: 'Archived' },
 ]
+
+// Map statuses to icons for the dropdown
+const STATUS_ICONS: Record<InvoiceStatus, React.ComponentType<{ className?: string }>> = {
+  draft: ClockIcon,
+  pending: ClockIcon,
+  approved: CheckCircleIcon,
+  rejected: ExclamationCircleIcon,
+  paid: CurrencyDollarIcon,
+  archived: ArchiveBoxIcon,
+}
 
 export default function PMInvoicesPage() {
   return (
@@ -81,14 +94,13 @@ function PMInvoicesContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [includeArchived, setIncludeArchived] = useState(false)
 
   // Modal state
   const [showViewModal, setShowViewModal] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
-
-  // Inline reject state (for table row reject action)
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
-  const [rejectNotes, setRejectNotes] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<CleanerInvoice | null>(null)
 
   // Track which invoices have current PDF files (keyed by invoice ID)
   const [invoicePDFs, setInvoicePDFs] = useState<Map<string, { fileId: string; filePath: string }>>(new Map())
@@ -100,7 +112,7 @@ function PMInvoicesContent() {
     setError(null)
     try {
       const [invoicesRes, summaryRes] = await Promise.all([
-        getCleanerInvoices(),
+        getCleanerInvoices(undefined, undefined, includeArchived),
         getInvoiceSummary(),
       ])
       if (invoicesRes.status === 'success') setInvoices(invoicesRes.data)
@@ -111,11 +123,18 @@ function PMInvoicesContent() {
     } finally {
       setLoading(false)
     }
-  }, [effectiveUserId])
+  }, [effectiveUserId, includeArchived])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Auto-enable includeArchived when filtering by archived
+  useEffect(() => {
+    if (statusFilter === 'archived' && !includeArchived) {
+      setIncludeArchived(true)
+    }
+  }, [statusFilter, includeArchived])
 
   // Deep-link support: ?invoiceId=xxx
   useEffect(() => {
@@ -127,7 +146,13 @@ function PMInvoicesContent() {
   }, [searchParams, loading, invoices])
 
   const filteredInvoices = invoices
-    .filter((inv) => statusFilter === 'all' || inv.status === statusFilter)
+    .filter((inv) => {
+      if (statusFilter === 'all') {
+        // When showing "all" without archived toggle, hide archived
+        return includeArchived || inv.status !== 'archived'
+      }
+      return inv.status === statusFilter
+    })
     .filter((inv) => {
       if (!searchTerm) return true
       const s = searchTerm.toLowerCase()
@@ -137,51 +162,17 @@ function PMInvoicesContent() {
       )
     })
 
-  const handleApprove = async (invoice: CleanerInvoice) => {
+  const handleChangeStatus = async (invoice: CleanerInvoice, newStatus: InvoiceStatus) => {
     try {
-      const res = await approveInvoice(invoice.id)
+      const res = await changeInvoiceStatus(invoice.id, newStatus)
       if (res.status === 'success') {
-        showNotification(`Invoice ${invoice.invoiceNumber} approved`, 'success')
+        showNotification(`Invoice ${invoice.invoiceNumber} set to ${INVOICE_STATUS_INFO[newStatus].label}`, 'success')
         fetchData()
       } else {
-        showNotification(res.message || 'Failed to approve', 'error')
+        showNotification(res.message || 'Failed to change status', 'error')
       }
-    } catch (err) {
-      showNotification('Error approving invoice', 'error')
-    }
-  }
-
-  const handleReject = async (invoiceId: string) => {
-    if (!rejectNotes.trim()) {
-      showNotification('Please provide a reason for rejection', 'error')
-      return
-    }
-    try {
-      const res = await rejectInvoice(invoiceId, rejectNotes)
-      if (res.status === 'success') {
-        showNotification('Invoice rejected', 'success')
-        setRejectingId(null)
-        setRejectNotes('')
-        fetchData()
-      } else {
-        showNotification(res.message || 'Failed to reject', 'error')
-      }
-    } catch (err) {
-      showNotification('Error rejecting invoice', 'error')
-    }
-  }
-
-  const handleMarkPaid = async (invoice: CleanerInvoice) => {
-    try {
-      const res = await markInvoicePaid(invoice.id)
-      if (res.status === 'success') {
-        showNotification(`Invoice ${invoice.invoiceNumber} marked as paid`, 'success')
-        fetchData()
-      } else {
-        showNotification(res.message || 'Failed to mark as paid', 'error')
-      }
-    } catch (err) {
-      showNotification('Error marking invoice as paid', 'error')
+    } catch {
+      showNotification('Error changing invoice status', 'error')
     }
   }
 
@@ -210,7 +201,6 @@ function PMInvoicesContent() {
       if (res.status === 'success' && res.data?.signedUrl) {
         window.open(res.data.signedUrl, '_blank')
         showNotification(`PDF generated for ${invoice.invoiceNumber}`, 'success')
-        // Update local PDF map
         if (res.data.fileId) {
           setInvoicePDFs(prev => {
             const next = new Map(prev)
@@ -221,7 +211,7 @@ function PMInvoicesContent() {
       } else {
         showNotification(res.message || 'Failed to generate PDF', 'error')
       }
-    } catch (err) {
+    } catch {
       showNotification('Error generating PDF', 'error')
     }
   }
@@ -270,6 +260,36 @@ function PMInvoicesContent() {
     return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
   }
 
+  const buildActions = (invoice: CleanerInvoice): ActionItem[] => {
+    const actions: ActionItem[] = [
+      {
+        label: 'View',
+        icon: EyeIcon,
+        onClick: () => { setSelectedInvoiceId(invoice.id); setShowViewModal(true) },
+      },
+    ]
+
+    // Status change options: all statuses except current
+    const allStatuses: InvoiceStatus[] = ['draft', 'pending', 'approved', 'rejected', 'paid', 'archived']
+    for (const s of allStatuses) {
+      if (s === invoice.status) continue
+      actions.push({
+        label: `Set ${INVOICE_STATUS_INFO[s].label}`,
+        icon: STATUS_ICONS[s],
+        onClick: () => handleChangeStatus(invoice, s),
+      })
+    }
+
+    actions.push({
+      label: 'Delete',
+      icon: TrashIcon,
+      onClick: () => { setDeleteTarget(invoice); setShowDeleteModal(true) },
+      variant: 'danger',
+    })
+
+    return actions
+  }
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -308,10 +328,11 @@ function PMInvoicesContent() {
 
       {/* Summary Stats */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <SummaryCard label="Pending" count={summary.pending} amount={summary.pendingTotal} icon={ClockIcon} color="amber" />
           <SummaryCard label="Approved" count={summary.approved} amount={summary.approvedTotal} icon={CheckCircleIcon} color="blue" />
           <SummaryCard label="Paid" count={summary.paid} amount={summary.paidTotal} icon={CurrencyDollarIcon} color="green" />
+          <SummaryCard label="Archived" count={summary.archived ?? 0} amount={null} icon={ArchiveBoxIcon} color="slate" />
           <SummaryCard label="Total" count={summary.total} amount={null} icon={BanknotesIcon} color="gray" />
         </div>
       )}
@@ -385,7 +406,7 @@ function PMInvoicesContent() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto items-center">
           {STATUS_FILTERS.map((filter) => (
             <button
               key={filter.value}
@@ -404,6 +425,18 @@ function PMInvoicesContent() {
               )}
             </button>
           ))}
+          {/* Show Archived toggle */}
+          {statusFilter !== 'archived' && (
+            <label className="flex items-center gap-1.5 ml-2 text-xs text-gray-500 cursor-pointer select-none whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={includeArchived}
+                onChange={(e) => setIncludeArchived(e.target.checked)}
+                className="rounded border-gray-300 text-gray-600 focus:ring-gray-500 h-3.5 w-3.5"
+              />
+              Show Archived
+            </label>
+          )}
         </div>
         <div className="relative flex-1 max-w-xs">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -442,11 +475,12 @@ function PMInvoicesContent() {
                 {filteredInvoices.map((invoice) => {
                   const status = statusConfig[invoice.status]
                   const hasPDF = invoicePDFs.has(invoice.id)
+                  const isArchived = invoice.status === 'archived'
                   return (
                     <tr
                       key={invoice.id}
                       onClick={() => { setSelectedInvoiceId(invoice.id); setShowViewModal(true) }}
-                      className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                      className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${isArchived ? 'opacity-60' : ''}`}
                     >
                       <td className="px-6 py-5">
                         <button
@@ -514,63 +548,13 @@ function PMInvoicesContent() {
                         </div>
                       </td>
                       {/* Actions Column */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => { setSelectedInvoiceId(invoice.id); setShowViewModal(true) }}
-                            className="p-2.5 rounded-xl hover:bg-gray-100 transition-colors"
-                            title="View Details"
-                          >
-                            <EyeIcon className="h-5 w-5 text-gray-500" />
-                          </button>
-                          {invoice.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(invoice)}
-                                className="p-2.5 rounded-xl hover:bg-green-100 transition-colors"
-                                title="Approve"
-                              >
-                                <CheckIcon className="h-5 w-5 text-green-600" />
-                              </button>
-                              <button
-                                onClick={() => { setRejectingId(rejectingId === invoice.id ? null : invoice.id); setRejectNotes('') }}
-                                className="p-2.5 rounded-xl hover:bg-red-100 transition-colors"
-                                title="Reject"
-                              >
-                                <XMarkIcon className="h-5 w-5 text-red-500" />
-                              </button>
-                            </>
-                          )}
-                          {invoice.status === 'approved' && (
-                            <button
-                              onClick={() => handleMarkPaid(invoice)}
-                              className="p-2.5 rounded-xl hover:bg-emerald-100 transition-colors"
-                              title="Mark Paid"
-                            >
-                              <CurrencyDollarIcon className="h-5 w-5 text-emerald-600" />
-                            </button>
-                          )}
+                      <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end">
+                          <TableActionsDropdown
+                            actions={buildActions(invoice)}
+                            itemId={invoice.id}
+                          />
                         </div>
-                        {/* Inline reject notes */}
-                        {rejectingId === invoice.id && (
-                          <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="text"
-                              value={rejectNotes}
-                              onChange={(e) => setRejectNotes(e.target.value)}
-                              placeholder="Reason for rejection..."
-                              className="flex-1 px-2 py-1 text-xs border border-red-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500"
-                              onKeyDown={(e) => e.key === 'Enter' && handleReject(invoice.id)}
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleReject(invoice.id)}
-                              className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded-lg hover:bg-red-600"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   )
@@ -608,6 +592,16 @@ function PMInvoicesContent() {
           role="pm"
         />
       )}
+
+      {/* Delete Invoice Modal */}
+      {deleteTarget && (
+        <DeleteInvoiceModal
+          isOpen={showDeleteModal}
+          onClose={() => { setShowDeleteModal(false); setDeleteTarget(null) }}
+          invoice={deleteTarget}
+          onDeleted={fetchData}
+        />
+      )}
     </div>
   )
 }
@@ -616,13 +610,14 @@ function SummaryCard({
   label, count, amount, icon: Icon, color,
 }: {
   label: string; count: number; amount: number | null
-  icon: React.ComponentType<{ className?: string }>; color: 'amber' | 'blue' | 'green' | 'gray'
+  icon: React.ComponentType<{ className?: string }>; color: 'amber' | 'blue' | 'green' | 'gray' | 'slate'
 }) {
   const colors = {
     amber: { bg: 'bg-amber-100', icon: 'text-amber-600' },
     blue: { bg: 'bg-blue-100', icon: 'text-blue-600' },
     green: { bg: 'bg-emerald-100', icon: 'text-emerald-600' },
     gray: { bg: 'bg-gray-100', icon: 'text-gray-600' },
+    slate: { bg: 'bg-slate-100', icon: 'text-slate-600' },
   }
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">

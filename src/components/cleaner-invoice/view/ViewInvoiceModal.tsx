@@ -12,13 +12,16 @@ import {
   approveInvoice,
   rejectInvoice,
   markInvoicePaid,
+  changeInvoiceStatus,
   generateInvoicePDF,
   getInvoiceFiles,
   downloadInvoiceFile,
 } from '@/services/cleanerInvoiceService'
 // addInvoiceItem is now handled by AddExtraChargeModal
 import AddExtraChargeModal from '../create/AddExtraChargeModal'
+import DeleteInvoiceModal from '../delete/DeleteInvoiceModal'
 import type { InvoiceFile } from '@/services/types/cleanerInvoice'
+import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type {
   CleanerInvoice,
@@ -39,6 +42,7 @@ import {
   BuildingOfficeIcon,
   EyeIcon,
   DocumentTextIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline'
 
 interface ViewInvoiceModalProps {
@@ -55,6 +59,7 @@ const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: str
   approved: { label: 'Approved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
   rejected: { label: 'Rejected', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   paid: { label: 'Paid', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  archived: { label: 'Archived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
 }
 
 const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
@@ -76,6 +81,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [pmActionLoading, setPmActionLoading] = useState(false)
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [pmRejectNotes, setPmRejectNotes] = useState('')
+  // Delete confirm state (PM)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   // PDF state
   const [currentFile, setCurrentFile] = useState<InvoiceFile | null>(null)
   const [generatingPDF, setGeneratingPDF] = useState(false)
@@ -135,6 +142,24 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       }
     } catch {}
     onUpdated()
+  }
+
+  const handleStatusChange = async (newStatus: InvoiceStatus) => {
+    if (!invoice) return
+    setPmActionLoading(true)
+    try {
+      const res = await changeInvoiceStatus(invoice.id, newStatus)
+      if (res.status === 'success') {
+        showNotification(`Status changed to ${INVOICE_STATUS_INFO[newStatus].label}`, 'success')
+        await refreshInvoice()
+      } else {
+        showNotification(res.message || 'Failed to change status', 'error')
+      }
+    } catch {
+      showNotification('Error changing status', 'error')
+    } finally {
+      setPmActionLoading(false)
+    }
   }
 
   // Fetch PDF files on load
@@ -382,6 +407,18 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
               {status.label}
             </span>
+            {role === 'pm' && (
+              <select
+                value={invoice.status}
+                onChange={(e) => handleStatusChange(e.target.value as InvoiceStatus)}
+                disabled={pmActionLoading}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
+              >
+                {(['draft', 'pending', 'approved', 'rejected', 'paid', 'archived'] as InvoiceStatus[]).map((s) => (
+                  <option key={s} value={s}>{INVOICE_STATUS_INFO[s].label}</option>
+                ))}
+              </select>
+            )}
           </div>
           <p className="text-sm text-gray-500 mt-1">
             Period: {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
@@ -460,6 +497,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
           <ClockIcon className="h-5 w-5 text-amber-500" />
           <p className="text-sm text-amber-800">Waiting for property manager review</p>
+        </div>
+      )}
+
+      {/* Archived Notice */}
+      {invoice.status === 'archived' && (
+        <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4">
+          <ArchiveBoxIcon className="h-5 w-5 text-slate-500" />
+          <p className="text-sm text-slate-700">This invoice is archived</p>
         </div>
       )}
 
@@ -746,6 +791,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               Delete Invoice
             </button>
           )}
+          {role === 'pm' && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              Delete Invoice
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           <button
@@ -819,6 +872,16 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* PM Delete Confirmation Modal */}
+      {role === 'pm' && invoice && showDeleteConfirm && (
+        <DeleteInvoiceModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          invoice={invoice}
+          onDeleted={() => { onUpdated(); onClose() }}
+        />
+      )}
     </Modal>
   )
 }
