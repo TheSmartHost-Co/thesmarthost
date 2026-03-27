@@ -416,8 +416,8 @@ export default function TurnoverCalendar({
         if (supplyRes.status === 'success') {
           // Count pending + in_progress supply lists (exclude fulfilled)
           const countsMap: Record<string, number> = {}
-          supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {
-            countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
+          supplyRes.data.filter(list => list.status !== 'fulfilled' && list.projectId).forEach(list => {
+            countsMap[list.projectId!] = (countsMap[list.projectId!] || 0) + 1
           })
           setSupplyListCountsMap(countsMap)
         }
@@ -543,8 +543,8 @@ export default function TurnoverCalendar({
       const supplyRes = await getAllSupplyLists()
       if (supplyRes.status === 'success') {
         const countsMap: Record<string, number> = {}
-        supplyRes.data.filter(list => list.status !== 'fulfilled').forEach(list => {
-          countsMap[list.projectId] = (countsMap[list.projectId] || 0) + 1
+        supplyRes.data.filter(list => list.status !== 'fulfilled' && list.projectId).forEach(list => {
+          countsMap[list.projectId!] = (countsMap[list.projectId!] || 0) + 1
         })
         setSupplyListCountsMap(countsMap)
       }

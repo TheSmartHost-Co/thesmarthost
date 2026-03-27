@@ -50,6 +50,7 @@ import {
 } from '@/services/cleaningProjectService'
 import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
+import type { SupplyList } from '@/services/types/supplyList'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
@@ -58,6 +59,7 @@ import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
 import { SubmitSupplyListModal, ViewSupplyListsModal } from './supply-lists'
+import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
 import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
 import PreviewBookingModal from '@/components/booking/preview/previewBookingModal'
 import { getBookingById } from '@/services/bookingService'
@@ -117,6 +119,8 @@ export default function ProjectDetailModal({
   const [supplyListCount, setSupplyListCount] = useState(0)
   const [showSubmitSupplyListModal, setShowSubmitSupplyListModal] = useState(false)
   const [showViewSupplyListsModal, setShowViewSupplyListsModal] = useState(false)
+  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false)
+  const [scanReceiptForList, setScanReceiptForList] = useState<SupplyList | null>(null)
 
   // Checklist state
   const [checklistItems, setChecklistItems] = useState<ProjectChecklistItem[]>([])
@@ -1148,13 +1152,22 @@ export default function ProjectDetailModal({
                 <ClipboardDocumentCheckIcon className="w-4 h-4" />
                 <span className="text-xs font-medium uppercase tracking-wider">Supply Lists</span>
               </div>
-              <button
-                onClick={() => setShowSubmitSupplyListModal(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
-              >
-                <PlusIcon className="w-3.5 h-3.5" />
-                Request Supplies
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowSubmitSupplyListModal(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  Request
+                </button>
+                <button
+                  onClick={() => setShowScanReceiptModal(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
+                >
+                  <CameraIcon className="w-3.5 h-3.5" />
+                  Scan Receipt
+                </button>
+              </div>
             </div>
 
             {supplyListCount > 0 ? (
@@ -1381,7 +1394,32 @@ export default function ProjectDetailModal({
         projectName={project.propertyName}
         onSupplyListsChanged={fetchSupplyListCount}
         fulfilledBy={user?.id}
+        onScanReceipt={(sl) => {
+          setShowViewSupplyListsModal(false)
+          setScanReceiptForList(sl)
+          setShowScanReceiptModal(true)
+        }}
       />
+
+      {/* Scan Receipt Modal */}
+      <ScanSupplyReceiptModal
+        isOpen={showScanReceiptModal}
+        onClose={() => {
+          setShowScanReceiptModal(false)
+          setScanReceiptForList(null)
+        }}
+        properties={[{ id: project.propertyId, listingName: project.propertyName || '' }]}
+        defaultPropertyId={project.propertyId}
+        defaultProjectId={project.id}
+        supplyListId={scanReceiptForList?.id}
+        supplyList={scanReceiptForList}
+        onReceiptApplied={() => {
+          setShowScanReceiptModal(false)
+          setScanReceiptForList(null)
+          fetchSupplyListCount()
+        }}
+      />
+
 
       {/* Image Preview Modal */}
       <ImagePreviewModal

@@ -639,7 +639,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                   try {
                     const res = await getSupplyListById(expense.supplyListId!)
                     if (res.status === 'success') {
-                      setSupplyListProjectId(res.data.projectId)
+                      setSupplyListProjectId(res.data.projectId || '')
                       setSupplyListProjectName(res.data.propertyName || 'Unknown Property')
                       setShowSupplyListModal(true)
                     } else {

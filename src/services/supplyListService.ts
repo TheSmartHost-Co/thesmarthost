@@ -19,6 +19,7 @@ import type {
   ExpenseLineItemResponse,
   ExpenseLineItemsResponse,
   DeleteExpenseLineItemResponse,
+  AssignProjectResponse,
 } from './types/supplyList'
 
 // =============================================
@@ -147,31 +148,59 @@ export function getSupplyListSummary(
 }
 
 /**
- * Scan a receipt image for a supply list (OCR + fuzzy matching)
+ * Scan a receipt image (OCR + fuzzy matching)
+ * - With supplyListId: matches against existing supply list items
+ * - With propertyId: receipt-first mode (no existing supply list)
  */
 export function scanSupplyListReceipt(
-  supplyListId: string,
-  file: File
+  file: File,
+  options: { supplyListId?: string; propertyId?: string }
 ): Promise<ScanReceiptResponse> {
   const formData = new FormData()
   formData.append('receipt', file)
+  if (options.supplyListId) formData.append('supplyListId', options.supplyListId)
+  if (options.propertyId) formData.append('propertyId', options.propertyId)
   return apiClient<ScanReceiptResponse, FormData>(
-    `/supply-lists/${supplyListId}/receipts/scan`,
+    `/supply-lists/receipts/scan`,
     { method: 'POST', body: formData }
   )
 }
 
 /**
- * Apply a scanned receipt to create an expense from supply list
+ * Apply a scanned receipt to create an expense
  */
 export function applySupplyListReceipt(
-  supplyListId: string,
   receiptId: string,
   payload: ApplyReceiptPayload
 ): Promise<ApplyReceiptResponse> {
   return apiClient<ApplyReceiptResponse, ApplyReceiptPayload>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}/apply`,
+    `/supply-lists/receipts/${receiptId}/apply`,
     { method: 'POST', body: payload }
+  )
+}
+
+/**
+ * Assign a project to a standalone supply list
+ */
+export function assignProjectToSupplyList(
+  supplyListId: string,
+  projectId: string
+): Promise<AssignProjectResponse> {
+  return apiClient<AssignProjectResponse, { projectId: string }>(
+    `/supply-lists/${supplyListId}/assign-project`,
+    { method: 'PATCH', body: { projectId } }
+  )
+}
+
+/**
+ * Create a standalone supply list (not linked to a project)
+ */
+export function createStandaloneSupplyList(
+  data: { propertyId: string; projectId?: string; submittedBy?: string; notes?: string; items: { name: string; quantity?: number }[] }
+): Promise<SupplyListResponse> {
+  return apiClient<SupplyListResponse, typeof data>(
+    `/supply-lists`,
+    { method: 'POST', body: data }
   )
 }
 

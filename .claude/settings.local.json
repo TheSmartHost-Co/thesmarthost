@@ -22,7 +22,10 @@
       "Bash(ls /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/cleaner/)",
       "Read(//root/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/**)",
       "Bash(python3 skills/ui-ux-pro-max/scripts/search.py \"photo gallery modal dashboard property management\" --design-system -p \"HostMetrics Photo Gallery\")",
-      "Bash(cat /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/property-manager/client-portal/page.tsx | head -80)"
+      "Bash(cat /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/property-manager/client-portal/page.tsx | head -80)",
+      "Bash(find /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app -name \"turnover\" -type d | head -1 | xargs -I {} find {} -name \"page.tsx\")",
+      "Bash(find /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost-backend -type f \\\\\\( -name \"*route*\" -o -name \"*controller*\" -o -name \"index.js\" \\\\\\) 2>/dev/null | grep -E \"\\(route|controller\\)\" | head -20)",
+      "Bash(head -150 \"/mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\(user\\)/cleaner/tasks/page.tsx\")"
     ],
     "deny": []
   }

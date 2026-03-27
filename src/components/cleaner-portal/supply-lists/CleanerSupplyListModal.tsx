@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import CleanerCreateSupplyListModal from './CleanerCreateSupplyListModal'
+import CleanerScanReceiptModal from './CleanerScanReceiptModal'
 import type { SupplyList, SupplyListItem, Receipt } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import {
@@ -15,7 +16,6 @@ import {
   formatSupplyListAge,
   getSupplyListReceipts,
   deleteSupplyListReceipt,
-  scanSupplyListReceipt,
 } from '@/services/supplyListService'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -45,6 +45,7 @@ interface CleanerSupplyListModalProps {
   projectName?: string
   cleanerId: string
   pmUserId?: string
+  propertyId?: string
   onChanged?: () => void
 }
 
@@ -87,11 +88,11 @@ export default function CleanerSupplyListModal({
   projectName,
   cleanerId,
   pmUserId,
+  propertyId,
   onChanged,
 }: CleanerSupplyListModalProps) {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const itemOrderRef = useRef<string[]>([])
 
   // View state
@@ -103,6 +104,7 @@ export default function CleanerSupplyListModal({
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [itemFilter, setItemFilter] = useState<'all' | 'remaining' | 'purchased'>('all')
+  const [detailTab, setDetailTab] = useState<'items' | 'notes' | 'receipts'>('items')
 
   // Inline item editing state
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -122,12 +124,14 @@ export default function CleanerSupplyListModal({
   // Receipt state
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [receiptsLoading, setReceiptsLoading] = useState(false)
-  const [uploadingReceipt, setUploadingReceipt] = useState(false)
   const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null)
   const [confirmDeleteReceiptId, setConfirmDeleteReceiptId] = useState<string | null>(null)
 
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  // Scan receipt modal
+  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false)
 
   // Fetch supply lists for project
   const fetchSupplyLists = useCallback(async () => {
@@ -159,12 +163,12 @@ export default function CleanerSupplyListModal({
       setReceiptsLoading(false)
       setDeletingReceiptId(null)
       setConfirmDeleteReceiptId(null)
-      setUploadingReceipt(false)
       setEditingItemId(null)
       setLocalItemNotes({})
       setListNotes('')
       setDeleteListId(null)
       setDeletingListFromView(false)
+      setShowScanReceiptModal(false)
       itemOrderRef.current = []
       return
     }
@@ -237,6 +241,7 @@ export default function CleanerSupplyListModal({
     const notes: Record<string, string> = {}
     list.items.forEach(i => { notes[i.id] = i.pmNotes || '' })
     setLocalItemNotes(notes)
+    setDetailTab('items')
     setSelectedList(list)
   }
 
@@ -373,37 +378,41 @@ export default function CleanerSupplyListModal({
   const handleUpdateItemNotes = async (item: SupplyListItem, value: string) => {
     if (!selectedList) return
     const trimmed = value.trim()
-    // Skip if unchanged
     if (trimmed === (item.pmNotes || '')) return
+    // Optimistic: update local state only, save silently in background
+    setSelectedList(prev => prev ? {
+      ...prev,
+      items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: trimmed } : i),
+    } : null)
     try {
-      const res = await updateSupplyList(selectedList.id, {
+      await updateSupplyList(selectedList.id, {
         items: [{ id: item.id, pmNotes: trimmed }],
       })
-      if (res.status === 'success') {
-        setSelectedList(res.data)
-        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
-        onChanged?.()
-      }
     } catch {
       // Revert on failure
       setLocalItemNotes(prev => ({ ...prev, [item.id]: item.pmNotes || '' }))
+      setSelectedList(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: item.pmNotes } : i),
+      } : null)
     }
   }
 
-  // Save supply list-level notes on blur
+  // Save supply list-level notes on blur (silent background save)
   const handleUpdateListNotes = async () => {
     if (!selectedList) return
     const trimmed = listNotes.trim()
     if (trimmed === (selectedList.notes || '')) return
+    // Optimistic: update local state only
+    setSelectedList(prev => prev ? { ...prev, notes: trimmed } : null)
+    setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: trimmed } : sl))
     try {
-      const res = await updateSupplyList(selectedList.id, { notes: trimmed })
-      if (res.status === 'success') {
-        setSelectedList(res.data)
-        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
-        onChanged?.()
-      }
+      await updateSupplyList(selectedList.id, { notes: trimmed })
     } catch {
+      // Revert on failure
       setListNotes(selectedList.notes || '')
+      setSelectedList(prev => prev ? { ...prev, notes: selectedList.notes } : null)
+      setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: selectedList.notes } : sl))
     }
   }
 
@@ -472,37 +481,6 @@ export default function CleanerSupplyListModal({
   }
 
   // Receipt upload
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !selectedList) return
-
-    const maxSize = 10 * 1024 * 1024
-    if (file.size > maxSize) {
-      showNotification('File too large. Maximum size is 10MB.', 'error')
-      return
-    }
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      showNotification('Please select an image or PDF file.', 'error')
-      return
-    }
-
-    setUploadingReceipt(true)
-    try {
-      const res = await scanSupplyListReceipt(selectedList.id, file)
-      if (res.status === 'success') {
-        showNotification('Receipt uploaded successfully', 'success')
-        await fetchReceipts(selectedList.id)
-        onChanged?.()
-      } else {
-        showNotification(res.message || 'Failed to upload receipt', 'error')
-      }
-    } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to upload receipt', 'error')
-    } finally {
-      setUploadingReceipt(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
 
   // Delete receipt
   const handleDeleteReceipt = async (receiptId: string) => {
@@ -608,315 +586,333 @@ export default function CleanerSupplyListModal({
                   </p>
                 )}
 
-                {/* Supply list-level notes */}
-                {selectedList.status !== 'fulfilled' ? (
-                  <textarea
-                    value={listNotes}
-                    onChange={(e) => setListNotes(e.target.value)}
-                    onBlur={handleUpdateListNotes}
-                    placeholder="Add notes for this supply list..."
-                    rows={2}
-                    className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded-lg bg-gray-50 resize-none transition-colors"
-                  />
-                ) : listNotes ? (
-                  <div className="bg-gray-50 rounded-lg px-3 py-2">
-                    <p className="text-sm text-gray-600">{listNotes}</p>
-                  </div>
-                ) : null}
-
-                {/* Progress Bar */}
-                {selectedList.items.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} purchased</span>
-                      <span>{getProgress(selectedList).percentage}%</span>
+                {/* Fulfilled info */}
+                {selectedList.status === 'fulfilled' && selectedList.fulfilledAt && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-green-700">Fulfilled</p>
+                      <p className="text-xs text-green-600">
+                        {new Date(selectedList.fulfilledAt).toLocaleString()}
+                      </p>
                     </div>
-                    <ProgressBar percentage={getProgress(selectedList).percentage} />
                   </div>
                 )}
 
-                {/* Item Filter Pills */}
-                {selectedList.items.length > 0 && (() => {
+                {/* Tab Navigation */}
+                {(() => {
                   const purchased = selectedList.items.filter(i => i.isPurchased).length
-                  const remaining = selectedList.items.length - purchased
+                  const tabs: { key: 'items' | 'notes' | 'receipts'; label: string; badge?: string; dot?: boolean }[] = [
+                    { key: 'items', label: 'Items', badge: `${purchased}/${selectedList.items.length}` },
+                    { key: 'notes', label: 'Notes', dot: !!listNotes },
+                    { key: 'receipts', label: 'Receipts', badge: receipts.length > 0 ? String(receipts.length) : undefined },
+                  ]
                   return (
-                    <div className="flex items-center gap-1.5">
-                      {([
-                        { key: 'all' as const, label: 'All', count: selectedList.items.length },
-                        { key: 'remaining' as const, label: 'Remaining', count: remaining },
-                        { key: 'purchased' as const, label: 'Purchased', count: purchased },
-                      ]).map(({ key, label, count }) => (
+                    <div className="flex items-center border-b border-gray-200">
+                      {tabs.map((tab) => (
                         <button
-                          key={key}
-                          onClick={() => setItemFilter(key)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                            itemFilter === key
-                              ? 'bg-teal-500 text-white'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          key={tab.key}
+                          onClick={() => setDetailTab(tab.key)}
+                          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                            detailTab === tab.key
+                              ? 'border-teal-500 text-teal-700'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                           }`}
                         >
-                          {label} ({count})
+                          {tab.label}
+                          {tab.badge && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              detailTab === tab.key ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {tab.badge}
+                            </span>
+                          )}
+                          {tab.dot && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                          )}
                         </button>
                       ))}
                     </div>
                   )
                 })()}
 
-                {/* Items Checklist */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="space-y-2">
-                    {getStableItems(selectedList)
-                      .filter(item => {
-                        if (itemFilter === 'remaining') return !item.isPurchased
-                        if (itemFilter === 'purchased') return item.isPurchased
-                        return true
-                      })
-                      .map(item => {
-                      const isEditable = selectedList.status !== 'fulfilled'
-                      const isEditing = editingItemId === item.id
-                      return (
-                        <div
-                          key={item.id}
-                          className={`p-2.5 rounded-lg transition-colors ${
-                            item.isPurchased ? 'bg-green-50' : 'bg-white'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <button
-                              onClick={() => isEditable && !isEditing && handleTogglePurchased(item)}
-                              disabled={actionLoading || !isEditable || isEditing}
-                              className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                                item.isPurchased
-                                  ? 'bg-teal-500 border-teal-500 text-white'
-                                  : 'border-gray-300 hover:border-teal-500'
-                              } ${actionLoading || isEditing ? 'opacity-50' : ''}`}
-                            >
-                              {item.isPurchased && <CheckIcon className="w-3 h-3" />}
-                            </button>
+                {/* Tab Content */}
+                {detailTab === 'items' && (
+                  <div className="space-y-3">
+                    {/* Progress Bar */}
+                    {selectedList.items.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} purchased</span>
+                          <span>{getProgress(selectedList).percentage}%</span>
+                        </div>
+                        <ProgressBar percentage={getProgress(selectedList).percentage} />
+                      </div>
+                    )}
 
-                            {isEditing ? (
-                              // Inline edit mode
-                              <div className="flex-1 space-y-1.5">
-                                <input
-                                  value={editName}
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && editName.trim()) handleSaveItemEdit()
-                                    if (e.key === 'Escape') setEditingItemId(null)
-                                  }}
-                                  className="w-full text-sm px-2 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                  autoFocus
-                                />
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-400">Qty:</span>
+                    {/* Item Filter Pills */}
+                    {selectedList.items.length > 0 && (() => {
+                      const purchased = selectedList.items.filter(i => i.isPurchased).length
+                      const remaining = selectedList.items.length - purchased
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          {([
+                            { key: 'all' as const, label: 'All', count: selectedList.items.length },
+                            { key: 'remaining' as const, label: 'Remaining', count: remaining },
+                            { key: 'purchased' as const, label: 'Purchased', count: purchased },
+                          ]).map(({ key, label, count }) => (
+                            <button
+                              key={key}
+                              onClick={() => setItemFilter(key)}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                itemFilter === key
+                                  ? 'bg-teal-500 text-white'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
+                            >
+                              {label} ({count})
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
+
+                    {/* Items Checklist */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="space-y-2">
+                        {getStableItems(selectedList)
+                          .filter(item => {
+                            if (itemFilter === 'remaining') return !item.isPurchased
+                            if (itemFilter === 'purchased') return item.isPurchased
+                            return true
+                          })
+                          .map(item => {
+                          const isEditable = selectedList.status !== 'fulfilled'
+                          const isEditing = editingItemId === item.id
+                          return (
+                            <div
+                              key={item.id}
+                              className={`p-2.5 rounded-lg transition-colors ${
+                                item.isPurchased ? 'bg-green-50' : 'bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <button
+                                  onClick={() => isEditable && !isEditing && handleTogglePurchased(item)}
+                                  disabled={actionLoading || !isEditable || isEditing}
+                                  className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                                    item.isPurchased
+                                      ? 'bg-teal-500 border-teal-500 text-white'
+                                      : 'border-gray-300 hover:border-teal-500'
+                                  } ${actionLoading || isEditing ? 'opacity-50' : ''}`}
+                                >
+                                  {item.isPurchased && <CheckIcon className="w-3 h-3" />}
+                                </button>
+
+                                {isEditing ? (
+                                  // Inline edit mode
+                                  <div className="flex-1 space-y-1.5">
                                     <input
-                                      type="number"
-                                      value={editQuantity}
-                                      onChange={(e) => setEditQuantity(e.target.value)}
+                                      value={editName}
+                                      onChange={(e) => setEditName(e.target.value)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter' && editName.trim()) handleSaveItemEdit()
                                         if (e.key === 'Escape') setEditingItemId(null)
                                       }}
-                                      min="1"
-                                      className="w-14 text-sm px-2 py-1 border border-gray-300 rounded-lg text-center focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                      className="w-full text-sm px-2 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                      autoFocus
                                     />
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-gray-400">Qty:</span>
+                                        <input
+                                          type="number"
+                                          value={editQuantity}
+                                          onChange={(e) => setEditQuantity(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && editName.trim()) handleSaveItemEdit()
+                                            if (e.key === 'Escape') setEditingItemId(null)
+                                          }}
+                                          min="1"
+                                          className="w-14 text-sm px-2 py-1 border border-gray-300 rounded-lg text-center focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
+                                        />
+                                      </div>
+                                      <button
+                                        onClick={handleSaveItemEdit}
+                                        disabled={actionLoading || !editName.trim()}
+                                        className="px-2.5 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 transition-colors cursor-pointer"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingItemId(null)}
+                                        className="px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
-                                  <button
-                                    onClick={handleSaveItemEdit}
-                                    disabled={actionLoading || !editName.trim()}
-                                    className="px-2.5 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 transition-colors cursor-pointer"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingItemId(null)}
-                                    className="px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              // Display mode
-                              <>
-                                <div
-                                  className={`flex-1 min-w-0 ${isEditable ? 'cursor-pointer' : ''}`}
-                                  onClick={() => isEditable && startEditItem(item)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                      {item.name}
-                                    </p>
-                                    {item.quantity > 1 && (
-                                      <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                        x{item.quantity}
-                                      </span>
-                                    )}
-                                    {item.isPurchased && item.totalCost != null && item.totalCost > 0 && (
-                                      <span className="text-teal-600 text-[10px] font-medium">
-                                        ${item.totalCost.toFixed(2)}
-                                      </span>
-                                    )}
+                                ) : (
+                                  // Display mode
+                                  <>
+                                    <div
+                                      className={`flex-1 min-w-0 ${isEditable ? 'cursor-pointer' : ''}`}
+                                      onClick={() => isEditable && startEditItem(item)}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <p className={`text-sm font-medium ${item.isPurchased ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                          {item.name}
+                                        </p>
+                                        {item.quantity > 1 && (
+                                          <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                            x{item.quantity}
+                                          </span>
+                                        )}
+                                        {item.isPurchased && item.totalCost != null && item.totalCost > 0 && (
+                                          <span className="text-teal-600 text-[10px] font-medium">
+                                            ${item.totalCost.toFixed(2)}
+                                          </span>
+                                        )}
+                                        {isEditable && (
+                                          <PencilIcon className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100" />
+                                        )}
+                                      </div>
+                                    </div>
                                     {isEditable && (
-                                      <PencilIcon className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100" />
+                                      <button
+                                        onClick={() => handleRemoveItem(item.id)}
+                                        disabled={actionLoading}
+                                        className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                      >
+                                        <TrashIcon className="w-4 h-4" />
+                                      </button>
                                     )}
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Inline per-item notes */}
+                              {!isEditing && (
+                                <div className="ml-8 mt-1">
+                                  <input
+                                    type="text"
+                                    value={localItemNotes[item.id] ?? (item.pmNotes || '')}
+                                    onChange={(e) => setLocalItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                    onBlur={(e) => handleUpdateItemNotes(item, e.target.value)}
+                                    placeholder="Add a note..."
+                                    className="w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded bg-transparent transition-colors"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === 'notes' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-gray-500">List Notes</label>
+                    <textarea
+                      value={listNotes}
+                      onChange={(e) => setListNotes(e.target.value)}
+                      onBlur={handleUpdateListNotes}
+                      placeholder="Add notes for this supply list..."
+                      rows={5}
+                      className="w-full text-sm px-3 py-2 border border-gray-200 hover:border-gray-300 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded-lg bg-gray-50 focus:bg-white resize-none transition-colors"
+                    />
+                    <p className="text-[10px] text-gray-400">Notes are saved automatically when you click away.</p>
+                  </div>
+                )}
+
+                {detailTab === 'receipts' && (
+                  <div className="space-y-3">
+                    {/* Scan Receipt button */}
+                    {selectedList.status !== 'fulfilled' && propertyId && (
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => setShowScanReceiptModal(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <CameraIcon className="w-3.5 h-3.5" /> Scan Receipt
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Receipt list */}
+                    {receiptsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                      </div>
+                    ) : receipts.length === 0 ? (
+                      <div className="text-center py-8">
+                        <DocumentTextIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-xs text-gray-400">No receipts uploaded yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {receipts.map(receipt => {
+                          const isOwn = receipt.uploadedBy === profile?.id
+                          const isConfirmingDelete = confirmDeleteReceiptId === receipt.id
+                          return (
+                            <div key={receipt.id}>
+                              <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CameraIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-900 truncate">{receipt.originalName}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                      {new Date(receipt.createdAt).toLocaleDateString()}
+                                    </p>
                                   </div>
                                 </div>
-                                {isEditable && (
-                                  <button
-                                    onClick={() => handleRemoveItem(item.id)}
-                                    disabled={actionLoading}
-                                    className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
-                                  >
-                                    <TrashIcon className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          {/* Inline per-item notes */}
-                          {!isEditing && (
-                            isEditable ? (
-                              <div className="ml-8 mt-1">
-                                <input
-                                  type="text"
-                                  value={localItemNotes[item.id] ?? (item.pmNotes || '')}
-                                  onChange={(e) => setLocalItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                  onBlur={(e) => handleUpdateItemNotes(item, e.target.value)}
-                                  placeholder="Add a note..."
-                                  className="w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded bg-transparent transition-colors"
-                                />
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${receiptStatusColors[receipt.status] || 'bg-gray-100 text-gray-700'}`}>
+                                    {receipt.status}
+                                  </span>
+                                  {isOwn && (
+                                    <button
+                                      onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
+                                      disabled={deletingReceiptId === receipt.id}
+                                      className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
+                                      title="Delete receipt"
+                                    >
+                                      <TrashIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            ) : item.pmNotes ? (
-                              <div className="ml-8 mt-1 flex items-start gap-1">
-                                <ChatBubbleLeftIcon className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
-                                <p className="text-xs text-blue-600">{item.pmNotes}</p>
-                              </div>
-                            ) : null
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Receipts Section */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                      <DocumentTextIcon className="w-4 h-4 text-gray-400" />
-                      Receipts {receipts.length > 0 && `(${receipts.length})`}
-                    </h4>
-                    {selectedList.status !== 'fulfilled' && (
-                      <>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingReceipt}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          {uploadingReceipt ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-teal-300 border-t-teal-600 rounded-full animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <CameraIcon className="w-3.5 h-3.5" /> Upload Receipt
-                            </>
-                          )}
-                        </button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                        />
-                      </>
-                    )}
-                  </div>
-                  {receiptsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
-                    </div>
-                  ) : receipts.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-3">No receipts uploaded yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {receipts.map(receipt => {
-                        const isOwn = receipt.uploadedBy === profile?.id
-                        const isConfirmingDelete = confirmDeleteReceiptId === receipt.id
-                        return (
-                          <div key={receipt.id}>
-                            <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <CameraIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-gray-900 truncate">{receipt.originalName}</p>
-                                  <p className="text-[10px] text-gray-400">
-                                    {new Date(receipt.createdAt).toLocaleDateString()}
+                              {isConfirmingDelete && (
+                                <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                  <p className="text-[10px] text-red-700 mb-1.5">
+                                    {receipt.status === 'applied'
+                                      ? 'This will delete the linked expense and revert matched items.'
+                                      : 'Delete this receipt?'}
                                   </p>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => setConfirmDeleteReceiptId(null)}
+                                      className="flex-1 py-1 text-[10px] font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteReceipt(receipt.id)}
+                                      disabled={!!deletingReceiptId}
+                                      className="flex-1 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      {deletingReceiptId === receipt.id ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${receiptStatusColors[receipt.status] || 'bg-gray-100 text-gray-700'}`}>
-                                  {receipt.status}
-                                </span>
-                                {isOwn && (
-                                  <button
-                                    onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
-                                    disabled={deletingReceiptId === receipt.id}
-                                    className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
-                                    title="Delete receipt"
-                                  >
-                                    <TrashIcon className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
+                              )}
                             </div>
-                            {isConfirmingDelete && (
-                              <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-[10px] text-red-700 mb-1.5">
-                                  {receipt.status === 'applied'
-                                    ? 'This will delete the linked expense and revert matched items.'
-                                    : 'Delete this receipt?'}
-                                </p>
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => setConfirmDeleteReceiptId(null)}
-                                    className="flex-1 py-1 text-[10px] font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteReceipt(receipt.id)}
-                                    disabled={!!deletingReceiptId}
-                                    className="flex-1 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {deletingReceiptId === receipt.id ? 'Deleting...' : 'Delete'}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Fulfilled info */}
-                {selectedList.status === 'fulfilled' && selectedList.fulfilledAt && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                    <div>
-                      <p className="font-medium text-green-700">Fulfilled</p>
-                      <p className="text-sm text-green-600">
-                        {new Date(selectedList.fulfilledAt).toLocaleString()}
-                      </p>
-                    </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1133,6 +1129,22 @@ export default function CleanerSupplyListModal({
         projectId={projectId}
         onCreated={() => {
           setShowCreateModal(false)
+          fetchSupplyLists()
+          onChanged?.()
+        }}
+      />
+    )}
+
+    {propertyId && (
+      <CleanerScanReceiptModal
+        isOpen={showScanReceiptModal}
+        onClose={() => setShowScanReceiptModal(false)}
+        supplyLists={selectedList ? [selectedList] : supplyLists}
+        properties={[{ id: propertyId, listingName: selectedList?.propertyName || projectName || '' }]}
+        pmUserId={pmUserId}
+        onReceiptApplied={() => {
+          setShowScanReceiptModal(false)
+          if (selectedList) fetchReceipts(selectedList.id)
           fetchSupplyLists()
           onChanged?.()
         }}

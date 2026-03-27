@@ -44,12 +44,12 @@ import ReviewReceiptModal from '@/components/supply-hub/ReviewReceiptModal'
 interface ViewSupplyListsModalProps {
   isOpen: boolean
   onClose: () => void
-  projectId: string
+  projectId?: string
   projectName?: string
   onSupplyListsChanged?: () => void
   fulfilledBy?: string
-  onScanReceipt?: (supplyList: SupplyList) => void
   initialSupplyList?: SupplyList | null
+  onScanReceipt?: (supplyList: SupplyList) => void
 }
 
 // Inline progress bar component
@@ -83,8 +83,8 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   projectName,
   onSupplyListsChanged,
   fulfilledBy,
-  onScanReceipt,
   initialSupplyList,
+  onScanReceipt,
 }) => {
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
   const [loading, setLoading] = useState(true)
@@ -262,16 +262,19 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   // Update PM notes for an item
   const handleUpdatePmNotes = async (item: SupplyListItem, pmNotes: string) => {
     if (!selectedList) return
+    const trimmed = pmNotes.trim()
+    if (trimmed === (item.pmNotes || '')) return
+    // Optimistic update already done via onChange, just save silently
     try {
-      const res = await updateSupplyList(selectedList.id, {
-        items: [{ id: item.id, pmNotes }],
+      await updateSupplyList(selectedList.id, {
+        items: [{ id: item.id, pmNotes: trimmed }],
       })
-      if (res.status === 'success') {
-        setSelectedList(res.data)
-        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
-      }
-    } catch (err) {
-      console.error('Error updating PM notes:', err)
+    } catch {
+      // Revert on failure
+      setSelectedList(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: item.pmNotes } : i),
+      } : null)
     }
   }
 
@@ -305,20 +308,21 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  // Update list-level notes on blur
+  // Update list-level notes on blur (silent background save)
   const handleUpdateListNotes = async () => {
     if (!selectedList) return
-    // Skip if unchanged
-    if (listNotes === (selectedList.notes || '')) return
+    const trimmed = listNotes.trim()
+    if (trimmed === (selectedList.notes || '')) return
+    // Optimistic update
+    setSelectedList(prev => prev ? { ...prev, notes: trimmed } : null)
+    setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: trimmed } : sl))
     try {
-      const res = await updateSupplyList(selectedList.id, { notes: listNotes })
-      if (res.status === 'success') {
-        setSelectedList(res.data)
-        setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
-        onSupplyListsChanged?.()
-      }
+      await updateSupplyList(selectedList.id, { notes: trimmed })
     } catch {
-      console.error('Error updating list notes')
+      // Revert on failure
+      setListNotes(selectedList.notes || '')
+      setSelectedList(prev => prev ? { ...prev, notes: selectedList.notes } : null)
+      setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: selectedList.notes } : sl))
     }
   }
 
@@ -437,7 +441,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
             setSelectedList(slRes.data)
           }
         } else {
-          const slRes = await getSupplyListsByProject(projectId)
+          const slRes = await getSupplyListsByProject(projectId!)
           if (slRes.status === 'success') {
             setSupplyLists(slRes.data)
             const updated = slRes.data.find(sl => sl.id === selectedList.id)
@@ -682,20 +686,14 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               </div>
 
               {/* List-level Notes */}
-              {selectedList.status !== 'fulfilled' ? (
-                <textarea
-                  value={listNotes}
-                  onChange={(e) => setListNotes(e.target.value)}
-                  onBlur={handleUpdateListNotes}
-                  placeholder="Add notes for this supply list..."
-                  rows={2}
-                  className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded-lg focus:ring-1 focus:ring-teal-300 bg-gray-50 focus:bg-white resize-none transition-colors"
-                />
-              ) : selectedList.notes ? (
-                <div className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                  {selectedList.notes}
-                </div>
-              ) : null}
+              <textarea
+                value={listNotes}
+                onChange={(e) => setListNotes(e.target.value)}
+                onBlur={handleUpdateListNotes}
+                placeholder="Add notes for this supply list..."
+                rows={2}
+                className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded-lg focus:ring-1 focus:ring-teal-300 bg-gray-50 focus:bg-white resize-none transition-colors"
+              />
 
               {/* Progress Bar (detail view) */}
               {selectedList.items.length > 0 && (
@@ -849,25 +847,20 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                             )}
                           </div>
                           {/* PM Notes inline edit */}
-                          {isEditable && (
-                            <input
-                              type="text"
-                              value={item.pmNotes || ''}
-                              onChange={(e) => {
-                                // Optimistic update
-                                setSelectedList(prev => prev ? {
-                                  ...prev,
-                                  items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: e.target.value } : i),
-                                } : null)
-                              }}
-                              onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
-                              placeholder="Add a note..."
-                              className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
-                            />
-                          )}
-                          {!isEditable && item.pmNotes && (
-                            <p className="text-xs text-gray-500 mt-0.5">{item.pmNotes}</p>
-                          )}
+                          <input
+                            type="text"
+                            value={item.pmNotes || ''}
+                            onChange={(e) => {
+                              // Optimistic update
+                              setSelectedList(prev => prev ? {
+                                ...prev,
+                                items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: e.target.value } : i),
+                              } : null)
+                            }}
+                            onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
+                            placeholder="Add a note..."
+                            className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
+                          />
                         </div>
                         {isEditable && (
                           <button
@@ -891,10 +884,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                     <DocumentTextIcon className="w-4 h-4 text-gray-400" />
                     Receipts
                   </h4>
-                  {selectedList.status !== 'fulfilled' && onScanReceipt && (
+                  {onScanReceipt && selectedList && (
                     <button
                       onClick={() => onScanReceipt(selectedList)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                     >
                       <CameraIcon className="w-3.5 h-3.5" /> Scan Receipt
                     </button>

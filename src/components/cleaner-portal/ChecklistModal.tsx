@@ -19,8 +19,9 @@ import {
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
-import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
+import { CleanerSupplyListModal, CleanerScanReceiptModal } from '@/components/cleaner-portal/supply-lists'
 import { getSupplyListsByProject } from '@/services/supplyListService'
+import type { SupplyList } from '@/services/types/supplyList'
 import { getIssueCounts } from '@/services/projectIssueService'
 
 import ChecklistHeader from './checklist/ChecklistHeader'
@@ -85,7 +86,9 @@ export default function ChecklistModal({
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
   const [showViewIssuesModal, setShowViewIssuesModal] = useState(false)
   const [showSupplyListsModal, setShowSupplyListsModal] = useState(false)
+  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false)
   const [supplyListCount, setSupplyListCount] = useState(0)
+  const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
   const [issueCount, setIssueCount] = useState(0)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
 
@@ -142,7 +145,10 @@ export default function ChecklistModal({
     if (!project.id) return
     try {
       const res = await getSupplyListsByProject(project.id)
-      if (res.status === 'success') setSupplyListCount(res.data.length)
+      if (res.status === 'success') {
+        setSupplyListCount(res.data.length)
+        setSupplyLists(res.data)
+      }
     } catch (err) {
       console.error('Error fetching supply list count:', err)
     }
@@ -448,6 +454,7 @@ export default function ChecklistModal({
         onViewIssues={() => setShowViewIssuesModal(true)}
         onSubmitSupplyList={() => setShowSupplyListsModal(true)}
         onViewSupplyLists={() => setShowSupplyListsModal(true)}
+        onScanReceipt={() => setShowScanReceiptModal(true)}
         projectId={project.id}
         walkthroughComplete={!walkthroughStatus?.requiresWalkthrough || walkthroughStatus.isComplete}
         walkthroughRequired={walkthroughStatus?.requiresWalkthrough ?? false}
@@ -510,7 +517,21 @@ export default function ChecklistModal({
         projectName={project.propertyName}
         cleanerId={project.cleanerId || ''}
         pmUserId={project.userId}
+        propertyId={project.propertyId}
         onChanged={fetchSupplyListCount}
+      />
+
+      <CleanerScanReceiptModal
+        isOpen={showScanReceiptModal}
+        onClose={() => setShowScanReceiptModal(false)}
+        supplyLists={supplyLists}
+        properties={[{ id: project.propertyId, listingName: project.propertyName || '' }]}
+        pmUserId={project.userId}
+        projectId={project.id}
+        onReceiptApplied={() => {
+          setShowScanReceiptModal(false)
+          fetchSupplyListCount()
+        }}
       />
 
       {/* Image Viewer Lightbox */}

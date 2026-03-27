@@ -12,14 +12,14 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleanerSchedule } from '@/services/cleanerService'
-import { getSupplyListsByProject, formatSupplyListAge } from '@/services/supplyListService'
+import { getSupplyListsByProject, getAllSupplyLists, formatSupplyListAge } from '@/services/supplyListService'
 import type { SupplyList, SupplyListStatus } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import type { Cleaner } from '@/services/types/cleaner'
 import {
   CleanerCreateSupplyListModal,
   CleanerSupplyListModal,
-  CleanerUploadReceiptModal,
+  CleanerScanReceiptModal,
 } from '@/components/cleaner-portal/supply-lists'
 
 export default function CleanerSuppliesPage() {
@@ -62,15 +62,17 @@ export default function CleanerSuppliesPage() {
       // 2. Get unique project IDs
       const projectIds = [...new Set(scheduleRes.data.cleaningProjects.map((p: { id: string }) => p.id))]
 
-      // 3. Fetch supply lists per-project in parallel
-      const results = await Promise.all(
-        projectIds.map(pid => getSupplyListsByProject(pid).catch(() => null))
-      )
+      // 3. Fetch supply lists per-project + standalone lists in parallel
+      const [standaloneRes, ...results] = await Promise.all([
+        getAllSupplyLists().catch(() => null),
+        ...projectIds.map(pid => getSupplyListsByProject(pid).catch(() => null)),
+      ])
 
-      // 4. Flatten — show all supply lists for projects this cleaner is assigned to
-      const allLists = results
-        .filter(r => r?.status === 'success')
-        .flatMap(r => r!.data)
+      // 4. Flatten — show all supply lists for projects this cleaner is assigned to + standalone
+      const allLists = [
+        ...(standaloneRes?.status === 'success' ? standaloneRes.data : []),
+        ...results.filter(r => r?.status === 'success').flatMap(r => r!.data),
+      ]
 
       // Deduplicate by ID
       const seen = new Set<string>()
@@ -165,15 +167,13 @@ export default function CleanerSuppliesPage() {
         </div>
         {cleaner && (
           <div className="flex items-center gap-2">
-            {supplyLists.length > 0 && (
-              <button
-                onClick={() => setShowUploadReceiptModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors cursor-pointer"
-              >
-                <CameraIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Receipt</span>
-              </button>
-            )}
+            <button
+              onClick={() => setShowUploadReceiptModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors cursor-pointer"
+            >
+              <CameraIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Receipt</span>
+            </button>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors cursor-pointer"
@@ -261,15 +261,18 @@ export default function CleanerSuppliesPage() {
           onClose={() => setShowCreateModal(false)}
           cleanerId={cleaner.id}
           pmUserId={cleaner.userId}
+          properties={cleaner.assignedProperties?.map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId })) || []}
           onCreated={() => { setShowCreateModal(false); fetchData() }}
         />
       )}
 
-      <CleanerUploadReceiptModal
+      <CleanerScanReceiptModal
         isOpen={showUploadReceiptModal}
         onClose={() => setShowUploadReceiptModal(false)}
         supplyLists={supplyLists}
-        onUploaded={fetchData}
+        properties={cleaner?.assignedProperties?.map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId })) || []}
+        pmUserId={cleaner?.userId}
+        onReceiptApplied={fetchData}
       />
 
       <CleanerSupplyListModal
@@ -278,6 +281,7 @@ export default function CleanerSuppliesPage() {
         supplyList={selectedSupplyList}
         cleanerId={cleaner?.id || ''}
         pmUserId={cleaner?.userId}
+        propertyId={selectedSupplyList?.propertyId}
         onChanged={fetchData}
       />
     </div>

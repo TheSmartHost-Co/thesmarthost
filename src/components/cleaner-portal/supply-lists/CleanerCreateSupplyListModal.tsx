@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
-import { createSupplyList } from '@/services/supplyListService'
+import { createSupplyList, createStandaloneSupplyList } from '@/services/supplyListService'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { SupplyList } from '@/services/types/supplyList'
@@ -20,6 +20,7 @@ interface CleanerCreateSupplyListModalProps {
   cleanerId: string
   pmUserId: string
   projectId?: string
+  properties?: { id: string; listingName: string }[]
   onCreated: (sl: SupplyList) => void
 }
 
@@ -36,10 +37,12 @@ export default function CleanerCreateSupplyListModal({
   cleanerId,
   pmUserId,
   projectId: preSelectedProjectId,
+  properties: assignedProperties,
   onCreated,
 }: CleanerCreateSupplyListModalProps) {
   const showNotification = useNotificationStore((s) => s.showNotification)
 
+  const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [projects, setProjects] = useState<CleaningProject[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [items, setItems] = useState<ItemRow[]>([{ name: '', quantity: '1' }])
@@ -50,6 +53,7 @@ export default function CleanerCreateSupplyListModal({
   useEffect(() => {
     if (!isOpen) {
       setItems([{ name: '', quantity: '1' }])
+      setSelectedPropertyId('')
       setSelectedProjectId('')
       setLoading(false)
       return
@@ -62,16 +66,23 @@ export default function CleanerCreateSupplyListModal({
       return
     }
 
+    if (!selectedPropertyId) {
+      setProjects([])
+      setSelectedProjectId('')
+      return
+    }
+
     const fetchProjects = async () => {
       setLoadingProjects(true)
       try {
         const res = await getCleaningProjects({ userId: pmUserId })
         if (res.status === 'success') {
           const active = res.data.filter((p) =>
-            ACTIVE_STATUSES.includes(p.status)
+            ACTIVE_STATUSES.includes(p.status) && p.propertyId === selectedPropertyId
           )
           setProjects(active)
           if (active.length === 1) setSelectedProjectId(active[0].id)
+          else setSelectedProjectId('')
         }
       } catch {
         console.error('Failed to fetch projects')
@@ -80,7 +91,7 @@ export default function CleanerCreateSupplyListModal({
       }
     }
     fetchProjects()
-  }, [isOpen, pmUserId, preSelectedProjectId])
+  }, [isOpen, pmUserId, preSelectedProjectId, selectedPropertyId])
 
   const addItem = () => {
     setItems((prev) => [...prev, { name: '', quantity: '1' }])
@@ -98,8 +109,8 @@ export default function CleanerCreateSupplyListModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedProjectId) {
-      showNotification('Please select a project', 'error')
+    if (!preSelectedProjectId && !selectedPropertyId) {
+      showNotification('Please select a property', 'error')
       return
     }
 
@@ -111,13 +122,20 @@ export default function CleanerCreateSupplyListModal({
 
     setLoading(true)
     try {
-      const res = await createSupplyList(selectedProjectId, {
-        submittedBy: cleanerId,
-        items: validItems.map((item) => ({
-          name: item.name.trim(),
-          quantity: parseInt(item.quantity, 10) || 1,
-        })),
-      })
+      const itemsPayload = validItems.map((item) => ({
+        name: item.name.trim(),
+        quantity: parseInt(item.quantity, 10) || 1,
+      }))
+      const res = selectedProjectId
+        ? await createSupplyList(selectedProjectId, {
+            submittedBy: cleanerId,
+            items: itemsPayload,
+          })
+        : await createStandaloneSupplyList({
+            propertyId: selectedPropertyId,
+            submittedBy: cleanerId,
+            items: itemsPayload,
+          })
 
       if (res.status === 'success') {
         showNotification('Supply list submitted', 'success')
@@ -148,17 +166,36 @@ export default function CleanerCreateSupplyListModal({
           </h2>
         </div>
 
-        {/* Project Selector (hidden when pre-selected) */}
-        {!preSelectedProjectId && (
+        {/* Property Selector (when properties available and no pre-selected project) */}
+        {!preSelectedProjectId && assignedProperties && assignedProperties.length > 0 && (
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Cleaning Project
+              Property
+            </label>
+            <select
+              value={selectedPropertyId}
+              onChange={(e) => { setSelectedPropertyId(e.target.value); setSelectedProjectId('') }}
+              className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 cursor-pointer"
+            >
+              <option value="">Select a property...</option>
+              {assignedProperties.map((p) => (
+                <option key={p.id} value={p.id}>{p.listingName}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Project Selector (hidden when pre-selected) */}
+        {!preSelectedProjectId && selectedPropertyId && (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Cleaning Project <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             {loadingProjects ? (
               <div className="text-xs text-gray-500 py-2">Loading projects...</div>
             ) : projects.length === 0 ? (
-              <div className="text-xs text-gray-500 py-2">
-                No active projects available
+              <div className="text-xs text-gray-400 py-2">
+                No active projects — will create a standalone supply list
               </div>
             ) : (
               <select
@@ -166,10 +203,9 @@ export default function CleanerCreateSupplyListModal({
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 cursor-pointer"
               >
-                <option value="">Select a project...</option>
+                <option value="">No project (standalone)</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.propertyName || 'Unknown Property'} &mdash;{' '}
                     {parseLocalDate(p.projectDate).toLocaleDateString()}
                   </option>
                 ))}
@@ -233,7 +269,7 @@ export default function CleanerCreateSupplyListModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !selectedProjectId}
+            disabled={loading || (!selectedProjectId && !selectedPropertyId)}
             className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Submitting...' : 'Submit Request'}

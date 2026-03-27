@@ -5,7 +5,7 @@ import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
-import { createSupplyList } from '@/services/supplyListService'
+import { createSupplyList, createStandaloneSupplyList } from '@/services/supplyListService'
 import type { Property } from '@/services/types/property'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import {
@@ -20,6 +20,8 @@ interface CreateSupplyListModalProps {
   onClose: () => void
   onCreated: () => void
   properties: Property[]
+  onScanReceipt?: () => void
+  defaultPropertyId?: string
 }
 
 interface ItemRow {
@@ -34,6 +36,8 @@ export default function CreateSupplyListModal({
   onClose,
   onCreated,
   properties,
+  onScanReceipt,
+  defaultPropertyId,
 }: CreateSupplyListModalProps) {
   const showNotification = useNotificationStore(s => s.showNotification)
   const { profile } = useUserStore()
@@ -55,6 +59,13 @@ export default function CreateSupplyListModal({
       setSubmitting(false)
     }
   }, [isOpen])
+
+  // Pre-select property when opened with a default (from ProjectDetailModal)
+  useEffect(() => {
+    if (isOpen && defaultPropertyId) {
+      setSelectedPropertyId(defaultPropertyId)
+    }
+  }, [isOpen, defaultPropertyId])
 
   // Load projects when property changes
   useEffect(() => {
@@ -100,8 +111,8 @@ export default function CreateSupplyListModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedProjectId) {
-      showNotification('Please select a project', 'error')
+    if (!selectedPropertyId) {
+      showNotification('Please select a property', 'error')
       return
     }
 
@@ -113,10 +124,17 @@ export default function CreateSupplyListModal({
 
     setSubmitting(true)
     try {
-      const res = await createSupplyList(selectedProjectId, {
-        submittedBy: profile?.id || null,
-        items: validItems.map(i => ({ name: i.name.trim(), quantity: i.quantity })),
-      })
+      const itemsPayload = validItems.map(i => ({ name: i.name.trim(), quantity: i.quantity }))
+      const res = selectedProjectId
+        ? await createSupplyList(selectedProjectId, {
+            submittedBy: profile?.id || null,
+            items: itemsPayload,
+          })
+        : await createStandaloneSupplyList({
+            propertyId: selectedPropertyId,
+            submittedBy: profile?.id || undefined,
+            items: itemsPayload,
+          })
       if (res.status === 'success') {
         showNotification('Supply list created', 'success')
         onCreated()
@@ -133,7 +151,7 @@ export default function CreateSupplyListModal({
   }
 
   const validItemCount = items.filter(i => i.name.trim()).length
-  const canSubmit = selectedProjectId && validItemCount > 0 && !submitting
+  const canSubmit = selectedPropertyId && validItemCount > 0 && !submitting
 
   const formatProjectDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-').map(Number)
@@ -151,7 +169,11 @@ export default function CreateSupplyListModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">New Supply List</h2>
-              <p className="text-xs text-gray-500">Create a supply request for a cleaning project</p>
+              <p className="text-xs text-gray-500">
+                Create a supply request{onScanReceipt && (
+                  <> or <button type="button" onClick={onScanReceipt} className="text-teal-600 hover:text-teal-700 font-medium cursor-pointer">scan a receipt</button> to quick-create</>
+                )}
+              </p>
             </div>
           </div>
 
@@ -191,7 +213,7 @@ export default function CreateSupplyListModal({
                     onChange={(e) => setSelectedProjectId(e.target.value)}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                   >
-                    <option value="">Select a project...</option>
+                    <option value="">No project (standalone)</option>
                     {projects.map(p => (
                       <option key={p.id} value={p.id}>
                         {formatProjectDate(p.projectDate)} — {p.status}
@@ -204,7 +226,7 @@ export default function CreateSupplyListModal({
             )}
 
             {/* Items section */}
-            {selectedProjectId && (
+            {selectedPropertyId && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-gray-700">Items</label>

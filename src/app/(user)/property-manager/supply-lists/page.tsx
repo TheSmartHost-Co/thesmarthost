@@ -40,6 +40,7 @@ import {
   CurrencyDollarIcon,
   PlusIcon,
   DocumentTextIcon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 
 // ── Types ──
@@ -146,6 +147,7 @@ export default function SupplyListsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showReceiptFirstScanModal, setShowReceiptFirstScanModal] = useState(false)
   const [showUnappliedModal, setShowUnappliedModal] = useState(false)
   const [unappliedCount, setUnappliedCount] = useState(0)
 
@@ -548,15 +550,26 @@ export default function SupplyListsPage() {
             </motion.button>
           )}
           {writePermission && (
-            <motion.button
-              onClick={() => setShowCreateModal(true)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm transition-colors"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              New Supply List
-            </motion.button>
+            <>
+              <motion.button
+                onClick={() => setShowReceiptFirstScanModal(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 shadow-sm transition-colors"
+              >
+                <CameraIcon className="h-5 w-5 mr-2" />
+                Scan Receipt
+              </motion.button>
+              <motion.button
+                onClick={() => setShowCreateModal(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm transition-colors"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                New Supply List
+              </motion.button>
+            </>
           )}
         </div>
       </div>
@@ -930,6 +943,13 @@ export default function SupplyListsPage() {
         onReceiptApplied={refetchAll}
       />
 
+      <ScanSupplyReceiptModal
+        isOpen={showReceiptFirstScanModal}
+        onClose={() => setShowReceiptFirstScanModal(false)}
+        properties={properties.map(p => ({ id: p.id, listingName: p.listingName || '' }))}
+        onReceiptApplied={refetchAll}
+      />
+
       <UnappliedReceiptsModal
         isOpen={showUnappliedModal}
         onClose={() => setShowUnappliedModal(false)}
@@ -941,6 +961,7 @@ export default function SupplyListsPage() {
         onClose={() => setShowCreateModal(false)}
         onCreated={refetchAll}
         properties={properties}
+        onScanReceipt={() => { setShowCreateModal(false); setShowReceiptFirstScanModal(true) }}
       />
     </div>
   )

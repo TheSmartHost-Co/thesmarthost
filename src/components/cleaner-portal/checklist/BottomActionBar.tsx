@@ -7,6 +7,7 @@ import {
   PlayCircleIcon,
   FlagIcon,
   ClipboardDocumentListIcon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProjectStatus, ChecklistProgress } from '@/services/types/cleaningProject'
 
@@ -25,6 +26,7 @@ interface BottomActionBarProps {
   onViewIssues: () => void
   onSubmitSupplyList: () => void
   onViewSupplyLists: () => void
+  onScanReceipt?: () => void
   projectId: string
   walkthroughComplete?: boolean
   walkthroughRequired?: boolean
@@ -45,6 +47,7 @@ export default function BottomActionBar({
   onViewIssues,
   onSubmitSupplyList,
   onViewSupplyLists,
+  onScanReceipt,
   projectId,
   walkthroughComplete,
   walkthroughRequired,
@@ -150,20 +153,32 @@ export default function BottomActionBar({
             </p>
           )}
 
-          {/* Supply list button */}
-          <button
-            onClick={supplyListCount > 0 ? onViewSupplyLists : onSubmitSupplyList}
-            className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
-            title={supplyListCount > 0 ? `View ${supplyListCount} supply lists` : 'Request supplies'}
-          >
-            <ClipboardDocumentListIcon className="w-5 h-5" />
-            <span className="text-[9px] sm:hidden">Supplies</span>
-            {supplyListCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-teal-600 rounded-full">
-                {supplyListCount}
-              </span>
+          {/* Scan + Supply list buttons */}
+          <div className="flex items-center gap-1.5">
+            {onScanReceipt && (
+              <button
+                onClick={onScanReceipt}
+                className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-xl transition-colors cursor-pointer"
+                title="Scan receipt"
+              >
+                <CameraIcon className="w-5 h-5" />
+                <span className="text-[9px] sm:hidden">Scan</span>
+              </button>
             )}
-          </button>
+            <button
+              onClick={supplyListCount > 0 ? onViewSupplyLists : onSubmitSupplyList}
+              className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
+              title={supplyListCount > 0 ? `View ${supplyListCount} supply lists` : 'Request supplies'}
+            >
+              <ClipboardDocumentListIcon className="w-5 h-5" />
+              <span className="text-[9px] sm:hidden">Supplies</span>
+              {supplyListCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-teal-600 rounded-full">
+                  {supplyListCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

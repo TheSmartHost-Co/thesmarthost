@@ -17,7 +17,7 @@ export interface SupplyListItem {
 
 export interface SupplyList {
   id: string
-  projectId: string
+  projectId: string | null
   submittedBy: string | null
   status: SupplyListStatus
   notes: string | null
@@ -29,7 +29,7 @@ export interface SupplyList {
   userId: string
   propertyId: string
   propertyName: string | null
-  projectDate: string
+  projectDate: string | null
   items: SupplyListItem[]
   progress?: { totalItems: number; purchasedItems: number; percentage: number }
 }
@@ -71,12 +71,18 @@ export interface DeleteSupplyListResponse {
   message?: string
 }
 
+export interface AssignProjectResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: SupplyList
+}
+
 // Receipt types
 export type ReceiptStatus = 'pending' | 'matched' | 'applied' | 'error' | 'failed'
 
 export interface Receipt {
   id: string
-  supplyListId: string
+  supplyListId: string | null
   uploadedBy: string | null
   storagePath: string
   originalName: string
@@ -93,6 +99,11 @@ export interface ReceiptDetailOcrRaw {
   vendorName: OcrDataField<string>
   expenseDate: OcrDataField<string>
   total: OcrDataField<number>
+  subtotal: OcrDataField<number>
+  taxGst: OcrDataField<number>
+  taxPst: OcrDataField<number>
+  taxHst: OcrDataField<number>
+  taxTotal: OcrDataField<number>
   lineItems: {
     value: {
       name: OcrDataField<string>
@@ -124,6 +135,11 @@ export interface ScanReceiptOcrData {
   vendorName: OcrDataField<string>
   expenseDate: OcrDataField<string>
   total: OcrDataField<number>
+  subtotal: OcrDataField<number>
+  taxGst: OcrDataField<number>
+  taxPst: OcrDataField<number>
+  taxHst: OcrDataField<number>
+  taxTotal: OcrDataField<number>
   lineItems: {
     name: OcrDataField<string>
     quantity: OcrDataField<number>
@@ -148,13 +164,18 @@ export interface ScanReceiptResponse {
   message?: string
   data: {
     receiptId: string
+    supplyListId: string | null
+    propertyId: string
+    signedUrl: string | null
     ocrData: ScanReceiptOcrData
     matches: ScanReceiptMatch[]
   }
 }
 
 export interface ApplyReceiptPayload {
-  confirmedMatches: { itemId: string; unitCost: number; totalCost: number }[]
+  propertyId?: string
+  projectId?: string
+  confirmedMatches: { itemId?: string; name?: string; quantity?: number; unitCost: number; totalCost: number }[]
   newItems: { name: string; quantity: number; unitCost: number; totalCost: number }[]
   expenseDate: string
   vendorName: string
@@ -162,6 +183,12 @@ export interface ApplyReceiptPayload {
   paymentMethod?: string
   paidByType?: string
   paidById?: string
+  subtotal?: number
+  taxGst?: number
+  taxPst?: number
+  taxHst?: number
+  taxTotal?: number
+  isTaxDeductible?: boolean
 }
 
 export interface ApplyReceiptResponse {
@@ -170,7 +197,24 @@ export interface ApplyReceiptResponse {
   data: {
     supplyList: SupplyList
     receipt: Receipt
-    expense: { id: string; amount: number }
+    expense: {
+      id: string
+      amount: number
+      subtotal?: number | null
+      taxGst?: number | null
+      taxPst?: number | null
+      taxHst?: number | null
+      taxTotal?: number | null
+      description?: string
+      lineItems?: {
+        id: string
+        description: string
+        quantity: number
+        unitCost: number
+        totalCost: number
+        supplyListItemId: string | null
+      }[]
+    }
   }
 }
 
@@ -206,6 +250,8 @@ export interface ExpenseLineItemResponse {
   message?: string
   data: ExpenseLineItem
   expenseAmount?: number
+  expenseSubtotal?: number
+  expenseTaxTotal?: number
 }
 
 export interface ExpenseLineItemsResponse {

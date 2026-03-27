@@ -48,7 +48,7 @@ export default function SupplyHubListCard({
 
   // Format project date
   const projectDateStr = sl.projectDate
-    ? (() => { const [y, m, d] = sl.projectDate.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
+    ? (() => { const [y, m, d] = sl.projectDate!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
     : null
 
   return (
@@ -106,11 +106,11 @@ export default function SupplyHubListCard({
             {sl.submitterName && (
               <span className="truncate">by {sl.submitterName}</span>
             )}
-            {projectDateStr && (
-              <>
-                {sl.submitterName && <span className="text-gray-300">·</span>}
-                <span className="tabular-nums">Project: {projectDateStr}</span>
-              </>
+            {sl.submitterName && <span className="text-gray-300">·</span>}
+            {projectDateStr ? (
+              <span className="tabular-nums">Project: {projectDateStr}</span>
+            ) : (
+              <span className="text-gray-400 italic">No Project</span>
             )}
           </div>
         </div>
