@@ -21,7 +21,16 @@ import {
   WrenchScrewdriverIcon,
   UsersIcon,
   ExclamationTriangleIcon,
+  SparklesIcon,
+  MegaphoneIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline'
+
+export const ADMIN_USER_IDS: string[] = [
+  'fbb14321-b067-4a0d-af82-d43a8a6d9b5a',
+  'c3639f35-7dd7-4373-874b-d929c260454e',
+  '440f746a-392b-4334-95e0-64505aac29f7',
+]
 
 export interface SidebarItem {
   name: string
@@ -115,6 +124,16 @@ export const managerNavConfig: SidebarNavConfig = {
         ],
       },
     },
+    {
+      type: 'group',
+      group: {
+        label: 'Info',
+        icon: InformationCircleIcon,
+        items: [
+          { name: "What's New", href: '/property-manager/whats-new', icon: SparklesIcon },
+        ],
+      },
+    },
   ],
   bottom: [
     { name: 'Client Portal', href: '/property-manager/client-portal', icon: UserGroupIcon },
@@ -142,6 +161,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'Invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
   { name: 'Analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
   { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
+  { name: "What's New", href: '/property-manager/whats-new', icon: SparklesIcon },
   { name: 'Settings', href: '/property-manager/settings', icon: CogIcon },
 ]
 
@@ -152,6 +172,7 @@ export const cleanerSidebarItems: SidebarItem[] = [
   { name: 'My Supplies', href: '/cleaner/supplies', icon: ShoppingCartIcon },
   { name: 'Schedule', href: '/cleaner/schedule', icon: CalendarDaysIcon },
   { name: 'Invoices', href: '/cleaner/invoices', icon: BanknotesIcon },
+  { name: "What's New", href: '/cleaner/whats-new', icon: SparklesIcon },
   { name: 'Settings', href: '/cleaner/settings', icon: CogIcon },
 ]
 
@@ -159,9 +180,11 @@ export const clientSidebarItems: SidebarItem[] = [
   { name: 'Dashboard', href: '/client/dashboard', icon: HomeIcon },
   { name: 'My Properties', href: '/client/properties', icon: BuildingOfficeIcon },
   { name: 'Bookings', href: '/client/bookings', icon: CalendarDaysIcon },
+  { name: 'Reports', href: '/client/reports', icon: DocumentTextIcon },
   { name: 'Schedule', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
   { name: 'Projects', href: '/client/projects', icon: WrenchScrewdriverIcon },
   { name: 'Checklists', href: '/client/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'Issues', href: '/client/issues', icon: ExclamationTriangleIcon },
+  { name: "What's New", href: '/client/whats-new', icon: SparklesIcon },
   { name: 'Settings', href: '/client/settings', icon: CogIcon },
 ]

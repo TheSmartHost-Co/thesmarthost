@@ -29,6 +29,8 @@ import UpdateCleanerModal from '@/components/cleaner/update/updateCleanerModal'
 import DeleteCleanerModal from '@/components/cleaner/delete/deleteCleanerModal'
 import PreviewCleanerModal from '@/components/cleaner/preview/previewCleanerModal'
 import AssignPropertiesModal from '@/components/cleaner/AssignPropertiesModal'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
+import { useRouter } from 'next/navigation'
 
 export default function PropertyManagerCleanersPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -48,6 +50,8 @@ export default function PropertyManagerCleanersPage() {
   const showNotification = useNotificationStore((state) => state.showNotification)
   usePermissionGuard('cleaners')
   const { effectiveUserId, canWrite } = usePermissions()
+  const { startImpersonation } = useImpersonationStore()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -145,6 +149,16 @@ export default function PropertyManagerCleanersPage() {
     }
   }
 
+  const handleViewAsCleaner = (cleaner: Cleaner) => {
+    startImpersonation({
+      type: 'cleaner',
+      id: cleaner.id,
+      name: cleaner.name,
+      role: 'CLEANER',
+    })
+    router.push('/cleaner/dashboard')
+  }
+
   const getCleanerActions = (cleaner: Cleaner): ActionItem[] => {
     const actions: ActionItem[] = [
       {
@@ -154,6 +168,15 @@ export default function PropertyManagerCleanersPage() {
         variant: 'default'
       },
     ]
+
+    if (cleaner.status === 'active') {
+      actions.push({
+        label: `View as ${cleaner.name}`,
+        icon: EyeIcon,
+        onClick: () => handleViewAsCleaner(cleaner),
+        variant: 'highlight'
+      })
+    }
 
     if (canWrite('cleaners')) {
       actions.push({

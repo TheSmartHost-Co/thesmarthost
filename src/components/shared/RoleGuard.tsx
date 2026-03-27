@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ShieldExclamationIcon } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
 
 /**
  * Maps portal path prefixes to the roles that are allowed to access them.
@@ -34,6 +35,7 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
   const router = useRouter()
   const profile = useUserStore((s) => s.profile)
   const getRedirectPath = useUserStore((s) => s.getRedirectPath)
+  const { isImpersonating, target } = useImpersonationStore()
   const [blocked, setBlocked] = useState(false)
 
   const allowedRoles = PORTAL_ROLES[portal] || []
@@ -43,6 +45,12 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
     // Wait until profile is loaded
     if (!profile) return
 
+    // Allow access when PM is impersonating and the target role matches this portal
+    if (isImpersonating && target && allowedRoles.includes(target.role)) {
+      setBlocked(false)
+      return
+    }
+
     if (!userRole || !allowedRoles.includes(userRole)) {
       setBlocked(true)
       // Redirect to the correct dashboard after a brief delay
@@ -51,7 +59,7 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
       }, 3000)
       return () => clearTimeout(timer)
     }
-  }, [profile, userRole, allowedRoles, router, getRedirectPath])
+  }, [profile, userRole, allowedRoles, router, getRedirectPath, isImpersonating, target])
 
   if (blocked) {
     const portalLabel = portal === '/cleaner' ? 'cleaner' : portal === '/client' ? 'property owner' : 'property manager'

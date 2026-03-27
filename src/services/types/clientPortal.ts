@@ -134,10 +134,10 @@ export interface ClientPortalDashboardStats {
   openIssues: number;
   bookingsThisMonth: number;
   bookingsLastMonth: number;
-  revenueThisMonth: number;
-  revenueLastMonth: number;
-  totalRevenue: number;
-  totalNights: number;
+  revenueThisMonth?: number;
+  revenueLastMonth?: number;
+  totalRevenue?: number;
+  totalNights?: number;
 }
 
 export interface ClientPortalBookingSummary {
@@ -314,4 +314,31 @@ export interface ClientPortalProjectDetail {
 export interface ClientPortalProjectDetailResponse {
   status: string;
   data: ClientPortalProjectDetail;
+}
+
+// ============ Client Portal Reports ============
+
+export interface ClientPortalReport {
+  id: string;
+  sentAt: string;
+  sentBy: string;
+  message?: string;
+  reportId: string;
+  startDate: string;
+  endDate: string;
+  properties: Array<{
+    id: string;
+    listingName: string;
+    address: string;
+  }>;
+  files: Array<{
+    format: string;
+    downloadUrl: string;
+    fileName: string;
+  }>;
+}
+
+export interface ClientPortalReportsResponse {
+  status: 'success' | 'failed';
+  data: ClientPortalReport[];
 }

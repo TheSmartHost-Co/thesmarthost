@@ -17,7 +17,8 @@ import {
   FunnelIcon,
   Cog6ToothIcon,
   ArrowUpTrayIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import { getClientsByParentId } from '@/services/clientService'
 import { getStatusCodesByUserId } from '@/services/clientCodeService'
@@ -39,6 +40,8 @@ import BulkImportClientModal from '@/components/client/import/bulkImportClientMo
 import PreviewClientModal from '@/components/client/preview/previewClientModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { exportToCsv } from '@/utils/csvExport'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
+import { useRouter } from 'next/navigation'
 
 export default function PropertyManagerClientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -62,6 +65,8 @@ export default function PropertyManagerClientsPage() {
   const { profile } = useUserStore()
   usePermissionGuard('clients')
   const { effectiveUserId, canWrite } = usePermissions()
+  const { startImpersonation } = useImpersonationStore()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -215,8 +220,26 @@ export default function PropertyManagerClientsPage() {
     exportToCsv(filteredClients, columns, 'clients')
   }
 
+  const handleViewAsClient = (client: Client) => {
+    startImpersonation({
+      type: 'client',
+      id: client.id,
+      name: client.name,
+      role: 'CLIENT',
+    })
+    router.push('/client/dashboard')
+  }
+
   const getClientActions = (client: Client): ActionItem[] => {
     const actions: ActionItem[] = []
+    if (client.portalStatus === 'active') {
+      actions.push({
+        label: `View as ${client.name}`,
+        icon: EyeIcon,
+        onClick: () => handleViewAsClient(client),
+        variant: 'highlight'
+      })
+    }
     if (canWrite('clients')) {
       actions.push({
         label: 'Edit Client',

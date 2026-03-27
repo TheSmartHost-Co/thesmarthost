@@ -50,6 +50,11 @@ export interface CleanerInvoiceItem {
   // Joined data
   propertyName?: string
   propertyAddress?: string
+  // Receipt attachment
+  receiptId?: string | null
+  receiptOriginalName?: string | null
+  receiptStoragePath?: string | null
+  receiptSignedUrl?: string | null
 }
 
 // Available project for invoice generation
@@ -110,12 +115,14 @@ export interface UpdateInvoiceItemPayload {
   durationMinutes?: number
   amount?: number
   notes?: string | null
+  receiptId?: string | null
 }
 
 export interface AddInvoiceItemPayload {
   description: string
   amount: number
   notes?: string | null
+  receiptId?: string | null
 }
 
 // API Responses

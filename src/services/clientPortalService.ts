@@ -10,6 +10,7 @@ import {
   ClientPortalChecklistResponse,
   ClientPortalIssuesResponse,
   ClientPortalProjectDetailResponse,
+  ClientPortalReportsResponse,
 } from './types/clientPortal';
 
 // No userId parameter needed — the backend determines scoping from the JWT + auth middleware
@@ -60,4 +61,17 @@ export function getClientPortalIssues(): Promise<ClientPortalIssuesResponse> {
 
 export function getClientPortalProjectById(id: string): Promise<ClientPortalProjectDetailResponse> {
   return apiClient<ClientPortalProjectDetailResponse>(`/client-portal/cleaning-projects/${id}`);
+}
+
+export function getClientPortalReports(filters?: {
+  propertyId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ClientPortalReportsResponse> {
+  const params = new URLSearchParams();
+  if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  const qs = params.toString();
+  return apiClient<ClientPortalReportsResponse>(`/client-portal/reports${qs ? `?${qs}` : ''}`);
 }

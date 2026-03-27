@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRightIcon } from '@heroicons/react/24/outline'
-import { getPlatformBadge, formatCurrency } from '../shared/platformUtils'
+import { getPlatformBadge } from '../shared/platformUtils'
 import type { ClientPortalBookingSummary } from '@/services/types/clientPortal'
 
 interface RecentBookingsListProps {
@@ -66,11 +66,6 @@ export const RecentBookingsList: React.FC<RecentBookingsListProps> = ({ bookings
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
-                {b.totalPayout != null && (
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(b.totalPayout)}
-                  </span>
-                )}
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor(b.bookingStatus)}`}>
                   {b.bookingStatus || 'N/A'}
                 </span>

@@ -3,8 +3,8 @@
 import React from 'react'
 import Modal from '@/components/shared/modal'
 import { ClientPortalBooking } from '@/services/types/clientPortal'
-import { getPlatformBadge, formatCurrency } from '@/components/client-portal/shared/platformUtils'
-import { CalendarDaysIcon, MapPinIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
+import { getPlatformBadge } from '@/components/client-portal/shared/platformUtils'
+import { CalendarDaysIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { parseLocalDate } from '@/utils/dateUtils'
 
 interface PreviewClientBookingModalProps {
@@ -26,29 +26,6 @@ const PreviewClientBookingModal: React.FC<PreviewClientBookingModalProps> = ({
       day: 'numeric',
     })
   }
-
-  // Financial breakdown items
-  const financialItems = [
-    { label: 'Nightly Rate', value: booking.nightlyRate },
-    { label: 'Extra Guest Fees', value: booking.extraGuestFees },
-    { label: 'Cleaning Fee', value: booking.cleaningFee },
-    { label: 'Bed Linen Fee', value: booking.bedLinenFee },
-    { label: 'GST', value: booking.gst },
-    { label: 'QST', value: booking.qst },
-    { label: 'Lodging Tax', value: booking.lodgingTax },
-    { label: 'Sales Tax', value: booking.salesTax },
-    { label: 'Channel Fee', value: booking.channelFee },
-    { label: 'Stripe Fee', value: booking.stripeFee },
-    { label: 'Management Fee', value: booking.mgmtFee },
-    { label: 'Co-Host Fee', value: booking.cohostFee },
-  ].filter(item => item.value !== null && item.value !== undefined)
-
-  const summaryItems = [
-    { label: 'Total Payout', value: booking.totalPayout, highlight: true, isNet: false, isDeduction: false },
-    { label: 'Net Earnings', value: booking.netEarnings, highlight: true, isNet: true, isDeduction: false },
-    { label: 'Rent Collected', value: booking.rentCollected, highlight: false, isNet: false, isDeduction: false },
-    { label: 'Taxes Collected', value: booking.taxesCollected, highlight: false, isNet: false, isDeduction: false },
-  ].filter(item => item.value !== null && item.value !== undefined)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-9 max-w-4xl w-11/12 max-h-[90vh] overflow-y-auto">
@@ -160,59 +137,6 @@ const PreviewClientBookingModal: React.FC<PreviewClientBookingModalProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Financial Information */}
-      {(financialItems.length > 0 || summaryItems.length > 0) && (
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <CurrencyDollarIcon className="h-5 w-5" />
-            Financial Breakdown
-          </h3>
-
-          {/* Detailed Breakdown */}
-          {financialItems.length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-700 mb-3">Charges & Fees</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {financialItems.map((item) => (
-                  <div key={item.label} className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{item.label}:</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {formatCurrency(item.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Summary */}
-          {summaryItems.length > 0 && (
-            <div>
-              <h4 className="text-md font-medium text-gray-700 mb-3">Summary</h4>
-              <div className="text-black bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
-                {summaryItems.map((item) => (
-                  <div
-                    key={item.label}
-                    className={`flex justify-between items-center ${
-                      item.highlight ? 'py-2 border-t border-gray-300 font-semibold' : ''
-                    } ${item.isNet ? 'text-green-700' : ''}`}
-                  >
-                    <span className={`${item.highlight ? 'text-lg' : 'text-sm'} ${item.isDeduction ? 'text-red-600' : ''}`}>
-                      {item.label}:
-                    </span>
-                    <span className={`${item.highlight ? 'text-lg font-bold' : 'text-sm font-medium'} ${
-                      item.isNet ? 'text-green-700' : item.isDeduction ? 'text-red-600' : 'text-gray-900'
-                    }`}>
-                      {item.isDeduction ? '-' : ''}{formatCurrency(item.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Additional Information */}
       <div className="mb-6">

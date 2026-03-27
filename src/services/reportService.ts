@@ -9,6 +9,9 @@ import type {
   LogosResponse,
   LogoUploadResponse,
   SingleReportResponse,
+  ReportRecipientsResponse,
+  SendReportPayload,
+  SendReportResponse,
 } from './types/report'
 
 /**
@@ -153,6 +156,26 @@ export async function deleteReportFile(fileId: string): Promise<{ status: 'succe
     `/reports/files/${fileId}`,
     {
       method: 'DELETE',
+    }
+  )
+}
+
+/**
+ * Get potential recipients for sending a report (property owners)
+ */
+export async function getReportRecipients(reportId: string): Promise<ReportRecipientsResponse> {
+  return apiClient<ReportRecipientsResponse>(`/reports/${reportId}/recipients`)
+}
+
+/**
+ * Send a report to client(s) via email and/or portal
+ */
+export async function sendReport(reportId: string, data: SendReportPayload): Promise<SendReportResponse> {
+  return apiClient<SendReportResponse, SendReportPayload>(
+    `/reports/${reportId}/send`,
+    {
+      method: 'POST',
+      body: data,
     }
   )
 }

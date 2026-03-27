@@ -9,7 +9,7 @@ export interface ActionItem {
   icon: React.ComponentType<{ className?: string }>
   onClick: () => void
   className?: string
-  variant?: 'default' | 'danger'
+  variant?: 'default' | 'danger' | 'highlight'
 }
 
 interface TableActionsDropdownProps {
@@ -79,8 +79,10 @@ const TableActionsDropdown: React.FC<TableActionsDropdownProps> = ({
   }
 
   const getActionClassName = (action: ActionItem) => {
-    const baseClass = "cursor-pointer flex items-center w-full px-4 py-2 text-sm hover:bg-gray-100"
-    const variantClass = action.variant === 'danger' ? 'text-red-600' : 'text-gray-700'
+    const baseClass = "cursor-pointer flex items-center w-full px-4 py-2 text-sm"
+    let variantClass = 'text-gray-700 hover:bg-gray-100'
+    if (action.variant === 'danger') variantClass = 'text-red-600 hover:bg-gray-100'
+    if (action.variant === 'highlight') variantClass = 'text-amber-700 bg-amber-50 font-semibold hover:bg-amber-100'
     return `${baseClass} ${variantClass} ${action.className || ''}`
   }
 

@@ -6,6 +6,8 @@ import UserNavbar from '../../components/navbar/UserNavbar'
 import { useSessionMonitor } from '@/hooks/useSessionMonitor'
 import { SessionWarningModal } from '@/components/session/SessionWarningModal'
 import { SessionExpiredModal } from '@/components/session/SessionExpiredModal'
+import PatchNotesModal from '@/components/patch-notes/PatchNotesModal'
+import { usePatchNotesPopup } from '@/hooks/usePatchNotesPopup'
 
 export default function UserLayout({
   children,
@@ -27,6 +29,14 @@ export default function UserLayout({
     onLoginRedirect,
     onDismissWarning,
   } = useSessionMonitor()
+
+  const {
+    showModal: showPatchNotesModal,
+    notes: patchNotes,
+    loading: patchNotesLoading,
+    dismissAll: dismissAllPatchNotes,
+    closeForSession: closePatchNotesForSession,
+  } = usePatchNotesPopup()
 
   // Skip rendering navbar/padding for routes with their own layout (property-manager, cleaner)
   const hasOwnLayout = isPropertyManagerRoute || isCleanerRoute || isClientRoute
@@ -51,6 +61,15 @@ export default function UserLayout({
       <SessionExpiredModal
         isOpen={showExpiredModal}
         onSignIn={onLoginRedirect}
+      />
+
+      {/* Patch Notes Popup */}
+      <PatchNotesModal
+        isOpen={showPatchNotesModal}
+        notes={patchNotes}
+        loading={patchNotesLoading}
+        onDismissAll={dismissAllPatchNotes}
+        onClose={closePatchNotesForSession}
       />
     </>
   )

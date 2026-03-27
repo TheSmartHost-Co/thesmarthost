@@ -468,7 +468,7 @@ export default function ChecklistModal({
       ) : (
         createPortal(
           <div className="fixed inset-0 z-60 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute inset-0 bg-black/10" onClick={onClose} />
             <div className="relative z-10 bg-white rounded-xl shadow-xl w-11/12 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
               {innerContent}
             </div>

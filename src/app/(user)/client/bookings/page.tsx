@@ -6,7 +6,6 @@ import {
   MagnifyingGlassIcon,
   CalendarDaysIcon,
   MoonIcon,
-  CurrencyDollarIcon,
   ChartBarIcon,
   FunnelIcon,
   XMarkIcon,
@@ -14,13 +13,13 @@ import {
   BarsArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { getClientPortalBookings } from '@/services/clientPortalService'
-import { getPlatformBadge, formatPlatformName, formatCurrency } from '@/components/client-portal/shared/platformUtils'
+import { getPlatformBadge, formatPlatformName } from '@/components/client-portal/shared/platformUtils'
 import PreviewClientBookingModal from '@/components/client-portal/booking/PreviewClientBookingModal'
 import { parseLocalDate } from '@/utils/dateUtils'
 import type { ClientPortalBooking } from '@/services/types/clientPortal'
 
 // Sort configuration
-type SortField = 'guestName' | 'checkInDate' | 'numNights' | 'totalPayout'
+type SortField = 'guestName' | 'checkInDate' | 'numNights'
 type SortDirection = 'asc' | 'desc'
 
 interface SortConfig {
@@ -32,7 +31,6 @@ const SORT_OPTIONS: { field: SortField; label: string; ascLabel: string; descLab
   { field: 'guestName', label: 'Guest Name', ascLabel: 'A → Z', descLabel: 'Z → A' },
   { field: 'checkInDate', label: 'Check-in Date', ascLabel: 'Oldest first', descLabel: 'Newest first' },
   { field: 'numNights', label: 'Nights', ascLabel: 'Low → High', descLabel: 'High → Low' },
-  { field: 'totalPayout', label: 'Revenue', ascLabel: 'Low → High', descLabel: 'High → Low' },
 ]
 
 export default function ClientBookingsPage() {
@@ -133,8 +131,6 @@ export default function ClientBookingsPage() {
             return multiplier * (parseLocalDate(a.checkInDate).getTime() - parseLocalDate(b.checkInDate).getTime())
           case 'numNights':
             return multiplier * ((a.numNights || 0) - (b.numNights || 0))
-          case 'totalPayout':
-            return multiplier * ((a.totalPayout || 0) - (b.totalPayout || 0))
           default:
             return 0
         }
@@ -145,9 +141,8 @@ export default function ClientBookingsPage() {
   const stats = useMemo(() => {
     const totalBookings = filtered.length
     const totalNights = filtered.reduce((sum, b) => sum + Number(b.numNights || 0), 0)
-    const totalRevenue = filtered.reduce((sum, b) => sum + (b.totalPayout || 0), 0)
     const platforms = new Set(filtered.map(b => b.platform).filter(Boolean))
-    return { totalBookings, totalNights, totalRevenue, platformsCount: platforms.size }
+    return { totalBookings, totalNights, platformsCount: platforms.size }
   }, [filtered])
 
   // Active filter count
@@ -214,15 +209,6 @@ export default function ClientBookingsPage() {
       borderColor: 'border-blue-100',
     },
     {
-      label: 'Total Revenue',
-      value: formatCurrency(stats.totalRevenue),
-      icon: CurrencyDollarIcon,
-      bgColor: 'bg-purple-50',
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      borderColor: 'border-purple-100',
-    },
-    {
       label: 'Platforms',
       value: stats.platformsCount,
       icon: ChartBarIcon,
@@ -242,7 +228,7 @@ export default function ClientBookingsPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -510,9 +496,6 @@ export default function ClientBookingsPage() {
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[80px]">
                     Nights
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
-                    Revenue
-                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                     Status
                   </th>
@@ -575,18 +558,6 @@ export default function ClientBookingsPage() {
                     {/* Nights */}
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-semibold text-gray-900">{b.numNights ?? '-'}</span>
-                    </td>
-
-                    {/* Revenue */}
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm font-medium text-gray-900">
-                        {b.totalPayout != null ? formatCurrency(b.totalPayout) : '-'}
-                      </div>
-                      {b.netEarnings != null && (
-                        <div className="text-xs text-gray-500">
-                          Net: {formatCurrency(b.netEarnings)}
-                        </div>
-                      )}
                     </td>
 
                     {/* Status */}

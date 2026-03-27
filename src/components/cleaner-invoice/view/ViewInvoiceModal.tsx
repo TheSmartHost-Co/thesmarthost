@@ -6,7 +6,6 @@ import {
   getInvoiceById,
   updateInvoice,
   updateInvoiceItem,
-  addInvoiceItem,
   deleteInvoiceItem,
   submitInvoice,
   deleteInvoice,
@@ -17,6 +16,8 @@ import {
   getInvoiceFiles,
   downloadInvoiceFile,
 } from '@/services/cleanerInvoiceService'
+// addInvoiceItem is now handled by AddExtraChargeModal
+import AddExtraChargeModal from '../create/AddExtraChargeModal'
 import type { InvoiceFile } from '@/services/types/cleanerInvoice'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type {
@@ -37,6 +38,7 @@ import {
   CurrencyDollarIcon,
   BuildingOfficeIcon,
   EyeIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 
 interface ViewInvoiceModalProps {
@@ -66,8 +68,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [loading, setLoading] = useState(true)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '' })
-  const [addingExtra, setAddingExtra] = useState(false)
-  const [extraForm, setExtraForm] = useState({ description: '', amount: '', notes: '' })
+  const [showAddExtraModal, setShowAddExtraModal] = useState(false)
   const [cleanerNotes, setCleanerNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -116,7 +117,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setEditingItemId(null)
-      setAddingExtra(false)
+      setShowAddExtraModal(false)
     }
   }, [isOpen])
 
@@ -279,27 +280,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     }
   }
 
-  const handleAddExtra = async () => {
-    if (!invoice || !extraForm.description || !extraForm.amount) return
-
-    try {
-      const res = await addInvoiceItem(invoice.id, {
-        description: extraForm.description,
-        amount: parseFloat(extraForm.amount),
-        notes: extraForm.notes || undefined,
-      })
-      if (res.status === 'success') {
-        showNotification('Extra charge added', 'success')
-        setAddingExtra(false)
-        setExtraForm({ description: '', amount: '', notes: '' })
-        await refreshInvoice()
-      } else {
-        showNotification(res.message || 'Failed to add item', 'error')
-      }
-    } catch (err) {
-      console.error('Error adding item:', err)
-      showNotification('Error adding item', 'error')
-    }
+  const handleExtraChargeAdded = async () => {
+    await refreshInvoice()
   }
 
   const handleSaveNotes = async () => {
@@ -521,6 +503,16 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   {item.notes && (
                     <p className="text-xs text-gray-400 mt-1 ml-6">{item.notes}</p>
                   )}
+                  {item.receiptSignedUrl && (
+                    <button
+                      onClick={() => window.open(item.receiptSignedUrl!, '_blank')}
+                      className="inline-flex items-center gap-1 mt-1 ml-6 text-[10px] text-blue-600 hover:text-blue-800 transition-colors"
+                      title={`Receipt: ${item.receiptOriginalName || 'View receipt'}`}
+                    >
+                      <DocumentTextIcon className="h-3 w-3" />
+                      <span>{item.receiptOriginalName || 'View Receipt'}</span>
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-sm font-semibold text-gray-900">${item.amount.toFixed(2)}</span>
@@ -631,69 +623,26 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             </div>
           ))}
 
-          {/* Add Extra Charge */}
-          {isEditable && addingExtra && (
-            <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
-              <p className="text-xs font-semibold text-emerald-700 mb-2">Add Extra Charge</p>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={extraForm.description}
-                  onChange={(e) => setExtraForm({ ...extraForm, description: e.target.value })}
-                  placeholder="Description (e.g., Supply run, Travel)"
-                  className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={extraForm.amount}
-                      onChange={(e) => setExtraForm({ ...extraForm, amount: e.target.value })}
-                      placeholder="Amount"
-                      className="w-28 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    value={extraForm.notes}
-                    onChange={(e) => setExtraForm({ ...extraForm, notes: e.target.value })}
-                    placeholder="Notes (optional)"
-                    className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => { setAddingExtra(false); setExtraForm({ description: '', amount: '', notes: '' }) }}
-                    className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAddExtra}
-                    disabled={!extraForm.description || !extraForm.amount}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Add Extra Charge Button */}
-        {isEditable && !addingExtra && (
+        {isEditable && (
           <button
-            onClick={() => setAddingExtra(true)}
+            onClick={() => setShowAddExtraModal(true)}
             className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
           >
             <PlusIcon className="h-3.5 w-3.5" />
             Add Extra Charge
           </button>
         )}
+
+        {/* Add Extra Charge Modal */}
+        <AddExtraChargeModal
+          isOpen={showAddExtraModal}
+          onClose={() => setShowAddExtraModal(false)}
+          invoiceId={invoiceId}
+          onAdded={handleExtraChargeAdded}
+        />
       </div>
 
       {/* Totals */}

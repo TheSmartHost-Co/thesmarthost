@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/component'
 import { SessionError } from '@/services/sessionError'
 import { ValidationError } from '@/services/validationError'
 import { getSessionStore } from '@/store/useSessionStore'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -25,7 +26,14 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   const supabase = getSupabaseClient()
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  return token ? { 'Authorization': `Bearer ${token}` } : {}
+  const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {}
+
+  const impersonationHeader = useImpersonationStore.getState().getImpersonationHeader()
+  if (impersonationHeader) {
+    headers['X-Impersonate-As'] = impersonationHeader
+  }
+
+  return headers
 }
 
 // Event emitter for session events
@@ -106,15 +114,23 @@ async function apiClient<T, B = unknown>(
     }
 
     const authHeaders = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
-    
+
+    // Include impersonation header when actively impersonating on a portal route
+    const impersonationHeader = useImpersonationStore.getState().getImpersonationHeader()
+    const impersonateHeaders: Record<string, string> = impersonationHeader
+      ? { 'X-Impersonate-As': impersonationHeader }
+      : {}
+
     const config: RequestInit = {
         method,
         headers: isFormData ? {
             ...authHeaders,
+            ...impersonateHeaders,
             ...headers,
         } as HeadersInit : {
             'Content-Type': 'application/json',
             ...authHeaders,
+            ...impersonateHeaders,
             ...headers,
         } as HeadersInit,
     };
@@ -149,6 +165,7 @@ async function apiClient<T, B = unknown>(
                 headers: {
                     ...(config.headers as Record<string, string>),
                     'Authorization': `Bearer ${refreshData.session.access_token}`,
+                    ...impersonateHeaders,
                 },
             }
             const retryResponse = await fetch(fullUrl, retryConfig)

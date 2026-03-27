@@ -23,10 +23,12 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   XMarkIcon,
-  EyeIcon
+  EyeIcon,
+  PaperAirplaneIcon,
 } from '@heroicons/react/24/outline'
 import GenerateReportModal from '@/components/report/generate/generateReportModal'
 import ViewReportModal from '@/components/report/view/viewReportModal'
+import SendReportModal from '@/components/report/send/sendReportModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 export default function ReportsPage() {
@@ -57,7 +59,9 @@ export default function ReportsPage() {
   // UI state
   const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false)
   const [showViewModal, setShowViewModal] = useState<boolean>(false)
+  const [showSendModal, setShowSendModal] = useState<boolean>(false)
   const [selectedReportId, setSelectedReportId] = useState<string>('')
+  const [sendReportTarget, setSendReportTarget] = useState<Report | null>(null)
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null)
 
   // Load data on mount
@@ -182,6 +186,11 @@ export default function ReportsPage() {
 
   const handleReportUpdated = async () => {
     await loadReports()
+  }
+
+  const handleSendReport = (report: Report) => {
+    setSendReportTarget(report)
+    setShowSendModal(true)
   }
 
   // Get report actions for dropdown
@@ -637,10 +646,21 @@ export default function ReportsPage() {
                         <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     ) : (
-                      <TableActionsDropdown
-                        actions={getReportActions(report)}
-                        itemId={report.id}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        {canWrite('reports') && (
+                          <button
+                            onClick={() => handleSendReport(report)}
+                            title="Send to Client"
+                            className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          >
+                            <PaperAirplaneIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        <TableActionsDropdown
+                          actions={getReportActions(report)}
+                          itemId={report.id}
+                        />
+                      </div>
                     )}
                   </td>
                 </motion.tr>
@@ -767,6 +787,25 @@ export default function ReportsPage() {
         reportId={selectedReportId}
         onReportUpdated={handleReportUpdated}
       />
+
+      {/* Send Report Modal */}
+      {sendReportTarget && (
+        <SendReportModal
+          isOpen={showSendModal}
+          onClose={() => {
+            setShowSendModal(false)
+            setSendReportTarget(null)
+          }}
+          onSent={() => loadReports()}
+          reportId={sendReportTarget.id}
+          reportFiles={sendReportTarget.files}
+          reportProperties={sendReportTarget.properties || []}
+          reportDateRange={{
+            startDate: sendReportTarget.startDate,
+            endDate: sendReportTarget.endDate,
+          }}
+        />
+      )}
     </div>
   )
 }

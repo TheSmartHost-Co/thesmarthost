@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SidebarItem, SidebarNavConfig } from './sidebarItems'
+import { SidebarItem, SidebarNavConfig, ADMIN_USER_IDS } from './sidebarItems'
+import { MegaphoneIcon } from '@heroicons/react/24/outline'
+import { useUserStore } from '@/store/useUserStore'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import SidebarGroupSection from './SidebarGroupSection'
 import SidebarCollapseToggle from './SidebarCollapseToggle'
@@ -33,6 +35,8 @@ export default function ResponsiveSidebar({
   const prevPathnameRef = useRef(pathname)
   const isCollapsed = useSidebarStore((s) => s.isCollapsed)
   const setCollapsed = useSidebarStore((s) => s.setCollapsed)
+  const profile = useUserStore((s) => s.profile)
+  const isAdminUser = profile?.id && ADMIN_USER_IDS.includes(profile.id)
 
   // Auto-close sidebar on route change (mobile only)
   useEffect(() => {
@@ -144,6 +148,11 @@ export default function ResponsiveSidebar({
       {/* Bottom-pinned items (Settings) + collapse toggle */}
       <div className="border-t border-gray-200 px-2 py-2 space-y-1">
         {navConfig!.bottom.map((item) => renderNavLink(item, collapsed, closeOnClick))}
+        {isAdminUser && variant === 'manager' && renderNavLink(
+          { name: 'Patch Notes', href: '/property-manager/patch-notes', icon: MegaphoneIcon },
+          collapsed,
+          closeOnClick
+        )}
         <div className="hidden md:block">
           <SidebarCollapseToggle />
         </div>

@@ -3,10 +3,8 @@
 import {
   HomeModernIcon,
   CalendarDaysIcon,
-  CurrencyDollarIcon,
   SparklesIcon,
   ArrowTrendingUpIcon,
-  MoonIcon,
 } from '@heroicons/react/24/outline'
 import { ClientMetricCard } from './ClientMetricCard'
 import type { ClientPortalDashboardStats } from '@/services/types/clientPortal'
@@ -15,15 +13,12 @@ interface ClientMetricsGridProps {
   stats: ClientPortalDashboardStats
 }
 
-function formatDelta(current: number, previous: number, isCurrency = false): string {
+function formatDelta(current: number, previous: number): string {
   const diff = current - previous
   if (previous === 0 && current === 0) return 'No change'
-  if (previous === 0) return isCurrency ? `+$${current.toFixed(0)} new` : `+${current} new`
+  if (previous === 0) return `+${current} new`
 
   const prefix = diff >= 0 ? '+' : ''
-  if (isCurrency) {
-    return `${prefix}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs last month`
-  }
   return `${prefix}${diff} vs last month`
 }
 
@@ -34,12 +29,7 @@ export const ClientMetricsGrid: React.FC<ClientMetricsGridProps> = ({ stats }) =
     upcomingBookings: stats.upcomingBookings ?? 0,
     bookingsThisMonth: stats.bookingsThisMonth ?? 0,
     bookingsLastMonth: stats.bookingsLastMonth ?? 0,
-    revenueThisMonth: stats.revenueThisMonth ?? 0,
-    revenueLastMonth: stats.revenueLastMonth ?? 0,
     activeCleaningProjects: stats.activeCleaningProjects ?? 0,
-    totalRevenue: stats.totalRevenue ?? 0,
-    totalNights: stats.totalNights ?? 0,
-    openIssues: stats.openIssues ?? 0,
   }
 
   const metrics = [
@@ -74,17 +64,6 @@ export const ClientMetricsGrid: React.FC<ClientMetricsGridProps> = ({ stats }) =
       icon: ArrowTrendingUpIcon,
     },
     {
-      title: 'Revenue This Month',
-      value: s.revenueThisMonth,
-      subtitle: formatDelta(s.revenueThisMonth, s.revenueLastMonth, true),
-      bgColor: 'bg-purple-50',
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      borderColor: 'border-purple-100',
-      icon: CurrencyDollarIcon,
-      isCurrency: true,
-    },
-    {
       title: 'Active Cleaning',
       value: s.activeCleaningProjects,
       subtitle: 'projects scheduled',
@@ -94,21 +73,10 @@ export const ClientMetricsGrid: React.FC<ClientMetricsGridProps> = ({ stats }) =
       borderColor: 'border-amber-100',
       icon: SparklesIcon,
     },
-    {
-      title: 'Total Revenue',
-      value: s.totalRevenue,
-      subtitle: `${s.totalNights.toLocaleString()} total nights`,
-      bgColor: 'bg-teal-50',
-      iconBg: 'bg-teal-100',
-      iconColor: 'text-teal-600',
-      borderColor: 'border-teal-100',
-      icon: MoonIcon,
-      isCurrency: true,
-    },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {metrics.map((metric, i) => (
         <ClientMetricCard key={metric.title} {...metric} index={i} />
       ))}

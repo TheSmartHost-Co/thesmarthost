@@ -313,3 +313,59 @@ export interface SingleReportResponse {
     }
   }
 }
+
+// ============ Send Report Types ============
+
+/**
+ * A potential recipient for sending a report (property owner)
+ */
+export interface ReportRecipient {
+  clientId: string
+  name: string
+  email: string
+  isPrimary: boolean
+  properties: string[]
+}
+
+/**
+ * Response from GET /reports/:id/recipients
+ */
+export interface ReportRecipientsResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    recipients: ReportRecipient[]
+  }
+}
+
+/**
+ * Payload for POST /reports/:id/send
+ */
+export interface SendReportPayload {
+  recipients: Array<{
+    clientId: string | null
+    email: string
+    name: string
+  }>
+  formats: string[]
+  deliveryMethod: 'portal' | 'email' | 'both'
+  message?: string
+}
+
+/**
+ * Response from POST /reports/:id/send
+ */
+export interface SendReportResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    sentReportId: string
+    recipientCount: number
+    emailResults: Array<{
+      email: string
+      status: string
+      emailId?: string
+    }>
+    portalNotified: number
+  }
+}

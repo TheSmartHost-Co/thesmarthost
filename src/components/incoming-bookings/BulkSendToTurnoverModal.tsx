@@ -161,7 +161,7 @@ const BulkSendToTurnoverModal: React.FC<BulkSendToTurnoverModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-4xl max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-5xl max-h-[92vh] min-h-[70vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gradient-to-r from-teal-50 to-cyan-50">
@@ -360,6 +360,8 @@ const BulkSendToTurnoverModal: React.FC<BulkSendToTurnoverModalProps> = ({
                         </motion.tr>
                       )
                     })}
+                    {/* Spacer row so property dropdown isn't clipped */}
+                    <tr><td colSpan={6} className="h-52" /></tr>
                   </tbody>
                 </table>
               )}
