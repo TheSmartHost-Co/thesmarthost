@@ -30,6 +30,7 @@ export const ADMIN_USER_IDS: string[] = [
   'fbb14321-b067-4a0d-af82-d43a8a6d9b5a',
   'c3639f35-7dd7-4373-874b-d929c260454e',
   '440f746a-392b-4334-95e0-64505aac29f7',
+  '70c69238-88e2-47ad-80f0-053bc3169a3c',
 ]
 
 export interface SidebarItem {
