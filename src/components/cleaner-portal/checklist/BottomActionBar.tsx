@@ -8,6 +8,7 @@ import {
   FlagIcon,
   ClipboardDocumentListIcon,
   CameraIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProjectStatus, ChecklistProgress } from '@/services/types/cleaningProject'
 
@@ -20,6 +21,8 @@ interface BottomActionBarProps {
   onAccept?: (projectId: string) => Promise<void>
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
+  onUnbegin?: (projectId: string) => Promise<void>
+  startBlockReason?: string | null
   onComplete: () => void
   onClose: () => void
   onReportIssue: () => void
@@ -41,6 +44,8 @@ export default function BottomActionBar({
   onAccept,
   onDecline,
   onStart,
+  onUnbegin,
+  startBlockReason,
   onComplete,
   onClose,
   onReportIssue,
@@ -97,16 +102,21 @@ export default function BottomActionBar({
         </div>
       )}
 
-      {/* Confirmed: Start Cleaning */}
+      {/* Confirmed: Start Cleaning (disabled if date not today) */}
       {status === 'confirmed' && onStart && (
-        <button
-          onClick={() => handleAction('start', onStart)}
-          disabled={actionLoading !== null}
-          className="w-full flex items-center justify-center gap-2 h-12 sm:h-10 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          {actionLoading === 'start' ? <Spinner /> : <PlayCircleIcon className="w-5 h-5" />}
-          Start Cleaning
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={() => handleAction('start', onStart)}
+            disabled={actionLoading !== null || !!startBlockReason}
+            className="w-full flex items-center justify-center gap-2 h-12 sm:h-10 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {actionLoading === 'start' ? <Spinner /> : <PlayCircleIcon className="w-5 h-5" />}
+            Start Cleaning
+          </button>
+          {startBlockReason && (
+            <p className="text-xs text-center text-amber-700">{startBlockReason}</p>
+          )}
+        </div>
       )}
 
       {/* In Progress: Issues icon + Complete + Supply icon */}
@@ -153,7 +163,7 @@ export default function BottomActionBar({
             </p>
           )}
 
-          {/* Scan + Supply list buttons */}
+          {/* Scan + Supply list + Unbegin buttons */}
           <div className="flex items-center gap-1.5">
             {onScanReceipt && (
               <button
@@ -178,6 +188,17 @@ export default function BottomActionBar({
                 </span>
               )}
             </button>
+            {onUnbegin && (
+              <button
+                onClick={() => handleAction('unbegin', onUnbegin)}
+                disabled={actionLoading !== null}
+                className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                title="Unbegin — revert to confirmed"
+              >
+                {actionLoading === 'unbegin' ? <Spinner className="border-gray-400/30 border-t-gray-400" /> : <ArrowPathIcon className="w-5 h-5" />}
+                <span className="text-[9px] sm:hidden">Unbegin</span>
+              </button>
+            )}
           </div>
         </div>
       )}

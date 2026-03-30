@@ -14,6 +14,7 @@ import {
   ClockIcon,
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
+import { TAX_RATES, calcTax } from '@/constants/taxRates'
 
 interface CreateInvoiceModalProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ interface ProjectOverride {
   durationMinutes: number
   amount: number
   amountManuallySet: boolean // true if cleaner typed a custom amount directly
+  isTaxable: boolean
 }
 
 /** Get duration in minutes from a project (priority: cleaner override > property default > actual times > estimate) */
@@ -114,6 +116,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [overrides, setOverrides] = useState<Map<string, ProjectOverride>>(new Map())
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Tax toggles — initialized from cleaner defaults
+  const [taxHstEnabled, setTaxHstEnabled] = useState(cleaner.taxHstEnabled || false)
+  const [taxGstEnabled, setTaxGstEnabled] = useState(cleaner.taxGstEnabled || false)
+  const [taxQstEnabled, setTaxQstEnabled] = useState(cleaner.taxQstEnabled || false)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -137,12 +143,14 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           setSelectedIds(new Set(res.data.map((p) => p.id)))
           // Initialize overrides with calculated defaults
           const newOverrides = new Map<string, ProjectOverride>()
+          const anyTaxEnabled = taxHstEnabled || taxGstEnabled || taxQstEnabled
           res.data.forEach((p) => {
             const dur = getDurationMinutes(p)
             newOverrides.set(p.id, {
               durationMinutes: dur,
               amount: calcAmount(p.propertyRateType, p.propertyRateAmount, dur, cleaner.hourlyRate),
               amountManuallySet: false,
+              isTaxable: anyTaxEnabled, // Default taxable when invoice has taxes
             })
           })
           setOverrides(newOverrides)
@@ -157,6 +165,18 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     fetchProjects()
   }, [isOpen, cleaner.id, periodStart, periodEnd])
 
+  // When tax toggles change, update all items' default taxable status
+  useEffect(() => {
+    const anyTaxEnabled = taxHstEnabled || taxGstEnabled || taxQstEnabled
+    setOverrides((prev) => {
+      const next = new Map(prev)
+      next.forEach((ov, id) => {
+        next.set(id, { ...ov, isTaxable: anyTaxEnabled })
+      })
+      return next
+    })
+  }, [taxHstEnabled, taxGstEnabled, taxQstEnabled])
+
   // Reset when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -166,11 +186,14 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       setPeriodEnd(formatDateInput(now))
       setSelectedIds(new Set())
       setOverrides(new Map())
+      setTaxHstEnabled(cleaner.taxHstEnabled || false)
+      setTaxGstEnabled(cleaner.taxGstEnabled || false)
+      setTaxQstEnabled(cleaner.taxQstEnabled || false)
     }
   }, [isOpen])
 
   // Selected totals
-  const selectedTotal = useMemo(() => {
+  const selectedSubtotal = useMemo(() => {
     let total = 0
     selectedIds.forEach((id) => {
       const ov = overrides.get(id)
@@ -178,6 +201,27 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     })
     return total
   }, [selectedIds, overrides])
+
+  // Taxable subtotal — only items marked as taxable
+  const taxableSubtotal = useMemo(() => {
+    let total = 0
+    selectedIds.forEach((id) => {
+      const ov = overrides.get(id)
+      if (ov && ov.isTaxable) total += ov.amount
+    })
+    return total
+  }, [selectedIds, overrides])
+
+  // Tax preview calculations (actual amounts computed server-side)
+  const taxPreview = useMemo(() => {
+    const hst = taxHstEnabled ? calcTax(taxableSubtotal, 'hst') : 0
+    const gst = taxGstEnabled ? calcTax(taxableSubtotal, 'gst') : 0
+    const qst = taxQstEnabled ? calcTax(taxableSubtotal, 'qst') : 0
+    return { hst, gst, qst, total: hst + gst + qst }
+  }, [taxableSubtotal, taxHstEnabled, taxGstEnabled, taxQstEnabled])
+
+  const selectedTotal = selectedSubtotal + taxPreview.total
+  const hasTax = taxHstEnabled || taxGstEnabled || taxQstEnabled
 
   const selectedCount = selectedIds.size
 
@@ -252,21 +296,21 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
     setIsSubmitting(true)
     try {
-      // Build overrides for projects where the cleaner edited duration or amount
-      const itemOverrides: Record<string, { durationMinutes?: number; amount?: number }> = {}
+      // Build overrides for projects where the cleaner edited duration, amount, or taxable
+      const itemOverrides: Record<string, { durationMinutes?: number; amount?: number; isTaxable?: boolean }> = {}
       selectedIds.forEach((id) => {
         const project = availableProjects.find((p) => p.id === id)
         const override = overrides.get(id)
         if (!project || !override) return
 
         const defaultDuration = getDurationMinutes(project)
-        const defaultAmount = calcAmount(project.propertyRateType, project.propertyRateAmount, defaultDuration, cleaner.hourlyRate)
 
-        const hasChanges = override.durationMinutes !== defaultDuration || override.amountManuallySet
+        const hasChanges = override.durationMinutes !== defaultDuration || override.amountManuallySet || override.isTaxable
         if (hasChanges) {
-          const entry: { durationMinutes?: number; amount?: number } = {}
+          const entry: { durationMinutes?: number; amount?: number; isTaxable?: boolean } = {}
           if (override.durationMinutes !== defaultDuration) entry.durationMinutes = override.durationMinutes
           if (override.amountManuallySet) entry.amount = override.amount
+          if (override.isTaxable) entry.isTaxable = true
           itemOverrides[id] = entry
         }
       })
@@ -277,6 +321,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         periodEnd,
         projectIds: Array.from(selectedIds),
         ...(Object.keys(itemOverrides).length > 0 ? { itemOverrides } : {}),
+        taxHstEnabled,
+        taxGstEnabled,
+        taxQstEnabled,
       })
 
       if (res.status === 'success') {
@@ -496,6 +543,26 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       {/* Amount (always editable) */}
                       <div className="w-28">
                         <div className="flex items-center gap-1 justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOverrides((prev) => {
+                                const next = new Map(prev)
+                                const cur = next.get(project.id)
+                                if (cur) next.set(project.id, { ...cur, isTaxable: !cur.isTaxable })
+                                return next
+                              })
+                            }}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${
+                              override?.isTaxable
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'bg-gray-100 text-gray-400 line-through hover:bg-gray-200'
+                            }`}
+                            title={override?.isTaxable ? 'Taxable — click to remove' : 'Not taxable — click to add'}
+                          >
+                            TAX
+                          </button>
                           <span className="text-xs text-gray-400">$</span>
                           <input
                             type="number"
@@ -608,6 +675,36 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
       {/* Footer with Summary */}
       <div className="border-t border-gray-200 px-5 sm:px-6 py-4">
+        {/* Tax Toggles */}
+        {selectedCount > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tax:</span>
+            {([
+              { key: 'hst' as const, enabled: taxHstEnabled, setter: setTaxHstEnabled },
+              { key: 'gst' as const, enabled: taxGstEnabled, setter: setTaxGstEnabled },
+              { key: 'qst' as const, enabled: taxQstEnabled, setter: setTaxQstEnabled },
+            ]).map(({ key, enabled, setter }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setter(!enabled)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                  enabled
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                  enabled ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300'
+                }`}>
+                  {enabled && <CheckIcon className="h-2.5 w-2.5 text-white" />}
+                </div>
+                {TAX_RATES[key].label} ({TAX_RATES[key].pct})
+              </button>
+            ))}
+          </div>
+        )}
+
         {selectedCount > 0 && (
           <div className="flex items-center justify-between mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
             <div>
@@ -619,8 +716,20 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               </p>
             </div>
             <div className="text-right flex-shrink-0 ml-4">
-              <p className="text-xs text-emerald-600">Total</p>
-              <p className="text-xl font-bold text-emerald-800">${selectedTotal.toFixed(2)}</p>
+              {hasTax ? (
+                <>
+                  <p className="text-xs text-emerald-600">Subtotal: ${selectedSubtotal.toFixed(2)}</p>
+                  {taxHstEnabled && <p className="text-[10px] text-emerald-500">HST: ${taxPreview.hst.toFixed(2)}</p>}
+                  {taxGstEnabled && <p className="text-[10px] text-emerald-500">GST: ${taxPreview.gst.toFixed(2)}</p>}
+                  {taxQstEnabled && <p className="text-[10px] text-emerald-500">QST: ${taxPreview.qst.toFixed(2)}</p>}
+                  <p className="text-lg font-bold text-emerald-800 mt-0.5">${selectedTotal.toFixed(2)}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-emerald-600">Total</p>
+                  <p className="text-xl font-bold text-emerald-800">${selectedTotal.toFixed(2)}</p>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -11,12 +11,15 @@ import {
   ExclamationCircleIcon,
   EnvelopeIcon,
   DevicePhoneMobileIcon,
+  DocumentTextIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
 import { getCleanerByAuthUserId, updateCleaner } from '@/services/cleanerService'
 import type { Cleaner } from '@/services/types/cleaner'
+import { TAX_RATES } from '@/constants/taxRates'
 
 export default function CleanerSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -33,6 +36,15 @@ export default function CleanerSettingsPage() {
     email: '',
     phone: '',
   })
+
+  // Invoice settings state
+  const [showInvoiceEdit, setShowInvoiceEdit] = useState(false)
+  const [invoicePrefix, setInvoicePrefix] = useState('')
+  const [businessName, setBusinessName] = useState('')
+  const [taxHstEnabled, setTaxHstEnabled] = useState(false)
+  const [taxGstEnabled, setTaxGstEnabled] = useState(false)
+  const [taxQstEnabled, setTaxQstEnabled] = useState(false)
+  const [savingInvoice, setSavingInvoice] = useState(false)
 
   // Notification preferences state
   const [savingField, setSavingField] = useState<string | null>(null)
@@ -97,6 +109,12 @@ export default function CleanerSettingsPage() {
             email: cleanerRes.data.email || profile.email || '',
             phone: cleanerRes.data.phone || '',
           })
+          // Initialize invoice settings
+          setInvoicePrefix(cleanerRes.data.invoicePrefix || '')
+          setBusinessName(profile.companyName || '')
+          setTaxHstEnabled(cleanerRes.data.taxHstEnabled || false)
+          setTaxGstEnabled(cleanerRes.data.taxGstEnabled || false)
+          setTaxQstEnabled(cleanerRes.data.taxQstEnabled || false)
         } else {
           // Fallback to profile data if no cleaner record
           setProfileData({
@@ -168,6 +186,55 @@ export default function CleanerSettingsPage() {
       showNotification('Failed to update profile', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleInvoiceSettingsSave = async () => {
+    if (!profile?.id || !cleaner?.id) return
+
+    try {
+      setSavingInvoice(true)
+
+      // Update business name on profile (company_name)
+      const profileResponse = await updateUserProfile(profile.id, {
+        fullName: profile.fullName,
+        role: 'CLEANER',
+        companyName: businessName.trim() || null,
+        smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
+        emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
+      })
+
+      if (profileResponse.status !== 'success') {
+        showNotification(profileResponse.message || 'Failed to update business name', 'error')
+        return
+      }
+
+      // Update invoice prefix and tax defaults on cleaner record
+      const cleanerResponse = await updateCleaner(cleaner.id, {
+        name: cleaner.name,
+        invoicePrefix: invoicePrefix.trim() || null,
+        taxHstEnabled,
+        taxGstEnabled,
+        taxQstEnabled,
+      })
+
+      if (cleanerResponse.status === 'success' && cleanerResponse.data) {
+        setCleaner(cleanerResponse.data)
+      }
+
+      // Update profile store
+      setProfile({
+        ...profile,
+        companyName: businessName.trim() || null,
+      })
+
+      showNotification('Invoice settings saved', 'success')
+      setShowInvoiceEdit(false)
+    } catch (err) {
+      console.error('Error saving invoice settings:', err)
+      showNotification('Failed to save invoice settings', 'error')
+    } finally {
+      setSavingInvoice(false)
     }
   }
 
@@ -462,6 +529,190 @@ export default function CleanerSettingsPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Invoice Settings Section */}
+        {cleaner && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          >
+            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25 flex-shrink-0">
+                    <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Invoice Settings</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Business name, invoice prefix, and tax defaults</p>
+                  </div>
+                </div>
+                <motion.button
+                  onClick={() => {
+                    if (showInvoiceEdit) {
+                      // Reset to saved values
+                      setInvoicePrefix(cleaner.invoicePrefix || '')
+                      setBusinessName(profile?.companyName || '')
+                      setTaxHstEnabled(cleaner.taxHstEnabled || false)
+                      setTaxGstEnabled(cleaner.taxGstEnabled || false)
+                      setTaxQstEnabled(cleaner.taxQstEnabled || false)
+                    }
+                    setShowInvoiceEdit(!showInvoiceEdit)
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex items-center min-h-[44px] px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  <PencilIcon className="h-4 w-4 mr-2" />
+                  {showInvoiceEdit ? 'Cancel' : 'Edit'}
+                </motion.button>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {!showInvoiceEdit ? (
+                // View Mode
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                      Business Name
+                    </label>
+                    <p className="text-gray-900 font-medium">
+                      {profile?.companyName || 'Not set'}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                      Invoice Prefix
+                    </label>
+                    <p className="text-gray-900 font-medium">
+                      {cleaner.invoicePrefix || 'Auto (from your initials)'}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      Default Taxes
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {([
+                        { key: 'hst' as const, enabled: cleaner.taxHstEnabled },
+                        { key: 'gst' as const, enabled: cleaner.taxGstEnabled },
+                        { key: 'qst' as const, enabled: cleaner.taxQstEnabled },
+                      ]).map(({ key, enabled }) => (
+                        <span
+                          key={key}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                            enabled
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          {enabled && <CheckIcon className="h-3 w-3" />}
+                          {TAX_RATES[key].label} ({TAX_RATES[key].pct})
+                          {!enabled && ' — off'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Edit Mode
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2">
+                        Business Name
+                      </label>
+                      <input
+                        type="text"
+                        id="businessName"
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:bg-white transition-all"
+                        placeholder="e.g. Sparkle Clean Co."
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Shown as &quot;Bill From&quot; on your invoices</p>
+                    </div>
+                    <div>
+                      <label htmlFor="invoicePrefix" className="block text-sm font-medium text-gray-700 mb-2">
+                        Invoice Prefix
+                      </label>
+                      <input
+                        type="text"
+                        id="invoicePrefix"
+                        value={invoicePrefix}
+                        onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:bg-white transition-all"
+                        placeholder="e.g. JS, SPARKLE"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Invoices will be numbered: {invoicePrefix || '(initials)'}-{new Date().getFullYear()}-0001
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Default Taxes
+                    </label>
+                    <p className="text-xs text-gray-400 mb-3">
+                      These will be pre-selected when you generate new invoices
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      {([
+                        { key: 'hst' as const, enabled: taxHstEnabled, setter: setTaxHstEnabled },
+                        { key: 'gst' as const, enabled: taxGstEnabled, setter: setTaxGstEnabled },
+                        { key: 'qst' as const, enabled: taxQstEnabled, setter: setTaxQstEnabled },
+                      ]).map(({ key, enabled, setter }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setter(!enabled)}
+                          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border cursor-pointer ${
+                            enabled
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                              : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            enabled ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300'
+                          }`}>
+                            {enabled && <CheckIcon className="h-3 w-3 text-white" />}
+                          </div>
+                          {TAX_RATES[key].label} ({TAX_RATES[key].pct})
+                          <span className="text-xs text-gray-400">{TAX_RATES[key].description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                    <motion.button
+                      onClick={() => setShowInvoiceEdit(false)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors cursor-pointer"
+                      disabled={savingInvoice}
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      onClick={handleInvoiceSettingsSave}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-5 py-2.5 text-white bg-emerald-600 rounded-xl font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      disabled={savingInvoice}
+                    >
+                      {savingInvoice ? 'Saving...' : 'Save Invoice Settings'}
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* Work Info Section (read-only) */}
         {cleaner && (

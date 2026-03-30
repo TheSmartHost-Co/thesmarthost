@@ -9,6 +9,10 @@ export interface Cleaner {
   hourlyRate?: number
   defaultTurnaroundMinutes: number
   status: 'invited' | 'active' | 'inactive'
+  invoicePrefix?: string | null
+  taxHstEnabled?: boolean
+  taxGstEnabled?: boolean
+  taxQstEnabled?: boolean
   createdAt: string
   updatedAt?: string
   // Joined data
@@ -56,6 +60,10 @@ export interface UpdateCleanerPayload {
   hourlyRate?: number | null
   defaultTurnaroundMinutes?: number
   status?: 'active' | 'inactive'
+  invoicePrefix?: string | null
+  taxHstEnabled?: boolean
+  taxGstEnabled?: boolean
+  taxQstEnabled?: boolean
 }
 
 // Assign properties payload

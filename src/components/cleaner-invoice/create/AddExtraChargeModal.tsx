@@ -15,6 +15,7 @@ import {
   PaperClipIcon,
   ArrowUpTrayIcon,
   ClipboardDocumentListIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 
 interface AddExtraChargeModalProps {
@@ -22,6 +23,7 @@ interface AddExtraChargeModalProps {
   onClose: () => void
   invoiceId: string
   onAdded: () => void
+  defaultTaxable?: boolean
 }
 
 type ReceiptTab = 'upload' | 'select'
@@ -31,6 +33,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   onClose,
   invoiceId,
   onAdded,
+  defaultTaxable = false,
 }) => {
   const showNotification = useNotificationStore((s) => s.showNotification)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -39,6 +42,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
+  const [isTaxable, setIsTaxable] = useState(false)
 
   // Receipt state
   const [receiptTab, setReceiptTab] = useState<ReceiptTab>('upload')
@@ -61,6 +65,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
       setDescription('')
       setAmount('')
       setNotes('')
+      setIsTaxable(defaultTaxable)
       setFile(null)
       if (filePreview) URL.revokeObjectURL(filePreview)
       setFilePreview(null)
@@ -177,6 +182,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
         amount: parseFloat(amount),
         notes: notes.trim() || undefined,
         receiptId,
+        isTaxable,
       })
 
       if (res.status === 'success') {
@@ -253,6 +259,26 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
             />
           </div>
         </div>
+      </div>
+
+      {/* Taxable Toggle */}
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => setIsTaxable(!isTaxable)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+            isTaxable
+              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+          }`}
+        >
+          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+            isTaxable ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+          }`}>
+            {isTaxable && <CheckIcon className="h-2.5 w-2.5 text-white" />}
+          </div>
+          Taxable
+        </button>
       </div>
 
       {/* Receipt Section */}

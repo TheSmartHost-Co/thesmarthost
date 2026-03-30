@@ -16,6 +16,7 @@ import {
   getWalkthroughStatus,
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
+  getStartBlockReason,
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
@@ -41,6 +42,7 @@ interface ChecklistModalProps {
   onAccept?: (projectId: string) => Promise<void>
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
+  onUnbegin?: (projectId: string) => Promise<void>
   initialTab?: ChecklistTab
 }
 
@@ -54,6 +56,7 @@ export default function ChecklistModal({
   onAccept,
   onDecline,
   onStart,
+  onUnbegin,
   initialTab,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -448,6 +451,8 @@ export default function ChecklistModal({
         onAccept={onAccept}
         onDecline={onDecline}
         onStart={onStart}
+        onUnbegin={onUnbegin}
+        startBlockReason={getStartBlockReason(project)}
         onComplete={handleComplete}
         onClose={onClose}
         onReportIssue={() => setShowReportIssueModal(true)}

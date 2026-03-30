@@ -188,6 +188,16 @@ export function startProject(projectId: string): Promise<CleaningProjectResponse
 }
 
 /**
+ * Revert a project from in_progress back to confirmed
+ * Clears actual_start timestamp
+ */
+export function unstartProject(projectId: string): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse>(`/cleaning-projects/${projectId}/unstart`, {
+    method: 'POST',
+  })
+}
+
+/**
  * Cleaner completes the project
  * Transitions: in_progress → completed
  * Sets actual_end timestamp
@@ -255,16 +265,46 @@ export function getStatusDisplay(status: CleaningProject['status']): { label: st
 }
 
 /**
- * Check if a project can be started (status must be 'confirmed')
+ * Returns null if the project can be started, or a string reason why it cannot.
+ * Checks status is 'confirmed' AND project date is today (client local date).
+ */
+export function getStartBlockReason(project: CleaningProject): string | null {
+  if (project.status !== 'confirmed') return 'Project is not in confirmed status'
+
+  const todayStr = new Date().toLocaleDateString('sv') // YYYY-MM-DD in local time
+  const projectDateStr = project.projectDate.split('T')[0]
+
+  if (projectDateStr > todayStr) {
+    const [y, m, d] = projectDateStr.split('-').map(Number)
+    const formatted = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric',
+    })
+    return `Scheduled for ${formatted} — not available yet`
+  }
+  if (projectDateStr < todayStr) {
+    return 'Date has passed — submit a time change request first'
+  }
+  return null
+}
+
+/**
+ * Check if a project can be started (status must be 'confirmed' and date must be today)
  */
 export function canStartProject(project: CleaningProject): boolean {
-  return project.status === 'confirmed'
+  return getStartBlockReason(project) === null
 }
 
 /**
  * Check if a project can be completed (status must be 'in_progress')
  */
 export function canCompleteProject(project: CleaningProject): boolean {
+  return project.status === 'in_progress'
+}
+
+/**
+ * Check if a project can be un-started (reverted from in_progress to confirmed)
+ */
+export function canUnbeginProject(project: CleaningProject): boolean {
   return project.status === 'in_progress'
 }
 

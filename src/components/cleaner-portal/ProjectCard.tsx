@@ -16,7 +16,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
-import { formatTime, isProjectOverdue, getOverdueMinutes, formatOverdueDuration } from '@/services/cleaningProjectService'
+import { formatTime, isProjectOverdue, getOverdueMinutes, formatOverdueDuration, getStartBlockReason } from '@/services/cleaningProjectService'
 
 interface ProjectCardProps {
   project: CleaningProject
@@ -25,6 +25,7 @@ interface ProjectCardProps {
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
   onComplete?: (projectId: string) => Promise<void>
+  onUnbegin?: (projectId: string) => Promise<void>
   onViewChecklist?: (project: CleaningProject) => void
   onViewIssues?: (project: CleaningProject) => void
   onRequestTimeChange?: (project: CleaningProject) => void
@@ -41,6 +42,7 @@ export default function ProjectCard({
   onDecline,
   onStart,
   onComplete,
+  onUnbegin,
   onViewChecklist,
   onViewIssues,
   onRequestTimeChange,
@@ -90,10 +92,14 @@ export default function ProjectCard({
     }
   }
 
+  // Date-gated start check
+  const startBlockReason = getStartBlockReason(project)
+
   // Determine which buttons to show based on status
   const showAcceptDecline = !isImplicit && project.status === 'assigned'
   const showStart = !isImplicit && project.status === 'confirmed'
   const showComplete = !isImplicit && project.status === 'in_progress'
+  const showUnbegin = !isImplicit && project.status === 'in_progress'
   const showChecklist = !isImplicit && (project.status === 'confirmed' || project.status === 'in_progress' || project.status === 'completed')
 
   // Implicit label
@@ -235,7 +241,7 @@ export default function ProjectCard({
       </div>
 
       {/* Action Buttons */}
-      {(showAcceptDecline || showStart || showComplete || showChecklist) && (
+      {(showAcceptDecline || showStart || showComplete || showUnbegin || showChecklist) && (
         <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:flex-wrap gap-2">
           {/* Accept/Decline for assigned projects */}
           {showAcceptDecline && (
@@ -267,20 +273,25 @@ export default function ProjectCard({
             </>
           )}
 
-          {/* Start button for confirmed projects */}
+          {/* Start button for confirmed projects (disabled if date not today) */}
           {showStart && (
-            <button
-              onClick={(e) => handleAction(e, 'start', onStart)}
-              disabled={isLoading !== null}
-              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {isLoading === 'start' ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <PlayCircleIcon className="w-5 h-5" />
+            <div className="flex-1 flex flex-col gap-1">
+              <button
+                onClick={(e) => handleAction(e, 'start', onStart)}
+                disabled={isLoading !== null || startBlockReason !== null}
+                className="min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isLoading === 'start' ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <PlayCircleIcon className="w-5 h-5" />
+                )}
+                Start Cleaning
+              </button>
+              {startBlockReason && (
+                <p className="text-xs text-center text-amber-700">{startBlockReason}</p>
               )}
-              Start Cleaning
-            </button>
+            </div>
           )}
 
           {/* View Checklist button */}
@@ -330,6 +341,22 @@ export default function ProjectCard({
                 <CheckCircleIcon className="w-5 h-5" />
               )}
               Mark Complete
+            </button>
+          )}
+
+          {/* Unbegin button for in_progress projects */}
+          {showUnbegin && (
+            <button
+              onClick={(e) => handleAction(e, 'unbegin', onUnbegin)}
+              disabled={isLoading !== null}
+              className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {isLoading === 'unbegin' ? (
+                <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+              ) : (
+                <ArrowPathIcon className="w-5 h-5" />
+              )}
+              Unbegin
             </button>
           )}
         </div>

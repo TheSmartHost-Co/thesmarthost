@@ -16,6 +16,7 @@ import {
   acceptProject,
   declineProject,
   startProject,
+  unstartProject,
   completeProject,
   getWalkthroughStatus,
 } from '@/services/cleaningProjectService'
@@ -298,6 +299,27 @@ export default function CleanerTasksPage() {
     }
   }
 
+  const handleUnbegin = async (projectId: string) => {
+    try {
+      const res = await unstartProject(projectId)
+      if (res.status === 'success') {
+        setProjects(prev => prev.map(p =>
+          p.id === projectId ? res.data : p
+        ))
+        showNotification('Project reverted to confirmed.', 'info')
+        // Update the selected project in modal if open
+        if (selectedProject?.id === projectId) {
+          setSelectedProject(res.data)
+        }
+      } else {
+        showNotification(res.message || 'Failed to unbegin task', 'error')
+      }
+    } catch (err) {
+      console.error('Error unbeginning task:', err)
+      showNotification('Error unbeginning task', 'error')
+    }
+  }
+
   const handleComplete = async (projectId: string) => {
     try {
       // Pre-check walkthrough requirement
@@ -511,6 +533,7 @@ export default function CleanerTasksPage() {
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
+            onUnbegin={handleUnbegin}
             onViewChecklist={handleViewChecklist}
             onViewIssues={handleViewIssues}
             onRequestTimeChange={handleRequestTimeChange}
@@ -532,6 +555,7 @@ export default function CleanerTasksPage() {
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
+            onUnbegin={handleUnbegin}
             onViewChecklist={handleViewChecklist}
             onViewIssues={handleViewIssues}
             onRequestTimeChange={handleRequestTimeChange}
@@ -553,6 +577,7 @@ export default function CleanerTasksPage() {
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
+            onUnbegin={handleUnbegin}
             onViewChecklist={handleViewChecklist}
             onViewIssues={handleViewIssues}
             onRequestTimeChange={handleRequestTimeChange}
@@ -574,6 +599,7 @@ export default function CleanerTasksPage() {
             onDecline={handleDecline}
             onStart={handleStart}
             onComplete={handleComplete}
+            onUnbegin={handleUnbegin}
             onViewChecklist={handleViewChecklist}
             onViewIssues={handleViewIssues}
             onRequestTimeChange={handleRequestTimeChange}
@@ -610,6 +636,7 @@ export default function CleanerTasksPage() {
             setSelectedProject(null)
           }}
           onStart={handleStart}
+          onUnbegin={handleUnbegin}
         />
       )}
 
@@ -704,6 +731,7 @@ interface TaskGroupProps {
   onDecline: (id: string) => Promise<void>
   onStart: (id: string) => Promise<void>
   onComplete: (id: string) => Promise<void>
+  onUnbegin: (id: string) => Promise<void>
   onViewChecklist: (project: CleaningProject) => void
   onViewIssues: (project: CleaningProject) => void
   onRequestTimeChange: (project: CleaningProject) => void
@@ -722,6 +750,7 @@ function TaskGroup({
   onDecline,
   onStart,
   onComplete,
+  onUnbegin,
   onViewChecklist,
   onViewIssues,
   onRequestTimeChange,
@@ -750,6 +779,7 @@ function TaskGroup({
               onDecline={implicit ? undefined : onDecline}
               onStart={implicit ? undefined : onStart}
               onComplete={implicit ? undefined : onComplete}
+              onUnbegin={implicit ? undefined : onUnbegin}
               onViewChecklist={implicit ? undefined : onViewChecklist}
               onViewIssues={implicit ? undefined : onViewIssues}
               onRequestTimeChange={implicit ? undefined : onRequestTimeChange}

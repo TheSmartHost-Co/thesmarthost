@@ -26,6 +26,7 @@ import {
   ChevronDownIcon,
   ArrowRightIcon,
   XCircleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -34,6 +35,7 @@ import {
   assignCleanerToProject,
   updateCleaningProject,
   cancelCleaningProject,
+  unstartProject,
   getStatusDisplay,
   formatDuration,
   isProjectOverdue,
@@ -103,6 +105,8 @@ export default function ProjectDetailModal({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancellingProject, setCancellingProject] = useState(false)
+  const [showUnbeginConfirm, setShowUnbeginConfirm] = useState(false)
+  const [unbeginning, setUnbeginning] = useState(false)
   const [showRelatedBookings, setShowRelatedBookings] = useState(true)
 
   // Booking preview state
@@ -433,6 +437,25 @@ export default function ProjectDetailModal({
       showNotification(err instanceof Error ? err.message : 'Failed to cancel project', 'error')
     } finally {
       setCancellingProject(false)
+    }
+  }
+
+  const handleUnbeginProject = async () => {
+    try {
+      setUnbeginning(true)
+      const res = await unstartProject(project.id)
+      if (res.status === 'success') {
+        showNotification('Project reverted to confirmed', 'success')
+        setShowUnbeginConfirm(false)
+        onUpdate(res.data)
+      } else {
+        showNotification(res.message || 'Failed to unbegin project', 'error')
+      }
+    } catch (err) {
+      console.error('Error unbeginning project:', err)
+      showNotification('Failed to unbegin project', 'error')
+    } finally {
+      setUnbeginning(false)
     }
   }
 
@@ -1274,6 +1297,15 @@ export default function ProjectDetailModal({
               Cancel Project
             </button>
           )}
+          {hasWrite && project.status === 'in_progress' && (
+            <button
+              onClick={() => setShowUnbeginConfirm(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+            >
+              <ArrowPathIcon className="w-3.5 h-3.5" />
+              Unbegin
+            </button>
+          )}
           <div className="flex-1 min-w-0" />
           <button
             onClick={onClose}
@@ -1343,6 +1375,34 @@ export default function ProjectDetailModal({
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
             >
               {cancellingProject ? 'Cancelling...' : 'Cancel Project'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unbegin Project Confirmation */}
+      <Modal isOpen={showUnbeginConfirm} onClose={() => setShowUnbeginConfirm(false)} style="p-6 max-w-md w-full">
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
+            <ArrowPathIcon className="h-6 w-6 text-indigo-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unbegin Project</h3>
+          <p className="text-sm text-gray-600 mb-6">
+            This will revert <strong>{project.propertyName}</strong> back to confirmed status and clear the start time. Checklist progress will be preserved.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => setShowUnbeginConfirm(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Keep In Progress
+            </button>
+            <button
+              onClick={handleUnbeginProject}
+              disabled={unbeginning}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              {unbeginning ? 'Reverting...' : 'Unbegin Project'}
             </button>
           </div>
         </div>

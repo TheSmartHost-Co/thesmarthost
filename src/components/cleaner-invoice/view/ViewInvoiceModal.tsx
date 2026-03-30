@@ -44,6 +44,7 @@ import {
   DocumentTextIcon,
   ArchiveBoxIcon,
 } from '@heroicons/react/24/outline'
+import { TAX_RATES } from '@/constants/taxRates'
 
 interface ViewInvoiceModalProps {
   isOpen: boolean
@@ -72,7 +73,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [invoice, setInvoice] = useState<CleanerInvoice | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '' })
+  const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '', isTaxable: false })
   const [showAddExtraModal, setShowAddExtraModal] = useState(false)
   const [cleanerNotes, setCleanerNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
@@ -86,6 +87,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   // PDF state
   const [currentFile, setCurrentFile] = useState<InvoiceFile | null>(null)
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  // Invoice number editing
+  const [editingInvoiceNumber, setEditingInvoiceNumber] = useState(false)
+  const [invoiceNumberDraft, setInvoiceNumberDraft] = useState('')
+  // Bill From editing
+  const [editingBillFrom, setEditingBillFrom] = useState(false)
+  const [billFromDraft, setBillFromDraft] = useState('')
+  // Tax toggle saving
+  const [savingTax, setSavingTax] = useState(false)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -142,6 +151,55 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       }
     } catch {}
     onUpdated()
+  }
+
+  // Save invoice number edit
+  const handleSaveInvoiceNumber = async () => {
+    if (!invoice || !invoiceNumberDraft.trim()) return
+    try {
+      const res = await updateInvoice(invoice.id, { invoiceNumber: invoiceNumberDraft.trim() })
+      if (res.status === 'success') {
+        showNotification('Invoice number updated', 'success')
+        setEditingInvoiceNumber(false)
+        await refreshInvoice()
+      } else {
+        showNotification(res.message || 'Failed to update', 'error')
+      }
+    } catch { showNotification('Error updating invoice number', 'error') }
+  }
+
+  // Save bill-from name edit
+  const handleSaveBillFrom = async () => {
+    if (!invoice) return
+    try {
+      const res = await updateInvoice(invoice.id, { billFromName: billFromDraft.trim() || null })
+      if (res.status === 'success') {
+        showNotification('Bill From updated', 'success')
+        setEditingBillFrom(false)
+        await refreshInvoice()
+      } else {
+        showNotification(res.message || 'Failed to update', 'error')
+      }
+    } catch { showNotification('Error updating Bill From', 'error') }
+  }
+
+  // Toggle a tax flag
+  const handleTaxToggle = async (taxType: 'hst' | 'gst' | 'qst') => {
+    if (!invoice) return
+    setSavingTax(true)
+    try {
+      const payload: Record<string, boolean> = {}
+      if (taxType === 'hst') payload.taxHstEnabled = !invoice.taxHstEnabled
+      if (taxType === 'gst') payload.taxGstEnabled = !invoice.taxGstEnabled
+      if (taxType === 'qst') payload.taxQstEnabled = !invoice.taxQstEnabled
+      const res = await updateInvoice(invoice.id, payload)
+      if (res.status === 'success') {
+        await refreshInvoice()
+      } else {
+        showNotification(res.message || 'Failed to update tax', 'error')
+      }
+    } catch { showNotification('Error updating tax', 'error') }
+    finally { setSavingTax(false) }
   }
 
   const handleStatusChange = async (newStatus: InvoiceStatus) => {
@@ -241,6 +299,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       durationMinutes: item.durationMinutes != null ? String(item.durationMinutes) : '',
       amount: String(item.amount),
       notes: item.notes || '',
+      isTaxable: item.isTaxable || false,
     })
   }
 
@@ -268,6 +327,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         payload.amount = parseFloat(editForm.amount)
       }
       if (editForm.notes !== (currentItem.notes || '')) payload.notes = editForm.notes || null
+      if (editForm.isTaxable !== (currentItem.isTaxable || false)) payload.isTaxable = editForm.isTaxable
 
       if (Object.keys(payload).length === 0) {
         setEditingItemId(null)
@@ -402,7 +462,40 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       <div className="flex items-start justify-between mb-5 pr-8">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold text-gray-900">{invoice.invoiceNumber}</h2>
+            {editingInvoiceNumber ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={invoiceNumberDraft}
+                  onChange={(e) => setInvoiceNumberDraft(e.target.value)}
+                  className="text-lg font-bold text-gray-900 border border-emerald-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-48"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveInvoiceNumber()
+                    if (e.key === 'Escape') setEditingInvoiceNumber(false)
+                  }}
+                />
+                <button onClick={handleSaveInvoiceNumber} className="p-1 rounded hover:bg-emerald-100">
+                  <CheckIcon className="h-4 w-4 text-emerald-600" />
+                </button>
+                <button onClick={() => setEditingInvoiceNumber(false)} className="p-1 rounded hover:bg-gray-100">
+                  <XMarkIcon className="h-4 w-4 text-gray-400" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 group">
+                <h2 className="text-xl font-bold text-gray-900">{invoice.invoiceNumber}</h2>
+                {isEditable && (
+                  <button
+                    onClick={() => { setInvoiceNumberDraft(invoice.invoiceNumber); setEditingInvoiceNumber(true) }}
+                    className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-all"
+                    title="Edit invoice number"
+                  >
+                    <PencilIcon className="h-3.5 w-3.5 text-gray-400" />
+                  </button>
+                )}
+              </div>
+            )}
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
               {status.label}
@@ -418,6 +511,47 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   <option key={s} value={s}>{INVOICE_STATUS_INFO[s].label}</option>
                 ))}
               </select>
+            )}
+          </div>
+          {/* Bill From */}
+          <div className="flex items-center gap-1.5 mt-1.5 group">
+            <span className="text-xs text-gray-400 uppercase tracking-wider">From:</span>
+            {editingBillFrom ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={billFromDraft}
+                  onChange={(e) => setBillFromDraft(e.target.value)}
+                  placeholder={invoice.cleanerBusinessName || invoice.cleanerName || 'Business name'}
+                  className="text-sm text-gray-700 border border-emerald-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-56"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveBillFrom()
+                    if (e.key === 'Escape') setEditingBillFrom(false)
+                  }}
+                />
+                <button onClick={handleSaveBillFrom} className="p-0.5 rounded hover:bg-emerald-100">
+                  <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
+                </button>
+                <button onClick={() => setEditingBillFrom(false)} className="p-0.5 rounded hover:bg-gray-100">
+                  <XMarkIcon className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="text-sm font-medium text-gray-700">
+                  {invoice.billFromName || invoice.cleanerBusinessName || invoice.cleanerName}
+                </span>
+                {isEditable && (
+                  <button
+                    onClick={() => { setBillFromDraft(invoice.billFromName || invoice.cleanerBusinessName || invoice.cleanerName || ''); setEditingBillFrom(true) }}
+                    className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-all"
+                    title="Edit Bill From name"
+                  >
+                    <PencilIcon className="h-3 w-3 text-gray-400" />
+                  </button>
+                )}
+              </>
             )}
           </div>
           <p className="text-sm text-gray-500 mt-1">
@@ -560,6 +694,29 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {(invoice.taxHstEnabled || invoice.taxGstEnabled || invoice.taxQstEnabled) && (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!isEditable) return
+                        try {
+                          const res = await updateInvoiceItem(invoice.id, item.id, { isTaxable: !item.isTaxable })
+                          if (res.status === 'success') await refreshInvoice()
+                          else showNotification(res.message || 'Failed', 'error')
+                        } catch { showNotification('Error toggling tax', 'error') }
+                      }}
+                      disabled={!isEditable}
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${
+                        item.isTaxable
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-gray-100 text-gray-400 line-through'
+                      } ${isEditable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                      title={isEditable ? (item.isTaxable ? 'Click to remove tax' : 'Click to add tax') : (item.isTaxable ? 'Taxable' : 'Non-taxable')}
+                    >
+                      TAX
+                    </button>
+                  )}
                   <span className="text-sm font-semibold text-gray-900">${item.amount.toFixed(2)}</span>
                   {isEditable && (
                     <div className="flex items-center gap-0.5">
@@ -655,13 +812,31 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     placeholder="Notes (optional)"
                     className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
-                  <div className="flex justify-end gap-2">
-                    <button onClick={cancelEditing} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-                      <XMarkIcon className="h-4 w-4 text-gray-500" />
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, isTaxable: !editForm.isTaxable })}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${
+                        editForm.isTaxable
+                          ? 'bg-blue-50 border-blue-300 text-blue-700'
+                          : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
+                        editForm.isTaxable ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                      }`}>
+                        {editForm.isTaxable && <CheckIcon className="h-2 w-2 text-white" />}
+                      </div>
+                      Taxable
                     </button>
-                    <button onClick={saveItemEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 transition-colors">
-                      <CheckIcon className="h-4 w-4 text-emerald-700" />
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={cancelEditing} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        <XMarkIcon className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button onClick={saveItemEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 transition-colors">
+                        <CheckIcon className="h-4 w-4 text-emerald-700" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -687,8 +862,40 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           onClose={() => setShowAddExtraModal(false)}
           invoiceId={invoiceId}
           onAdded={handleExtraChargeAdded}
+          defaultTaxable={invoice.taxHstEnabled || invoice.taxGstEnabled || invoice.taxQstEnabled}
         />
       </div>
+
+      {/* Tax Toggles */}
+      {isEditable && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tax:</span>
+          {([
+            { key: 'hst' as const, enabled: invoice.taxHstEnabled },
+            { key: 'gst' as const, enabled: invoice.taxGstEnabled },
+            { key: 'qst' as const, enabled: invoice.taxQstEnabled },
+          ]).map(({ key, enabled }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleTaxToggle(key)}
+              disabled={savingTax}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border disabled:opacity-50 ${
+                enabled
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              <div className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
+                enabled ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300'
+              }`}>
+                {enabled && <CheckIcon className="h-2 w-2 text-white" />}
+              </div>
+              {TAX_RATES[key].label} ({TAX_RATES[key].pct})
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Totals */}
       <div className="border-t border-gray-200 pt-3 mb-4">
@@ -698,6 +905,24 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               <span className="text-gray-500">Subtotal</span>
               <span className="font-medium text-gray-900">${invoice.subtotal.toFixed(2)}</span>
             </div>
+            {invoice.taxHstEnabled && invoice.taxHst > 0 && (
+              <div className="flex justify-between gap-8 text-sm mt-0.5">
+                <span className="text-gray-400">HST (13%)</span>
+                <span className="text-gray-700">${invoice.taxHst.toFixed(2)}</span>
+              </div>
+            )}
+            {invoice.taxGstEnabled && invoice.taxGst > 0 && (
+              <div className="flex justify-between gap-8 text-sm mt-0.5">
+                <span className="text-gray-400">GST (5%)</span>
+                <span className="text-gray-700">${invoice.taxGst.toFixed(2)}</span>
+              </div>
+            )}
+            {invoice.taxQstEnabled && invoice.taxQst > 0 && (
+              <div className="flex justify-between gap-8 text-sm mt-0.5">
+                <span className="text-gray-400">QST (9.975%)</span>
+                <span className="text-gray-700">${invoice.taxQst.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between gap-8 text-lg mt-1">
               <span className="font-semibold text-gray-700">Total</span>
               <span className="font-bold text-gray-900">${invoice.total.toFixed(2)}</span>

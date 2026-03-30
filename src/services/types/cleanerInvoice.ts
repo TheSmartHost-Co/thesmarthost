@@ -11,6 +11,14 @@ export interface CleanerInvoice {
   periodEnd: string
   subtotal: number
   total: number
+  // Tax fields
+  taxHst: number
+  taxGst: number
+  taxQst: number
+  taxHstEnabled: boolean
+  taxGstEnabled: boolean
+  taxQstEnabled: boolean
+  billFromName?: string | null
   status: InvoiceStatus
   cleanerNotes?: string | null
   pmNotes?: string | null
@@ -24,6 +32,11 @@ export interface CleanerInvoice {
   cleanerEmail?: string
   cleanerPhone?: string
   cleanerHourlyRate?: number | null
+  cleanerBusinessName?: string | null
+  cleanerInvoicePrefix?: string | null
+  cleanerTaxHstEnabled?: boolean
+  cleanerTaxGstEnabled?: boolean
+  cleanerTaxQstEnabled?: boolean
   itemCount?: number
   // Included when fetching single invoice
   items?: CleanerInvoiceItem[]
@@ -46,6 +59,7 @@ export interface CleanerInvoiceItem {
   originalDurationMinutes?: number | null
   notes?: string | null
   sortOrder: number
+  isTaxable: boolean
   createdAt: string
   // Joined data
   propertyName?: string
@@ -99,7 +113,10 @@ export interface CreateInvoicePayload {
   periodStart: string
   periodEnd: string
   projectIds?: string[]  // Optional — if provided, only these projects are included
-  itemOverrides?: Record<string, { durationMinutes?: number; amount?: number }>  // Optional per-project overrides
+  itemOverrides?: Record<string, { durationMinutes?: number; amount?: number; isTaxable?: boolean }>  // Optional per-project overrides
+  taxHstEnabled?: boolean
+  taxGstEnabled?: boolean
+  taxQstEnabled?: boolean
 }
 
 export interface UpdateInvoicePayload {
@@ -107,6 +124,11 @@ export interface UpdateInvoicePayload {
   periodEnd?: string
   cleanerNotes?: string | null
   pmNotes?: string | null
+  invoiceNumber?: string
+  billFromName?: string | null
+  taxHstEnabled?: boolean
+  taxGstEnabled?: boolean
+  taxQstEnabled?: boolean
 }
 
 export interface UpdateInvoiceItemPayload {
@@ -117,6 +139,7 @@ export interface UpdateInvoiceItemPayload {
   amount?: number
   notes?: string | null
   receiptId?: string | null
+  isTaxable?: boolean
 }
 
 export interface AddInvoiceItemPayload {
@@ -124,6 +147,7 @@ export interface AddInvoiceItemPayload {
   amount: number
   notes?: string | null
   receiptId?: string | null
+  isTaxable?: boolean
 }
 
 // API Responses
