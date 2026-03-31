@@ -32,7 +32,7 @@ export default function ClientLayout({
           onClose={() => setIsSidebarOpen(false)}
           items={clientSidebarItems}
         />
-        <main className={`pt-16 sm:pt-20 px-3 py-4 sm:p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+        <main className={`pt-20 px-3 py-4 sm:p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
           <RoleGuard portal="/client">
             {children}
           </RoleGuard>
