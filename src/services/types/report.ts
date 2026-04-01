@@ -126,6 +126,10 @@ export interface EnhancedReportSummary {
     totalMgmtFee: number
     totalNetEarnings: number
     totalSalesTax: number
+    totalCohostFee: number
+    totalRentCollected: number
+    totalTaxesCollected: number
+    averageNightlyRate: number
     totalRevenue: number
   }
   byProperty?: Array<{
@@ -135,6 +139,9 @@ export interface EnhancedReportSummary {
     totalNights: number
     totalPayout: number
     totalNetEarnings: number
+    totalCohostFee: number
+    totalRentCollected: number
+    totalTaxesCollected: number
     totalRevenue: number
   }>
   // Enhanced summary fields
@@ -142,7 +149,7 @@ export interface EnhancedReportSummary {
   totalRentCollected?: number
   totalTaxesCollected?: number
   totalCohostFee?: number
-  
+
   // Individual totals (backward compatibility & direct access)
   totalBookings?: number
   totalNights?: number
@@ -161,32 +168,23 @@ export interface EnhancedReportSummary {
   totalNetEarnings?: number
   totalSalesTax?: number
   totalRevenue?: number
+  // DB-style backward compat keys
+  totalRentCollectedDb?: number
+  totalTaxesCollectedDb?: number
+  rentCollected?: string
+  taxesCollected?: string
 }
 
 /**
- * Report preview response (unified)
+ * Report preview response — returns bookings, expenses, and summary as JSON
  */
 export interface ReportPreviewResponse {
   status: 'success' | 'failed'
   message?: string
   data: {
-    format: ReportFormat
-    pdfPreview?: string // base64 PDF content for PDF format
-    reportData?: {
-      properties: PropertyInfo[]
-      allOwners: OwnerInfo[]
-      property?: PropertyInfo // backward compatibility
-      bookings: (BookingData & { propertyName: string })[]
-      summary: EnhancedReportSummary
-      reportingPeriod: string
-      generatedAt: string
-      logo?: any
-    }
+    bookings: PreviewBookingRow[]
+    expenses: PreviewExpenseRow[]
     summary: EnhancedReportSummary
-    properties?: PropertyInfo[]
-    allOwners?: OwnerInfo[]
-    reportingPeriod?: string
-    generatedAt?: string
   }
 }
 
@@ -368,4 +366,76 @@ export interface SendReportResponse {
     }>
     portalNotified: number
   }
+}
+
+// ============ Preview Bookings Types (New Report Flow) ============
+
+/**
+ * Booking row returned by POST /api/reports/preview-bookings
+ * Financial fields are decimal strings (e.g. "200.00"), not numbers.
+ * Identity key: reservationCode (no UUID in this response)
+ */
+export interface PreviewBookingRow {
+  id: string
+  propertyId: string
+  propertyName: string
+  checkInDate: string
+  checkOutDate: string
+  numNights: number
+  guestName: string
+  platform: string
+  reservationCode: string
+  nightlyRate: string
+  salesTax: string
+  lodgingTax: string
+  cleaningFee: string
+  channelFee: string
+  stripeFee: string
+  totalPayout: string
+  mgmtFee: string
+  mgmtCleaningFee: string
+  clientNetEarnings: string
+  extraGuestFees: string | null
+  bedLinenFee: string | null
+  gst: string | null
+  qst: string | null
+  netEarnings: string | null
+  cohostFee: string
+  rentCollectedDb: string
+  taxesCollectedDb: string
+}
+
+/**
+ * Expense row returned by POST /api/reports/preview-bookings
+ * Identity key: id (UUID)
+ */
+export interface PreviewExpenseRow {
+  id: string
+  propertyId: string
+  bookingId: string | null
+  propertyName: string
+  bookingGuestName: string | null
+  bookingReservationCode: string | null
+  expenseDate: string
+  amount: number
+  currency: string
+  category: string
+  vendorName: string | null
+  description: string | null
+  receiptPath: string | null
+  isReimbursable: boolean
+  isTaxDeductible: boolean
+  paymentMethod: string | null
+  paymentStatus: string | null
+}
+
+/**
+ * Request payload for POST /api/reports/preview
+ */
+export interface ReportPreviewPayload {
+  propertyIds: string[]
+  startDate: string
+  endDate: string
+  dateFilterMode?: DateFilterMode
+  sourcesFilter?: BookingSource[]
 }

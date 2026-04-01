@@ -34,7 +34,7 @@ export default function AdminLayout({
         items={filteredItems}
         navConfig={filteredNavConfig}
       />
-      <main className={`pt-20 p-3 sm:p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+      <main className={`pt-20 px-3 pb-3 sm:px-6 sm:pb-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         <RoleGuard portal="/property-manager">
           {children}
         </RoleGuard>

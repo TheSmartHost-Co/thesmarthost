@@ -6,6 +6,7 @@ import type {
   ReportGenerationPayload,
   ReportGenerationResponse,
   ReportPreviewResponse,
+  ReportPreviewPayload,
   LogosResponse,
   LogoUploadResponse,
   SingleReportResponse,
@@ -38,14 +39,14 @@ export async function getReports(filters?: {
 }
 
 /**
- * Preview a report without saving (returns PDF as base64 or data table)
- * @param data - Report generation parameters
+ * Preview report data — returns bookings, expenses, and summary as JSON
+ * @param data - Filter parameters (no format/logo/template)
  * @returns Promise with preview data
  */
 export async function previewReport(
-  data: ReportGenerationPayload
+  data: ReportPreviewPayload
 ): Promise<ReportPreviewResponse> {
-  return apiClient<ReportPreviewResponse, ReportGenerationPayload>(
+  return apiClient<ReportPreviewResponse, ReportPreviewPayload>(
     '/reports/preview',
     {
       method: 'POST',
@@ -179,3 +180,4 @@ export async function sendReport(reportId: string, data: SendReportPayload): Pro
     }
   )
 }
+

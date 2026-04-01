@@ -17,13 +17,13 @@ interface ModalProps {
 const Modal = ({ isOpen, onClose, children, style, zIndex = 60, closable = true }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling when modal is open
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = 'auto';   // Restore scrolling when modal is closed
+      document.body.style.removeProperty('overflow');
     }
 
     return () => {
-      document.body.style.overflow = 'auto';   // Clean up on unmount
+      document.body.style.removeProperty('overflow');
     };
   }, [isOpen]);
 
