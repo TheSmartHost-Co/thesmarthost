@@ -37,7 +37,7 @@ export default function CleanerLayout({
           onClose={() => setIsSidebarOpen(false)}
           items={cleanerSidebarItems}
         />
-        <main className={`pt-20 ${isSchedulePage ? 'px-0 py-0' : 'px-3 py-4 sm:p-6'} md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+        <main className={`pt-20 sm:pt-[4.5rem] ${isSchedulePage ? 'px-0 py-0' : 'px-3 py-4 sm:p-6'} md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
           <RoleGuard portal="/cleaner">
             {children}
           </RoleGuard>
