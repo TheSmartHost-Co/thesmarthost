@@ -14,6 +14,7 @@ import {
   ExclamationTriangleIcon,
   FlagIcon,
   ArrowPathIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import { formatTime, isProjectOverdue, getOverdueMinutes, formatOverdueDuration, getStartBlockReason } from '@/services/cleaningProjectService'
@@ -138,19 +139,27 @@ export default function ProjectCard({
           </div>
 
           {/* Status Badge */}
-          {isImplicit ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-500">
-              {implicitLabel}
-            </span>
-          ) : (
-            <span className={`
-              inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg
-              ${statusConfig.badge}
-            `}>
-              {statusConfig.icon}
-              {statusConfig.label}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {isImplicit ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-500">
+                {implicitLabel}
+              </span>
+            ) : (
+              <span className={`
+                inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg
+                ${statusConfig.badge}
+              `}>
+                {statusConfig.icon}
+                {statusConfig.label}
+              </span>
+            )}
+            {project.pmOverride && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
+                <BoltIcon className="w-3 h-3" />
+                Override
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Date & Time */}

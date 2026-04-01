@@ -27,6 +27,7 @@ import {
   ArrowRightIcon,
   XCircleIcon,
   ArrowPathIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -35,6 +36,8 @@ import {
   assignCleanerToProject,
   updateCleaningProject,
   cancelCleaningProject,
+  overrideCleaningProject,
+  removeCleaningProjectOverride,
   unstartProject,
   getStatusDisplay,
   formatDuration,
@@ -56,7 +59,7 @@ import type { SupplyList } from '@/services/types/supplyList'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
-import type { ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
+import type { ProjectChecklistItem, ChecklistProgress, WalkthroughStatus, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -107,6 +110,9 @@ export default function ProjectDetailModal({
   const [cancellingProject, setCancellingProject] = useState(false)
   const [showUnbeginConfirm, setShowUnbeginConfirm] = useState(false)
   const [unbeginning, setUnbeginning] = useState(false)
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false)
+  const [overrideTarget, setOverrideTarget] = useState<string>('confirmed')
+  const [overriding, setOverriding] = useState(false)
   const [showRelatedBookings, setShowRelatedBookings] = useState(true)
 
   // Booking preview state
@@ -459,6 +465,42 @@ export default function ProjectDetailModal({
     }
   }
 
+  const handleOverrideProject = async () => {
+    if (!user?.id) return
+    try {
+      setOverriding(true)
+      const res = await overrideCleaningProject(project.id, user.id, overrideTarget as CleaningProjectStatus)
+      if (res.status === 'success') {
+        showNotification(`Project overridden to '${overrideTarget}'`, 'success')
+        setShowOverrideConfirm(false)
+        onUpdate(res.data)
+      } else {
+        showNotification(res.message || 'Override failed', 'error')
+      }
+    } catch (err) {
+      console.error('Error overriding project:', err)
+      showNotification('Error overriding project', 'error')
+    } finally {
+      setOverriding(false)
+    }
+  }
+
+  const handleRemoveOverride = async () => {
+    if (!user?.id) return
+    try {
+      const res = await removeCleaningProjectOverride(project.id, user.id)
+      if (res.status === 'success') {
+        showNotification('Override removed', 'success')
+        onUpdate(res.data)
+      } else {
+        showNotification(res.message || 'Failed to remove override', 'error')
+      }
+    } catch (err) {
+      console.error('Error removing override:', err)
+      showNotification('Error removing override', 'error')
+    }
+  }
+
   // Overdue detection
   const overdue = isProjectOverdue(project)
   const overdueMinutes = getOverdueMinutes(project)
@@ -511,6 +553,12 @@ export default function ProjectDetailModal({
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-700 rounded-lg border border-amber-200">
                 <ExclamationTriangleIcon className="w-4 h-4" />
                 Same-Day Turnover
+              </span>
+            )}
+            {project.pmOverride && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-orange-100 text-orange-700 rounded-lg border border-orange-200">
+                <BoltIcon className="w-3.5 h-3.5" />
+                Override Active
               </span>
             )}
             {project.source !== 'manual' && (
@@ -1306,6 +1354,25 @@ export default function ProjectDetailModal({
               Unbegin
             </button>
           )}
+          {hasWrite && (
+            project.pmOverride ? (
+              <button
+                onClick={handleRemoveOverride}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <BoltIcon className="w-3.5 h-3.5" />
+                Remove Override
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowOverrideConfirm(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <BoltIcon className="w-3.5 h-3.5" />
+                Override
+              </button>
+            )
+          )}
           <div className="flex-1 min-w-0" />
           <button
             onClick={onClose}
@@ -1403,6 +1470,50 @@ export default function ProjectDetailModal({
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               {unbeginning ? 'Reverting...' : 'Unbegin Project'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Override Project Confirmation */}
+      <Modal isOpen={showOverrideConfirm} onClose={() => setShowOverrideConfirm(false)} style="p-6 max-w-md w-full">
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-orange-100">
+              <BoltIcon className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Override Project Status</h3>
+              <p className="text-xs text-gray-500">{project.propertyName}</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            This bypasses all date and status restrictions. The cleaner will be able to work on this project regardless of its scheduled date.
+          </p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Set status to:</label>
+          <select
+            value={overrideTarget}
+            onChange={e => setOverrideTarget(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          >
+            <option value="pending">Pending (no cleaner action needed)</option>
+            <option value="assigned">Assigned (awaiting cleaner acceptance)</option>
+            <option value="confirmed">Confirmed (ready for cleaner to start)</option>
+            <option value="in_progress">In Progress (start immediately)</option>
+          </select>
+          <div className="flex gap-3 justify-end mt-5">
+            <button
+              onClick={() => setShowOverrideConfirm(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleOverrideProject}
+              disabled={overriding}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {overriding ? 'Overriding...' : 'Override'}
             </button>
           </div>
         </div>

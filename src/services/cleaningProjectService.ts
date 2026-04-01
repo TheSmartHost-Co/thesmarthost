@@ -1,6 +1,7 @@
 import apiClient, { getAuthHeaders } from './apiClient'
 import type {
   CleaningProject,
+  CleaningProjectStatus,
   CleaningProjectResponse,
   CleaningProjectsResponse,
   CleaningProjectStatsResponse,
@@ -216,6 +217,39 @@ export function completeProject(
 }
 
 /**
+ * PM hard override: set any target status, bypassing all date/status guards
+ */
+export function overrideCleaningProject(
+  projectId: string,
+  userId: string,
+  targetStatus: CleaningProjectStatus
+): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse, { userId: string; targetStatus: CleaningProjectStatus }>(
+    `/cleaning-projects/${projectId}/override`,
+    {
+      method: 'POST',
+      body: { userId, targetStatus },
+    }
+  )
+}
+
+/**
+ * Remove PM override flag, restoring normal date/status guards
+ */
+export function removeCleaningProjectOverride(
+  projectId: string,
+  userId: string
+): Promise<CleaningProjectResponse> {
+  return apiClient<CleaningProjectResponse, { userId: string }>(
+    `/cleaning-projects/${projectId}/remove-override`,
+    {
+      method: 'POST',
+      body: { userId },
+    }
+  )
+}
+
+/**
  * Update a cleaning project's notes via dedicated PATCH endpoint
  * Role is auto-determined by the backend (PM → pmNotes, cleaner → cleanerNotes)
  */
@@ -270,6 +304,9 @@ export function getStatusDisplay(status: CleaningProject['status']): { label: st
  */
 export function getStartBlockReason(project: CleaningProject): string | null {
   if (project.status !== 'confirmed') return 'Project is not in confirmed status'
+
+  // PM override bypasses all date checks
+  if (project.pmOverride) return null
 
   const todayStr = new Date().toLocaleDateString('sv') // YYYY-MM-DD in local time
   const projectDateStr = project.projectDate.split('T')[0]

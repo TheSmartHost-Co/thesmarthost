@@ -57,6 +57,7 @@ export interface CleaningProject {
   // Schedule endpoint fields
   assignmentType?: 'explicit' | 'implicit'
   cleanerAccepted?: boolean
+  pmOverride?: boolean
   previousBookingNumGuests?: number | null
   previousBookingHasPets?: boolean | null
   nextBookingNumGuests?: number | null

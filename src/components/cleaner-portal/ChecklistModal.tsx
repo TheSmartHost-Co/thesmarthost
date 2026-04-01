@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { XMarkIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
@@ -399,6 +399,12 @@ export default function ChecklistModal({
         projectEndTime={project.projectEndTime}
         status={project.status}
       />
+      {project.pmOverride && (
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 border-b border-orange-100 text-xs font-medium text-orange-700">
+          <BoltIcon className="w-3.5 h-3.5" />
+          PM Override Active — date restrictions removed
+        </div>
+      )}
       <ChecklistTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
