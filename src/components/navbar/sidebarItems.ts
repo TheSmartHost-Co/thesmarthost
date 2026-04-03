@@ -171,11 +171,11 @@ export const managerSidebarItems: SidebarItem[] = [
 
 export const cleanerSidebarItems: SidebarItem[] = [
   { name: 'Dashboard', href: '/cleaner/dashboard', icon: HomeIcon },
-  { name: 'My Properties', href: '/cleaner/properties', icon: BuildingOfficeIcon },
+  { name: 'Schedule', href: '/cleaner/schedule', icon: CalendarDaysIcon },
   { name: 'Tasks', href: '/cleaner/tasks', icon: ClipboardDocumentListIcon },
+  { name: 'My Properties', href: '/cleaner/properties', icon: BuildingOfficeIcon },
   { name: 'My Supplies', href: '/cleaner/supplies', icon: ShoppingCartIcon },
   { name: 'Receipts', href: '/cleaner/receipts', icon: ReceiptPercentIcon },
-  { name: 'Schedule', href: '/cleaner/schedule', icon: CalendarDaysIcon },
   { name: 'Invoices', href: '/cleaner/invoices', icon: BanknotesIcon },
   { name: "What's New", href: '/cleaner/whats-new', icon: SparklesIcon },
   { name: 'Settings', href: '/cleaner/settings', icon: CogIcon },

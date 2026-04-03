@@ -117,11 +117,11 @@ export default function CleanerReceiptsPage() {
     fetchData()
   }, [fetchData])
 
-  // Upload success → open detail modal
-  const handleUploadSuccess = (data: UploadReceiptResponse['data']) => {
+  // Upload success → refresh list
+  const handleUploadSuccess = () => {
     setShowUploadModal(false)
-    setActiveReceiptId(data.receipt.id)
-    setShowDetailModal(true)
+    showNotification('Receipt scanned successfully!', 'success')
+    fetchData()
   }
 
   // Open existing receipt

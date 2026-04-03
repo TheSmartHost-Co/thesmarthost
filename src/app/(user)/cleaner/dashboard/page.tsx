@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   HomeIcon,
   ClipboardDocumentListIcon,
@@ -18,6 +19,7 @@ import {
   CurrencyDollarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { useUserStore } from '@/store/useUserStore'
@@ -32,13 +34,16 @@ import { getMonthlyEarnings } from '@/services/cleanerInvoiceService'
 import type { MonthlyEarnings } from '@/services/types/cleanerInvoice'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner, CleanerProperty } from '@/services/types/cleaner'
+import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
 
 export default function CleanerDashboardPage() {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const router = useRouter()
 
   // State
   const [cleaner, setCleaner] = useState<Cleaner | null>(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const [projects, setProjects] = useState<CleaningProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -257,6 +262,62 @@ export default function CleanerDashboardPage() {
         <p className="mt-0.5 sm:mt-1 text-sm sm:text-base text-gray-600">
           Here&apos;s an overview of your cleaning assignments and tasks.
         </p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-8">
+        {[
+          {
+            label: 'View Schedule',
+            icon: CalendarDaysIcon,
+            onClick: () => router.push('/cleaner/schedule'),
+            bg: 'bg-gradient-to-br from-blue-500 to-blue-600',
+            shadow: 'shadow-blue-200',
+            hoverShadow: 'hover:shadow-blue-300',
+          },
+          {
+            label: 'View Tasks',
+            icon: ClipboardDocumentListIcon,
+            onClick: () => router.push('/cleaner/tasks'),
+            bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
+            shadow: 'shadow-purple-200',
+            hoverShadow: 'hover:shadow-purple-300',
+          },
+          {
+            label: 'Scan Receipt',
+            icon: CameraIcon,
+            onClick: () => setShowUploadModal(true),
+            bg: 'bg-gradient-to-br from-teal-500 to-teal-600',
+            shadow: 'shadow-teal-200',
+            hoverShadow: 'hover:shadow-teal-300',
+          },
+          {
+            label: 'My Invoices',
+            icon: BanknotesIcon,
+            onClick: () => router.push('/cleaner/invoices'),
+            bg: 'bg-gradient-to-br from-amber-500 to-amber-600',
+            shadow: 'shadow-amber-200',
+            hoverShadow: 'hover:shadow-amber-300',
+          },
+        ].map((action, index) => (
+          <motion.button
+            key={action.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.08 }}
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={action.onClick}
+            className={`${action.bg} ${action.shadow} ${action.hoverShadow} rounded-2xl p-5 sm:p-6 shadow-lg hover:shadow-xl transition-all text-left cursor-pointer min-h-[88px] sm:min-h-[96px]`}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
+                <action.icon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+              </div>
+              <span className="text-base sm:text-lg font-bold text-white">{action.label}</span>
+            </div>
+          </motion.button>
+        ))}
       </div>
 
       {/* Quick Stats */}
@@ -506,6 +567,16 @@ export default function CleanerDashboardPage() {
           </div>
         )}
       </motion.div>
+
+      {/* Upload Receipt Modal */}
+      <UploadReceiptModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploaded={() => {
+          setShowUploadModal(false)
+          showNotification('Receipt scanned successfully!', 'success')
+        }}
+      />
     </div>
   )
 }

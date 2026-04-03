@@ -1,13 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
   CogIcon,
   Bars3Icon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 import LogoutModal from '@/components/shared/LogoutModal'
 import NotificationBell from '@/components/notification-center/NotificationBell'
+import { useNotificationStore } from '@/store/useNotificationStore'
+import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
 
 interface UserNavbarProps {
   onToggleSidebar?: () => void
@@ -18,6 +22,9 @@ export default function UserNavbar({
   onToggleSidebar,
   basePath = '/property-manager'
 }: UserNavbarProps) {
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const showNotification = useNotificationStore((state) => state.showNotification)
+  const isCleaner = basePath === '/cleaner'
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 px-3 sm:px-6 lg:px-8">
@@ -52,6 +59,17 @@ export default function UserNavbar({
 
         {/* Right side - Notifications, Settings, Logout */}
         <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Quick Scan Receipt - Cleaner Only */}
+          {isCleaner && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="p-2 rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+              aria-label="Scan receipt"
+            >
+              <CameraIcon className="w-5 h-5" />
+            </button>
+          )}
+
           {/* Notification Center */}
           <NotificationBell />
 
@@ -68,6 +86,18 @@ export default function UserNavbar({
           <LogoutModal />
         </div>
       </div>
+
+      {/* Upload Receipt Modal - Cleaner Only */}
+      {isCleaner && (
+        <UploadReceiptModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onUploaded={() => {
+            setShowUploadModal(false)
+            showNotification('Receipt uploaded successfully!', 'success')
+          }}
+        />
+      )}
     </nav>
   )
 }
