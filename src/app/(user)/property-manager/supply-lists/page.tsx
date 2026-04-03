@@ -10,10 +10,10 @@ import { getProperties } from '@/services/propertyService'
 import {
   getAllSupplyLists,
   getSupplyListSummary,
-  getSupplyListReceipts,
   fulfillSupplyList,
   deleteSupplyList,
 } from '@/services/supplyListService'
+import { searchReceipts } from '@/services/receiptService'
 import { exportToCsv } from '@/utils/csvExport'
 import type { Property } from '@/services/types/property'
 import type { SupplyList, SupplyListStatus, SupplyListSummary } from '@/services/types/supplyList'
@@ -22,8 +22,10 @@ import SupplyHubTableView from '@/components/supply-hub/SupplyHubTableView'
 import SupplyHubListView from '@/components/supply-hub/SupplyHubListView'
 import SupplyHubPropertyView from '@/components/supply-hub/SupplyHubPropertyView'
 import SupplyHubItemView from '@/components/supply-hub/SupplyHubItemView'
-import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
+import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import UnappliedReceiptsModal from '@/components/supply-hub/UnappliedReceiptsModal'
+import type { UploadReceiptResponse } from '@/services/types/receipt'
 import CreateSupplyListModal from '@/components/supply-hub/CreateSupplyListModal'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 
@@ -141,13 +143,16 @@ export default function SupplyListsPage() {
   // Modals
   const [showViewModal, setShowViewModal] = useState(false)
   const [selectedSupplyListForDetail, setSelectedSupplyListForDetail] = useState<SupplyList | null>(null)
-  const [showScanModal, setShowScanModal] = useState(false)
-  const [selectedSupplyListId, setSelectedSupplyListId] = useState('')
-  const [selectedSupplyList, setSelectedSupplyList] = useState<SupplyList | null>(null)
+  const [showUploadReceiptModal, setShowUploadReceiptModal] = useState(false)
+  const [showReceiptDetailModal, setShowReceiptDetailModal] = useState(false)
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null)
+  // Context for pre-filling ReceiptDetailModal apply tab
+  const [receiptContextPropertyId, setReceiptContextPropertyId] = useState('')
+  const [receiptContextSupplyListId, setReceiptContextSupplyListId] = useState('')
+  const [receiptContextProjectId, setReceiptContextProjectId] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showReceiptFirstScanModal, setShowReceiptFirstScanModal] = useState(false)
   const [showUnappliedModal, setShowUnappliedModal] = useState(false)
   const [unappliedCount, setUnappliedCount] = useState(0)
 
@@ -186,17 +191,10 @@ export default function SupplyListsPage() {
 
   // Count unapplied receipts after supply lists load
   useEffect(() => {
-    if (supplyLists.length === 0) {
-      setUnappliedCount(0)
-      return
-    }
     const countUnapplied = async () => {
       try {
-        const results = await Promise.all(
-          supplyLists.map(sl => getSupplyListReceipts(sl.id).then(res => res.status === 'success' ? res.data : []))
-        )
-        const count = results.flat().filter(r => r.status === 'matched').length
-        setUnappliedCount(count)
+        const res = await searchReceipts({ status: 'matched' })
+        setUnappliedCount(res.status === 'success' ? res.data.length : 0)
       } catch {
         setUnappliedCount(0)
       }
@@ -338,10 +336,31 @@ export default function SupplyListsPage() {
     }
   }
 
-  const handleScanReceipt = (sl: SupplyList) => {
-    setSelectedSupplyListId(sl.id)
-    setSelectedSupplyList(sl)
-    setShowScanModal(true)
+  const handleScanReceipt = (sl?: SupplyList) => {
+    if (sl) {
+      setReceiptContextPropertyId(sl.propertyId)
+      setReceiptContextSupplyListId(sl.id)
+      setReceiptContextProjectId(sl.projectId || '')
+    } else {
+      setReceiptContextPropertyId('')
+      setReceiptContextSupplyListId('')
+      setReceiptContextProjectId('')
+    }
+    setShowUploadReceiptModal(true)
+  }
+
+  const handleReceiptUploaded = (data: UploadReceiptResponse['data']) => {
+    refetchAll()
+    setSelectedReceiptId(data.receipt.id)
+    setShowReceiptDetailModal(true)
+  }
+
+  const clearReceiptContext = () => {
+    setShowReceiptDetailModal(false)
+    setSelectedReceiptId(null)
+    setReceiptContextPropertyId('')
+    setReceiptContextSupplyListId('')
+    setReceiptContextProjectId('')
   }
 
   // CSV Export
@@ -552,7 +571,7 @@ export default function SupplyListsPage() {
           {writePermission && (
             <>
               <motion.button
-                onClick={() => setShowReceiptFirstScanModal(true)}
+                onClick={() => setShowUploadReceiptModal(true)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 shadow-sm transition-colors"
@@ -929,31 +948,35 @@ export default function SupplyListsPage() {
         onScanReceipt={(sl) => {
           setShowViewModal(false)
           setSelectedSupplyListForDetail(null)
-          setSelectedSupplyListId(sl.id)
-          setSelectedSupplyList(sl)
-          setShowScanModal(true)
+          handleScanReceipt(sl)
         }}
       />
 
-      <ScanSupplyReceiptModal
-        isOpen={showScanModal}
-        onClose={() => setShowScanModal(false)}
-        supplyListId={selectedSupplyListId}
-        supplyList={selectedSupplyList}
-        onReceiptApplied={refetchAll}
+      <UploadReceiptModal
+        isOpen={showUploadReceiptModal}
+        onClose={() => setShowUploadReceiptModal(false)}
+        onUploaded={handleReceiptUploaded}
       />
 
-      <ScanSupplyReceiptModal
-        isOpen={showReceiptFirstScanModal}
-        onClose={() => setShowReceiptFirstScanModal(false)}
-        properties={properties.map(p => ({ id: p.id, listingName: p.listingName || '' }))}
-        onReceiptApplied={refetchAll}
-      />
+      {selectedReceiptId && (
+        <ReceiptDetailModal
+          isOpen={showReceiptDetailModal}
+          onClose={clearReceiptContext}
+          receiptId={selectedReceiptId}
+          properties={properties}
+          onUpdated={refetchAll}
+          onDeleted={refetchAll}
+          defaultPropertyId={receiptContextPropertyId}
+          defaultSupplyListId={receiptContextSupplyListId}
+          defaultProjectId={receiptContextProjectId}
+        />
+      )}
 
       <UnappliedReceiptsModal
         isOpen={showUnappliedModal}
         onClose={() => setShowUnappliedModal(false)}
         onReceiptApplied={refetchAll}
+        properties={properties}
       />
 
       <CreateSupplyListModal
@@ -961,7 +984,7 @@ export default function SupplyListsPage() {
         onClose={() => setShowCreateModal(false)}
         onCreated={refetchAll}
         properties={properties}
-        onScanReceipt={() => { setShowCreateModal(false); setShowReceiptFirstScanModal(true) }}
+        onScanReceipt={() => { setShowCreateModal(false); setShowUploadReceiptModal(true) }}
       />
     </div>
   )

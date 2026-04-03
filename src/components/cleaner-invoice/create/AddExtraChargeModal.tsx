@@ -166,7 +166,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
       if (file) {
         const uploadRes = await uploadReceipt(file)
         if (uploadRes.status === 'success') {
-          receiptId = uploadRes.data.id
+          receiptId = uploadRes.data.receipt.id
         } else {
           showNotification(uploadRes.message || 'Failed to upload receipt', 'error')
           setSubmitting(false)

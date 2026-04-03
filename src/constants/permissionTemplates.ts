@@ -15,6 +15,7 @@ export const PERMISSION_KEYS = [
   'supply_lists',
   'cleaners',
   'analytics',
+  'receipts',
   'settings',
 ] as const
 
@@ -39,6 +40,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   supply_lists: 'Supply Lists',
   cleaners: 'Cleaners',
   analytics: 'Analytics',
+  receipts: 'Receipts',
   settings: 'Settings',
 }
 
@@ -59,6 +61,7 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   supply_lists: 'none',
   cleaners: 'none',
   analytics: 'none',
+  receipts: 'none',
   settings: 'none',
 }
 
@@ -89,6 +92,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       supply_lists: 'read-write',
       cleaners: 'read-write',
       analytics: 'read-write',
+      receipts: 'read-write',
       settings: 'none',
     },
   },
@@ -111,6 +115,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       supply_lists: 'none',
       cleaners: 'none',
       analytics: 'read-write',
+      receipts: 'read',
       settings: 'none',
     },
   },
@@ -133,6 +138,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       supply_lists: 'read',
       cleaners: 'read',
       analytics: 'read',
+      receipts: 'read',
       settings: 'none',
     },
   },
@@ -155,6 +161,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       supply_lists: 'read-write',
       cleaners: 'read-write',
       analytics: 'none',
+      receipts: 'read-write',
       settings: 'none',
     },
   },

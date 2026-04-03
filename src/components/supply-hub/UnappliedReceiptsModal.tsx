@@ -2,12 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
-import ReviewReceiptModal from './ReviewReceiptModal'
-import {
-  getAllSupplyLists,
-  getSupplyListReceipts,
-} from '@/services/supplyListService'
-import type { SupplyList, Receipt } from '@/services/types/supplyList'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
+import { searchReceipts } from '@/services/receiptService'
+import type { UploadedReceipt } from '@/services/types/receipt'
+import type { Property } from '@/services/types/property'
 import {
   DocumentTextIcon,
   ClockIcon,
@@ -18,20 +16,18 @@ interface UnappliedReceiptsModalProps {
   isOpen: boolean
   onClose: () => void
   onReceiptApplied: () => void
-}
-
-interface EnrichedReceipt extends Receipt {
-  supplyList: SupplyList
+  properties: Property[]
 }
 
 export default function UnappliedReceiptsModal({
   isOpen,
   onClose,
   onReceiptApplied,
+  properties,
 }: UnappliedReceiptsModalProps) {
   const [loading, setLoading] = useState(true)
-  const [receipts, setReceipts] = useState<EnrichedReceipt[]>([])
-  const [reviewingReceipt, setReviewingReceipt] = useState<{ receipt: EnrichedReceipt; supplyList: SupplyList } | null>(null)
+  const [receipts, setReceipts] = useState<UploadedReceipt[]>([])
+  const [reviewingReceiptId, setReviewingReceiptId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -39,37 +35,22 @@ export default function UnappliedReceiptsModal({
     } else {
       setReceipts([])
       setLoading(true)
-      setReviewingReceipt(null)
+      setReviewingReceiptId(null)
     }
   }, [isOpen])
 
   const loadUnappliedReceipts = async () => {
     setLoading(true)
     try {
-      const listsRes = await getAllSupplyLists()
-      if (listsRes.status !== 'success' || !listsRes.data?.length) {
+      const res = await searchReceipts({ status: 'matched' })
+      if (res.status === 'success') {
+        const sorted = [...res.data].sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+        setReceipts(sorted)
+      } else {
         setReceipts([])
-        setLoading(false)
-        return
       }
-
-      const supplyLists = listsRes.data
-      const receiptResults = await Promise.all(
-        supplyLists.map(sl => getSupplyListReceipts(sl.id).then(res => ({ sl, receipts: res.status === 'success' ? res.data : [] })))
-      )
-
-      const unapplied: EnrichedReceipt[] = []
-      for (const { sl, receipts: slReceipts } of receiptResults) {
-        for (const r of slReceipts) {
-          if (r.status === 'matched') {
-            unapplied.push({ ...r, supplyList: sl })
-          }
-        }
-      }
-
-      // Sort by newest first
-      unapplied.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      setReceipts(unapplied)
     } catch (err) {
       console.error('Error loading unapplied receipts:', err)
       setReceipts([])
@@ -78,8 +59,8 @@ export default function UnappliedReceiptsModal({
     }
   }
 
-  const handleReceiptApplied = () => {
-    setReviewingReceipt(null)
+  const handleReceiptUpdated = () => {
+    setReviewingReceiptId(null)
     loadUnappliedReceipts()
     onReceiptApplied()
   }
@@ -132,7 +113,7 @@ export default function UnappliedReceiptsModal({
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {receipt.supplyList.propertyName || 'Unknown Property'}
+                          {receipt.propertyName || 'Unknown Property'}
                         </p>
                         <div className="flex items-center gap-2 text-[11px] text-gray-500">
                           <span className="truncate">{receipt.originalName}</span>
@@ -149,7 +130,7 @@ export default function UnappliedReceiptsModal({
                         Pending Review
                       </span>
                       <button
-                        onClick={() => setReviewingReceipt({ receipt, supplyList: receipt.supplyList })}
+                        onClick={() => setReviewingReceiptId(receipt.id)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                       >
                         <EyeIcon className="w-3.5 h-3.5" />
@@ -165,15 +146,14 @@ export default function UnappliedReceiptsModal({
       </Modal>
 
       {/* Child modal: Review Receipt */}
-      {reviewingReceipt && (
-        <ReviewReceiptModal
+      {reviewingReceiptId && (
+        <ReceiptDetailModal
           isOpen={true}
-          onClose={() => setReviewingReceipt(null)}
-          supplyListId={reviewingReceipt.supplyList.id}
-          receiptId={reviewingReceipt.receipt.id}
-          supplyList={reviewingReceipt.supplyList}
-          onReceiptApplied={handleReceiptApplied}
-          zIndex={70}
+          onClose={() => setReviewingReceiptId(null)}
+          receiptId={reviewingReceiptId}
+          properties={properties}
+          onUpdated={handleReceiptUpdated}
+          onDeleted={handleReceiptUpdated}
         />
       )}
     </>

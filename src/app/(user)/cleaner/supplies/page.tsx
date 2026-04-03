@@ -19,8 +19,11 @@ import type { Cleaner } from '@/services/types/cleaner'
 import {
   CleanerCreateSupplyListModal,
   CleanerSupplyListModal,
-  CleanerScanReceiptModal,
 } from '@/components/cleaner-portal/supply-lists'
+import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
+import type { UploadReceiptResponse } from '@/services/types/receipt'
+import type { Property } from '@/services/types/property'
 
 export default function CleanerSuppliesPage() {
   const { profile } = useUserStore()
@@ -35,6 +38,8 @@ export default function CleanerSuppliesPage() {
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUploadReceiptModal, setShowUploadReceiptModal] = useState(false)
+  const [showReceiptDetailModal, setShowReceiptDetailModal] = useState(false)
+  const [activeReceiptId, setActiveReceiptId] = useState('')
   const [showUnifiedModal, setShowUnifiedModal] = useState(false)
   const [selectedSupplyList, setSelectedSupplyList] = useState<SupplyList | null>(null)
 
@@ -266,14 +271,28 @@ export default function CleanerSuppliesPage() {
         />
       )}
 
-      <CleanerScanReceiptModal
+      <UploadReceiptModal
         isOpen={showUploadReceiptModal}
         onClose={() => setShowUploadReceiptModal(false)}
-        supplyLists={supplyLists}
-        properties={cleaner?.assignedProperties?.map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId })) || []}
-        pmUserId={cleaner?.userId}
-        onReceiptApplied={fetchData}
+        onUploaded={(data: UploadReceiptResponse['data']) => {
+          setShowUploadReceiptModal(false)
+          setActiveReceiptId(data.receipt.id)
+          setShowReceiptDetailModal(true)
+        }}
       />
+
+      {activeReceiptId && (
+        <ReceiptDetailModal
+          isOpen={showReceiptDetailModal}
+          onClose={() => { setShowReceiptDetailModal(false); setActiveReceiptId('') }}
+          receiptId={activeReceiptId}
+          properties={(cleaner?.assignedProperties || []).map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId } as Property))}
+          onUpdated={fetchData}
+          onDeleted={() => { setShowReceiptDetailModal(false); setActiveReceiptId(''); fetchData() }}
+          defaultPaidByType="cleaner"
+          defaultPaidById={cleaner?.id || null}
+        />
+      )}
 
       <CleanerSupplyListModal
         isOpen={showUnifiedModal}

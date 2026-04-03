@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import CleanerCreateSupplyListModal from './CleanerCreateSupplyListModal'
-import CleanerScanReceiptModal from './CleanerScanReceiptModal'
-import type { SupplyList, SupplyListItem, Receipt } from '@/services/types/supplyList'
+import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
+import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
+import type { UploadedReceipt } from '@/services/types/receipt'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import {
   getSupplyListsByProject,
@@ -14,9 +15,8 @@ import {
   fulfillSupplyList,
   toggleSupplyListItem,
   formatSupplyListAge,
-  getSupplyListReceipts,
-  deleteSupplyListReceipt,
 } from '@/services/supplyListService'
+import { searchReceipts, deleteReceipt } from '@/services/receiptService'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -122,7 +122,7 @@ export default function CleanerSupplyListModal({
   const [deletingListFromView, setDeletingListFromView] = useState(false)
 
   // Receipt state
-  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [receipts, setReceipts] = useState<UploadedReceipt[]>([])
   const [receiptsLoading, setReceiptsLoading] = useState(false)
   const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null)
   const [confirmDeleteReceiptId, setConfirmDeleteReceiptId] = useState<string | null>(null)
@@ -202,7 +202,7 @@ export default function CleanerSupplyListModal({
   const fetchReceipts = useCallback(async (listId: string) => {
     setReceiptsLoading(true)
     try {
-      const res = await getSupplyListReceipts(listId)
+      const res = await searchReceipts({ supplyListId: listId })
       if (res.status === 'success') setReceipts(res.data || [])
     } catch {
       // Non-critical
@@ -487,7 +487,7 @@ export default function CleanerSupplyListModal({
     if (!selectedList) return
     setDeletingReceiptId(receiptId)
     try {
-      const res = await deleteSupplyListReceipt(selectedList.id, receiptId)
+      const res = await deleteReceipt(receiptId)
       if (res.status === 'success') {
         showNotification('Receipt deleted', 'success')
         setReceipts(prev => prev.filter(r => r.id !== receiptId))
@@ -1135,21 +1135,24 @@ export default function CleanerSupplyListModal({
       />
     )}
 
-    {propertyId && (
-      <CleanerScanReceiptModal
-        isOpen={showScanReceiptModal}
-        onClose={() => setShowScanReceiptModal(false)}
-        supplyLists={selectedList ? [selectedList] : supplyLists}
-        properties={[{ id: propertyId, listingName: selectedList?.propertyName || projectName || '' }]}
-        pmUserId={pmUserId}
-        onReceiptApplied={() => {
-          setShowScanReceiptModal(false)
-          if (selectedList) fetchReceipts(selectedList.id)
-          fetchSupplyLists()
-          onChanged?.()
-        }}
-      />
-    )}
+    <ScanSupplyReceiptModal
+      isOpen={showScanReceiptModal}
+      onClose={() => setShowScanReceiptModal(false)}
+      supplyListId={selectedList?.id}
+      supplyList={selectedList}
+      properties={propertyId ? [{ id: propertyId, listingName: selectedList?.propertyName || projectName || '' }] : []}
+      defaultPropertyId={propertyId}
+      defaultProjectId={projectId}
+      autoApply
+      paidByType="cleaner"
+      paidById={cleanerId || null}
+      onReceiptApplied={() => {
+        setShowScanReceiptModal(false)
+        if (selectedList) fetchReceipts(selectedList.id)
+        fetchSupplyLists()
+        onChanged?.()
+      }}
+    />
     </>
   )
 }

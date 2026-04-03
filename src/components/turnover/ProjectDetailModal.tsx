@@ -1584,6 +1584,7 @@ export default function ProjectDetailModal({
         defaultProjectId={project.id}
         supplyListId={scanReceiptForList?.id}
         supplyList={scanReceiptForList}
+        autoApply
         onReceiptApplied={() => {
           setShowScanReceiptModal(false)
           setScanReceiptForList(null)

@@ -17,8 +17,9 @@ import {
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
-import { getExpenseLineItems, getSupplyListById } from '@/services/supplyListService'
-import type { ExpenseLineItem } from '@/services/types/supplyList'
+import { getSupplyListById } from '@/services/supplyListService'
+import { getReceiptLineItems } from '@/services/receiptService'
+import type { ReceiptLineItem } from '@/services/types/receipt'
 import type {
   Expense,
   UpdateExpensePayload,
@@ -122,7 +123,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
   // Supply list origin state
-  const [supplyLineItems, setSupplyLineItems] = useState<ExpenseLineItem[]>([])
+  const [supplyLineItems, setSupplyLineItems] = useState<ReceiptLineItem[]>([])
   const [supplyLineItemsLoading, setSupplyLineItemsLoading] = useState(false)
   const [lineItemsExpanded, setLineItemsExpanded] = useState(true)
   const [showSupplyListModal, setShowSupplyListModal] = useState(false)
@@ -164,11 +165,11 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       if (response.status === 'success') {
         setExpense(response.data)
         initializeEditForm(response.data)
-        // Fetch supply list line items if this expense came from a supply list receipt
-        if (response.data.receiptId && response.data.supplyListId) {
+        // Fetch receipt line items if this expense came from a receipt
+        if (response.data.receiptId) {
           setSupplyLineItemsLoading(true)
           try {
-            const liRes = await getExpenseLineItems(response.data.supplyListId, response.data.receiptId)
+            const liRes = await getReceiptLineItems(response.data.receiptId)
             if (liRes.status === 'success') setSupplyLineItems(liRes.data || [])
           } catch {
             // Non-critical, silently fail
@@ -627,7 +628,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         )}
 
         {/* Supply List Origin */}
-        {expense.receiptId && expense.supplyListId && !hideSupplyListLink && (
+        {expense.receiptId && !hideSupplyListLink && (
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -675,7 +676,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     Line Items ({supplyLineItems.length})
                   </div>
                   <span className="text-sm font-medium text-teal-600">
-                    {formatCurrency(supplyLineItems.reduce((sum, li) => sum + li.totalCost, 0), expense.currency)}
+                    {formatCurrency(supplyLineItems.reduce((sum, li) => sum + li.totalPrice, 0), expense.currency)}
                   </span>
                 </button>
 
@@ -683,14 +684,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                   <div className="mt-2 space-y-1.5">
                     {supplyLineItems.map((li) => (
                       <div key={li.id} className="flex items-center justify-between text-sm py-1 px-2 bg-gray-50 rounded">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-900">{li.description}</span>
-                          {li.supplyListItemId && (
-                            <LinkIcon className="w-3.5 h-3.5 text-teal-400" title="Linked to supply list item" />
-                          )}
-                        </div>
+                        <span className="text-gray-900">{li.name}</span>
                         <span className="text-gray-600 text-xs">
-                          {li.quantity} × {formatCurrency(li.unitCost, expense.currency)} = {formatCurrency(li.totalCost, expense.currency)}
+                          {li.quantity} × {formatCurrency(li.unitPrice, expense.currency)} = {formatCurrency(li.totalPrice, expense.currency)}
                         </span>
                       </div>
                     ))}

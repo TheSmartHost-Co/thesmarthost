@@ -1,6 +1,5 @@
 import apiClient from './apiClient'
 import type {
-  SupplyList,
   SupplyListStatus,
   SupplyListResponse,
   SupplyListsResponse,
@@ -9,16 +8,6 @@ import type {
   DeleteSupplyListResponse,
   ToggleItemPayload,
   SupplyListSummaryResponse,
-  ScanReceiptResponse,
-  ApplyReceiptPayload,
-  ApplyReceiptResponse,
-  ReceiptsResponse,
-  ReceiptDetailResponse,
-  CreateExpenseLineItemPayload,
-  UpdateExpenseLineItemPayload,
-  ExpenseLineItemResponse,
-  ExpenseLineItemsResponse,
-  DeleteExpenseLineItemResponse,
   AssignProjectResponse,
 } from './types/supplyList'
 
@@ -148,38 +137,6 @@ export function getSupplyListSummary(
 }
 
 /**
- * Scan a receipt image (OCR + fuzzy matching)
- * - With supplyListId: matches against existing supply list items
- * - With propertyId: receipt-first mode (no existing supply list)
- */
-export function scanSupplyListReceipt(
-  file: File,
-  options: { supplyListId?: string; propertyId?: string }
-): Promise<ScanReceiptResponse> {
-  const formData = new FormData()
-  formData.append('receipt', file)
-  if (options.supplyListId) formData.append('supplyListId', options.supplyListId)
-  if (options.propertyId) formData.append('propertyId', options.propertyId)
-  return apiClient<ScanReceiptResponse, FormData>(
-    `/supply-lists/receipts/scan`,
-    { method: 'POST', body: formData }
-  )
-}
-
-/**
- * Apply a scanned receipt to create an expense
- */
-export function applySupplyListReceipt(
-  receiptId: string,
-  payload: ApplyReceiptPayload
-): Promise<ApplyReceiptResponse> {
-  return apiClient<ApplyReceiptResponse, ApplyReceiptPayload>(
-    `/supply-lists/receipts/${receiptId}/apply`,
-    { method: 'POST', body: payload }
-  )
-}
-
-/**
  * Assign a project to a standalone supply list
  */
 export function assignProjectToSupplyList(
@@ -201,98 +158,6 @@ export function createStandaloneSupplyList(
   return apiClient<SupplyListResponse, typeof data>(
     `/supply-lists`,
     { method: 'POST', body: data }
-  )
-}
-
-/**
- * Get all receipts for a supply list
- */
-export function getSupplyListReceipts(supplyListId: string): Promise<ReceiptsResponse> {
-  return apiClient<ReceiptsResponse>(`/supply-lists/${supplyListId}/receipts`)
-}
-
-/**
- * Get a single receipt by ID with OCR data and match preview
- */
-export function getSupplyListReceiptById(
-  supplyListId: string,
-  receiptId: string
-): Promise<ReceiptDetailResponse> {
-  return apiClient<ReceiptDetailResponse>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}`
-  )
-}
-
-/**
- * Delete a receipt from a supply list
- * If the receipt was applied, this also deletes the linked expense and reverts matched items to unpurchased.
- */
-export function deleteSupplyListReceipt(
-  supplyListId: string,
-  receiptId: string
-): Promise<DeleteSupplyListResponse> {
-  return apiClient<DeleteSupplyListResponse>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}`,
-    { method: 'DELETE' }
-  )
-}
-
-// =============================================
-// EXPENSE LINE ITEM CRUD
-// =============================================
-
-/**
- * Get all expense line items for a receipt
- */
-export function getExpenseLineItems(
-  supplyListId: string,
-  receiptId: string
-): Promise<ExpenseLineItemsResponse> {
-  return apiClient<ExpenseLineItemsResponse>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items`
-  )
-}
-
-/**
- * Create an expense line item for a receipt
- */
-export function createExpenseLineItem(
-  supplyListId: string,
-  receiptId: string,
-  data: CreateExpenseLineItemPayload
-): Promise<ExpenseLineItemResponse> {
-  return apiClient<ExpenseLineItemResponse, CreateExpenseLineItemPayload>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items`,
-    { method: 'POST', body: data }
-  )
-}
-
-/**
- * Update an expense line item
- */
-export function updateExpenseLineItem(
-  supplyListId: string,
-  receiptId: string,
-  lineItemId: string,
-  data: UpdateExpenseLineItemPayload
-): Promise<ExpenseLineItemResponse> {
-  return apiClient<ExpenseLineItemResponse, UpdateExpenseLineItemPayload>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items/${lineItemId}`,
-    { method: 'PUT', body: data }
-  )
-}
-
-/**
- * Delete an expense line item
- */
-export function deleteExpenseLineItem(
-  supplyListId: string,
-  receiptId: string,
-  lineItemId: string
-): Promise<DeleteExpenseLineItemResponse> {
-  return apiClient<DeleteExpenseLineItemResponse>(
-    `/supply-lists/${supplyListId}/receipts/${receiptId}/line-items/${lineItemId}`,
-    { method: 'DELETE' }
   )
 }
 

@@ -20,7 +20,8 @@ import {
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
-import { CleanerSupplyListModal, CleanerScanReceiptModal } from '@/components/cleaner-portal/supply-lists'
+import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
+import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import type { SupplyList } from '@/services/types/supplyList'
 import { getIssueCounts } from '@/services/projectIssueService'
@@ -532,13 +533,15 @@ export default function ChecklistModal({
         onChanged={fetchSupplyListCount}
       />
 
-      <CleanerScanReceiptModal
+      <ScanSupplyReceiptModal
         isOpen={showScanReceiptModal}
         onClose={() => setShowScanReceiptModal(false)}
-        supplyLists={supplyLists}
         properties={[{ id: project.propertyId, listingName: project.propertyName || '' }]}
-        pmUserId={project.userId}
-        projectId={project.id}
+        defaultPropertyId={project.propertyId}
+        defaultProjectId={project.id}
+        autoApply
+        paidByType="cleaner"
+        paidById={project.cleanerId || null}
         onReceiptApplied={() => {
           setShowScanReceiptModal(false)
           fetchSupplyListCount()

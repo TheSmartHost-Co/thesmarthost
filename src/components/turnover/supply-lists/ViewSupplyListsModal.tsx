@@ -10,14 +10,10 @@ import {
   fulfillSupplyList,
   toggleSupplyListItem,
   formatSupplyListAge,
-  getSupplyListReceipts,
-  deleteSupplyListReceipt,
-  getExpenseLineItems,
-  createExpenseLineItem,
-  updateExpenseLineItem,
-  deleteExpenseLineItem,
 } from '@/services/supplyListService'
-import type { SupplyList, SupplyListItem, Receipt, ExpenseLineItem } from '@/services/types/supplyList'
+import { searchReceipts, deleteReceipt, getReceiptLineItems } from '@/services/receiptService'
+import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
+import type { UploadedReceipt, ReceiptLineItem } from '@/services/types/receipt'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -33,13 +29,10 @@ import {
   CameraIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  PencilIcon,
-  LinkIcon,
-  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
-import ReviewReceiptModal from '@/components/supply-hub/ReviewReceiptModal'
+import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
 
 interface ViewSupplyListsModalProps {
   isOpen: boolean
@@ -94,7 +87,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [itemFilter, setItemFilter] = useState<'all' | 'remaining' | 'purchased'>('all')
-  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [receipts, setReceipts] = useState<UploadedReceipt[]>([])
   const [receiptsLoading, setReceiptsLoading] = useState(false)
   const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null)
   const [confirmDeleteReceiptId, setConfirmDeleteReceiptId] = useState<string | null>(null)
@@ -112,16 +105,9 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
 
   // Line items state
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
-  const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([])
+  const [lineItems, setLineItems] = useState<ReceiptLineItem[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(false)
-  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
-  const [addingLineItem, setAddingLineItem] = useState(false)
-  const [lineItemForm, setLineItemForm] = useState({ description: '', quantity: '1', unitCost: '', totalCost: '' })
-  const [savingLineItem, setSavingLineItem] = useState(false)
-  const [deletingLineItemId, setDeletingLineItemId] = useState<string | null>(null)
   const [reviewReceiptId, setReviewReceiptId] = useState<string | null>(null)
-  const [confirmDeleteLineItemId, setConfirmDeleteLineItemId] = useState<string | null>(null)
-  const [expenseAmount, setExpenseAmount] = useState<number | null>(null)
   const [viewingExpenseId, setViewingExpenseId] = useState<string | null>(null)
 
   // Preserve item order: capture the order when a list is first selected
@@ -191,10 +177,6 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       setConfirmDeleteReceiptId(null)
       setExpandedReceiptId(null)
       setLineItems([])
-      setEditingLineItemId(null)
-      setAddingLineItem(false)
-      setConfirmDeleteLineItemId(null)
-      setExpenseAmount(null)
       setEditingItemId(null)
       setEditName('')
       setEditQuantity('1')
@@ -214,7 +196,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     // Fetch receipts for this list
     setReceiptsLoading(true)
     try {
-      const res = await getSupplyListReceipts(list.id)
+      const res = await searchReceipts({ supplyListId: list.id })
       if (res.status === 'success') setReceipts(res.data || [])
     } catch {
       // Non-critical, silently fail
@@ -429,7 +411,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     if (!selectedList) return
     setDeletingReceiptId(receiptId)
     try {
-      const res = await deleteSupplyListReceipt(selectedList.id, receiptId)
+      const res = await deleteReceipt(receiptId)
       if (res.status === 'success') {
         showNotification('Receipt deleted', 'success')
         setReceipts(prev => prev.filter(r => r.id !== receiptId))
@@ -464,20 +446,13 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     if (expandedReceiptId === receiptId) {
       setExpandedReceiptId(null)
       setLineItems([])
-      setEditingLineItemId(null)
-      setAddingLineItem(false)
-      setConfirmDeleteLineItemId(null)
-      setExpenseAmount(null)
       return
     }
     if (!selectedList) return
     setExpandedReceiptId(receiptId)
     setLineItemsLoading(true)
-    setEditingLineItemId(null)
-    setAddingLineItem(false)
-    setConfirmDeleteLineItemId(null)
     try {
-      const res = await getExpenseLineItems(selectedList.id, receiptId)
+      const res = await getReceiptLineItems(receiptId)
       if (res.status === 'success') {
         setLineItems(res.data || [])
       }
@@ -502,113 +477,6 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  const handleSaveLineItem = async (isNew: boolean, lineItemId?: string) => {
-    if (!selectedList || !expandedReceiptId) return
-    const { description, quantity, unitCost, totalCost } = lineItemForm
-    if (!description.trim() || !totalCost) return
-
-    setSavingLineItem(true)
-    try {
-      if (isNew) {
-        const res = await createExpenseLineItem(selectedList.id, expandedReceiptId, {
-          description: description.trim(),
-          totalCost: parseFloat(totalCost),
-          quantity: quantity ? parseInt(quantity, 10) : undefined,
-          unitCost: unitCost ? parseFloat(unitCost) : undefined,
-        })
-        if (res.status === 'success') {
-          setLineItems(prev => [...prev, res.data])
-          if (res.expenseAmount != null) setExpenseAmount(res.expenseAmount)
-          setAddingLineItem(false)
-          setLineItemForm({ description: '', quantity: '1', unitCost: '', totalCost: '' })
-          showNotification('Line item added', 'success')
-          await refreshSelectedList()
-        } else {
-          showNotification(res.message || 'Failed to add line item', 'error')
-        }
-      } else if (lineItemId) {
-        const res = await updateExpenseLineItem(selectedList.id, expandedReceiptId, lineItemId, {
-          description: description.trim(),
-          totalCost: parseFloat(totalCost),
-          quantity: quantity ? parseInt(quantity, 10) : undefined,
-          unitCost: unitCost ? parseFloat(unitCost) : undefined,
-        })
-        if (res.status === 'success') {
-          setLineItems(prev => prev.map(li => li.id === lineItemId ? res.data : li))
-          if (res.expenseAmount != null) setExpenseAmount(res.expenseAmount)
-          setEditingLineItemId(null)
-          showNotification('Line item updated', 'success')
-          await refreshSelectedList()
-        } else {
-          showNotification(res.message || 'Failed to update line item', 'error')
-        }
-      }
-    } catch {
-      showNotification('Error saving line item', 'error')
-    } finally {
-      setSavingLineItem(false)
-    }
-  }
-
-  const handleDeleteLineItem = async (lineItemId: string) => {
-    if (!selectedList || !expandedReceiptId) return
-    setDeletingLineItemId(lineItemId)
-    try {
-      const res = await deleteExpenseLineItem(selectedList.id, expandedReceiptId, lineItemId)
-      if (res.status === 'success') {
-        setLineItems(prev => prev.filter(li => li.id !== lineItemId))
-        setConfirmDeleteLineItemId(null)
-        showNotification('Line item deleted', 'success')
-        await refreshSelectedList()
-      } else {
-        showNotification(res.message || 'Failed to delete line item', 'error')
-      }
-    } catch {
-      showNotification('Error deleting line item', 'error')
-    } finally {
-      setDeletingLineItemId(null)
-    }
-  }
-
-  const startEditLineItem = (li: ExpenseLineItem) => {
-    setEditingLineItemId(li.id)
-    setAddingLineItem(false)
-    setLineItemForm({
-      description: li.description,
-      quantity: li.quantity.toString(),
-      unitCost: li.unitCost ? li.unitCost.toString() : '',
-      totalCost: li.totalCost.toString(),
-    })
-  }
-
-  const startAddLineItem = () => {
-    setAddingLineItem(true)
-    setEditingLineItemId(null)
-    setLineItemForm({ description: '', quantity: '1', unitCost: '', totalCost: '' })
-  }
-
-  // Auto-calculate: qty × unitCost = totalCost
-  const updateLineItemField = (field: 'quantity' | 'unitCost' | 'totalCost', value: string) => {
-    setLineItemForm(prev => {
-      const next = { ...prev, [field]: value }
-      const qty = parseFloat(field === 'quantity' ? value : next.quantity) || 0
-      const unit = parseFloat(field === 'unitCost' ? value : next.unitCost) || 0
-      const total = parseFloat(field === 'totalCost' ? value : next.totalCost) || 0
-
-      if (field === 'quantity' || field === 'unitCost') {
-        // Recalculate total from qty × unit
-        if (qty > 0 && unit > 0) {
-          next.totalCost = (qty * unit).toFixed(2)
-        }
-      } else if (field === 'totalCost') {
-        // Recalculate unitCost from total / qty
-        if (qty > 0 && total > 0) {
-          next.unitCost = (total / qty).toFixed(2)
-        }
-      }
-      return next
-    })
-  }
 
   const getProgress = (list: SupplyList) => {
     if (list.progress) return list.progress
@@ -911,7 +779,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                       }
                       const isConfirmingDelete = confirmDeleteReceiptId === receipt.id
                       const isExpanded = expandedReceiptId === receipt.id
-                      const canExpand = receipt.status === 'applied'
+                      const canExpand = receipt.status === 'applied' || receipt.status === 'matched'
                       return (
                         <div key={receipt.id}>
                           <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
@@ -973,198 +841,24 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                                     <p className="text-[11px] font-medium text-gray-700">
                                       Line Items ({lineItems.length})
                                     </p>
-                                    <div className="flex items-center gap-2">
-                                      {lineItems.length > 0 && lineItems[0].expenseId && (
-                                        <button
-                                          onClick={() => setViewingExpenseId(lineItems[0].expenseId)}
-                                          className="inline-flex items-center gap-0.5 text-[10px] font-medium text-teal-600 hover:text-teal-800 cursor-pointer"
-                                        >
-                                          <CurrencyDollarIcon className="w-3 h-3" /> View Expense
-                                        </button>
-                                      )}
-                                      {expenseAmount != null && (
-                                        <p className="text-[11px] font-medium text-teal-600">
-                                          Total: ${expenseAmount.toFixed(2)}
-                                        </p>
-                                      )}
-                                    </div>
+                                    {lineItems.length > 0 && (
+                                      <p className="text-[11px] font-medium text-teal-600">
+                                        Total: ${lineItems.reduce((sum, li) => sum + (Number(li.totalPrice) || 0), 0).toFixed(2)}
+                                      </p>
+                                    )}
                                   </div>
 
                                   {lineItems.map(li => {
-                                    const isEditing = editingLineItemId === li.id
-                                    const isConfirmingLiDelete = confirmDeleteLineItemId === li.id
-
-                                    if (isEditing) {
-                                      return (
-                                        <div key={li.id} className="p-2 bg-teal-50 rounded-lg space-y-1.5">
-                                          <input
-                                            type="text"
-                                            value={lineItemForm.description}
-                                            onChange={(e) => setLineItemForm(f => ({ ...f, description: e.target.value }))}
-                                            placeholder="Description"
-                                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                          />
-                                          <div className="flex gap-1.5">
-                                            <input
-                                              type="number"
-                                              value={lineItemForm.quantity}
-                                              onChange={(e) => updateLineItemField('quantity', e.target.value)}
-                                              placeholder="Qty"
-                                              min="1"
-                                              className="w-14 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                            />
-                                            <input
-                                              type="number"
-                                              value={lineItemForm.unitCost}
-                                              onChange={(e) => updateLineItemField('unitCost', e.target.value)}
-                                              placeholder="Unit $"
-                                              step="0.01"
-                                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                            />
-                                            <input
-                                              type="number"
-                                              value={lineItemForm.totalCost}
-                                              onChange={(e) => updateLineItemField('totalCost', e.target.value)}
-                                              placeholder="Total $"
-                                              step="0.01"
-                                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                            />
-                                          </div>
-                                          <div className="flex gap-1.5 justify-end">
-                                            <button
-                                              onClick={() => setEditingLineItemId(null)}
-                                              className="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded cursor-pointer"
-                                            >
-                                              Cancel
-                                            </button>
-                                            <button
-                                              onClick={() => handleSaveLineItem(false, li.id)}
-                                              disabled={savingLineItem || !lineItemForm.description.trim() || !lineItemForm.totalCost}
-                                              className="px-2 py-0.5 text-[10px] font-medium bg-teal-500 text-white rounded hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
-                                            >
-                                              {savingLineItem ? 'Saving...' : 'Save'}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )
-                                    }
-
                                     return (
-                                      <div key={li.id}>
-                                        <div className="flex items-center justify-between p-1.5 bg-white rounded-lg text-[11px]">
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            {li.supplyListItemId && (
-                                              <LinkIcon className="w-3 h-3 text-teal-500 flex-shrink-0" title="Linked to supply item" />
-                                            )}
-                                            <span className="text-gray-800 truncate">{li.description}</span>
-                                          </div>
-                                          <div className="flex items-center gap-2 flex-shrink-0">
-                                            <span className="text-gray-500">
-                                              {li.quantity > 1 && `${li.quantity} × $${li.unitCost.toFixed(2)} = `}
-                                              ${li.totalCost.toFixed(2)}
-                                            </span>
-                                            <button
-                                              onClick={() => startEditLineItem(li)}
-                                              className="p-0.5 text-gray-400 hover:text-teal-600 cursor-pointer"
-                                            >
-                                              <PencilIcon className="w-3 h-3" />
-                                            </button>
-                                            <button
-                                              onClick={() => setConfirmDeleteLineItemId(isConfirmingLiDelete ? null : li.id)}
-                                              disabled={deletingLineItemId === li.id}
-                                              className="p-0.5 text-gray-400 hover:text-red-500 cursor-pointer disabled:opacity-50"
-                                            >
-                                              <TrashIcon className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                        {isConfirmingLiDelete && (
-                                          <div className="mt-0.5 p-1.5 bg-red-50 border border-red-200 rounded text-[10px]">
-                                            <p className="text-red-700 mb-1">
-                                              {li.supplyListItemId ? 'This item is linked to a supply item.' : 'Delete this line item?'}
-                                            </p>
-                                            <div className="flex gap-1">
-                                              <button
-                                                onClick={() => setConfirmDeleteLineItemId(null)}
-                                                className="flex-1 py-0.5 font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
-                                              >
-                                                Cancel
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteLineItem(li.id)}
-                                                disabled={!!deletingLineItemId}
-                                                className="flex-1 py-0.5 font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
-                                              >
-                                                {deletingLineItemId === li.id ? '...' : 'Delete'}
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
+                                      <div key={li.id} className="flex items-center justify-between p-1.5 bg-white rounded-lg text-[11px]">
+                                        <span className="text-gray-800 truncate">{li.name}</span>
+                                        <span className="text-gray-500 flex-shrink-0">
+                                          {li.quantity > 1 && `${li.quantity} × $${(Number(li.unitPrice) || 0).toFixed(2)} = `}
+                                          ${(Number(li.totalPrice) || 0).toFixed(2)}
+                                        </span>
                                       </div>
                                     )
                                   })}
-
-                                  {/* Add line item form */}
-                                  {addingLineItem ? (
-                                    <div className="p-2 bg-teal-50 rounded-lg space-y-1.5">
-                                      <input
-                                        type="text"
-                                        value={lineItemForm.description}
-                                        onChange={(e) => setLineItemForm(f => ({ ...f, description: e.target.value }))}
-                                        placeholder="Description"
-                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                        autoFocus
-                                      />
-                                      <div className="flex gap-1.5">
-                                        <input
-                                          type="number"
-                                          value={lineItemForm.quantity}
-                                          onChange={(e) => updateLineItemField('quantity', e.target.value)}
-                                          placeholder="Qty"
-                                          min="1"
-                                          className="w-14 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                        />
-                                        <input
-                                          type="number"
-                                          value={lineItemForm.unitCost}
-                                          onChange={(e) => updateLineItemField('unitCost', e.target.value)}
-                                          placeholder="Unit $"
-                                          step="0.01"
-                                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                        />
-                                        <input
-                                          type="number"
-                                          value={lineItemForm.totalCost}
-                                          onChange={(e) => updateLineItemField('totalCost', e.target.value)}
-                                          placeholder="Total $"
-                                          step="0.01"
-                                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
-                                        />
-                                      </div>
-                                      <div className="flex gap-1.5 justify-end">
-                                        <button
-                                          onClick={() => setAddingLineItem(false)}
-                                          className="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={() => handleSaveLineItem(true)}
-                                          disabled={savingLineItem || !lineItemForm.description.trim() || !lineItemForm.totalCost}
-                                          className="px-2 py-0.5 text-[10px] font-medium bg-teal-500 text-white rounded hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
-                                        >
-                                          {savingLineItem ? 'Saving...' : 'Add'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={startAddLineItem}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-teal-600 hover:bg-teal-50 rounded cursor-pointer"
-                                    >
-                                      <PlusIcon className="w-3 h-3" /> Add Item
-                                    </button>
-                                  )}
                                 </div>
                               )}
                             </div>
@@ -1382,21 +1076,19 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       />
     )}
     {reviewReceiptId && selectedList && (
-      <ReviewReceiptModal
+      <ScanSupplyReceiptModal
         isOpen={true}
         onClose={() => setReviewReceiptId(null)}
-        supplyListId={selectedList.id}
         receiptId={reviewReceiptId}
+        supplyListId={selectedList.id}
         supplyList={selectedList}
         onReceiptApplied={() => {
           setReviewReceiptId(null)
-          // Reload receipts
-          getSupplyListReceipts(selectedList.id).then(res => {
+          searchReceipts({ supplyListId: selectedList.id }).then(res => {
             if (res.status === 'success') setReceipts(res.data || [])
           })
           onSupplyListsChanged?.()
         }}
-        zIndex={70}
       />
     )}
     </>
