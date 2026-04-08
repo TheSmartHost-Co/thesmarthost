@@ -10,6 +10,7 @@ import {
   DocumentTextIcon,
   ArrowPathIcon,
   XMarkIcon,
+  CameraIcon,
 } from '@heroicons/react/24/outline'
 
 interface UploadReceiptModalProps {
@@ -113,33 +114,23 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
 
         {step === 'select' && (
           <>
-            {/* Drop zone */}
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => document.getElementById('receipt-file-input')?.click()}
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                isDragOver
-                  ? 'border-blue-400 bg-blue-50'
-                  : selectedFile
-                    ? 'border-green-300 bg-green-50'
-                    : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
-              }`}
-            >
-              <input
-                id="receipt-file-input"
-                type="file"
-                accept={ALLOWED_TYPES.join(',')}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleFileSelect(file)
-                  e.target.value = ''
-                }}
-                className="hidden"
-              />
-
-              {selectedFile ? (
+            {selectedFile ? (
+              /* Selected file preview */
+              <div
+                onClick={() => document.getElementById('receipt-file-input')?.click()}
+                className="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors border-green-300 bg-green-50"
+              >
+                <input
+                  id="receipt-file-input"
+                  type="file"
+                  accept={ALLOWED_TYPES.join(',')}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleFileSelect(file)
+                    e.target.value = ''
+                  }}
+                  className="hidden"
+                />
                 <div className="flex items-center justify-center gap-3">
                   <DocumentTextIcon className="w-8 h-8 text-green-500" />
                   <div className="text-left">
@@ -156,14 +147,65 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
                     <XMarkIcon className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
-              ) : (
-                <>
-                  <CloudArrowUpIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Take Photo button */}
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('receipt-camera-input')?.click()}
+                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
+                >
+                  <CameraIcon className="w-5 h-5" />
+                  <span className="text-sm font-semibold">Take Photo</span>
+                </button>
+                <input
+                  id="receipt-camera-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleFileSelect(file)
+                    e.target.value = ''
+                  }}
+                  className="hidden"
+                />
+
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 border-t border-gray-200" />
+                  <span className="text-xs text-gray-400 font-medium">or upload a file</span>
+                  <div className="flex-1 border-t border-gray-200" />
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onClick={() => document.getElementById('receipt-file-input')?.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                    isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    id="receipt-file-input"
+                    type="file"
+                    accept={ALLOWED_TYPES.join(',')}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleFileSelect(file)
+                      e.target.value = ''
+                    }}
+                    className="hidden"
+                  />
+                  <CloudArrowUpIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm font-medium text-gray-600">Drag & drop or click to browse</p>
                   <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP, or PDF up to 10MB</p>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">

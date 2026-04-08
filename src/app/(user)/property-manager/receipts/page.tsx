@@ -82,7 +82,7 @@ function ReceiptsContent() {
   const [error, setError] = useState<string | null>(null)
 
   // View mode
-  const [viewMode, setViewMode] = useState<'table' | 'gallery'>('table')
+  const [viewMode, setViewMode] = useState<'table' | 'gallery'>('gallery')
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -304,7 +304,7 @@ function ReceiptsContent() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Receipts</h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage scanned receipts and create expenses</p>
@@ -312,7 +312,7 @@ function ReceiptsContent() {
         {canWrite('receipts') && (
           <button
             onClick={() => setShowUploadModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
           >
             <CameraIcon className="w-4 h-4" />
             Scan Receipt
@@ -323,7 +323,7 @@ function ReceiptsContent() {
       {/* Filters Row */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Status pills */}
-        <div className="flex gap-2 overflow-x-auto items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           {STATUS_FILTERS.map((filter) => (
             <button
               key={filter.value}
@@ -339,16 +339,16 @@ function ReceiptsContent() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 sm:ml-auto">
           {/* Search */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search vendor, property..."
-              className="w-56 pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full sm:w-56 pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -372,7 +372,7 @@ function ReceiptsContent() {
             </button>
 
             {showFilterPopover && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50 space-y-3">
+              <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-3rem)] bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50 space-y-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-semibold text-gray-900">Filters</span>
                   {activeFilterCount > 0 && (
@@ -469,115 +469,73 @@ function ReceiptsContent() {
 
       {/* Content */}
       {receipts.length > 0 ? (
-        viewMode === 'table' ? (
-          /* Table View */
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12" />
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {receipts.map((receipt) => {
-                    const status = statusConfig[receipt.status]
-                    return (
-                      <tr
-                        key={receipt.id}
-                        onClick={() => {
-                          setSelectedReceiptId(receipt.id)
-                          setShowDetailModal(true)
-                        }}
-                        className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${
-                          receipt.status === 'archived' ? 'opacity-60' : ''
-                        }`}
-                      >
-                        {/* Thumbnail */}
-                        <td className="px-6 py-4">
-                          <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                            {receipt.mimeType?.startsWith('image/') && receipt.signedUrl ? (
-                              <img
-                                src={receipt.signedUrl}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <DocumentTextIcon className="w-5 h-5 text-gray-300" />
-                              </div>
-                            )}
+        <>
+          {/* Mobile view */}
+          <div className="md:hidden">
+            {viewMode === 'gallery' ? (
+              /* Mobile gallery — big cards with receipt images */
+              <div className="grid grid-cols-1 gap-3">
+                {receipts.map((receipt) => (
+                  <ReceiptGalleryCard
+                    key={receipt.id}
+                    receipt={receipt}
+                    onOpen={(id) => {
+                      setSelectedReceiptId(id)
+                      setShowDetailModal(true)
+                    }}
+                    actions={buildActions(receipt)}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Mobile compact list */
+              <div className="space-y-3">
+                {receipts.map((receipt) => {
+                  const status = statusConfig[receipt.status]
+                  return (
+                    <div
+                      key={receipt.id}
+                      onClick={() => {
+                        setSelectedReceiptId(receipt.id)
+                        setShowDetailModal(true)
+                      }}
+                      className={`bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3 active:bg-blue-50 transition-colors cursor-pointer ${
+                        receipt.status === 'archived' ? 'opacity-60' : ''
+                      }`}
+                    >
+                      {/* Thumbnail */}
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                        {receipt.mimeType?.startsWith('image/') && receipt.signedUrl ? (
+                          <img src={receipt.signedUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <DocumentTextIcon className="w-5 h-5 text-gray-300" />
                           </div>
-                        </td>
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{receipt.vendorName || 'Unknown'}</p>
+                        <p className="text-xs text-gray-500 truncate">{receipt.propertyName || 'No property'}</p>
+                      </div>
+                      {/* Amount + Status */}
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span className="text-sm font-bold text-gray-900 tabular-nums">{formatCurrency(receipt.total)}</span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.bg} ${status.text}`}>
+                          <span className={`w-1 h-1 rounded-full ${status.dot}`} />
+                          {status.label}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
-                        {/* Vendor */}
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {receipt.vendorName || 'Unknown'}
-                          </p>
-                          {receipt.description && (
-                            <p className="text-xs text-gray-400 mt-0.5">{receipt.description}</p>
-                          )}
-                        </td>
-
-                        {/* Property */}
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">{receipt.propertyName || '—'}</p>
-                        </td>
-
-                        {/* Date */}
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">{formatDate(receipt.expenseDate || receipt.createdAt)}</p>
-                        </td>
-
-                        {/* Total */}
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-sm font-bold text-gray-900 tabular-nums">
-                            {formatCurrency(receipt.total)}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-6 py-4 text-center">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                            {status.label}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end">
-                            <TableActionsDropdown actions={buildActions(receipt)} itemId={receipt.id} />
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                Showing <span className="font-medium">{receipts.length}</span>
-                {totalCount > receipts.length && (
-                  <> of <span className="font-medium">{totalCount}</span></>
-                )}{' '}
-                receipts
+            {/* Mobile pagination */}
+            <div className="flex items-center justify-between pt-3">
+              <p className="text-xs text-gray-500">
+                {receipts.length} of {totalCount} receipts
               </p>
               {totalPages > 1 && (
                 <div className="flex items-center gap-1">
@@ -586,11 +544,9 @@ function ReceiptsContent() {
                     disabled={currentPage === 1}
                     className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                   >
-                    Previous
+                    Prev
                   </button>
-                  <span className="px-2 text-xs text-gray-500">
-                    {currentPage} / {totalPages}
-                  </span>
+                  <span className="px-2 text-xs text-gray-500">{currentPage}/{totalPages}</span>
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
@@ -601,27 +557,184 @@ function ReceiptsContent() {
                 </div>
               )}
             </div>
-          </motion.div>
-        ) : (
-          /* Gallery View */
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-          >
-            {receipts.map((receipt) => (
-              <ReceiptGalleryCard
-                key={receipt.id}
-                receipt={receipt}
-                onOpen={(id) => {
-                  setSelectedReceiptId(id)
-                  setShowDetailModal(true)
-                }}
-                actions={buildActions(receipt)}
-              />
-            ))}
-          </motion.div>
-        )
+          </div>
+
+          {/* Desktop: table or gallery based on toggle */}
+          {viewMode === 'table' ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12" />
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {receipts.map((receipt) => {
+                      const status = statusConfig[receipt.status]
+                      return (
+                        <tr
+                          key={receipt.id}
+                          onClick={() => {
+                            setSelectedReceiptId(receipt.id)
+                            setShowDetailModal(true)
+                          }}
+                          className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${
+                            receipt.status === 'archived' ? 'opacity-60' : ''
+                          }`}
+                        >
+                          {/* Thumbnail */}
+                          <td className="px-6 py-4">
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                              {receipt.mimeType?.startsWith('image/') && receipt.signedUrl ? (
+                                <img
+                                  src={receipt.signedUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <DocumentTextIcon className="w-5 h-5 text-gray-300" />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Vendor */}
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {receipt.vendorName || 'Unknown'}
+                            </p>
+                            {receipt.description && (
+                              <p className="text-xs text-gray-400 mt-0.5">{receipt.description}</p>
+                            )}
+                          </td>
+
+                          {/* Property */}
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-700">{receipt.propertyName || '—'}</p>
+                          </td>
+
+                          {/* Date */}
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-700">{formatDate(receipt.expenseDate || receipt.createdAt)}</p>
+                          </td>
+
+                          {/* Total */}
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm font-bold text-gray-900 tabular-nums">
+                              {formatCurrency(receipt.total)}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4 text-center">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                              {status.label}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end">
+                              <TableActionsDropdown actions={buildActions(receipt)} itemId={receipt.id} />
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Showing <span className="font-medium">{receipts.length}</span>
+                  {totalCount > receipts.length && (
+                    <> of <span className="font-medium">{totalCount}</span></>
+                  )}{' '}
+                  receipts
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-2 text-xs text-gray-500">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {receipts.map((receipt) => (
+                <ReceiptGalleryCard
+                  key={receipt.id}
+                  receipt={receipt}
+                  onOpen={(id) => {
+                    setSelectedReceiptId(id)
+                    setShowDetailModal(true)
+                  }}
+                  actions={buildActions(receipt)}
+                />
+              ))}
+            </motion.div>
+          )}
+
+          {/* Gallery pagination (desktop only) */}
+          {viewMode === 'gallery' && totalPages > 1 && (
+            <div className="hidden md:flex items-center justify-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-500">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         /* Empty State */
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
@@ -645,29 +758,6 @@ function ReceiptsContent() {
               Scan Receipt
             </button>
           )}
-        </div>
-      )}
-
-      {/* Gallery pagination */}
-      {viewMode === 'gallery' && totalPages > 1 && receipts.length > 0 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-gray-500">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50"
-          >
-            Next
-          </button>
         </div>
       )}
 

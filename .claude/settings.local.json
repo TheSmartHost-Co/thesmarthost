@@ -25,7 +25,10 @@
       "Bash(cat /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\\\\\(user\\\\\\)/property-manager/client-portal/page.tsx | head -80)",
       "Bash(find /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app -name \"turnover\" -type d | head -1 | xargs -I {} find {} -name \"page.tsx\")",
       "Bash(find /mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost-backend -type f \\\\\\( -name \"*route*\" -o -name \"*controller*\" -o -name \"index.js\" \\\\\\) 2>/dev/null | grep -E \"\\(route|controller\\)\" | head -20)",
-      "Bash(head -150 \"/mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\(user\\)/cleaner/tasks/page.tsx\")"
+      "Bash(head -150 \"/mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\(user\\)/cleaner/tasks/page.tsx\")",
+      "Bash(npm install:*)",
+      "Bash(node -e \"console.log\\(require\\('@tailwindcss/typography/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('tailwindcss/package.json'\\).version\\)\")"
     ],
     "deny": []
   }
