@@ -6,8 +6,10 @@ import { getPublishedPatchNotes } from '@/services/patchNoteService'
 import type { PatchNote } from '@/services/types/patchNote'
 import ReactMarkdown from 'react-markdown'
 import { SparklesIcon } from '@heroicons/react/24/outline'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 
 export default function WhatsNewPage() {
+  usePermissionGuard('whats_new')
   const showNotification = useNotificationStore(s => s.showNotification)
   const [notes, setNotes] = useState<PatchNote[]>([])
   const [loading, setLoading] = useState(true)

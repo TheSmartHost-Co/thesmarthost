@@ -13,19 +13,20 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
-  applyChecklistTemplate,
+  applyChecklistTemplateBatch,
+  getLinkedProperties,
   groupTemplateItemsByRoom,
 } from '@/services/checklistTemplateService'
 import { getProperties } from '@/services/propertyService'
-import SearchableSelect from '@/components/shared/SearchableSelect'
-import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
-import type { Checklist } from '@/services/types/checklist'
+import MultiSelectCheckbox from '@/components/shared/MultiSelectCheckbox'
+import type { MultiSelectOption } from '@/components/shared/MultiSelectCheckbox'
+import type { ChecklistTemplate, LinkedProperty } from '@/services/types/checklistTemplate'
 import type { Property } from '@/services/types/property'
 
 interface ApplyTemplateModalProps {
   isOpen: boolean
   onClose: () => void
-  onApplied: (checklist: Checklist) => void
+  onApplied: () => void
   template: ChecklistTemplate | null
 }
 
@@ -40,46 +41,54 @@ export default function ApplyTemplateModal({
 
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(false)
-  const [propertyId, setPropertyId] = useState<string | null>(null)
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
+  const [linkedProperties, setLinkedProperties] = useState<LinkedProperty[]>([])
+  const [loadingLinked, setLoadingLinked] = useState(false)
   const [checklistName, setChecklistName] = useState('')
   const [isDefault, setIsDefault] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // Fetch properties when modal opens
+  // Fetch properties and linked properties when modal opens
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && profile?.id && template) {
       setLoadingProperties(true)
-      getProperties(profile.id)
-        .then((res) => {
-          if (res.status === 'success') {
-            setProperties(res.data || [])
-          }
+      setLoadingLinked(true)
+
+      Promise.all([
+        getProperties(profile.id),
+        getLinkedProperties(template.id),
+      ])
+        .then(([propRes, linkedRes]) => {
+          if (propRes.status === 'success') setProperties(propRes.data || [])
+          if (linkedRes.status === 'success') setLinkedProperties(linkedRes.data || [])
         })
-        .catch((err) => {
-          console.error('Error fetching properties:', err)
+        .catch(console.error)
+        .finally(() => {
+          setLoadingProperties(false)
+          setLoadingLinked(false)
         })
-        .finally(() => setLoadingProperties(false))
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, profile?.id, template])
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen && template) {
-      setPropertyId(null)
+      setSelectedPropertyIds([])
       setChecklistName(template.name)
       setIsDefault(false)
     }
   }, [isOpen, template])
 
-  const propertyOptions = useMemo(
-    () =>
-      properties.map((prop) => ({
-        value: prop.id,
-        label: prop.listingName || prop.internalName || prop.address,
-        secondaryLabel: prop.address,
-      })),
-    [properties]
-  )
+  const propertyOptions: MultiSelectOption<string>[] = useMemo(() => {
+    const linkedPropertyIds = new Set(linkedProperties.map((lp) => lp.propertyId))
+    return properties.map((prop) => ({
+      value: prop.id,
+      label: prop.listingName || prop.internalName || prop.address,
+      secondaryLabel: prop.address,
+      disabled: linkedPropertyIds.has(prop.id),
+      disabledReason: 'Already applied',
+    }))
+  }, [properties, linkedProperties])
 
   // Group items by room for preview
   const groupedItems = useMemo(() => {
@@ -88,8 +97,8 @@ export default function ApplyTemplateModal({
   }, [template?.items])
 
   const handleSubmit = async () => {
-    if (!propertyId) {
-      showNotification('Please select a property', 'error')
+    if (selectedPropertyIds.length === 0) {
+      showNotification('Please select at least one property', 'error')
       return
     }
     if (!checklistName.trim()) {
@@ -100,18 +109,20 @@ export default function ApplyTemplateModal({
 
     setSubmitting(true)
     try {
-      const res = await applyChecklistTemplate(template.id, {
-        propertyId,
-        name: checklistName.trim(),
-        isDefault,
+      const res = await applyChecklistTemplateBatch(template.id, {
+        properties: selectedPropertyIds.map((pid) => ({
+          propertyId: pid,
+          name: checklistName.trim(),
+          isDefault,
+        })),
       })
 
       if (res.status === 'success') {
         showNotification(
-          `Template applied to property with ${template.items?.length || 0} tasks`,
+          `Template applied to ${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'property' : 'properties'}`,
           'success'
         )
-        onApplied(res.data)
+        onApplied()
         onClose()
       } else {
         showNotification(res.message || 'Failed to apply template', 'error')
@@ -131,13 +142,17 @@ export default function ApplyTemplateModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
           className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -228,21 +243,22 @@ export default function ApplyTemplateModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <HomeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                Target Property <span className="text-red-500">*</span>
+                Target Properties <span className="text-red-500">*</span>
               </label>
-              {loadingProperties ? (
+              {loadingProperties || loadingLinked ? (
                 <div className="flex items-center gap-2 py-3">
                   <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
                   <span className="text-sm text-gray-500">Loading properties...</span>
                 </div>
               ) : (
-                <SearchableSelect
+                <MultiSelectCheckbox
                   options={propertyOptions}
-                  value={propertyId}
-                  onChange={setPropertyId}
-                  placeholder="Select property..."
+                  selectedValues={selectedPropertyIds}
+                  onChange={setSelectedPropertyIds}
+                  placeholder="Search properties..."
                   emptyText="No properties found"
-                  clearable={false}
+                  maxHeight="12rem"
+                  selectAllLabel="Select All Properties"
                 />
               )}
             </div>
@@ -294,7 +310,7 @@ export default function ApplyTemplateModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !propertyId || !checklistName.trim()}
+              disabled={submitting || selectedPropertyIds.length === 0 || !checklistName.trim()}
               className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {submitting ? (
@@ -305,7 +321,7 @@ export default function ApplyTemplateModal({
               ) : (
                 <>
                   <CheckIcon className="w-4 h-4" />
-                  Apply to Property
+                  Apply to {selectedPropertyIds.length > 0 ? `${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'Property' : 'Properties'}` : 'Properties'}
                 </>
               )}
             </button>

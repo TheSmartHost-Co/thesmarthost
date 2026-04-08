@@ -8,43 +8,43 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { deleteChecklistTemplate } from '@/services/checklistTemplateService'
-import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
+import { deleteChecklist } from '@/services/checklistService'
+import type { Checklist } from '@/services/types/checklist'
 
-interface DeleteChecklistTemplateModalProps {
+interface DeleteChecklistModalProps {
   isOpen: boolean
   onClose: () => void
   onDeleted: () => void
-  template: ChecklistTemplate | null
+  checklist: Checklist | null
 }
 
-export default function DeleteChecklistTemplateModal({
+export default function DeleteChecklistModal({
   isOpen,
   onClose,
   onDeleted,
-  template,
-}: DeleteChecklistTemplateModalProps) {
+  checklist,
+}: DeleteChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
   const [deleting, setDeleting] = useState(false)
 
   const handleDelete = async () => {
-    if (!template) return
+    if (!checklist) return
 
     setDeleting(true)
     try {
-      const res = await deleteChecklistTemplate(template.id)
+      const res = await deleteChecklist(checklist.id)
 
       if (res.status === 'success') {
-        showNotification(`Template "${template.name}" deleted`, 'success')
+        showNotification(`Checklist "${checklist.name}" deleted`, 'success')
         onDeleted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete template', 'error')
+        showNotification(res.message || 'Failed to delete checklist', 'error')
       }
     } catch (err) {
-      console.error('Error deleting template:', err)
+      console.error('Error deleting checklist:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to delete template',
+        err instanceof Error ? err.message : 'Failed to delete checklist',
         'error'
       )
     } finally {
@@ -52,7 +52,7 @@ export default function DeleteChecklistTemplateModal({
     }
   }
 
-  if (!isOpen || !template) return null
+  if (!isOpen || !checklist) return null
 
   return (
     <AnimatePresence>
@@ -71,7 +71,7 @@ export default function DeleteChecklistTemplateModal({
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Delete Template</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Delete Checklist</h2>
             </div>
             <button
               onClick={onClose}
@@ -84,11 +84,11 @@ export default function DeleteChecklistTemplateModal({
           {/* Content */}
           <div className="p-6">
             <p className="text-gray-700">
-              Are you sure you want to delete <strong>&ldquo;{template.name}&rdquo;</strong>?
+              Are you sure you want to delete <strong>&ldquo;{checklist.name}&rdquo;</strong>?
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              This will permanently remove the template and its {template.itemCount || 0} tasks.
-              Property checklists created from this template will not be affected.
+              This will permanently remove the checklist and its {checklist.itemCount || 0} tasks
+              {checklist.propertyName ? ` from ${checklist.propertyName}` : ''}.
             </p>
           </div>
 
@@ -116,7 +116,7 @@ export default function DeleteChecklistTemplateModal({
               ) : (
                 <>
                   <TrashIcon className="w-4 h-4" />
-                  Delete Template
+                  Delete Checklist
                 </>
               )}
             </button>

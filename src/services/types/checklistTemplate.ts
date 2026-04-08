@@ -102,3 +102,63 @@ export interface DeleteChecklistTemplateResponse {
   status: 'success' | 'failed'
   message: string
 }
+
+// Linked property (property checklist linked to a template)
+export interface LinkedProperty {
+  checklistId: string
+  propertyId: string
+  checklistName: string
+  isDefault: boolean
+  propertyName: string
+  propertyAddress: string
+}
+
+export interface LinkedPropertiesResponse {
+  status: 'success' | 'failed'
+  data: LinkedProperty[]
+  message?: string
+}
+
+// Unlink property payload
+export interface UnlinkPropertyPayload {
+  checklistId: string
+  action: 'unlink' | 'delete'
+}
+
+export interface UnlinkPropertyResponse {
+  status: 'success' | 'failed'
+  message?: string
+}
+
+// Batch apply template payload
+export interface ApplyTemplateBatchPayload {
+  properties: {
+    propertyId: string
+    name?: string
+    isDefault?: boolean
+  }[]
+}
+
+export interface ApplyTemplateBatchResponse {
+  status: 'success' | 'failed'
+  data: {
+    id: string
+    propertyId: string
+    name: string
+    isDefault: boolean
+    templateId: string
+    itemCount: number
+  }[]
+  message?: string
+}
+
+// Propagate template changes payload
+export interface PropagateTemplatePayload {
+  checklistIds: string[]
+}
+
+export interface PropagateTemplateResponse {
+  status: 'success' | 'failed'
+  data?: { updatedCount: number }
+  message?: string
+}

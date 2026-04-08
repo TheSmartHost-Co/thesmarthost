@@ -16,12 +16,14 @@ import {
 interface PreviewTeamMemberModalProps {
   isOpen: boolean
   onClose: () => void
+  onEdit?: () => void
   member: TeamMember | null
 }
 
 const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
   isOpen,
   onClose,
+  onEdit,
   member,
 }) => {
   if (!member) return null
@@ -173,7 +175,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end pt-4 border-t border-gray-200">
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
         <button
           type="button"
           onClick={onClose}
@@ -181,6 +183,15 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
         >
           Close
         </button>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+          >
+            Edit
+          </button>
+        )}
       </div>
     </Modal>
   )

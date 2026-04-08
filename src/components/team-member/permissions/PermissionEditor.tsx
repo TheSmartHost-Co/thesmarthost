@@ -64,17 +64,17 @@ const SECTIONS: PermissionSection[] = [
   {
     label: 'Turnover',
     icon: WrenchScrewdriverIcon,
-    keys: ['turnover', 'checklists', 'supply_lists', 'cleaners'],
+    keys: ['turnover', 'checklists', 'supply_lists', 'cleaners', 'invoices'],
   },
   {
     label: 'Financial',
     icon: CurrencyDollarIcon,
-    keys: ['expenses', 'analytics'],
+    keys: ['expenses', 'receipts', 'analytics'],
   },
   {
     label: 'System',
     icon: CogIcon,
-    keys: ['settings'],
+    keys: ['client_portal', 'whats_new', 'settings'],
   },
 ]
 

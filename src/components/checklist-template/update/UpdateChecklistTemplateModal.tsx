@@ -12,6 +12,9 @@ import {
   CheckIcon,
   TagIcon,
   PencilSquareIcon,
+  BuildingOfficeIcon,
+  ChevronDownIcon,
+  LinkSlashIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -20,9 +23,14 @@ import {
   updateChecklistTemplateItem,
   deleteChecklistTemplateItem,
   reorderChecklistTemplateItems,
+  getLinkedProperties,
+  unlinkPropertyFromTemplate,
+  propagateTemplateToChecklists,
 } from '@/services/checklistTemplateService'
 import { COMMON_ROOM_NAMES } from '@/services/checklistService'
-import type { ChecklistTemplate, ChecklistTemplateItem } from '@/services/types/checklistTemplate'
+import type { ChecklistTemplate, ChecklistTemplateItem, LinkedProperty } from '@/services/types/checklistTemplate'
+import PropagateTemplateModal from './PropagateTemplateModal'
+import UnlinkPropertyConfirmModal from '../unlink/UnlinkPropertyConfirmModal'
 
 interface UpdateChecklistTemplateModalProps {
   isOpen: boolean
@@ -70,6 +78,19 @@ export default function UpdateChecklistTemplateModal({
   // UI state
   const [saving, setSaving] = useState(false)
 
+  // Linked properties state
+  const [linkedProperties, setLinkedProperties] = useState<LinkedProperty[]>([])
+  const [loadingLinked, setLoadingLinked] = useState(false)
+  const [showLinkedSection, setShowLinkedSection] = useState(false)
+
+  // Propagation state
+  const [showPropagateModal, setShowPropagateModal] = useState(false)
+
+  // Unlink state
+  const [unlinkTarget, setUnlinkTarget] = useState<LinkedProperty | null>(null)
+  const [showUnlinkModal, setShowUnlinkModal] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
+
   // Populate form when template changes
   useEffect(() => {
     if (isOpen && template) {
@@ -98,6 +119,24 @@ export default function UpdateChecklistTemplateModal({
       } else {
         setItems([])
       }
+    }
+  }, [isOpen, template])
+
+  // Fetch linked properties when modal opens
+  useEffect(() => {
+    if (isOpen && template) {
+      setLoadingLinked(true)
+      getLinkedProperties(template.id)
+        .then((res) => {
+          if (res.status === 'success') {
+            setLinkedProperties(res.data || [])
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoadingLinked(false))
+    } else {
+      setLinkedProperties([])
+      setShowLinkedSection(false)
     }
   }, [isOpen, template])
 
@@ -225,17 +264,108 @@ export default function UpdateChecklistTemplateModal({
         })
       }
 
-      showNotification('Template updated successfully', 'success')
-      onUpdated(metaRes.data)
-      onClose()
+      return metaRes.data
     } catch (err) {
       console.error('Error updating template:', err)
       showNotification(
         err instanceof Error ? err.message : 'Failed to update template',
         'error'
       )
+      return null
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveClick = () => {
+    if (!name.trim()) {
+      showNotification('Please enter a template name', 'error')
+      return
+    }
+    if (linkedProperties.length > 0) {
+      setShowPropagateModal(true)
+    } else {
+      handleSaveAndClose()
+    }
+  }
+
+  // Save template only, then close and reload
+  const handleSaveAndClose = async () => {
+    const result = await handleSave()
+    if (result) {
+      showNotification('Template updated successfully', 'success')
+      onUpdated(result)
+      onClose()
+    }
+  }
+
+  const handleSaveAndPropagate = async (checklistIds: string[]) => {
+    // Keep the propagate modal open with its spinner — don't close it yet
+    const result = await handleSave()
+    if (!result) {
+      setShowPropagateModal(false)
+      return
+    }
+
+    // Propagate BEFORE calling onUpdated so the page reloads AFTER propagation
+    if (checklistIds.length > 0 && template) {
+      try {
+        await propagateTemplateToChecklists(template.id, { checklistIds })
+        showNotification(
+          `Template saved and ${checklistIds.length} ${checklistIds.length === 1 ? 'checklist' : 'checklists'} updated`,
+          'success'
+        )
+      } catch (err) {
+        console.error('Error propagating:', err)
+        showNotification('Template saved but failed to update some checklists', 'error')
+      }
+    } else {
+      showNotification('Template updated successfully', 'success')
+    }
+
+    // Close everything at once — no flash of the edit modal
+    setShowPropagateModal(false)
+    onUpdated(result)
+    onClose()
+  }
+
+  const handleSaveTemplateOnly = async () => {
+    // Keep propagate modal open during save, then close everything at once
+    const result = await handleSave()
+    setShowPropagateModal(false)
+    if (result) {
+      showNotification('Template updated successfully', 'success')
+      onUpdated(result)
+      onClose()
+    }
+  }
+
+  const handleUnlink = async (action: 'unlink' | 'delete') => {
+    if (!unlinkTarget || !template) return
+    setUnlinking(true)
+    try {
+      const res = await unlinkPropertyFromTemplate(template.id, {
+        checklistId: unlinkTarget.checklistId,
+        action,
+      })
+      if (res.status === 'success') {
+        showNotification(
+          action === 'delete' ? 'Checklist deleted' : 'Property unlinked',
+          'success'
+        )
+        setLinkedProperties((prev) =>
+          prev.filter((lp) => lp.checklistId !== unlinkTarget.checklistId)
+        )
+      } else {
+        showNotification(res.message || 'Failed to unlink', 'error')
+      }
+    } catch (err) {
+      console.error('Error unlinking:', err)
+      showNotification('Failed to unlink property', 'error')
+    } finally {
+      setUnlinking(false)
+      setShowUnlinkModal(false)
+      setUnlinkTarget(null)
     }
   }
 
@@ -243,13 +373,14 @@ export default function UpdateChecklistTemplateModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
           className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
@@ -274,6 +405,64 @@ export default function UpdateChecklistTemplateModal({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Linked Properties */}
+            {linkedProperties.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkedSection(!showLinkedSection)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-100/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <BuildingOfficeIcon className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      Linked to {linkedProperties.length} {linkedProperties.length === 1 ? 'property' : 'properties'}
+                    </span>
+                  </div>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 text-blue-400 transition-transform ${
+                      showLinkedSection ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {showLinkedSection && (
+                  <div className="border-t border-blue-200 divide-y divide-blue-100">
+                    {linkedProperties.map((lp) => (
+                      <div
+                        key={lp.checklistId}
+                        className="flex items-center justify-between px-4 py-2.5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {lp.propertyName}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {lp.checklistName}
+                            {lp.isDefault && (
+                              <span className="ml-1.5 text-[9px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0 rounded-full">
+                                DEFAULT
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUnlinkTarget(lp)
+                            setShowUnlinkModal(true)
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                          title="Unlink property"
+                        >
+                          <LinkSlashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Metadata */}
             <div className="space-y-4">
               {/* Name */}
@@ -563,7 +752,7 @@ export default function UpdateChecklistTemplateModal({
             </button>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={handleSaveClick}
               disabled={saving || !name.trim()}
               className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
@@ -582,6 +771,29 @@ export default function UpdateChecklistTemplateModal({
           </div>
         </motion.div>
       </div>
+      {/* Propagate Template Modal */}
+      <PropagateTemplateModal
+        isOpen={showPropagateModal}
+        onClose={() => setShowPropagateModal(false)}
+        onConfirm={handleSaveAndPropagate}
+        onSkip={handleSaveTemplateOnly}
+        linkedProperties={linkedProperties}
+        templateName={name || template?.name || ''}
+        saving={saving}
+      />
+
+      {/* Unlink Property Confirm Modal */}
+      <UnlinkPropertyConfirmModal
+        isOpen={showUnlinkModal}
+        onClose={() => {
+          setShowUnlinkModal(false)
+          setUnlinkTarget(null)
+        }}
+        onConfirm={handleUnlink}
+        propertyName={unlinkTarget?.propertyName || ''}
+        checklistName={unlinkTarget?.checklistName || ''}
+        submitting={unlinking}
+      />
     </AnimatePresence>
   )
 }

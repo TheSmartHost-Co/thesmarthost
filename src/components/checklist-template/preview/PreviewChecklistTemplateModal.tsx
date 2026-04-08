@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -9,9 +9,12 @@ import {
   TagIcon,
   PencilSquareIcon,
   ArrowRightIcon,
+  BuildingOfficeIcon,
+  LinkSlashIcon,
 } from '@heroicons/react/24/outline'
-import { groupTemplateItemsByRoom } from '@/services/checklistTemplateService'
-import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
+import { groupTemplateItemsByRoom, getLinkedProperties, unlinkPropertyFromTemplate } from '@/services/checklistTemplateService'
+import type { ChecklistTemplate, LinkedProperty } from '@/services/types/checklistTemplate'
+import UnlinkPropertyConfirmModal from '../unlink/UnlinkPropertyConfirmModal'
 
 interface PreviewChecklistTemplateModalProps {
   isOpen: boolean
@@ -28,6 +31,12 @@ export default function PreviewChecklistTemplateModal({
   onApply,
   template,
 }: PreviewChecklistTemplateModalProps) {
+  const [linkedProperties, setLinkedProperties] = useState<LinkedProperty[]>([])
+  const [loadingLinked, setLoadingLinked] = useState(false)
+  const [unlinkTarget, setUnlinkTarget] = useState<LinkedProperty | null>(null)
+  const [showUnlinkModal, setShowUnlinkModal] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
+
   const groupedItems = useMemo(() => {
     if (!template?.items) return {}
     return groupTemplateItemsByRoom(template.items)
@@ -36,17 +45,56 @@ export default function PreviewChecklistTemplateModal({
   const roomCount = Object.keys(groupedItems).length
   const photoCount = template?.items?.filter((i) => i.requiresPhoto).length || 0
 
+  useEffect(() => {
+    if (isOpen && template) {
+      setLoadingLinked(true)
+      getLinkedProperties(template.id)
+        .then((res) => {
+          if (res.status === 'success') {
+            setLinkedProperties(res.data || [])
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoadingLinked(false))
+    } else {
+      setLinkedProperties([])
+    }
+  }, [isOpen, template])
+
+  const handleUnlink = async (action: 'unlink' | 'delete') => {
+    if (!unlinkTarget || !template) return
+    setUnlinking(true)
+    try {
+      const res = await unlinkPropertyFromTemplate(template.id, {
+        checklistId: unlinkTarget.checklistId,
+        action,
+      })
+      if (res.status === 'success') {
+        setLinkedProperties((prev) =>
+          prev.filter((lp) => lp.checklistId !== unlinkTarget.checklistId)
+        )
+      }
+    } catch (err) {
+      console.error('Error unlinking:', err)
+    } finally {
+      setUnlinking(false)
+      setShowUnlinkModal(false)
+      setUnlinkTarget(null)
+    }
+  }
+
   if (!isOpen || !template) return null
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
           className="w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
@@ -111,6 +159,45 @@ export default function PreviewChecklistTemplateModal({
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg">
                 <CameraIcon className="w-4 h-4" />
                 Walkthrough Required
+              </div>
+            )}
+
+            {/* Linked Properties */}
+            {linkedProperties.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  <BuildingOfficeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
+                  Applied to {linkedProperties.length} {linkedProperties.length === 1 ? 'property' : 'properties'}
+                </label>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl divide-y divide-blue-100 max-h-32 overflow-y-auto">
+                  {linkedProperties.map((lp) => (
+                    <div
+                      key={lp.checklistId}
+                      className="flex items-center justify-between px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{lp.propertyName}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {lp.checklistName}
+                          {lp.isDefault && (
+                            <span className="ml-1 text-[9px] font-semibold text-blue-700 bg-blue-100 px-1.5 rounded-full">DEFAULT</span>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUnlinkTarget(lp)
+                          setShowUnlinkModal(true)
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                        title="Unlink"
+                      >
+                        <LinkSlashIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -195,6 +282,18 @@ export default function PreviewChecklistTemplateModal({
           </div>
         </motion.div>
       </div>
+
+      <UnlinkPropertyConfirmModal
+        isOpen={showUnlinkModal}
+        onClose={() => {
+          setShowUnlinkModal(false)
+          setUnlinkTarget(null)
+        }}
+        onConfirm={handleUnlink}
+        propertyName={unlinkTarget?.propertyName || ''}
+        checklistName={unlinkTarget?.checklistName || ''}
+        submitting={unlinking}
+      />
     </AnimatePresence>
   )
 }

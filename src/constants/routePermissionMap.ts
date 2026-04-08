@@ -17,8 +17,11 @@ export const ROUTE_PERMISSION_MAP: Record<string, PermissionKey> = {
   '/property-manager/checklists': 'checklists',
   '/property-manager/supply-lists': 'supply_lists',
   '/property-manager/cleaners': 'cleaners',
+  '/property-manager/invoices': 'invoices',
   '/property-manager/analytics': 'analytics',
   '/property-manager/receipts': 'receipts',
+  '/property-manager/client-portal': 'client_portal',
+  '/property-manager/whats-new': 'whats_new',
   '/property-manager/settings': 'settings',
 }
 

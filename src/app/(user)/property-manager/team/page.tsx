@@ -573,6 +573,10 @@ export default function TeamMembersPage() {
             setShowPreviewModal(false)
             setSelectedMember(null)
           }}
+          onEdit={() => {
+            setShowPreviewModal(false)
+            setShowUpdateModal(true)
+          }}
           member={selectedMember}
         />
       )}

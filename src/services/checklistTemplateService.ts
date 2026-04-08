@@ -13,6 +13,13 @@ import type {
   DuplicateTemplatePayload,
   ApplyTemplatePayload,
   DeleteChecklistTemplateResponse,
+  LinkedPropertiesResponse,
+  UnlinkPropertyPayload,
+  UnlinkPropertyResponse,
+  ApplyTemplateBatchPayload,
+  ApplyTemplateBatchResponse,
+  PropagateTemplatePayload,
+  PropagateTemplateResponse,
 } from './types/checklistTemplate'
 import type { ChecklistResponse } from './types/checklist'
 
@@ -101,6 +108,61 @@ export function applyChecklistTemplate(
 ): Promise<ChecklistResponse> {
   return apiClient<ChecklistResponse, ApplyTemplatePayload>(
     `/checklist-templates/${id}/apply`,
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+/**
+ * Get properties linked to a template
+ */
+export function getLinkedProperties(templateId: string): Promise<LinkedPropertiesResponse> {
+  return apiClient<LinkedPropertiesResponse>(`/checklist-templates/${templateId}/linked-properties`)
+}
+
+/**
+ * Unlink or delete a property checklist from a template
+ */
+export function unlinkPropertyFromTemplate(
+  templateId: string,
+  data: UnlinkPropertyPayload
+): Promise<UnlinkPropertyResponse> {
+  return apiClient<UnlinkPropertyResponse, UnlinkPropertyPayload>(
+    `/checklist-templates/${templateId}/unlink`,
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+/**
+ * Apply template to multiple properties at once
+ */
+export function applyChecklistTemplateBatch(
+  id: string,
+  data: ApplyTemplateBatchPayload
+): Promise<ApplyTemplateBatchResponse> {
+  return apiClient<ApplyTemplateBatchResponse, ApplyTemplateBatchPayload>(
+    `/checklist-templates/${id}/apply-batch`,
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+/**
+ * Propagate template changes to selected property checklists
+ */
+export function propagateTemplateToChecklists(
+  templateId: string,
+  data: PropagateTemplatePayload
+): Promise<PropagateTemplateResponse> {
+  return apiClient<PropagateTemplateResponse, PropagateTemplatePayload>(
+    `/checklist-templates/${templateId}/propagate`,
     {
       method: 'POST',
       body: data,

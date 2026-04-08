@@ -21,8 +21,8 @@ import {
   restoreClientPortalAccess,
 } from '@/services/clientService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { Client } from '@/services/types/client'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
@@ -52,17 +52,9 @@ export default function ClientPortalPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
-  const { effectiveUserId, isPM } = usePermissions()
-
-  // Only PMs can access this page
-  useEffect(() => {
-    if (profile && !isPM) {
-      showNotification('Only property managers can manage the client portal', 'error')
-      window.location.href = '/property-manager/dashboard'
-    }
-  }, [profile, isPM, showNotification])
+  const { effectiveUserId } = usePermissions()
+  usePermissionGuard('client_portal')
 
   const fetchClients = useCallback(async () => {
     if (!effectiveUserId) return

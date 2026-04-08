@@ -83,7 +83,7 @@ export default function PMInvoicesPage() {
 }
 
 function PMInvoicesContent() {
-  usePermissionGuard('cleaners')
+  usePermissionGuard('invoices')
   const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const searchParams = useSearchParams()

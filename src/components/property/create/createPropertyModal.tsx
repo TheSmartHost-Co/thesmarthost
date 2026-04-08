@@ -205,7 +205,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const propertyFormContent = (
     <>
       <h2 className="text-xl mb-4 text-black">Create New Property</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 text-black">
+      <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4 text-black">
         {/* Property Type */}
         <div>
           <label className="block text-sm font-medium mb-1">Property Type *</label>
@@ -238,6 +238,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             type="text"
             value={listingId}
             onChange={(e) => setListingId(e.target.value)}
+            autoComplete="off"
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="e.g. HOST-123 (optional)"
           />
@@ -402,6 +403,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
                     type={showWifiPassword ? 'text' : 'password'}
                     value={wifiPassword}
                     onChange={(e) => setWifiPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="WiFi password"
                   />

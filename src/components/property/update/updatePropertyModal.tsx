@@ -204,7 +204,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6">
+      <form onSubmit={handleSubmit} autoComplete="off" className="p-6">
         <div className="space-y-5">
           {/* Property Type Selection - Visual Cards */}
           <div>
@@ -282,6 +282,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                 type="text"
                 value={listingId}
                 onChange={(e) => setListingId(e.target.value)}
+                autoComplete="off"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 placeholder="e.g., HOST-123 (optional)"
               />
@@ -448,6 +449,7 @@ const UpdatePropertyModal: React.FC<UpdatePropertyModalProps> = ({
                       type={showWifiPassword ? 'text' : 'password'}
                       value={wifiPassword}
                       onChange={(e) => setWifiPassword(e.target.value)}
+                      autoComplete="new-password"
                       className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                       placeholder="WiFi password"
                     />
