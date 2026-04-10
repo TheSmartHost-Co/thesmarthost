@@ -81,21 +81,54 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
       </div>
 
       {/* Info */}
-      <div className="p-4">
-        <p className="text-sm font-semibold text-gray-900 truncate">
-          {receipt.vendorName || receipt.originalName}
-        </p>
-        <p className="text-xs text-gray-500 truncate mt-0.5">
-          {receipt.propertyName || 'No property'}
-        </p>
-        <div className="flex items-center justify-between mt-2.5">
-          <span className="text-xs text-gray-400">
-            {formatDate(receipt.expenseDate || receipt.createdAt)}
-          </span>
-          <span className="text-sm font-bold text-gray-900">
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {receipt.vendorName || receipt.originalName}
+            </p>
+            {receipt.uploaderName && (
+              <p className="text-xs text-gray-400 truncate mt-0.5">
+                by {receipt.uploaderName}
+              </p>
+            )}
+          </div>
+          <span className="text-sm font-bold text-gray-900 flex-shrink-0">
             {formatCurrency(receipt.total)}
           </span>
         </div>
+
+        <p className="text-xs text-gray-400 mt-1.5">
+          {formatDate(receipt.expenseDate || receipt.createdAt)}
+        </p>
+
+        {/* Quick actions */}
+        {actions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-2.5 pt-2.5 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+            {actions.map((action) => {
+              const Icon = action.icon
+              const isDanger = action.variant === 'danger'
+              const isHighlight = action.variant === 'highlight'
+              return (
+                <button
+                  key={action.label}
+                  onClick={() => action.onClick()}
+                  title={action.label}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                    isDanger
+                      ? 'text-red-600 hover:bg-red-50'
+                      : isHighlight
+                        ? 'text-blue-600 hover:bg-blue-50'
+                        : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {action.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

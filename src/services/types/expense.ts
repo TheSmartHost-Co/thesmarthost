@@ -1,3 +1,5 @@
+import type { PaidByType } from './receipt'
+
 // Expense Types for HostMetrics Frontend
 
 /**
@@ -96,6 +98,9 @@ export interface Expense {
   ocrConfidence?: OcrConfidence
   receiptId?: string | null
   supplyListId?: string | null
+  paidByType?: PaidByType | null
+  paidById?: string | null
+  paidByName?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -157,6 +162,8 @@ export interface UpdateExpensePayload {
   taxPst?: number
   taxHst?: number
   taxTotal?: number
+  paidByType?: PaidByType | null
+  paidById?: string | null
 }
 
 /**

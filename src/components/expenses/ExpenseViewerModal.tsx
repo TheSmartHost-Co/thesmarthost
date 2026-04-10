@@ -26,6 +26,12 @@ import type {
   PaymentMethod,
   PaymentStatus
 } from '@/services/types/expense'
+import type { PaidByType } from '@/services/types/receipt'
+import { getCleaners, getCleanerByAuthUserId } from '@/services/cleanerService'
+import { getTeamMembers } from '@/services/teamMemberService'
+import { getUserProfile } from '@/services/profileService'
+import SearchableSelect from '@/components/shared/SearchableSelect'
+import type { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
@@ -49,7 +55,8 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardDocumentListIcon,
-  LinkIcon
+  LinkIcon,
+  UserIcon
 } from '@heroicons/react/24/outline'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 
@@ -116,6 +123,12 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [taxPst, setTaxPst] = useState('')
   const [taxHst, setTaxHst] = useState('')
   const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
+
+  // Paid-by state
+  const [editPaidById, setEditPaidById] = useState<string | null>(null)
+  const [editPaidByType, setEditPaidByType] = useState<PaidByType>('PROPERTY-MANAGER')
+  const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
+  const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
 
   // Receipt upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -193,10 +206,22 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const loadReferenceData = async () => {
     if (!profile?.id) return
 
+    // Resolve PM userId — for cleaners without pmUserId in session, look it up from cleaner record
+    let pmUserId = profile.pmUserId || null
+    if (!pmUserId && profile.role === 'CLEANER') {
+      try {
+        const clMe = await getCleanerByAuthUserId(profile.id)
+        if (clMe.status === 'success' && clMe.data) pmUserId = clMe.data.userId
+      } catch { /* non-critical */ }
+    }
+    const effectiveUserId = pmUserId || profile.id
+
     try {
-      const [propertiesRes, categoriesRes] = await Promise.all([
-        getProperties(profile.id),
-        getCategoriesByUserId(profile.id),
+      const [propertiesRes, categoriesRes, tmRes, clRes] = await Promise.all([
+        getProperties(effectiveUserId),
+        getCategoriesByUserId(effectiveUserId),
+        getTeamMembers(effectiveUserId).catch(() => null),
+        getCleaners(effectiveUserId).catch(() => null),
       ])
 
       if (propertiesRes.status === 'success') {
@@ -206,6 +231,38 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       if (categoriesRes.status === 'success') {
         setCategories(categoriesRes.data || [])
       }
+
+      // Build people picker options
+      const roleLabel = (r: string) => r === 'CLEANER' ? 'Cleaner' : r === 'TEAM_MEMBER' ? 'Team Member' : 'PM'
+      const roleType = (r: string): PaidByType => r === 'CLEANER' ? 'CLEANER' : r === 'TEAM_MEMBER' ? 'TEAM_MEMBER' : 'PROPERTY-MANAGER'
+      const opts: SearchableSelectOption<string>[] = []
+      const typeMap: Record<string, PaidByType> = {}
+      opts.push({ value: profile.id, label: `${profile.fullName} (You)`, secondaryLabel: roleLabel(profile.role) })
+      typeMap[profile.id] = roleType(profile.role)
+      // Add PM if current user is not the PM
+      if (pmUserId) {
+        try {
+          const pmRes = await getUserProfile(pmUserId)
+          if (pmRes.status === 'success' && pmRes.data) {
+            opts.push({ value: pmRes.data.id, label: pmRes.data.fullName, secondaryLabel: 'PM' })
+            typeMap[pmRes.data.id] = 'PROPERTY-MANAGER'
+          }
+        } catch { /* non-critical */ }
+      }
+      if (tmRes?.status === 'success') {
+        tmRes.data.filter(tm => tm.status === 'active' && tm.authUserId && tm.authUserId !== profile.id).forEach(tm => {
+          opts.push({ value: tm.authUserId!, label: tm.name, secondaryLabel: 'Team Member' })
+          typeMap[tm.authUserId!] = 'TEAM_MEMBER'
+        })
+      }
+      if (clRes?.status === 'success') {
+        clRes.data.filter(cl => cl.status === 'active' && cl.authUserId && cl.authUserId !== profile.id).forEach(cl => {
+          opts.push({ value: cl.authUserId!, label: cl.name, secondaryLabel: 'Cleaner' })
+          typeMap[cl.authUserId!] = 'CLEANER'
+        })
+      }
+      setPeopleOptions(opts)
+      setPeopleTypeMap(typeMap)
     } catch (error) {
       console.error('Error loading reference data:', error)
     }
@@ -237,6 +294,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setIsTaxDeductible(exp.isTaxDeductible)
     setPaymentMethod(exp.paymentMethod || 'credit_card')
     setPaymentStatus(exp.paymentStatus)
+    setEditPaidById(exp.paidById || profile?.id || null)
+    setEditPaidByType(exp.paidByType || 'PROPERTY-MANAGER')
 
     // Tax breakdown fields
     setSubtotal(exp.subtotal?.toString() || '')
@@ -313,6 +372,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         taxPst: parsedTaxPst,
         taxHst: parsedTaxHst,
         taxTotal: calculatedTaxTotal > 0 ? calculatedTaxTotal : undefined,
+        paidByType: editPaidByType,
+        paidById: editPaidById,
       }
 
       const response = await updateExpense(expense.id, payload)
@@ -550,6 +611,23 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               </div>
             </div>
           </div>
+
+          {expense.paidByName && (
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <UserIcon className="w-5 h-5 text-gray-400" />
+              <div>
+                <div className="text-xs text-gray-500">Paid By</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {expense.paidByName}
+                  {expense.paidByType && (
+                    <span className="ml-1.5 text-xs text-gray-400 font-normal">
+                      ({expense.paidByType === 'PROPERTY-MANAGER' ? 'PM' : expense.paidByType === 'TEAM_MEMBER' ? 'Team Member' : 'Cleaner'})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {expense.description && (
@@ -908,6 +986,25 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Paid By */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Paid By</label>
+          <SearchableSelect
+            options={peopleOptions}
+            value={editPaidById}
+            onChange={(val) => {
+              setEditPaidById(val)
+              if (val && peopleTypeMap[val]) {
+                setEditPaidByType(peopleTypeMap[val])
+              }
+            }}
+            placeholder="Select who paid..."
+            loading={peopleOptions.length === 0}
+            loadingText="Loading people..."
+            emptyText="No people found"
+          />
         </div>
 
         {/* Flags */}

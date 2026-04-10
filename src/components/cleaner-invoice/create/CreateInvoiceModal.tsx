@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
-import { createInvoice, getAvailableProjects } from '@/services/cleanerInvoiceService'
+import { createInvoice, getAvailableProjects, getAvailableExpenses } from '@/services/cleanerInvoiceService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { Cleaner } from '@/services/types/cleaner'
-import type { CleanerInvoice, AvailableProject } from '@/services/types/cleanerInvoice'
+import type { CleanerInvoice, AvailableProject, AvailableExpense } from '@/services/types/cleanerInvoice'
 import {
   CalendarDaysIcon,
   ExclamationTriangleIcon,
@@ -13,6 +13,8 @@ import {
   BuildingOfficeIcon,
   ClockIcon,
   CurrencyDollarIcon,
+  BanknotesIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 import { TAX_RATES, calcTax } from '@/constants/taxRates'
 
@@ -116,6 +118,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [overrides, setOverrides] = useState<Map<string, ProjectOverride>>(new Map())
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Reimbursable expenses
+  const [availableExpenses, setAvailableExpenses] = useState<AvailableExpense[]>([])
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set())
+  const [loadingExpenses, setLoadingExpenses] = useState(false)
   // Tax toggles — initialized from cleaner defaults
   const [taxHstEnabled, setTaxHstEnabled] = useState(cleaner.taxHstEnabled || false)
   const [taxGstEnabled, setTaxGstEnabled] = useState(cleaner.taxGstEnabled || false)
@@ -123,25 +129,26 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
-  // Fetch projects when modal opens or dates change
+  // Fetch projects and expenses when modal opens or dates change
   useEffect(() => {
     if (!isOpen) return
 
-    const fetchProjects = async () => {
-      if (!periodStart || !periodEnd) {
-        setAvailableProjects([])
-        setSelectedIds(new Set())
-        setOverrides(new Map())
-        return
-      }
+    if (!periodStart || !periodEnd) {
+      setAvailableProjects([])
+      setSelectedIds(new Set())
+      setOverrides(new Map())
+      setAvailableExpenses([])
+      setSelectedExpenseIds(new Set())
+      return
+    }
 
+    const fetchProjects = async () => {
       setLoadingProjects(true)
       try {
         const res = await getAvailableProjects(cleaner.id, periodStart, periodEnd)
         if (res.status === 'success') {
           setAvailableProjects(res.data)
           setSelectedIds(new Set(res.data.map((p) => p.id)))
-          // Initialize overrides with calculated defaults
           const newOverrides = new Map<string, ProjectOverride>()
           const anyTaxEnabled = taxHstEnabled || taxGstEnabled || taxQstEnabled
           res.data.forEach((p) => {
@@ -150,7 +157,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               durationMinutes: dur,
               amount: calcAmount(p.propertyRateType, p.propertyRateAmount, dur, cleaner.hourlyRate),
               amountManuallySet: false,
-              isTaxable: anyTaxEnabled, // Default taxable when invoice has taxes
+              isTaxable: anyTaxEnabled,
             })
           })
           setOverrides(newOverrides)
@@ -162,7 +169,23 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       }
     }
 
+    const fetchExpenses = async () => {
+      setLoadingExpenses(true)
+      try {
+        const res = await getAvailableExpenses(cleaner.id, periodStart, periodEnd)
+        if (res.status === 'success') {
+          setAvailableExpenses(res.data)
+          setSelectedExpenseIds(new Set(res.data.map((e) => e.id)))
+        }
+      } catch (err) {
+        console.error('Error fetching available expenses:', err)
+      } finally {
+        setLoadingExpenses(false)
+      }
+    }
+
     fetchProjects()
+    fetchExpenses()
   }, [isOpen, cleaner.id, periodStart, periodEnd])
 
   // When tax toggles change, update all items' default taxable status
@@ -186,21 +209,33 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       setPeriodEnd(formatDateInput(now))
       setSelectedIds(new Set())
       setOverrides(new Map())
+      setAvailableExpenses([])
+      setSelectedExpenseIds(new Set())
       setTaxHstEnabled(cleaner.taxHstEnabled || false)
       setTaxGstEnabled(cleaner.taxGstEnabled || false)
       setTaxQstEnabled(cleaner.taxQstEnabled || false)
     }
   }, [isOpen])
 
-  // Selected totals
+  // Expense subtotal (non-taxable)
+  const expenseSubtotal = useMemo(() => {
+    let total = 0
+    selectedExpenseIds.forEach((id) => {
+      const exp = availableExpenses.find((e) => e.id === id)
+      if (exp) total += exp.amount
+    })
+    return total
+  }, [selectedExpenseIds, availableExpenses])
+
+  // Selected totals (projects + expenses)
   const selectedSubtotal = useMemo(() => {
     let total = 0
     selectedIds.forEach((id) => {
       const ov = overrides.get(id)
       if (ov) total += ov.amount
     })
-    return total
-  }, [selectedIds, overrides])
+    return total + expenseSubtotal
+  }, [selectedIds, overrides, expenseSubtotal])
 
   // Taxable subtotal — only items marked as taxable
   const taxableSubtotal = useMemo(() => {
@@ -223,7 +258,24 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const selectedTotal = selectedSubtotal + taxPreview.total
   const hasTax = taxHstEnabled || taxGstEnabled || taxQstEnabled
 
-  const selectedCount = selectedIds.size
+  const selectedCount = selectedIds.size + selectedExpenseIds.size
+
+  const toggleExpense = (id: string) => {
+    setSelectedExpenseIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllExpenses = () => {
+    if (selectedExpenseIds.size === availableExpenses.length) {
+      setSelectedExpenseIds(new Set())
+    } else {
+      setSelectedExpenseIds(new Set(availableExpenses.map((e) => e.id)))
+    }
+  }
 
   const toggleProject = (id: string) => {
     setSelectedIds((prev) => {
@@ -292,7 +344,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   }
 
   const handleGenerate = async () => {
-    if (selectedCount === 0) return
+    if (selectedIds.size === 0 && selectedExpenseIds.size === 0) return
 
     setIsSubmitting(true)
     try {
@@ -320,6 +372,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         periodStart,
         periodEnd,
         projectIds: Array.from(selectedIds),
+        expenseIds: Array.from(selectedExpenseIds),
         ...(Object.keys(itemOverrides).length > 0 ? { itemOverrides } : {}),
         taxHstEnabled,
         taxGstEnabled,
@@ -660,7 +713,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               Hours and amounts are pre-filled from your rates. Edit them if needed — you can also adjust everything after the invoice is generated.
             </p>
           </div>
-        ) : (
+        ) : !loadingExpenses && availableExpenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
               <ExclamationTriangleIcon className="h-7 w-7 text-gray-400" />
@@ -670,7 +723,86 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               No uninvoiced completed cleaning projects found for this date range. Try adjusting the dates.
             </p>
           </div>
-        )}
+        ) : null}
+
+        {/* Reimbursable Expenses Section */}
+        {loadingExpenses ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-7 h-7 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-gray-500">Searching for reimbursable expenses...</span>
+            </div>
+          </div>
+        ) : availableExpenses.length > 0 ? (
+          <div className="mt-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleAllExpenses}
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    selectedExpenseIds.size === availableExpenses.length
+                      ? 'bg-amber-600 border-amber-600'
+                      : 'border-gray-300 hover:border-amber-400'
+                  }`}
+                >
+                  {selectedExpenseIds.size === availableExpenses.length && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                </button>
+                <span className="text-sm font-semibold text-gray-700">
+                  {availableExpenses.length} reimbursable expense{availableExpenses.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <span className="text-xs text-gray-400">
+                {selectedExpenseIds.size} selected
+              </span>
+            </div>
+
+            {/* Expense List */}
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-[240px] overflow-y-auto">
+              {availableExpenses.map((expense) => {
+                const isSelected = selectedExpenseIds.has(expense.id)
+                return (
+                  <div
+                    key={expense.id}
+                    onClick={() => toggleExpense(expense.id)}
+                    className={`flex items-center gap-3 p-3 sm:p-4 cursor-pointer transition-colors ${isSelected ? 'bg-amber-50/50' : 'bg-white hover:bg-gray-50'}`}
+                  >
+                    <button
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        isSelected ? 'bg-amber-600 border-amber-600' : 'border-gray-300'
+                      }`}
+                    >
+                      {isSelected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                    </button>
+
+                    <BanknotesIcon className="h-4 w-4 text-amber-500 flex-shrink-0" />
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {expense.vendorName || 'Unknown Vendor'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {expense.propertyName && (
+                          <span className="text-xs text-gray-400 truncate">{expense.propertyName}</span>
+                        )}
+                        <span className="text-xs text-gray-400">{formatProjectDate(expense.expenseDate)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {expense.receiptId && (
+                        <DocumentTextIcon className="h-4 w-4 text-blue-400" title="Has receipt" />
+                      )}
+                      <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                        ${expense.amount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Footer with Summary */}
@@ -709,7 +841,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           <div className="flex items-center justify-between mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
             <div>
               <p className="text-sm font-semibold text-emerald-800">
-                {selectedCount} project{selectedCount !== 1 ? 's' : ''} selected
+                {selectedIds.size > 0 && `${selectedIds.size} project${selectedIds.size !== 1 ? 's' : ''}`}
+                {selectedIds.size > 0 && selectedExpenseIds.size > 0 && ' + '}
+                {selectedExpenseIds.size > 0 && `${selectedExpenseIds.size} expense${selectedExpenseIds.size !== 1 ? 's' : ''}`}
               </p>
               <p className="text-xs text-emerald-600 mt-0.5">
                 You can continue editing after generating
@@ -744,7 +878,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </button>
           <button
             onClick={handleGenerate}
-            disabled={isSubmitting || selectedCount === 0 || loadingProjects}
+            disabled={isSubmitting || (selectedIds.size === 0 && selectedExpenseIds.size === 0) || (loadingProjects && loadingExpenses)}
             className="px-6 py-2.5 min-h-[44px] text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 font-semibold text-sm shadow-lg shadow-emerald-500/25"
           >
             {isSubmitting

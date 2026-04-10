@@ -339,6 +339,9 @@ export default function CleanerReceiptsPage() {
                             <CalendarIcon className="w-3 h-3" />
                             {formatDate(receipt.expenseDate || receipt.createdAt)}
                           </span>
+                          {receipt.uploaderName && receipt.uploadedBy !== profile?.id && (
+                            <span className="text-gray-400 truncate">by {receipt.uploaderName}</span>
+                          )}
                         </div>
 
                         {receipt.total != null && (
@@ -372,8 +375,9 @@ export default function CleanerReceiptsPage() {
           properties={properties}
           onUpdated={fetchData}
           onDeleted={() => { setShowDetailModal(false); setActiveReceiptId(''); fetchData() }}
-          defaultPaidByType="cleaner"
-          defaultPaidById={cleaner?.id || null}
+          defaultPaidByType="CLEANER"
+          defaultPaidById={profile?.id || null}
+          readOnly={(() => { const r = receipts.find(r => r.id === activeReceiptId); return r ? r.uploadedBy !== profile?.id : false })()}
         />
       )}
 

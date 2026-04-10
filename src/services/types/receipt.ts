@@ -1,6 +1,7 @@
 // Standalone receipt types for the receipts management page
 
 export type ReceiptStatus = 'pending' | 'matched' | 'failed' | 'applied' | 'archived'
+export type PaidByType = 'PROPERTY-MANAGER' | 'CLEANER' | 'TEAM_MEMBER'
 
 export interface ReceiptLineItem {
   id: string
@@ -36,6 +37,7 @@ export interface UploadedReceipt {
   taxTotal: number | null
   total: number | null
   description: string | null
+  uploaderName: string | null
 }
 
 // Detail-level receipt (includes line items, used by GET /receipts/:id)
@@ -97,7 +99,7 @@ export interface ApplyReceiptPayload {
   vendorName: string
   category: string
   paymentMethod: string
-  paidByType: 'company' | 'cleaner'
+  paidByType: PaidByType
   paidById: string | null
   subtotal: number
   taxGst: number | null
@@ -118,7 +120,7 @@ export interface AutoApplyOptions {
   vendorName?: string
   category?: string
   paymentMethod?: string
-  paidByType?: 'company' | 'cleaner'
+  paidByType?: PaidByType
   paidById?: string | null
   subtotal?: number
   taxGst?: number | null

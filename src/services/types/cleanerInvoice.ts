@@ -69,6 +69,7 @@ export interface CleanerInvoiceItem {
   receiptOriginalName?: string | null
   receiptStoragePath?: string | null
   receiptSignedUrl?: string | null
+  expenseId?: string | null
 }
 
 // Available project for invoice generation
@@ -93,6 +94,25 @@ export interface AvailableProject {
   cleanerPropertyDurationMinutes?: number | null
 }
 
+// Available reimbursable expense for invoice generation
+export interface AvailableExpense {
+  id: string
+  propertyId: string | null
+  expenseDate: string
+  amount: number
+  vendorName: string
+  description: string | null
+  category: string
+  receiptId: string | null
+  paidById: string
+  paidByType: string
+  createdAt: string
+  propertyName: string | null
+  propertyAddress: string | null
+  receiptOriginalName: string | null
+  receiptStoragePath: string | null
+}
+
 // Invoice summary stats
 export interface InvoiceSummary {
   total: number
@@ -113,6 +133,7 @@ export interface CreateInvoicePayload {
   periodStart: string
   periodEnd: string
   projectIds?: string[]  // Optional — if provided, only these projects are included
+  expenseIds?: string[]  // Optional — reimbursable expense IDs to include
   itemOverrides?: Record<string, { durationMinutes?: number; amount?: number; isTaxable?: boolean }>  // Optional per-project overrides
   taxHstEnabled?: boolean
   taxGstEnabled?: boolean
@@ -172,6 +193,12 @@ export interface InvoiceSummaryResponse {
 export interface AvailableProjectsResponse {
   status: 'success' | 'failed'
   data: AvailableProject[]
+  message?: string
+}
+
+export interface AvailableExpensesResponse {
+  status: 'success' | 'failed'
+  data: AvailableExpense[]
   message?: string
 }
 

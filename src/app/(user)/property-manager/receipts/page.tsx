@@ -576,6 +576,7 @@ function ReceiptsContent() {
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                       <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded By</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -645,6 +646,11 @@ function ReceiptsContent() {
                               <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                               {status.label}
                             </span>
+                          </td>
+
+                          {/* Uploaded By */}
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-700">{receipt.uploaderName || '—'}</p>
                           </td>
 
                           {/* Actions */}

@@ -1144,8 +1144,8 @@ export default function CleanerSupplyListModal({
       defaultPropertyId={propertyId}
       defaultProjectId={projectId}
       autoApply
-      paidByType="cleaner"
-      paidById={cleanerId || null}
+      paidByType="CLEANER"
+      paidById={profile?.id || null}
       onReceiptApplied={() => {
         setShowScanReceiptModal(false)
         if (selectedList) fetchReceipts(selectedList.id)

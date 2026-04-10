@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { XMarkIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   getProjectChecklist,
@@ -61,6 +62,7 @@ export default function ChecklistModal({
   initialTab,
 }: ChecklistModalProps) {
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { profile } = useUserStore()
   const isMobile = useIsMobile()
 
   // Local copy of project so notes updates reflect immediately
@@ -540,8 +542,8 @@ export default function ChecklistModal({
         defaultPropertyId={project.propertyId}
         defaultProjectId={project.id}
         autoApply
-        paidByType="cleaner"
-        paidById={project.cleanerId || null}
+        paidByType="CLEANER"
+        paidById={profile?.id || null}
         onReceiptApplied={() => {
           setShowScanReceiptModal(false)
           fetchSupplyListCount()

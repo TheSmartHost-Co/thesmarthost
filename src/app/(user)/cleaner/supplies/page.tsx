@@ -289,8 +289,8 @@ export default function CleanerSuppliesPage() {
           properties={(cleaner?.assignedProperties || []).map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId } as Property))}
           onUpdated={fetchData}
           onDeleted={() => { setShowReceiptDetailModal(false); setActiveReceiptId(''); fetchData() }}
-          defaultPaidByType="cleaner"
-          defaultPaidById={cleaner?.id || null}
+          defaultPaidByType="CLEANER"
+          defaultPaidById={profile?.id || null}
         />
       )}
 

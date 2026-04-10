@@ -16,6 +16,7 @@ import type {
   ReceiptLineItem,
   ApplyReceiptPayload,
   AutoApplyOptions,
+  PaidByType,
 } from '@/services/types/receipt'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
@@ -46,7 +47,7 @@ interface ScanSupplyReceiptModalProps {
   defaultProjectId?: string
   receiptId?: string // When provided, skip upload and go straight to review
   autoApply?: boolean // When true, skip review and auto-apply on upload (used by ProjectDetailModal)
-  paidByType?: 'company' | 'cleaner'
+  paidByType?: PaidByType
   paidById?: string | null
 }
 
@@ -473,7 +474,7 @@ export default function ScanSupplyReceiptModal({
       vendorName,
       category: category || 'SUPPLIES',
       paymentMethod,
-      paidByType: 'company',
+      paidByType: paidByType || 'PROPERTY-MANAGER',
       paidById: null,
       subtotal,
       taxGst,

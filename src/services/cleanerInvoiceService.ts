@@ -4,6 +4,7 @@ import type {
   CleanerInvoicesResponse,
   InvoiceSummaryResponse,
   AvailableProjectsResponse,
+  AvailableExpensesResponse,
   InvoiceItemResponse,
   DeleteInvoiceResponse,
   CreateInvoicePayload,
@@ -52,6 +53,19 @@ export function getAvailableProjects(
   if (startDate) params.append('startDate', startDate)
   if (endDate) params.append('endDate', endDate)
   return apiClient<AvailableProjectsResponse>(`/cleaner-invoices/available-projects?${params.toString()}`)
+}
+
+// Get reimbursable expenses available for invoicing
+export function getAvailableExpenses(
+  cleanerId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<AvailableExpensesResponse> {
+  const params = new URLSearchParams()
+  params.append('cleanerId', cleanerId)
+  if (startDate) params.append('startDate', startDate)
+  if (endDate) params.append('endDate', endDate)
+  return apiClient<AvailableExpensesResponse>(`/cleaner-invoices/available-expenses?${params.toString()}`)
 }
 
 // Get single invoice with items

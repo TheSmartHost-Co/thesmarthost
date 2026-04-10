@@ -43,6 +43,7 @@ import {
   EyeIcon,
   DocumentTextIcon,
   ArchiveBoxIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 import { TAX_RATES } from '@/constants/taxRates'
 
@@ -651,19 +652,26 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {item.cleaningProjectId ? (
+                    {item.expenseId ? (
+                      <BanknotesIcon className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                    ) : item.cleaningProjectId ? (
                       <BuildingOfficeIcon className="h-4 w-4 text-purple-500 flex-shrink-0" />
                     ) : (
                       <CurrencyDollarIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                     )}
                     <p className="text-sm font-medium text-gray-900 truncate">{item.description}</p>
+                    {item.expenseId && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-700">
+                        Reimbursement
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 ml-6">
                     {item.projectDate && (
                       <span className="text-xs text-gray-400">{formatDate(item.projectDate)}</span>
                     )}
-                    <span className="text-xs text-gray-400">{formatRate(item)}</span>
-                    {item.rateType === 'hourly' && (
+                    {!item.expenseId && <span className="text-xs text-gray-400">{formatRate(item)}</span>}
+                    {!item.expenseId && item.rateType === 'hourly' && (
                       <span className="text-xs text-gray-400">{formatDuration(item.durationMinutes)}</span>
                     )}
                     {item.isManualOverride && item.originalAmount != null && item.originalAmount !== item.amount ? (
@@ -748,50 +756,54 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Rate Type */}
-                    <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                      {['flat', 'hourly'].map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => setEditForm({ ...editForm, rateType: type })}
-                          className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                            editForm.rateType === type
-                              ? type === 'flat' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-500 hover:bg-gray-50'
-                          } ${type === 'hourly' ? 'border-l border-gray-200' : ''}`}
-                        >
-                          {type === 'flat' ? 'Flat' : 'Hourly'}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Rate Amount */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editForm.rateAmount}
-                        onChange={(e) => setEditForm({ ...editForm, rateAmount: e.target.value })}
-                        placeholder="Rate"
-                        className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    {/* Duration */}
-                    {editForm.rateType === 'hourly' && (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min="0"
-                          value={editForm.durationMinutes}
-                          onChange={(e) => setEditForm({ ...editForm, durationMinutes: e.target.value })}
-                          placeholder="Minutes"
-                          className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                        <span className="text-xs text-gray-400">min</span>
-                      </div>
+                    {!item.expenseId && (
+                      <>
+                        {/* Rate Type */}
+                        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                          {['flat', 'hourly'].map((type) => (
+                            <button
+                              key={type}
+                              onClick={() => setEditForm({ ...editForm, rateType: type })}
+                              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                                editForm.rateType === type
+                                  ? type === 'flat' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                                  : 'bg-white text-gray-500 hover:bg-gray-50'
+                              } ${type === 'hourly' ? 'border-l border-gray-200' : ''}`}
+                            >
+                              {type === 'flat' ? 'Flat' : 'Hourly'}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Rate Amount */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editForm.rateAmount}
+                            onChange={(e) => setEditForm({ ...editForm, rateAmount: e.target.value })}
+                            placeholder="Rate"
+                            className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        {/* Duration */}
+                        {editForm.rateType === 'hourly' && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={editForm.durationMinutes}
+                              onChange={(e) => setEditForm({ ...editForm, durationMinutes: e.target.value })}
+                              placeholder="Minutes"
+                              className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                            <span className="text-xs text-gray-400">min</span>
+                          </div>
+                        )}
+                      </>
                     )}
-                    {/* Direct Amount Override */}
+                    {/* Direct Amount Override / Total */}
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-500">Total $</span>
                       <input

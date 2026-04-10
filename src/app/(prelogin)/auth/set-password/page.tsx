@@ -130,6 +130,7 @@ export default function SetPasswordPage() {
             id: userId,
             role: 'CLEANER',
             email: userEmail,
+            pmUserId: profileData.pmUserId ?? null,
           })
           notify('Account setup complete! Welcome to TheSmartHost.', 'success')
           router.push('/cleaner/dashboard')

@@ -17,7 +17,10 @@ import {
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getAllSupplyLists } from '@/services/supplyListService'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
-import type { ReceiptDetail, ReceiptLineItem, ReceiptStatus, ApplyReceiptPayload, UpdateReceiptPayload } from '@/services/types/receipt'
+import { getCleaners, getCleanerByAuthUserId } from '@/services/cleanerService'
+import { getTeamMembers } from '@/services/teamMemberService'
+import { getUserProfile } from '@/services/profileService'
+import type { ReceiptDetail, ReceiptLineItem, ReceiptStatus, ApplyReceiptPayload, UpdateReceiptPayload, PaidByType } from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 import type { SupplyList } from '@/services/types/supplyList'
 import type { CleaningProject } from '@/services/types/cleaningProject'
@@ -25,6 +28,8 @@ import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import SearchableSelect from '@/components/shared/SearchableSelect'
+import type { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import {
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
@@ -53,8 +58,9 @@ interface ReceiptDetailModalProps {
   defaultPropertyId?: string
   defaultSupplyListId?: string
   defaultProjectId?: string
-  defaultPaidByType?: 'company' | 'cleaner'
+  defaultPaidByType?: PaidByType
   defaultPaidById?: string | null
+  readOnly?: boolean
 }
 
 type Tab = 'view' | 'edit' | 'apply'
@@ -117,6 +123,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   defaultProjectId,
   defaultPaidByType,
   defaultPaidById,
+  readOnly,
 }) => {
   const showNotification = useNotificationStore((s) => s.showNotification)
   const { profile } = useUserStore()
@@ -142,7 +149,8 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   // Apply form state
   const [applyPropertyId, setApplyPropertyId] = useState('')
   const [applyCategory, setApplyCategory] = useState('')
-  const [applyPaidByType, setApplyPaidByType] = useState<'company' | 'cleaner'>('company')
+  const [applyPaidByType, setApplyPaidByType] = useState<PaidByType>('PROPERTY-MANAGER')
+  const [applyPaidById, setApplyPaidById] = useState<string | null>(null)
   const [applySupplyMode, setApplySupplyMode] = useState<'none' | 'new' | 'existing'>('none')
   const [applyProjectId, setApplyProjectId] = useState('')
   const [applySupplyListId, setApplySupplyListId] = useState('')
@@ -150,6 +158,8 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const [applySubmitting, setApplySubmitting] = useState(false)
   const [availableSupplyLists, setAvailableSupplyLists] = useState<SupplyList[]>([])
   const [availableProjects, setAvailableProjects] = useState<CleaningProject[]>([])
+  const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
+  const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
 
   const reuploadRef = useRef<HTMLInputElement>(null)
 
@@ -214,13 +224,14 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
     if (receipt.taxGst || receipt.taxPst || receipt.taxHst) setShowTaxes(true)
   }
 
-  const handleTabSwitch = (newTab: Tab) => {
+  const handleTabSwitch = async (newTab: Tab) => {
     if (newTab === 'edit') initEditForm()
     if (newTab === 'apply') {
       // Pre-fill from context defaults, falling back to receipt data
       setApplyPropertyId(defaultPropertyId || receipt?.propertyId || '')
       setApplyCategory('')
-      setApplyPaidByType(defaultPaidByType || 'company')
+      setApplyPaidByType(defaultPaidByType || 'PROPERTY-MANAGER')
+      setApplyPaidById(defaultPaidById || profile?.id || null)
       // Pre-select supply list mode based on context
       if (defaultSupplyListId) {
         setApplySupplyMode('existing')
@@ -255,6 +266,54 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         getCleaningProjects({ userId: profile.id, startDate: fmt(start), endDate: fmt(end) }).then((res) => {
           if (res.status === 'success') setAvailableProjects(res.data.filter(p => ['assigned', 'confirmed', 'in_progress'].includes(p.status)))
         }).catch(() => {})
+      }
+      // Fetch people for "Paid By" picker
+      if (profile?.id && peopleOptions.length === 0) {
+        const roleLabel = (r: string) => r === 'CLEANER' ? 'Cleaner' : r === 'TEAM_MEMBER' ? 'Team Member' : 'PM'
+        const roleType = (r: string): PaidByType => r === 'CLEANER' ? 'CLEANER' : r === 'TEAM_MEMBER' ? 'TEAM_MEMBER' : 'PROPERTY-MANAGER'
+
+        // Resolve PM userId — for cleaners without pmUserId in session, look it up from cleaner record
+        let pmUserId = profile.pmUserId || null
+        if (!pmUserId && profile.role === 'CLEANER') {
+          try {
+            const clMe = await getCleanerByAuthUserId(profile.id)
+            if (clMe.status === 'success' && clMe.data) pmUserId = clMe.data.userId
+          } catch { /* non-critical */ }
+        }
+        const effectiveUserId = pmUserId || profile.id
+
+        const opts: SearchableSelectOption<string>[] = []
+        const typeMap: Record<string, PaidByType> = {}
+        // Add current user with correct role label
+        opts.push({ value: profile.id, label: `${profile.fullName} (You)`, secondaryLabel: roleLabel(profile.role) })
+        typeMap[profile.id] = roleType(profile.role)
+        // Fetch PM profile (if current user is not the PM), team members, and cleaners
+        Promise.all([
+          pmUserId ? getUserProfile(pmUserId).catch(() => null) : null,
+          getTeamMembers(effectiveUserId).catch(() => null),
+          getCleaners(effectiveUserId).catch(() => null),
+        ]).then(([pmRes, tmRes, clRes]) => {
+          // Add PM if current user is not the PM
+          if (pmRes && pmRes.status === 'success' && pmRes.data) {
+            const pm = pmRes.data
+            opts.push({ value: pm.id, label: pm.fullName, secondaryLabel: 'PM' })
+            typeMap[pm.id] = 'PROPERTY-MANAGER'
+          }
+          if (tmRes?.status === 'success') {
+            tmRes.data.filter(tm => tm.status === 'active' && tm.authUserId && tm.authUserId !== profile.id).forEach(tm => {
+              opts.push({ value: tm.authUserId!, label: tm.name, secondaryLabel: 'Team Member' })
+              typeMap[tm.authUserId!] = 'TEAM_MEMBER'
+            })
+          }
+          if (clRes?.status === 'success') {
+            clRes.data.filter(cl => cl.status === 'active' && cl.authUserId && cl.authUserId !== profile.id).forEach(cl => {
+              opts.push({ value: cl.authUserId!, label: cl.name, secondaryLabel: 'Cleaner' })
+              typeMap[cl.authUserId!] = 'CLEANER'
+            })
+          }
+          setPeopleOptions([...opts])
+          setPeopleTypeMap({ ...typeMap })
+        })
       }
     }
     setTab(newTab)
@@ -485,7 +544,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       category: applyCategory || 'SUPPLIES',
       paymentMethod: receipt.paymentMethod || 'credit_card',
       paidByType: applyPaidByType,
-      paidById: applyPaidByType === 'cleaner' ? (defaultPaidById || null) : null,
+      paidById: applyPaidById || null,
       subtotal: p(receipt.subtotal),
       taxGst: receipt.taxGst ? p(receipt.taxGst) : null,
       taxPst: receipt.taxPst ? p(receipt.taxPst) : null,
@@ -619,6 +678,10 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
             <span className="text-xs font-medium text-gray-500">Property</span>
             <p className="text-sm text-gray-900 mt-0.5">{receipt?.propertyName || '—'}</p>
           </div>
+          <div>
+            <span className="text-xs font-medium text-gray-500">Uploaded By</span>
+            <p className="text-sm text-gray-900 mt-0.5">{receipt?.uploaderName || '—'}</p>
+          </div>
         </div>
       </div>
 
@@ -666,24 +729,26 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       )}
 
       {/* Footer Actions */}
-      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-        {isEditable && (
-          <button onClick={() => handleTabSwitch('edit')} className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-            <PencilIcon className="w-4 h-4" /> Edit
+      {!readOnly && (
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          {isEditable && (
+            <button onClick={() => handleTabSwitch('edit')} className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+              <PencilIcon className="w-4 h-4" /> Edit
+            </button>
+          )}
+          {receipt?.status === 'matched' && (
+            <button onClick={() => handleTabSwitch('apply')} className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">
+              <CheckCircleIcon className="w-4 h-4" /> Apply as Expense
+            </button>
+          )}
+          <button onClick={handleArchive} className="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+            {receipt?.status === 'archived' ? 'Unarchive' : 'Archive'}
           </button>
-        )}
-        {receipt?.status === 'matched' && (
-          <button onClick={() => handleTabSwitch('apply')} className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">
-            <CheckCircleIcon className="w-4 h-4" /> Apply as Expense
+          <button onClick={handleDelete} className="px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
+            <TrashIcon className="w-4 h-4" />
           </button>
-        )}
-        <button onClick={handleArchive} className="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-          {receipt?.status === 'archived' ? 'Unarchive' : 'Archive'}
-        </button>
-        <button onClick={handleDelete} className="px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
-          <TrashIcon className="w-4 h-4" />
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   )
 
@@ -855,14 +920,20 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       {/* Paid By */}
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1.5">Paid By</label>
-        <div className="flex gap-2">
-          {(['company', 'cleaner'] as const).map((type) => (
-            <button key={type} onClick={() => setApplyPaidByType(type)}
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded-xl transition-colors ${applyPaidByType === type ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-              {type === 'company' ? 'Company' : 'Cleaner'}
-            </button>
-          ))}
-        </div>
+        <SearchableSelect
+          options={peopleOptions}
+          value={applyPaidById}
+          onChange={(val) => {
+            setApplyPaidById(val)
+            if (val && peopleTypeMap[val]) {
+              setApplyPaidByType(peopleTypeMap[val])
+            }
+          }}
+          placeholder="Select who paid..."
+          loading={peopleOptions.length === 0}
+          loadingText="Loading people..."
+          emptyText="No people found"
+        />
       </div>
 
       {/* Supply List Mode */}

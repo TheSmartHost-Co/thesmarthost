@@ -15,6 +15,7 @@ import { useUserStore } from '@/store/useUserStore'
 import { getUserProfile } from '@/services/profileService'
 import { getTeamMemberByAuthUserId } from '@/services/teamMemberService'
 import { getClientByAuthUserId } from '@/services/clientService'
+import { getCleanerByAuthUserId } from '@/services/cleanerService'
 
 function LoginForm() {
   const router = useRouter()
@@ -100,6 +101,18 @@ function LoginForm() {
               }
             } catch (clientError) {
               console.error('Failed to fetch client data:', clientError)
+            }
+          }
+
+          // If cleaner, fetch their cleaner record for pmUserId
+          if (profileData.role === 'CLEANER') {
+            try {
+              const cleanerResponse = await getCleanerByAuthUserId(data.user.id)
+              if (cleanerResponse.status === 'success' && cleanerResponse.data) {
+                profileData.pmUserId = cleanerResponse.data.userId
+              }
+            } catch (cleanerError) {
+              console.error('Failed to fetch cleaner data:', cleanerError)
             }
           }
 

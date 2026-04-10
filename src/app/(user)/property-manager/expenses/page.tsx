@@ -11,6 +11,7 @@ import { getBookings } from '@/services/bookingService'
 import {
   getExpenses,
   getExpenseSummary,
+  deleteExpense,
   formatCurrency,
   formatExpenseDate
 } from '@/services/expenseService'
@@ -33,6 +34,8 @@ import {
   Cog6ToothIcon,
   BuildingOfficeIcon,
   EyeIcon,
+  TrashIcon,
+  PencilIcon,
   ReceiptRefundIcon,
   CameraIcon,
   DocumentArrowUpIcon
@@ -265,6 +268,28 @@ export default function ExpensesPage() {
       icon: EyeIcon,
       onClick: () => handleViewExpense(expense.id),
       variant: 'default'
+    },
+    {
+      label: 'Edit',
+      icon: PencilIcon,
+      onClick: () => handleViewExpense(expense.id),
+      variant: 'default'
+    },
+    {
+      label: 'Delete',
+      icon: TrashIcon,
+      onClick: async () => {
+        if (!confirm('Are you sure you want to delete this expense?')) return
+        if (!profile?.id) return
+        const res = await deleteExpense(expense.id, profile.id)
+        if (res.status === 'success') {
+          showNotification('Expense deleted', 'success')
+          handleExpenseDeleted(expense.id)
+        } else {
+          showNotification(res.message || 'Failed to delete expense', 'error')
+        }
+      },
+      variant: 'danger'
     },
   ]
 
@@ -694,6 +719,9 @@ export default function ExpensesPage() {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[150px]">
                   Vendor
                 </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  Paid By
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Status
                 </th>
@@ -760,6 +788,11 @@ export default function ExpensesPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-700 truncate max-w-[140px] block">
                       {expense.vendorName || '—'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-700 truncate max-w-[120px] block">
+                      {expense.paidByName || '—'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
