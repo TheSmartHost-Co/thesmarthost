@@ -9,6 +9,7 @@ import {
   CalendarDaysIcon,
   DocumentTextIcon,
   BellIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import { TimeAgo } from '@/components/dashboard/shared/TimeAgo'
 import type { InAppNotification, NotificationCategory } from '@/services/types/notificationCenter'
@@ -28,6 +29,7 @@ const categoryConfig: Record<
   schedule: { icon: ClockIcon, iconColor: 'bg-blue-100 text-blue-600' },
   bookings: { icon: CalendarDaysIcon, iconColor: 'bg-green-100 text-green-600' },
   invoices: { icon: DocumentTextIcon, iconColor: 'bg-teal-100 text-teal-600' },
+  automations: { icon: BoltIcon, iconColor: 'bg-violet-100 text-violet-600' },
 }
 
 const fallbackConfig = { icon: BellIcon, iconColor: 'bg-gray-100 text-gray-600' }

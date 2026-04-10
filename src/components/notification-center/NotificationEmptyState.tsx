@@ -16,6 +16,7 @@ const filterLabels: Record<NotificationFilter, string> = {
   schedule: 'schedule',
   bookings: 'booking',
   invoices: 'invoice',
+  automations: 'automation',
 }
 
 export default function NotificationEmptyState({ activeFilter }: NotificationEmptyStateProps) {
