@@ -28,6 +28,7 @@ import {
   BoltIcon,
   ChatBubbleLeftRightIcon,
   StarIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 
 export const ADMIN_USER_IDS: string[] = [
@@ -136,6 +137,7 @@ export const managerNavConfig: SidebarNavConfig = {
         label: 'AI Automations',
         icon: BoltIcon,
         items: [
+          { name: 'Automation Dashboard', href: '/property-manager/ai-automations/dashboard', icon: Squares2X2Icon },
           { name: 'Review Nudge', href: '/property-manager/ai-automations/review-nudge', icon: ChatBubbleLeftRightIcon },
           { name: 'Guest Review', href: '/property-manager/ai-automations/guest-review', icon: StarIcon },
         ],
@@ -179,6 +181,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'Invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
   { name: 'Analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
   { name: 'Team Members', href: '/property-manager/team', icon: UsersIcon },
+  { name: 'Automation Dashboard', href: '/property-manager/ai-automations/dashboard', icon: Squares2X2Icon },
   { name: 'Review Nudge', href: '/property-manager/ai-automations/review-nudge', icon: ChatBubbleLeftRightIcon },
   { name: 'Guest Review', href: '/property-manager/ai-automations/guest-review', icon: StarIcon },
   { name: "What's New", href: '/property-manager/whats-new', icon: SparklesIcon },

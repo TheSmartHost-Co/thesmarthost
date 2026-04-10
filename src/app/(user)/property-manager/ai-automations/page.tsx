@@ -2,7 +2,8 @@
 
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon } from '@heroicons/react/24/outline'
+import Link from 'next/link'
+import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon, ChatBubbleLeftRightIcon, StarIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getAutomationTasks,
@@ -53,9 +54,10 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   const [processingAll, setProcessingAll] = useState(false)
 
   const typeFilter = fixedType || null
+  const isDashboard = !typeFilter
   const meta = typeFilter ? pageMeta[typeFilter] : null
   const pageTitle = meta?.title || 'AI Automations'
-  const pageDescription = meta?.description || 'AI-generated reviews and messages for your guests'
+  const pageDescription = meta?.description || 'Overview of all AI-powered automations'
 
   const fetchData = useCallback(async () => {
     try {
@@ -94,7 +96,6 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
     fetchData()
   }, [fetchData])
 
-  // Deep-link: open specific task from notification
   useEffect(() => {
     const taskId = searchParams.get('taskId')
     if (taskId && tasks.length > 0) {
@@ -172,8 +173,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   const handleRunScan = async (startDate: string, endDate: string) => {
     setScanning(true)
     try {
-      // Step 1: Scan for checkouts
-      const scanRes = await triggerAutomationScan({ startDate, endDate })
+      const scanRes = await triggerAutomationScan({ startDate, endDate, types: typeFilter ? [typeFilter] : undefined })
       if (scanRes.status === 'success') {
         showNotification(scanRes.message || 'Scan complete', 'success')
       } else {
@@ -182,7 +182,6 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         return
       }
 
-      // Step 2: Process any due tasks (generate AI content)
       const processRes = await triggerAutomationProcess()
       if (processRes.status === 'success') {
         showNotification(processRes.message || 'Processing complete', 'success')
@@ -207,11 +206,22 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   ]
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Back to Dashboard */}
+      {!isDashboard && (
+        <Link
+          href="/property-manager/ai-automations/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+        >
+          <ArrowLeftIcon className="w-3.5 h-3.5" />
+          Automation Dashboard
+        </Link>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-amber-500 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
             <BoltIcon className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -219,7 +229,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
             <p className="text-sm text-gray-500">{pageDescription}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setShowScanModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
@@ -251,8 +261,28 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         </div>
       </div>
 
+      {/* Dashboard: Automation Type Cards */}
+      {isDashboard && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <AutomationTypeCard
+            title="Review Nudge"
+            description="Send personalized messages encouraging guests to leave reviews"
+            icon={ChatBubbleLeftRightIcon}
+            href="/property-manager/ai-automations/review-nudge"
+            color="amber"
+          />
+          <AutomationTypeCard
+            title="Guest Review"
+            description="Generate host reviews of guests based on their stay"
+            icon={StarIcon}
+            href="/property-manager/ai-automations/guest-review"
+            color="violet"
+          />
+        </div>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <SummaryCard label="Awaiting Approval" count={counts.awaitingApproval} color="amber" />
         <SummaryCard label="Upcoming" count={counts.upcoming} color="blue" />
         <SummaryCard label="Completed" count={counts.completed} color="green" />
@@ -260,12 +290,12 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-1.5 mb-4">
+      <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
         {filterTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex-shrink-0 ${
               statusFilter === tab.key
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -296,20 +326,28 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
           </h3>
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
             {statusFilter === 'all'
-              ? 'Enable automations in Settings and tasks will appear here after guests check out.'
+              ? 'Enable automations in Settings and run a scan to find recent checkouts.'
               : 'Tasks with this status will appear here.'}
           </p>
           {statusFilter === 'all' && (
-            <button
-              onClick={() => setShowSettings(true)}
-              className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              Open Settings
-            </button>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+              >
+                Open Settings
+              </button>
+              <button
+                onClick={() => setShowScanModal(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Run Scan
+              </button>
+            </div>
           )}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           {tasks.map(task => (
             <AutomationTaskCard
               key={task.id}
@@ -344,6 +382,40 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         scanning={scanning}
       />
     </div>
+  )
+}
+
+function AutomationTypeCard({ title, description, icon: Icon, href, color }: {
+  title: string
+  description: string
+  icon: React.ComponentType<{ className?: string }>
+  href: string
+  color: 'amber' | 'violet'
+}) {
+  const colors = {
+    amber: 'border-amber-200 hover:border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50',
+    violet: 'border-violet-200 hover:border-violet-300 bg-gradient-to-br from-violet-50 to-purple-50',
+  }
+  const iconColors = {
+    amber: 'bg-amber-100 text-amber-600',
+    violet: 'bg-violet-100 text-violet-600',
+  }
+
+  return (
+    <Link
+      href={href}
+      className={`block p-5 rounded-xl border transition-all hover:shadow-md ${colors[color]}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${iconColors[color]}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+        </div>
+      </div>
+    </Link>
   )
 }
 

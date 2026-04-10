@@ -83,9 +83,16 @@ export function processOneAutomationTask(taskId: string): Promise<{ status: stri
 }
 
 // Manual triggers
-export function triggerAutomationScan(params?: { startDate?: string; endDate?: string }): Promise<{ status: string; message: string; data?: { created: number; skipped: number; errors: number; expired: number } }> {
-  const body = params?.startDate && params?.endDate ? { startDate: params.startDate, endDate: params.endDate } : undefined
-  return apiClient('/automations/trigger/scan', { method: 'POST', body })
+export function triggerAutomationScan(params?: { startDate?: string; endDate?: string; types?: string[] }): Promise<{ status: string; message: string; data?: { created: number; skipped: number; errors: number; expired: number } }> {
+  const body: Record<string, unknown> = {}
+  if (params?.startDate && params?.endDate) {
+    body.startDate = params.startDate
+    body.endDate = params.endDate
+  }
+  if (params?.types && params.types.length > 0) {
+    body.types = params.types
+  }
+  return apiClient('/automations/trigger/scan', { method: 'POST', body: Object.keys(body).length > 0 ? body : undefined })
 }
 
 export function triggerAutomationProcess(): Promise<{ status: string; message: string; data?: { processed: number; failed: number } }> {
