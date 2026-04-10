@@ -1,4 +1,5 @@
 import apiClient, { getAuthHeaders } from './apiClient'
+import { BackendError } from './backendError'
 import type {
   CleaningProject,
   CleaningProjectStatus,
@@ -24,9 +25,11 @@ import type {
   // Photo gallery
   ProjectPhotosResponse,
   // Walkthrough
-  WalkthroughStatusResponse,
+  ProjectWalkthroughResponse,
   WalkthroughPhotoUploadResponse,
   WalkthroughPhotoDeleteResponse,
+  WalkthroughUploadOptions,
+  CompleteProjectMissingGroupsError,
 } from './types/cleaningProject'
 
 /**
@@ -629,29 +632,51 @@ export async function downloadChecklistPhotoWatermarked(projectId: string, itemI
 // =============================================
 
 /**
- * Get walkthrough status for a project (rooms + photo completion)
+ * Get the merged walkthrough view for a project: effective template,
+ * orphaned groups (photos from a removed/swapped template), and freeform photos.
  */
-export function getWalkthroughStatus(projectId: string): Promise<WalkthroughStatusResponse> {
-  return apiClient<WalkthroughStatusResponse>(`/cleaning-projects/${projectId}/walkthrough`)
+export function getProjectWalkthrough(projectId: string): Promise<ProjectWalkthroughResponse> {
+  return apiClient<ProjectWalkthroughResponse>(`/cleaning-projects/${projectId}/walkthrough`)
 }
 
 /**
- * Upload walkthrough photos for a specific room
- * @param projectId - The cleaning project ID
- * @param roomName - The room name (will be URL-encoded)
- * @param files - Array of photo files to upload
+ * Upload walkthrough photos. Three modes:
+ *   - Freeform:    no opts
+ *   - Group-level: opts.groupId only
+ *   - Item-level:  opts.groupId + opts.itemId (itemId alone is invalid)
  */
 export function uploadWalkthroughPhotos(
   projectId: string,
-  roomName: string,
-  files: File[]
+  files: File[],
+  opts?: WalkthroughUploadOptions
 ): Promise<WalkthroughPhotoUploadResponse> {
+  if (opts?.itemId && !opts.groupId) {
+    throw new Error('uploadWalkthroughPhotos: itemId requires groupId')
+  }
   const formData = new FormData()
   files.forEach(f => formData.append('photos', f))
+  if (opts?.groupId) formData.append('groupId', opts.groupId)
+  if (opts?.itemId) formData.append('itemId', opts.itemId)
   return apiClient<WalkthroughPhotoUploadResponse, FormData>(
-    `/cleaning-projects/${projectId}/walkthrough/${encodeURIComponent(roomName)}/photos`,
+    `/cleaning-projects/${projectId}/walkthrough/photos`,
     { method: 'POST', body: formData }
   )
+}
+
+/**
+ * Extracts the missing group names when the walkthrough completion gate is
+ * tripped by POST /cleaning-projects/:id/complete. Returns null if the error
+ * is not a missing-groups error.
+ */
+export function getMissingGroupsFromError(err: unknown): string[] | null {
+  if (!(err instanceof BackendError)) return null
+  const body = err.body
+  if (!body) return null
+  const missing = (body as { missingGroups?: unknown }).missingGroups
+  if (Array.isArray(missing) && missing.every(m => typeof m === 'string')) {
+    return missing as string[]
+  }
+  return null
 }
 
 /**

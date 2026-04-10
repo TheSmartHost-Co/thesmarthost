@@ -69,6 +69,8 @@ export interface CleaningProject {
   checklistAutoInitialized?: number    // Set when items were auto-initialized (null → value)
   checklistChanged?: boolean           // Set when checklist was swapped (A → B)
   previousChecklistId?: string         // The old checklist ID when swapped
+  // Embedded walkthrough (returned by GET /cleaning-projects/:id)
+  walkthrough?: ProjectWalkthrough | null
 }
 
 // Status workflow: pending → assigned → confirmed → in_progress → completed
@@ -282,32 +284,84 @@ export interface ProjectWithPhotos {
 // WALKTHROUGH TYPES
 // =============================================
 
+// A single walkthrough photo. Photos can attach at one of three levels:
+//   - Item-level:  groupId + itemId both set
+//   - Group-level: groupId set, itemId null
+//   - Freeform:    both null
+// Snapshot fields preserve labels if the PM later deletes the group/item
+// or swaps the property's assigned template.
 export interface WalkthroughPhoto {
   id: string
   projectId: string
-  roomName: string
+  groupId: string | null
+  itemId: string | null
+  groupNameSnapshot: string | null
+  itemNameSnapshot: string | null
   photoUrl: string
+  storagePath: string
   photoTakenAt: string | null
   photoUploadedAt: string
   createdAt: string
 }
 
-export interface WalkthroughRoom {
-  roomName: string
+// An item inside a group in the effective template for a project
+export interface ProjectWalkthroughItem {
+  id: string
+  groupId: string
+  name: string
+  sortOrder: number
   photos: WalkthroughPhoto[]
-  hasPhotos: boolean
 }
 
-export interface WalkthroughStatus {
-  requiresWalkthrough: boolean
+// A group in the effective template for a project
+export interface ProjectWalkthroughGroup {
+  id: string
+  templateId: string
+  name: string
+  sortOrder: number
+  items: ProjectWalkthroughItem[]
+  photos: WalkthroughPhoto[] // group-level photos (no specific item)
+}
+
+// The template that applies to a project's property right now
+export interface EffectiveWalkthroughTemplate {
+  id: string
+  name: string
+  description: string | null
+  source: 'assigned' | 'default'
+  requiresCompletion: boolean
+  groups: ProjectWalkthroughGroup[]
+}
+
+// Photos whose groupId/itemId no longer match the current effective template,
+// bucketed by the snapshot name they were uploaded under.
+export interface OrphanedGroup {
+  groupNameSnapshot: string
+  photos: WalkthroughPhoto[]
+}
+
+// The merged project walkthrough view returned by GET /cleaning-projects/:id/walkthrough
+// and embedded in GET /cleaning-projects/:id and GET /client-portal/cleaning-projects/:id
+export interface ProjectWalkthrough {
+  effectiveTemplate: EffectiveWalkthroughTemplate
+  orphanedGroups: OrphanedGroup[]
+  freeformPhotos: WalkthroughPhoto[]
   isComplete: boolean
-  rooms: WalkthroughRoom[]
 }
 
-export interface WalkthroughStatusResponse {
+export interface ProjectWalkthroughResponse {
   status: 'success' | 'failed'
-  data: WalkthroughStatus
+  data: ProjectWalkthrough
   message?: string
+}
+
+// Optional upload targeting for POST /.../walkthrough/photos
+// - Omit both → freeform
+// - groupId only → group-level
+// - groupId + itemId → item-level (itemId alone is invalid)
+export interface WalkthroughUploadOptions {
+  groupId?: string
+  itemId?: string
 }
 
 export interface WalkthroughPhotoUploadResponse {
@@ -321,10 +375,23 @@ export interface WalkthroughPhotoDeleteResponse {
   message: string
 }
 
+// Returned by POST /cleaning-projects/:id/complete with 400 when the
+// walkthrough gate is tripped. `missingGroups` is a list of group NAMES,
+// not IDs — match back via effectiveTemplate.groups.
+export interface CompleteProjectMissingGroupsError {
+  status: 'failed'
+  message: string
+  missingGroups: string[]
+}
+
+// Used by the aggregated photo gallery endpoint
 export interface WalkthroughPhotoItem {
   id: string
   projectId: string
-  roomName: string
+  groupId: string | null
+  itemId: string | null
+  groupNameSnapshot: string | null
+  itemNameSnapshot: string | null
   photoUrl: string
   photoTakenAt: string | null
   photoUploadedAt: string | null

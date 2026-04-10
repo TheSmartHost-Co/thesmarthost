@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { XMarkIcon, BoltIcon } from '@heroicons/react/24/outline'
@@ -14,12 +14,15 @@ import {
   uploadProjectChecklistItemPhoto,
   deleteProjectChecklistItemPhoto,
   completeProject,
-  getWalkthroughStatus,
+  getProjectWalkthrough,
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
   getStartBlockReason,
+  getMissingGroupsFromError,
 } from '@/services/cleaningProjectService'
-import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, WalkthroughStatus } from '@/services/types/cleaningProject'
+import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough } from '@/services/types/cleaningProject'
+import type { WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
+import { targetKey } from '@/components/walkthrough/WalkthroughAccordion'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
 import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
@@ -84,9 +87,12 @@ export default function ChecklistModal({
   const [completing, setCompleting] = useState(false)
 
   // Walkthrough state
-  const [walkthroughStatus, setWalkthroughStatus] = useState<WalkthroughStatus | null>(null)
+  const [walkthrough, setWalkthrough] = useState<ProjectWalkthrough | null>(null)
   const [walkthroughLoading, setWalkthroughLoading] = useState(false)
-  const [uploadingRooms, setUploadingRooms] = useState<Set<string>>(new Set())
+  const [walkthroughUploadingKey, setWalkthroughUploadingKey] = useState<string | null>(null)
+  const [missingGroupIds, setMissingGroupIds] = useState<Set<string>>(new Set())
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set())
+  const hasSeededExpansion = useRef(false)
 
   // Nested modal state
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
@@ -171,19 +177,34 @@ export default function ChecklistModal({
   }, [project.id])
 
   const fetchWalkthrough = useCallback(async () => {
-    if (!project.id || !project.checklistId) return
+    if (!project.id) return
     setWalkthroughLoading(true)
     try {
-      const res = await getWalkthroughStatus(project.id)
+      const res = await getProjectWalkthrough(project.id)
       if (res.status === 'success') {
-        setWalkthroughStatus(res.data)
+        setWalkthrough(res.data)
+        // Seed expansion state the first time we load: expand every group that
+        // has at least one missing photo so the cleaner immediately sees what
+        // needs doing. Preserves manual collapse state on subsequent refetches.
+        if (!hasSeededExpansion.current) {
+          hasSeededExpansion.current = true
+          const toExpand = new Set<string>()
+          for (const g of res.data.effectiveTemplate.groups) {
+            const hasMissing =
+              g.items.length > 0
+                ? g.items.some(it => it.photos.length === 0)
+                : g.photos.length === 0
+            if (hasMissing) toExpand.add(g.id)
+          }
+          setExpandedGroupIds(toExpand)
+        }
       }
     } catch (err) {
-      console.error('Error fetching walkthrough status:', err)
+      console.error('Error fetching walkthrough:', err)
     } finally {
       setWalkthroughLoading(false)
     }
-  }, [project.id, project.checklistId])
+  }, [project.id])
 
   useEffect(() => {
     if (isOpen) {
@@ -303,32 +324,44 @@ export default function ChecklistModal({
     }
   }
 
-  const handleWalkthroughUpload = async (roomName: string, files: File[]) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
-    const validFiles = files.filter(f => allowedTypes.includes(f.type) && f.size <= 20 * 1024 * 1024)
-    if (validFiles.length === 0) {
-      showNotification('No valid image files selected', 'error')
-      return
-    }
-
-    setUploadingRooms(prev => new Set(prev).add(roomName))
+  const handleWalkthroughUpload = async (target: WalkthroughUploadTarget, files: File[]) => {
+    if (files.length === 0) return
+    const key = targetKey(target)
+    setWalkthroughUploadingKey(key)
     try {
-      const res = await uploadWalkthroughPhotos(project.id, roomName, validFiles)
+      const opts =
+        target.kind === 'freeform'
+          ? undefined
+          : target.kind === 'item'
+            ? { groupId: target.groupId, itemId: target.itemId }
+            : { groupId: target.groupId }
+      const res = await uploadWalkthroughPhotos(project.id, files, opts)
       if (res.status === 'success') {
-        showNotification(`${validFiles.length} photo${validFiles.length > 1 ? 's' : ''} uploaded`, 'success')
+        showNotification(
+          `${files.length} photo${files.length > 1 ? 's' : ''} uploaded`,
+          'success'
+        )
         await fetchWalkthrough()
+        // Clear any missing-group highlight for this group now that it has a photo
+        if (target.kind !== 'freeform' && target.groupId) {
+          setMissingGroupIds(prev => {
+            if (!prev.has(target.groupId)) return prev
+            const next = new Set(prev)
+            next.delete(target.groupId)
+            return next
+          })
+        }
       } else {
         showNotification(res.message || 'Failed to upload photos', 'error')
       }
     } catch (err) {
       console.error('Error uploading walkthrough photos:', err)
-      showNotification('Error uploading photos', 'error')
+      showNotification(
+        err instanceof Error ? err.message : 'Error uploading photos',
+        'error'
+      )
     } finally {
-      setUploadingRooms(prev => {
-        const next = new Set(prev)
-        next.delete(roomName)
-        return next
-      })
+      setWalkthroughUploadingKey(null)
     }
   }
 
@@ -347,11 +380,32 @@ export default function ChecklistModal({
     }
   }
 
+  const handleToggleWalkthroughGroup = useCallback((groupId: string) => {
+    setExpandedGroupIds(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }, [])
+
   // Walkthrough computed values
-  const showWalkthroughTab = !!project.checklistId
-  const walkthroughBadge = walkthroughStatus?.requiresWalkthrough
-    ? `${walkthroughStatus.rooms.filter(r => r.hasPhotos).length}/${walkthroughStatus.rooms.length}`
-    : null
+  const walkthroughRequired = walkthrough?.effectiveTemplate.requiresCompletion ?? false
+  const walkthroughComplete = walkthrough?.isComplete ?? true
+  // Badge: red warning when missing groups are flagged, otherwise a purple
+  // count of groups/items still needing photos. No badge when complete.
+  const walkthroughBadge: { text: string; variant: 'purple' | 'red' } | null = (() => {
+    if (missingGroupIds.size > 0) {
+      return { text: String(missingGroupIds.size), variant: 'red' }
+    }
+    if (!walkthroughRequired || walkthroughComplete || !walkthrough) return null
+    const incompleteGroups = walkthrough.effectiveTemplate.groups.filter(g => {
+      if (g.items.length === 0) return g.photos.length === 0
+      return g.items.some(it => it.photos.length === 0)
+    })
+    if (incompleteGroups.length === 0) return null
+    return { text: String(incompleteGroups.length), variant: 'purple' }
+  })()
 
   const handleComplete = async () => {
     if (completing) return
@@ -361,12 +415,6 @@ export default function ChecklistModal({
     }
     if (progress && progress.photosUploaded < progress.photoRequired) {
       showNotification(`Please upload all required photos (${progress.photosUploaded}/${progress.photoRequired})`, 'error')
-      return
-    }
-    if (walkthroughStatus?.requiresWalkthrough && !walkthroughStatus.isComplete) {
-      const missing = walkthroughStatus.rooms.filter(r => !r.hasPhotos).map(r => r.roomName)
-      showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
-      setActiveTab('walkthrough')
       return
     }
 
@@ -381,7 +429,35 @@ export default function ChecklistModal({
         showNotification(res.message || 'Failed to complete project', 'error')
       }
     } catch (err) {
-      showNotification('Error completing project', 'error')
+      // Walkthrough completion gate: backend returns 400 with
+      // { message, missingGroups: string[] } when requiresCompletion is on
+      // and groups are missing photos.
+      const missingNames = getMissingGroupsFromError(err)
+      if (missingNames && missingNames.length > 0 && walkthrough) {
+        const idsByName = new Set(missingNames)
+        const missingIds = new Set(
+          walkthrough.effectiveTemplate.groups
+            .filter(g => idsByName.has(g.name))
+            .map(g => g.id)
+        )
+        setMissingGroupIds(missingIds)
+        // Auto-expand the missing groups so the cleaner sees them immediately
+        setExpandedGroupIds(prev => {
+          const next = new Set(prev)
+          missingIds.forEach(id => next.add(id))
+          return next
+        })
+        setActiveTab('walkthrough')
+        showNotification(
+          `Upload walkthrough photos for: ${missingNames.join(', ')}`,
+          'error'
+        )
+      } else {
+        showNotification(
+          err instanceof Error ? err.message : 'Error completing project',
+          'error'
+        )
+      }
     } finally {
       setCompleting(false)
     }
@@ -413,7 +489,6 @@ export default function ChecklistModal({
         onTabChange={setActiveTab}
         issueCount={issueCount}
         supplyListCount={supplyListCount}
-        showWalkthrough={showWalkthroughTab}
         walkthroughBadge={walkthroughBadge}
       />
       <div className="flex-1 overflow-y-auto">
@@ -431,14 +506,16 @@ export default function ChecklistModal({
           />
         ) : activeTab === 'walkthrough' ? (
           <WalkthroughContent
-            projectId={project.id}
-            walkthroughStatus={walkthroughStatus}
+            walkthrough={walkthrough}
             loading={walkthroughLoading}
-            onPhotoUpload={handleWalkthroughUpload}
-            onPhotoDelete={handleWalkthroughDeletePhoto}
+            canEdit={!readOnly}
+            uploadingKey={walkthroughUploadingKey}
+            onUpload={handleWalkthroughUpload}
+            onDelete={handleWalkthroughDeletePhoto}
             onViewPhoto={setViewingImage}
-            uploadingRooms={uploadingRooms}
-            hasChecklist={!!project.checklistId}
+            missingGroupIds={missingGroupIds}
+            expandedGroupIds={expandedGroupIds}
+            onToggleGroup={handleToggleWalkthroughGroup}
           />
         ) : (
           <InfoContent
@@ -470,8 +547,8 @@ export default function ChecklistModal({
         onViewSupplyLists={() => setShowSupplyListsModal(true)}
         onScanReceipt={() => setShowScanReceiptModal(true)}
         projectId={project.id}
-        walkthroughComplete={!walkthroughStatus?.requiresWalkthrough || walkthroughStatus.isComplete}
-        walkthroughRequired={walkthroughStatus?.requiresWalkthrough ?? false}
+        walkthroughComplete={walkthroughComplete}
+        walkthroughRequired={walkthroughRequired}
       />
     </>
   )

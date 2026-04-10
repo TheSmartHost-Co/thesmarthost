@@ -2,6 +2,7 @@
 import { createClient } from '@/utils/supabase/component'
 import { SessionError } from '@/services/sessionError'
 import { ValidationError } from '@/services/validationError'
+import { BackendError } from '@/services/backendError'
 import { getSessionStore } from '@/store/useSessionStore'
 import { useImpersonationStore } from '@/store/useImpersonationStore'
 
@@ -191,11 +192,16 @@ async function apiClient<T, B = unknown>(
     if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorArray: string[] | undefined
+        let errorBody: Record<string, unknown> | null = null
         try {
-            const errorBody = await responseClone.json();
-            errorMessage = errorBody.message || errorMessage
-            if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
-                errorArray = errorBody.errors
+            errorBody = await responseClone.json();
+            if (errorBody && typeof errorBody === 'object') {
+                const msg = (errorBody as { message?: unknown }).message
+                if (typeof msg === 'string') errorMessage = msg
+                const errs = (errorBody as { errors?: unknown }).errors
+                if (Array.isArray(errs) && errs.length > 0) {
+                    errorArray = errs as string[]
+                }
             }
             console.log('❌ Error Body:', errorBody)
         } catch {
@@ -215,7 +221,11 @@ async function apiClient<T, B = unknown>(
         if (response.status === 403) {
             console.log('🚫 Permission denied (403)')
             console.groupEnd();
-            throw new Error(errorMessage || 'You don\'t have permission to perform this action');
+            throw new BackendError(
+                errorMessage || 'You don\'t have permission to perform this action',
+                response.status,
+                errorBody,
+            );
         }
 
         console.groupEnd();
@@ -225,7 +235,7 @@ async function apiClient<T, B = unknown>(
             throw new ValidationError(errorMessage, errorArray);
         }
 
-        throw new Error(errorMessage);
+        throw new BackendError(errorMessage, response.status, errorBody);
     }
 
     // Log successful response body

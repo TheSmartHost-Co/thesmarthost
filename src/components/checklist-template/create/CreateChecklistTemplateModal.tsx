@@ -47,7 +47,6 @@ export default function CreateChecklistTemplateModal({
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const [requiresWalkthrough, setRequiresWalkthrough] = useState(false)
   const [items, setItems] = useState<LocalItem[]>([])
 
   // New item form state
@@ -67,7 +66,6 @@ export default function CreateChecklistTemplateModal({
       setDescription('')
       setTags([])
       setTagInput('')
-      setRequiresWalkthrough(false)
       setItems([])
       setNewRoom('')
       setNewTask('')
@@ -166,7 +164,6 @@ export default function CreateChecklistTemplateModal({
         name: name.trim(),
         description: description.trim() || null,
         tags,
-        requiresWalkthrough,
         items: items.map((item, index) => ({
           roomName: item.roomName || null,
           taskDescription: item.taskDescription,
@@ -321,26 +318,6 @@ export default function CreateChecklistTemplateModal({
                     )}
                   </div>
 
-                  {/* Walkthrough Toggle */}
-                  <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Require Final Walkthrough</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Cleaners must upload room photos before completing</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRequiresWalkthrough(!requiresWalkthrough)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        requiresWalkthrough ? 'bg-amber-500' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-                          requiresWalkthrough ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
                 </motion.div>
               ) : (
                 <motion.div

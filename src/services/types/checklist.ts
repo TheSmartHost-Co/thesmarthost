@@ -5,7 +5,6 @@ export interface Checklist {
   name: string
   isDefault: boolean
   templateId?: string | null
-  requiresWalkthrough?: boolean
   createdAt: string
   updatedAt?: string | null
   // Joined fields

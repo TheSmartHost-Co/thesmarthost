@@ -18,7 +18,7 @@ import {
   startProject,
   unstartProject,
   completeProject,
-  getWalkthroughStatus,
+  getMissingGroupsFromError,
 } from '@/services/cleaningProjectService'
 import { getOpenIssues } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
@@ -322,21 +322,6 @@ export default function CleanerTasksPage() {
 
   const handleComplete = async (projectId: string) => {
     try {
-      // Pre-check walkthrough requirement
-      const walkthrough = await getWalkthroughStatus(projectId)
-      if (walkthrough.status === 'success' && walkthrough.data.requiresWalkthrough && !walkthrough.data.isComplete) {
-        const missing = walkthrough.data.rooms.filter(r => !r.hasPhotos).map(r => r.roomName)
-        showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
-        // Open the ChecklistModal on walkthrough tab for this project
-        const proj = projects.find(p => p.id === projectId)
-        if (proj) {
-          setSelectedProject(proj)
-          setChecklistInitialTab('walkthrough')
-          setShowChecklistModal(true)
-        }
-        return
-      }
-
       const res = await completeProject(projectId)
       if (res.status === 'success') {
         setProjects(prev => prev.map(p =>
@@ -347,8 +332,25 @@ export default function CleanerTasksPage() {
         showNotification(res.message || 'Failed to complete task', 'error')
       }
     } catch (err) {
+      // Walkthrough completion gate: backend returns 400 with missingGroups.
+      // Open the modal on the walkthrough tab so the cleaner can fix it
+      // without leaving the page.
+      const missing = getMissingGroupsFromError(err)
+      if (missing && missing.length > 0) {
+        showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
+        const proj = projects.find(p => p.id === projectId)
+        if (proj) {
+          setSelectedProject(proj)
+          setChecklistInitialTab('walkthrough')
+          setShowChecklistModal(true)
+        }
+        return
+      }
       console.error('Error completing task:', err)
-      showNotification('Error completing task', 'error')
+      showNotification(
+        err instanceof Error ? err.message : 'Error completing task',
+        'error'
+      )
     }
   }
 

@@ -207,13 +207,44 @@ export default function ClientProjectsPage() {
         })
       }
     }
-    // Walkthrough photos
-    for (const room of d.walkthrough.rooms) {
-      for (const photo of room.photos) {
+    // Walkthrough photos (from the new effective-template structure)
+    if (d.walkthrough) {
+      const wt = d.walkthrough
+      for (const group of wt.effectiveTemplate.groups) {
+        for (const photo of group.photos) {
+          photos.push({
+            url: photo.photoUrl,
+            label: 'Walkthrough',
+            roomName: group.name,
+            timestamp: photo.photoTakenAt || photo.photoUploadedAt,
+          })
+        }
+        for (const item of group.items) {
+          for (const photo of item.photos) {
+            photos.push({
+              url: photo.photoUrl,
+              label: 'Walkthrough',
+              roomName: `${group.name} — ${item.name}`,
+              timestamp: photo.photoTakenAt || photo.photoUploadedAt,
+            })
+          }
+        }
+      }
+      for (const bucket of wt.orphanedGroups) {
+        for (const photo of bucket.photos) {
+          photos.push({
+            url: photo.photoUrl,
+            label: 'Walkthrough',
+            roomName: bucket.groupNameSnapshot,
+            timestamp: photo.photoTakenAt || photo.photoUploadedAt,
+          })
+        }
+      }
+      for (const photo of wt.freeformPhotos) {
         photos.push({
           url: photo.photoUrl,
           label: 'Walkthrough',
-          roomName: room.roomName,
+          roomName: undefined,
           timestamp: photo.photoTakenAt || photo.photoUploadedAt,
         })
       }
@@ -646,33 +677,109 @@ function ProjectDetailView({ detail, onPhotoClick }: { detail: ClientPortalProje
       )}
 
       {/* Walkthrough Section */}
-      {detail.walkthrough.rooms.some(r => r.hasPhotos) && (
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <EyeIcon className="h-4.5 w-4.5 text-emerald-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Walkthrough Photos</h3>
-          </div>
+      {detail.walkthrough && (() => {
+        const wt = detail.walkthrough
+        const hasAnyPhotos =
+          wt.effectiveTemplate.groups.some(
+            g => g.photos.length > 0 || g.items.some(it => it.photos.length > 0)
+          ) ||
+          wt.orphanedGroups.some(og => og.photos.length > 0) ||
+          wt.freeformPhotos.length > 0
+        if (!hasAnyPhotos) return null
+        const sortedGroups = [...wt.effectiveTemplate.groups].sort(
+          (a, b) => a.sortOrder - b.sortOrder
+        )
+        return (
+          <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <EyeIcon className="h-4.5 w-4.5 text-emerald-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Walkthrough Photos</h3>
+            </div>
 
-          <div className="space-y-5">
-            {detail.walkthrough.rooms.filter(r => r.hasPhotos).map((room) => (
-              <div key={room.roomName}>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">{room.roomName}</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {room.photos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      onClick={() => onPhotoClick(photo.photoUrl)}
-                      className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
-                    >
-                      <img src={photo.photoUrl} alt={`${room.roomName} walkthrough`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+            <div className="space-y-5">
+              {sortedGroups.map((group) => {
+                const groupHasPhotos =
+                  group.photos.length > 0 ||
+                  group.items.some(it => it.photos.length > 0)
+                if (!groupHasPhotos) return null
+                const sortedItems = [...group.items].sort((a, b) => a.sortOrder - b.sortOrder)
+                return (
+                  <div key={group.id}>
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">{group.name}</p>
+                    {group.photos.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                        {group.photos.map((photo) => (
+                          <button
+                            key={photo.id}
+                            onClick={() => onPhotoClick(photo.photoUrl)}
+                            className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
+                          >
+                            <img src={photo.photoUrl} alt={`${group.name} walkthrough`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {sortedItems.map((item) =>
+                      item.photos.length > 0 ? (
+                        <div key={item.id} className="mb-3">
+                          <p className="text-[11px] font-medium text-gray-500 mb-1.5">{item.name}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {item.photos.map((photo) => (
+                              <button
+                                key={photo.id}
+                                onClick={() => onPhotoClick(photo.photoUrl)}
+                                className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
+                              >
+                                <img src={photo.photoUrl} alt={`${item.name} walkthrough`} className="w-full h-full object-cover" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                )
+              })}
+
+              {wt.orphanedGroups.length > 0 && wt.orphanedGroups.map((bucket) => (
+                <div key={bucket.groupNameSnapshot}>
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">
+                    {bucket.groupNameSnapshot} (archived)
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {bucket.photos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        onClick={() => onPhotoClick(photo.photoUrl)}
+                        className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
+                      >
+                        <img src={photo.photoUrl} alt={`${bucket.groupNameSnapshot} walkthrough`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+
+              {wt.freeformPhotos.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Other Photos</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {wt.freeformPhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        onClick={() => onPhotoClick(photo.photoUrl)}
+                        className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-80 transition-opacity cursor-pointer"
+                      >
+                        <img src={photo.photoUrl} alt="walkthrough" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Issues Section */}
       {detail.issues.length > 0 && (

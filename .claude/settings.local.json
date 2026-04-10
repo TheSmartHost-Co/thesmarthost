@@ -28,7 +28,10 @@
       "Bash(head -150 \"/mnt/c/Users/Geniu/Documents/Career/Projects/RIIPEN/smarthost/thesmarthost/src/app/\\(user\\)/cleaner/tasks/page.tsx\")",
       "Bash(npm install:*)",
       "Bash(node -e \"console.log\\(require\\('@tailwindcss/typography/package.json'\\).version\\)\")",
-      "Bash(node -e \"console.log\\(require\\('tailwindcss/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('tailwindcss/package.json'\\).version\\)\")",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)"
     ],
     "deny": []
   }

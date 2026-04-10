@@ -50,7 +50,9 @@ import {
   groupChecklistItemsByRoom,
   getCompletionPercentage,
   downloadChecklistPhotoWatermarked,
-  getWalkthroughStatus,
+  getProjectWalkthrough,
+  uploadWalkthroughPhotos,
+  deleteWalkthroughPhoto,
   downloadWalkthroughPhotoWatermarked,
 } from '@/services/cleaningProjectService'
 import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
@@ -59,7 +61,8 @@ import type { SupplyList } from '@/services/types/supplyList'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
-import type { ProjectChecklistItem, ChecklistProgress, WalkthroughStatus, CleaningProjectStatus } from '@/services/types/cleaningProject'
+import type { ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, CleaningProjectStatus } from '@/services/types/cleaningProject'
+import WalkthroughAccordion, { type WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -149,8 +152,10 @@ export default function ProjectDetailModal({
   // Project issues (for photo gallery)
   const [projectIssues, setProjectIssues] = useState<ProjectIssue[]>([])
 
-  // Walkthrough photos state
-  const [walkthroughStatus, setWalkthroughStatus] = useState<WalkthroughStatus | null>(null)
+  // Walkthrough state
+  const [walkthrough, setWalkthrough] = useState<ProjectWalkthrough | null>(null)
+  const [walkthroughUploadingKey, setWalkthroughUploadingKey] = useState<string | null>(null)
+  const [walkthroughExpandedGroups, setWalkthroughExpandedGroups] = useState<Set<string>>(new Set())
 
   // Time change request state
   const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
@@ -350,18 +355,81 @@ export default function ProjectDetailModal({
     }
   }
 
-  // Fetch walkthrough status
-  const fetchWalkthroughStatus = useCallback(async () => {
-    if (!project.id || !project.checklistId) return
+  // Fetch walkthrough (no longer gated on checklistId — walkthroughs are independent)
+  const fetchWalkthrough = useCallback(async () => {
+    if (!project.id) return
     try {
-      const res = await getWalkthroughStatus(project.id)
+      const res = await getProjectWalkthrough(project.id)
       if (res.status === 'success') {
-        setWalkthroughStatus(res.data)
+        setWalkthrough(res.data)
+        // Seed expansion to show all groups on first load
+        setWalkthroughExpandedGroups(prev => {
+          if (prev.size > 0) return prev
+          return new Set(res.data.effectiveTemplate.groups.map(g => g.id))
+        })
       }
     } catch (err) {
-      console.error('Error fetching walkthrough status:', err)
+      console.error('Error fetching walkthrough:', err)
     }
-  }, [project.id, project.checklistId])
+  }, [project.id])
+
+  const handlePmWalkthroughUpload = async (target: WalkthroughUploadTarget, files: File[]) => {
+    if (files.length === 0) return
+    const key =
+      target.kind === 'freeform'
+        ? 'freeform'
+        : target.kind === 'item'
+          ? `item:${target.itemId}`
+          : `group:${target.groupId}`
+    setWalkthroughUploadingKey(key)
+    try {
+      const opts =
+        target.kind === 'freeform'
+          ? undefined
+          : target.kind === 'item'
+            ? { groupId: target.groupId, itemId: target.itemId }
+            : { groupId: target.groupId }
+      const res = await uploadWalkthroughPhotos(project.id, files, opts)
+      if (res.status === 'success') {
+        showNotification(`${files.length} photo(s) uploaded`, 'success')
+        await fetchWalkthrough()
+      } else {
+        showNotification(res.message || 'Failed to upload photos', 'error')
+      }
+    } catch (err) {
+      console.error('Error uploading walkthrough photos:', err)
+      showNotification(
+        err instanceof Error ? err.message : 'Error uploading photos',
+        'error'
+      )
+    } finally {
+      setWalkthroughUploadingKey(null)
+    }
+  }
+
+  const handlePmWalkthroughDelete = async (photoId: string) => {
+    try {
+      const res = await deleteWalkthroughPhoto(project.id, photoId)
+      if (res.status === 'success') {
+        showNotification('Photo deleted', 'success')
+        await fetchWalkthrough()
+      } else {
+        showNotification(res.message || 'Failed to delete photo', 'error')
+      }
+    } catch (err) {
+      console.error('Error deleting walkthrough photo:', err)
+      showNotification('Error deleting photo', 'error')
+    }
+  }
+
+  const handlePmWalkthroughToggleGroup = useCallback((groupId: string) => {
+    setWalkthroughExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -370,9 +438,9 @@ export default function ProjectDetailModal({
       fetchSupplyListCount()
       fetchPendingRequest()
       fetchProjectIssues()
-      fetchWalkthroughStatus()
+      fetchWalkthrough()
     }
-  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest, fetchProjectIssues, fetchWalkthroughStatus])
+  }, [isOpen, fetchIssueCounts, fetchChecklist, fetchSupplyListCount, fetchPendingRequest, fetchProjectIssues, fetchWalkthrough])
 
   const statusDisplay = getStatusDisplay(project.status)
 
@@ -1082,49 +1150,45 @@ export default function ProjectDetailModal({
           </div>
 
           {/* Walkthrough Photos Section */}
-          {walkthroughStatus && walkthroughStatus.rooms.some(r => r.hasPhotos) && (
+          {walkthrough && (
             <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-3">
+              <div className="flex items-center gap-2 text-gray-500 mb-3 px-1">
                 <CameraIcon className="w-4 h-4" />
                 <span className="text-xs font-medium uppercase tracking-wider">Walkthrough Photos</span>
-                <span className="text-xs font-semibold text-purple-600">
-                  {walkthroughStatus.rooms.reduce((sum, r) => sum + r.photos.length, 0)}
-                </span>
               </div>
-              <div className="space-y-3">
-                {walkthroughStatus.rooms.filter(r => r.hasPhotos).map(room => (
-                  <div key={room.roomName}>
-                    <p className="text-xs font-medium text-gray-600 mb-2">{room.roomName}</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                      {room.photos.map(photo => (
-                        <button
-                          key={photo.id}
-                          onClick={() => setPreviewImage({
-                            url: photo.photoUrl,
-                            task: `Walkthrough: ${room.roomName}`,
-                            photoTakenAt: photo.photoTakenAt,
-                            photoUploadedAt: photo.photoUploadedAt,
-                            downloadFn: () => downloadWalkthroughPhotoWatermarked(project.id, photo.id),
-                          })}
-                          className="relative group cursor-pointer"
-                        >
-                          <img
-                            src={photo.photoUrl}
-                            alt={`${room.roomName} walkthrough`}
-                            className="w-full aspect-square object-cover rounded-lg border border-gray-200"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <CameraIcon className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 bg-purple-500/70 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
-                            {room.roomName}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <WalkthroughAccordion
+                walkthrough={walkthrough}
+                canEdit
+                uploadingKey={walkthroughUploadingKey}
+                onUpload={handlePmWalkthroughUpload}
+                onDelete={handlePmWalkthroughDelete}
+                onViewPhoto={(url) => {
+                  // Find the photo in the walkthrough payload to surface metadata + download
+                  const allPhotos = [
+                    ...walkthrough.effectiveTemplate.groups.flatMap(g => [
+                      ...g.photos,
+                      ...g.items.flatMap(it => it.photos),
+                    ]),
+                    ...walkthrough.orphanedGroups.flatMap(og => og.photos),
+                    ...walkthrough.freeformPhotos,
+                  ]
+                  const photo = allPhotos.find(p => p.photoUrl === url)
+                  const label = photo
+                    ? photo.itemNameSnapshot ?? photo.groupNameSnapshot ?? 'Walkthrough'
+                    : 'Walkthrough'
+                  setPreviewImage({
+                    url,
+                    task: `Walkthrough: ${label}`,
+                    photoTakenAt: photo?.photoTakenAt ?? null,
+                    photoUploadedAt: photo?.photoUploadedAt ?? null,
+                    downloadFn: photo
+                      ? () => downloadWalkthroughPhotoWatermarked(project.id, photo.id)
+                      : undefined,
+                  })
+                }}
+                expandedGroupIds={walkthroughExpandedGroups}
+                onToggleGroup={handlePmWalkthroughToggleGroup}
+              />
             </div>
           )}
 

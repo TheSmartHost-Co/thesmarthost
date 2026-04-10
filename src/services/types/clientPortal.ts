@@ -246,17 +246,53 @@ export interface ClientPortalChecklistProgress {
 export interface ClientPortalWalkthroughPhoto {
   id: string;
   projectId: string;
-  roomName: string;
+  groupId: string | null;
+  itemId: string | null;
+  groupNameSnapshot: string | null;
+  itemNameSnapshot: string | null;
   photoUrl: string;
+  storagePath?: string;
   photoTakenAt?: string | null;
   photoUploadedAt?: string | null;
   createdAt: string;
 }
 
-export interface ClientPortalWalkthroughRoom {
-  roomName: string;
+export interface ClientPortalWalkthroughItem {
+  id: string;
+  groupId: string;
+  name: string;
+  sortOrder: number;
   photos: ClientPortalWalkthroughPhoto[];
-  hasPhotos: boolean;
+}
+
+export interface ClientPortalWalkthroughGroup {
+  id: string;
+  templateId: string;
+  name: string;
+  sortOrder: number;
+  items: ClientPortalWalkthroughItem[];
+  photos: ClientPortalWalkthroughPhoto[];
+}
+
+export interface ClientPortalEffectiveTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  source: 'assigned' | 'default';
+  requiresCompletion: boolean;
+  groups: ClientPortalWalkthroughGroup[];
+}
+
+export interface ClientPortalOrphanedGroup {
+  groupNameSnapshot: string;
+  photos: ClientPortalWalkthroughPhoto[];
+}
+
+export interface ClientPortalWalkthrough {
+  effectiveTemplate: ClientPortalEffectiveTemplate;
+  orphanedGroups: ClientPortalOrphanedGroup[];
+  freeformPhotos: ClientPortalWalkthroughPhoto[];
+  isComplete: boolean;
 }
 
 export interface ClientPortalProjectIssue {
@@ -303,11 +339,7 @@ export interface ClientPortalProjectDetail {
     items: ClientPortalProjectChecklistItem[];
     progress: ClientPortalChecklistProgress | null;
   };
-  walkthrough: {
-    requiresWalkthrough: boolean;
-    isComplete: boolean;
-    rooms: ClientPortalWalkthroughRoom[];
-  };
+  walkthrough: ClientPortalWalkthrough | null;
   issues: ClientPortalProjectIssue[];
 }
 

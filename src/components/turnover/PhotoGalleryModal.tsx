@@ -16,6 +16,32 @@ import { downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { parseLocalDate } from '@/utils/dateUtils'
 import type { ProjectWithPhotos, ChecklistPhotoItem, IssuePhotoItem, WalkthroughPhotoItem } from '@/services/types/cleaningProject'
 
+/**
+ * Resolve a display label for a walkthrough photo from its denormalized
+ * snapshot fields. Prefer the item name, then the group name, then
+ * "Unlabeled" for pure freeform uploads.
+ */
+function getWalkthroughPhotoLabel(wp: WalkthroughPhotoItem): string {
+  return wp.itemNameSnapshot ?? wp.groupNameSnapshot ?? 'Unlabeled'
+}
+
+/**
+ * Freeform photos are those uploaded without targeting a template group/item.
+ * Both the current and the snapshot group fields are null.
+ */
+function isFreeformWalkthroughPhoto(wp: WalkthroughPhotoItem): boolean {
+  return wp.groupId === null && wp.itemId === null && wp.groupNameSnapshot === null
+}
+
+/**
+ * Orphaned photos retain their snapshot label but no longer point at a current
+ * template row (their groupId was cleared when the group was deleted or the
+ * property's assigned template was swapped).
+ */
+function isOrphanedWalkthroughPhoto(wp: WalkthroughPhotoItem): boolean {
+  return wp.groupId === null && wp.groupNameSnapshot !== null
+}
+
 interface PhotoGalleryModalProps {
   isOpen: boolean
   onClose: () => void
@@ -27,7 +53,7 @@ interface PhotoGalleryModalProps {
 interface FlatPhoto {
   url: string
   label: string
-  roomName?: string
+  sublabel?: string
   photoTakenAt: string | null
   photoUploadedAt: string | null
   type: 'checklist' | 'issue' | 'walkthrough'
@@ -99,6 +125,10 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
   // Photo type filter
   const [photoFilter, setPhotoFilter] = useState<'all' | 'checklist' | 'issue' | 'walkthrough'>('all')
 
+  // Walkthrough bucket visibility toggles (only relevant when walkthrough is shown)
+  const [showFreeform, setShowFreeform] = useState(true)
+  const [showOrphaned, setShowOrphaned] = useState(true)
+
   // Preview (replaces lightbox)
   const [previewImage, setPreviewImage] = useState<{
     url: string
@@ -162,22 +192,35 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
     }
   }, [projects])
 
-  // Total photo count (respects filter)
+  // Total photo count (respects filter + walkthrough visibility toggles)
   const totalPhotoCount = useMemo(() => {
     return projects.reduce((sum, p) => {
       let count = 0
       if (photoFilter === 'all' || photoFilter === 'checklist') count += p.checklistPhotos.length
       if (photoFilter === 'all' || photoFilter === 'issue') count += p.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0)
-      if (photoFilter === 'all' || photoFilter === 'walkthrough') count += (p.walkthroughPhotos?.length || 0)
+      if (photoFilter === 'all' || photoFilter === 'walkthrough') {
+        count += (p.walkthroughPhotos ?? []).filter(wp => {
+          if (isFreeformWalkthroughPhoto(wp)) return showFreeform
+          if (isOrphanedWalkthroughPhoto(wp)) return showOrphaned
+          return true
+        }).length
+      }
       return sum + count
     }, 0)
-  }, [projects, photoFilter])
+  }, [projects, photoFilter, showFreeform, showOrphaned])
 
-  // Per-project filtered photo counts (checklist vs issue)
+  // Per-project filtered photo counts (checklist vs issue vs walkthrough)
   const getProjectPhotoCounts = (project: ProjectWithPhotos): { checklist: number; issue: number; walkthrough: number; total: number } => {
     const checklist = (photoFilter === 'all' || photoFilter === 'checklist') ? project.checklistPhotos.length : 0
     const issue = (photoFilter === 'all' || photoFilter === 'issue') ? project.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0) : 0
-    const walkthrough = (photoFilter === 'all' || photoFilter === 'walkthrough') ? (project.walkthroughPhotos?.length || 0) : 0
+    const walkthrough =
+      (photoFilter === 'all' || photoFilter === 'walkthrough')
+        ? (project.walkthroughPhotos ?? []).filter(wp => {
+            if (isFreeformWalkthroughPhoto(wp)) return showFreeform
+            if (isOrphanedWalkthroughPhoto(wp)) return showOrphaned
+            return true
+          }).length
+        : 0
     return { checklist, issue, walkthrough, total: checklist + issue + walkthrough }
   }
 
@@ -226,12 +269,25 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
     }
     setPreviewImage({
       url: photo.url,
-      title: photo.roomName || photo.label,
+      title: photo.sublabel || photo.label,
       photoTakenAt: photo.photoTakenAt,
       photoUploadedAt: photo.photoUploadedAt,
       downloadFn,
     })
   }
+
+  // Filter walkthrough photos by the freeform/orphan toggles
+  const filterWalkthroughPhotos = useCallback(
+    (photos: WalkthroughPhotoItem[] | undefined): WalkthroughPhotoItem[] => {
+      if (!photos) return []
+      return photos.filter(wp => {
+        if (isFreeformWalkthroughPhoto(wp)) return showFreeform
+        if (isOrphanedWalkthroughPhoto(wp)) return showOrphaned
+        return true
+      })
+    },
+    [showFreeform, showOrphaned]
+  )
 
   // Quick date presets
   const setPreset = (days: number) => {
@@ -315,7 +371,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                   () => openPreview({
                     url: cp.photoUrl,
                     label: cp.taskDescription,
-                    roomName: cp.roomName,
+                    sublabel: cp.roomName ?? undefined,
                     photoTakenAt: cp.photoTakenAt,
                     photoUploadedAt: cp.photoUploadedAt,
                     type: 'checklist',
@@ -359,34 +415,39 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
           </div>
         )}
         {/* Walkthrough photos */}
-        {(photoFilter === 'all' || photoFilter === 'walkthrough') && project.walkthroughPhotos && project.walkthroughPhotos.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
-              <CameraIcon className="w-3.5 h-3.5" />
-              Walkthrough Photos ({project.walkthroughPhotos.length})
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {project.walkthroughPhotos.map((wp) =>
-                renderPhotoCard(
-                  wp.photoUrl,
-                  `Walkthrough: ${wp.roomName}`,
-                  wp.roomName,
-                  () => openPreview({
-                    url: wp.photoUrl,
-                    label: `Walkthrough: ${wp.roomName}`,
-                    roomName: wp.roomName,
-                    photoTakenAt: wp.photoTakenAt,
-                    photoUploadedAt: wp.photoUploadedAt,
-                    type: 'walkthrough',
-                    projectId: project.projectId,
-                    walkthroughPhotoId: wp.id,
-                    walkthroughProjectId: wp.projectId,
-                  }),
-                )
-              )}
+        {(photoFilter === 'all' || photoFilter === 'walkthrough') && (() => {
+          const visible = filterWalkthroughPhotos(project.walkthroughPhotos)
+          if (visible.length === 0) return null
+          return (
+            <div>
+              <p className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
+                <CameraIcon className="w-3.5 h-3.5" />
+                Walkthrough Photos ({visible.length})
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {visible.map((wp) => {
+                  const label = getWalkthroughPhotoLabel(wp)
+                  return renderPhotoCard(
+                    wp.photoUrl,
+                    `Walkthrough: ${label}`,
+                    label,
+                    () => openPreview({
+                      url: wp.photoUrl,
+                      label: `Walkthrough: ${label}`,
+                      sublabel: label,
+                      photoTakenAt: wp.photoTakenAt,
+                      photoUploadedAt: wp.photoUploadedAt,
+                      type: 'walkthrough',
+                      projectId: project.projectId,
+                      walkthroughPhotoId: wp.id,
+                      walkthroughProjectId: wp.projectId,
+                    }),
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
     )
   }
@@ -553,7 +614,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
           </div>
 
           {/* Photo type filter */}
-          <div className="flex items-center gap-2 mb-4 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
             <span className="text-xs text-gray-500">Show:</span>
             <div className="flex items-center gap-1">
               {[
@@ -575,6 +636,32 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 </button>
               ))}
             </div>
+            {(photoFilter === 'all' || photoFilter === 'walkthrough') && (
+              <div className="flex items-center gap-1 pl-2 border-l border-gray-200">
+                <button
+                  onClick={() => setShowFreeform(v => !v)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                    showFreeform
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'
+                  }`}
+                  title="Show freeform (untagged) walkthrough photos"
+                >
+                  {showFreeform ? '✓ ' : ''}Freeform
+                </button>
+                <button
+                  onClick={() => setShowOrphaned(v => !v)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                    showOrphaned
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'
+                  }`}
+                  title="Show photos from groups that no longer exist in the current template"
+                >
+                  {showOrphaned ? '✓ ' : ''}Orphaned
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Content */}

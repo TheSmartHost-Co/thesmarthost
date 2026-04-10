@@ -155,13 +155,6 @@ export default function PreviewChecklistTemplateModal({
               </div>
             </div>
 
-            {template.requiresWalkthrough && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg">
-                <CameraIcon className="w-4 h-4" />
-                Walkthrough Required
-              </div>
-            )}
-
             {/* Linked Properties */}
             {linkedProperties.length > 0 && (
               <div>

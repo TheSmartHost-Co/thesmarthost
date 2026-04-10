@@ -14,9 +14,11 @@ import {
 } from '@/services/checklistTemplateService'
 import { getChecklists } from '@/services/checklistService'
 import { getProperties } from '@/services/propertyService'
+import { getWalkthroughTemplates } from '@/services/walkthroughTemplateService'
 import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
 import type { Checklist } from '@/services/types/checklist'
 import type { Property } from '@/services/types/property'
+import type { WalkthroughTemplate } from '@/services/types/walkthroughTemplate'
 import {
   PlusIcon,
   ClipboardDocumentListIcon,
@@ -43,8 +45,13 @@ import EditPropertyChecklistModal from '@/components/checklist/edit/EditProperty
 import DeleteChecklistModal from '@/components/checklist/delete/DeleteChecklistModal'
 import CreateChecklistModal from '@/components/checklist/create/CreateChecklistModal'
 import CopyChecklistToPropertyModal from '@/components/checklist/copy/CopyChecklistToPropertyModal'
+import WalkthroughTemplateList from '@/components/walkthrough-template/list/WalkthroughTemplateList'
+import WalkthroughTemplateEditorModal from '@/components/walkthrough-template/editor/WalkthroughTemplateEditorModal'
+import DeleteWalkthroughTemplateModal from '@/components/walkthrough-template/delete/DeleteWalkthroughTemplateModal'
+import CloneWalkthroughTemplateModal from '@/components/walkthrough-template/clone/CloneWalkthroughTemplateModal'
 
 type ChecklistViewMode = 'grid' | 'table'
+type MainTab = 'checklists' | 'walkthrough-templates'
 
 export default function ChecklistsPage() {
   const { profile } = useUserStore()
@@ -56,8 +63,18 @@ export default function ChecklistsPage() {
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
   const [propertyChecklists, setPropertyChecklists] = useState<Checklist[]>([])
   const [properties, setProperties] = useState<Property[]>([])
+  const [walkthroughTemplates, setWalkthroughTemplates] = useState<WalkthroughTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Top-level tab switcher: checklists vs walkthrough templates
+  const [mainTab, setMainTab] = useState<MainTab>('checklists')
+
+  // Walkthrough template modal state
+  const [showWalkthroughEditor, setShowWalkthroughEditor] = useState(false)
+  const [showWalkthroughDelete, setShowWalkthroughDelete] = useState(false)
+  const [showWalkthroughClone, setShowWalkthroughClone] = useState(false)
+  const [selectedWalkthroughTemplate, setSelectedWalkthroughTemplate] = useState<WalkthroughTemplate | null>(null)
 
   // View state
   const [checklistViewMode, setChecklistViewMode] = useState<ChecklistViewMode>('grid')
@@ -103,10 +120,11 @@ export default function ChecklistsPage() {
       setLoading(true)
       setError(null)
 
-      const [templatesRes, checklistsRes, propertiesRes] = await Promise.all([
+      const [templatesRes, checklistsRes, propertiesRes, walkthroughTemplatesRes] = await Promise.all([
         getChecklistTemplates(effectiveUserId!),
         getChecklists({ userId: effectiveUserId! }),
         getProperties(effectiveUserId!),
+        getWalkthroughTemplates(effectiveUserId!),
       ])
 
       if (templatesRes.status === 'success') {
@@ -117,6 +135,9 @@ export default function ChecklistsPage() {
       }
       if (propertiesRes.status === 'success') {
         setProperties(propertiesRes.data || [])
+      }
+      if (walkthroughTemplatesRes.status === 'success') {
+        setWalkthroughTemplates(walkthroughTemplatesRes.data || [])
       }
     } catch (err) {
       console.error('Error loading checklists data:', err)
@@ -244,6 +265,54 @@ export default function ChecklistsPage() {
   const handleDeleteTemplate = (template: ChecklistTemplate) => {
     setSelectedTemplate(template)
     setShowDeleteModal(true)
+  }
+
+  // Walkthrough template handlers
+  const handleWalkthroughTemplateSaved = (saved: WalkthroughTemplate) => {
+    setWalkthroughTemplates(prev => {
+      const idx = prev.findIndex(t => t.id === saved.id)
+      if (idx === -1) return [...prev, saved]
+      const next = [...prev]
+      next[idx] = saved
+      return next
+    })
+  }
+
+  const handleWalkthroughTemplateDeleted = () => {
+    if (selectedWalkthroughTemplate) {
+      setWalkthroughTemplates(prev =>
+        prev.filter(t => t.id !== selectedWalkthroughTemplate.id)
+      )
+    }
+    setSelectedWalkthroughTemplate(null)
+  }
+
+  const handleOpenCreateWalkthroughTemplate = () => {
+    setSelectedWalkthroughTemplate(null)
+    setShowWalkthroughEditor(true)
+  }
+
+  const handleEditWalkthroughTemplate = (template: WalkthroughTemplate) => {
+    setSelectedWalkthroughTemplate(template)
+    setShowWalkthroughEditor(true)
+  }
+
+  const handleCloneWalkthroughTemplate = (template: WalkthroughTemplate) => {
+    setSelectedWalkthroughTemplate(template)
+    setShowWalkthroughClone(true)
+  }
+
+  const handleDeleteWalkthroughTemplate = (template: WalkthroughTemplate) => {
+    setSelectedWalkthroughTemplate(template)
+    setShowWalkthroughDelete(true)
+  }
+
+  const handleWalkthroughCloned = (cloned: WalkthroughTemplate) => {
+    setWalkthroughTemplates(prev => [...prev, cloned])
+    // Immediately open the editor on the new clone so the PM can tweak it
+    setSelectedWalkthroughTemplate(cloned)
+    setShowWalkthroughClone(false)
+    setShowWalkthroughEditor(true)
   }
 
   const handleCloneTemplate = async (template: ChecklistTemplate) => {
@@ -470,6 +539,65 @@ export default function ChecklistsPage() {
         ))}
       </div>
 
+      {/* ─── Main Tab Switcher ─── */}
+      <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg w-fit">
+        <button
+          onClick={() => setMainTab('checklists')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
+            mainTab === 'checklists'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Checklists
+        </button>
+        <button
+          onClick={() => setMainTab('walkthrough-templates')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
+            mainTab === 'walkthrough-templates'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Walkthrough Templates
+          <span className="ml-1.5 text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
+            {walkthroughTemplates.length}
+          </span>
+        </button>
+      </div>
+
+      {mainTab === 'walkthrough-templates' ? (
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-gray-900">Walkthrough Templates</h2>
+              <span className="text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                {walkthroughTemplates.length}
+              </span>
+            </div>
+            {canWrite('checklists') && (
+              <motion.button
+                onClick={handleOpenCreateWalkthroughTemplate}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/25 transition-colors"
+              >
+                <PlusIcon className="h-4 w-4 mr-1.5" />
+                Create Walkthrough Template
+              </motion.button>
+            )}
+          </div>
+          <WalkthroughTemplateList
+            templates={walkthroughTemplates}
+            canWrite={canWrite('checklists')}
+            onEdit={handleEditWalkthroughTemplate}
+            onClone={handleCloneWalkthroughTemplate}
+            onDelete={handleDeleteWalkthroughTemplate}
+            onCreateNew={handleOpenCreateWalkthroughTemplate}
+          />
+        </div>
+      ) : (
+      <>
       {/* ─── Templates Section ─── */}
       <div>
         {/* Section header */}
@@ -967,6 +1095,9 @@ export default function ChecklistsPage() {
         </div>
       </div>
 
+      </>
+      )}
+
       {/* ─── Modals ─── */}
       <CreateChecklistTemplateModal
         isOpen={showCreateModal}
@@ -1085,6 +1216,36 @@ export default function ChecklistsPage() {
         }}
         checklist={selectedChecklist}
         properties={properties}
+      />
+
+      {/* Walkthrough Template Modals */}
+      <WalkthroughTemplateEditorModal
+        isOpen={showWalkthroughEditor}
+        onClose={() => {
+          setShowWalkthroughEditor(false)
+          setSelectedWalkthroughTemplate(null)
+        }}
+        onSaved={handleWalkthroughTemplateSaved}
+        template={selectedWalkthroughTemplate}
+      />
+
+      <DeleteWalkthroughTemplateModal
+        isOpen={showWalkthroughDelete}
+        onClose={() => {
+          setShowWalkthroughDelete(false)
+          setSelectedWalkthroughTemplate(null)
+        }}
+        onDeleted={handleWalkthroughTemplateDeleted}
+        template={selectedWalkthroughTemplate}
+      />
+
+      <CloneWalkthroughTemplateModal
+        isOpen={showWalkthroughClone}
+        onClose={() => {
+          setShowWalkthroughClone(false)
+        }}
+        onCloned={handleWalkthroughCloned}
+        source={selectedWalkthroughTemplate}
       />
     </div>
   )
