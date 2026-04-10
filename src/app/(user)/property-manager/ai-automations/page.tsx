@@ -12,10 +12,14 @@ import {
   triggerAutomationScan,
   triggerAutomationProcess,
   processOneAutomationTask,
+  bulkApproveTasks,
+  bulkRejectTasks,
+  bulkDeleteTasks,
 } from '@/services/automationService'
 import type { AutomationTask, AutomationTaskCounts, AutomationType } from '@/services/types/automation'
 import AutomationTaskCard from '@/components/automations/AutomationTaskCard'
 import ApproveTaskModal from '@/components/automations/ApproveTaskModal'
+import BulkActionBar from '@/components/automations/BulkActionBar'
 import AutomationSettingsPanel from '@/components/automations/AutomationSettingsPanel'
 import ScanModal from '@/components/automations/ScanModal'
 
@@ -52,6 +56,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   const [scanning, setScanning] = useState(false)
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
   const [processingAll, setProcessingAll] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const typeFilter = fixedType || null
   const isDashboard = !typeFilter
@@ -145,6 +150,47 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
     } finally {
       setProcessingTaskId(null)
     }
+  }
+
+  const handleSelect = (taskId: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(taskId)
+      else next.delete(taskId)
+      return next
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(tasks.map(t => t.id)))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkApproveTasks(ids)
+    showNotification(res.message || 'Tasks approved', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
+    fetchData()
+  }
+
+  const handleBulkReject = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkRejectTasks(ids)
+    showNotification(res.message || 'Tasks rejected', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
+    fetchData()
+  }
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkDeleteTasks(ids)
+    showNotification(res.message || 'Tasks deleted', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
+    fetchData()
   }
 
   const handleProcessAll = async () => {
@@ -313,6 +359,21 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         ))}
       </div>
 
+      {/* Select All */}
+      {tasks.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            checked={selectedIds.size === tasks.length && tasks.length > 0}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer"
+          />
+          <span className="text-xs text-gray-500">
+            {selectedIds.size > 0 ? `${selectedIds.size} of ${tasks.length} selected` : 'Select all'}
+          </span>
+        </div>
+      )}
+
       {/* Task List */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -356,6 +417,8 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
               onRetry={handleRetry}
               onProcess={handleProcessOne}
               processingTaskId={processingTaskId}
+              selected={selectedIds.has(task.id)}
+              onSelect={handleSelect}
             />
           ))}
         </div>
@@ -380,6 +443,15 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         onClose={() => setShowScanModal(false)}
         onScan={(startDate, endDate) => handleRunScan(startDate, endDate)}
         scanning={scanning}
+      />
+
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        hasAwaitingApproval={tasks.some(t => selectedIds.has(t.id) && t.status === 'awaiting_approval')}
+        onApprove={handleBulkApprove}
+        onReject={handleBulkReject}
+        onDelete={handleBulkDelete}
+        onClear={() => setSelectedIds(new Set())}
       />
     </div>
   )

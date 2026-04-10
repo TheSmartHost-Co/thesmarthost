@@ -9,6 +9,8 @@ interface AutomationTaskCardProps {
   onRetry: (task: AutomationTask) => void
   onProcess?: (task: AutomationTask) => void
   processingTaskId?: string | null
+  selected?: boolean
+  onSelect?: (taskId: string, selected: boolean) => void
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -27,7 +29,7 @@ const typeConfig: Record<string, { label: string; color: string }> = {
   review_nudge: { label: 'Review Nudge', color: 'bg-amber-100 text-amber-700' },
 }
 
-export default function AutomationTaskCard({ task, onReview, onRetry, onProcess, processingTaskId }: AutomationTaskCardProps) {
+export default function AutomationTaskCard({ task, onReview, onRetry, onProcess, processingTaskId, selected, onSelect }: AutomationTaskCardProps) {
   const status = statusConfig[task.status] || statusConfig.pending
   const type = typeConfig[task.type] || typeConfig.guest_review
 
@@ -40,10 +42,19 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
     <div
       onClick={() => onReview(task)}
       className={`bg-white border rounded-xl p-4 transition-shadow hover:shadow-md cursor-pointer ${
-        task.status === 'awaiting_approval' ? 'border-amber-200 shadow-sm' : 'border-gray-200'
+        selected ? 'border-blue-400 bg-blue-50/30 shadow-sm' : task.status === 'awaiting_approval' ? 'border-amber-200 shadow-sm' : 'border-gray-200'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected || false}
+            onChange={(e) => { e.stopPropagation(); onSelect(task.id, e.target.checked) }}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer flex-shrink-0"
+          />
+        )}
         <div className="flex-1 min-w-0">
           {/* Guest name + listing */}
           <div className="flex items-center gap-2 mb-1">

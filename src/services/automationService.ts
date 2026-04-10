@@ -82,6 +82,19 @@ export function processOneAutomationTask(taskId: string): Promise<{ status: stri
   })
 }
 
+// Bulk actions
+export function bulkApproveTasks(taskIds: string[]): Promise<{ status: string; message: string; data?: { approved: number } }> {
+  return apiClient('/automations/tasks/bulk/approve', { method: 'POST', body: { taskIds } })
+}
+
+export function bulkRejectTasks(taskIds: string[]): Promise<{ status: string; message: string; data?: { rejected: number } }> {
+  return apiClient('/automations/tasks/bulk/reject', { method: 'POST', body: { taskIds } })
+}
+
+export function bulkDeleteTasks(taskIds: string[]): Promise<{ status: string; message: string; data?: { deleted: number } }> {
+  return apiClient('/automations/tasks/bulk/delete', { method: 'POST', body: { taskIds } })
+}
+
 // Manual triggers
 export function triggerAutomationScan(params?: { startDate?: string; endDate?: string; types?: string[] }): Promise<{ status: string; message: string; data?: { created: number; skipped: number; errors: number; expired: number } }> {
   const body: Record<string, unknown> = {}
