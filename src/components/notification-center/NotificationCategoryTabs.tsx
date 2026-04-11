@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import type { NotificationFilter } from '@/store/useNotificationCenterStore'
 
 interface NotificationCategoryTabsProps {
@@ -8,16 +9,16 @@ interface NotificationCategoryTabsProps {
   urgentUnreadCount: number
 }
 
-const tabs: { key: NotificationFilter; label: string }[] = [
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'all', label: 'All' },
-  { key: 'cleaning', label: 'Cleaning' },
-  { key: 'issues', label: 'Issues' },
-  { key: 'supplies', label: 'Supplies' },
-  { key: 'schedule', label: 'Schedule' },
-  { key: 'bookings', label: 'Bookings' },
-  { key: 'invoices', label: 'Invoices' },
-  { key: 'automations', label: 'AI' },
+const tabs: { key: NotificationFilter; labelKey: string }[] = [
+  { key: 'urgent', labelKey: 'notifUrgent' },
+  { key: 'all', labelKey: 'notifAll' },
+  { key: 'cleaning', labelKey: 'notifCleaning' },
+  { key: 'issues', labelKey: 'notifIssues' },
+  { key: 'supplies', labelKey: 'notifSupplies' },
+  { key: 'schedule', labelKey: 'notifSchedule' },
+  { key: 'bookings', labelKey: 'notifBookings' },
+  { key: 'invoices', labelKey: 'notifInvoices' },
+  { key: 'automations', labelKey: 'notifAI' },
 ]
 
 export default function NotificationCategoryTabs({
@@ -25,9 +26,11 @@ export default function NotificationCategoryTabs({
   onFilterChange,
   urgentUnreadCount,
 }: NotificationCategoryTabsProps) {
+  const { t } = useTranslation('common')
   return (
     <div className="flex flex-wrap gap-1.5 px-4 py-2 border-b border-gray-100">
-      {tabs.map(({ key, label }) => {
+      {tabs.map(({ key, labelKey }) => {
+        const label = t(labelKey)
         const isActive = activeFilter === key
         const isUrgent = key === 'urgent'
 

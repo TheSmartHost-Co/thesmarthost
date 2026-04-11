@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -53,6 +54,7 @@ export default function EditProjectModal({
   properties,
   cleaners,
 }: EditProjectModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -282,13 +284,13 @@ export default function EditProjectModal({
     try {
       const res = await initializeProjectChecklist(reinitProjectId, { force: true })
       if (res.status === 'success') {
-        showNotification(`Checklist re-initialized with ${res.data.initialized} items`, 'success')
+        showNotification(t('checklistReinitialized', { count: res.data.initialized }), 'success')
       } else {
-        showNotification(res.message || 'Failed to re-initialize checklist', 'error')
+        showNotification(res.message || t('failedToReinitializeChecklist'), 'error')
       }
     } catch (err) {
       console.error('Error re-initializing checklist:', err)
-      showNotification('Error re-initializing checklist', 'error')
+      showNotification(t('errorReinitializingChecklist'), 'error')
     } finally {
       setIsReinitializing(false)
       setShowReinitDialog(false)
@@ -301,7 +303,7 @@ export default function EditProjectModal({
 
   const handleSkipReinit = () => {
     setShowReinitDialog(false)
-    showNotification('Project updated. Checklist items kept from previous template.', 'info')
+    showNotification(t('projectUpdatedChecklistKept'), 'info')
     if (pendingUpdatedProject) {
       onUpdate(pendingUpdatedProject)
     }
@@ -312,12 +314,12 @@ export default function EditProjectModal({
     e.preventDefault()
 
     if (!propertyId) {
-      showNotification('Please select a property', 'error')
+      showNotification(t('pleaseSelectProperty'), 'error')
       return
     }
 
     if (!projectDate) {
-      showNotification('Please select a project date', 'error')
+      showNotification(t('pleaseSelectProjectDate'), 'error')
       return
     }
 
@@ -390,8 +392,8 @@ export default function EditProjectModal({
                   <PencilSquareIcon className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Edit Cleaning Project</h2>
-                  <p className="text-sm text-gray-500">Update project details</p>
+                  <h2 className="text-lg font-semibold text-gray-900">{t('editCleaningProject')}</h2>
+                  <p className="text-sm text-gray-500">{t('projectDetails')}</p>
                 </div>
               </div>
               <button
@@ -411,14 +413,14 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <HomeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Property <span className="text-red-500">*</span>
+                      {t('property')} <span className="text-red-500">*</span>
                     </label>
                     <SearchableSelect
                       options={propertyOptions}
                       value={propertyId}
                       onChange={setPropertyId}
-                      placeholder="Search properties..."
-                      emptyText="No properties found"
+                      placeholder={t('searchProperties')}
+                      emptyText={t('noPropertiesFound')}
                       clearable={false}
                     />
                   </div>
@@ -427,7 +429,7 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <CalendarDaysIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Project Date <span className="text-red-500">*</span>
+                      {t('projectDateLabel')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -443,7 +445,7 @@ export default function EditProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Previous Booking (Departing Guest) <span className="text-gray-400">(optional)</span>
+                    {t('previousBookingDeparting')} <span className="text-gray-400">({t('optional')})</span>
                   </label>
                   <SearchableSelect
                     options={previousBookingOptions}
@@ -451,14 +453,14 @@ export default function EditProjectModal({
                     onChange={setPreviousBookingId}
                     placeholder={
                       !propertyId
-                        ? 'Select property first...'
+                        ? t('selectPropertyFirst')
                         : loadingBookings
-                          ? 'Loading bookings...'
-                          : 'Search bookings...'
+                          ? t('loadingBookings')
+                          : t('searchBookings')
                     }
                     disabled={!propertyId || loadingBookings}
                     loading={loadingBookings}
-                    emptyText="No recent bookings found"
+                    emptyText={t('noRecentBookings')}
                     clearable
                   />
                 </div>
@@ -467,7 +469,7 @@ export default function EditProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Next Booking (Arriving Guest) <span className="text-gray-400">(optional)</span>
+                    {t('nextBookingArriving')} <span className="text-gray-400">({t('optional')})</span>
                   </label>
                   <SearchableSelect
                     options={nextBookingOptions}
@@ -475,14 +477,14 @@ export default function EditProjectModal({
                     onChange={setNextBookingId}
                     placeholder={
                       !propertyId
-                        ? 'Select property first...'
+                        ? t('selectPropertyFirst')
                         : loadingBookings
-                          ? 'Loading bookings...'
-                          : 'Search bookings...'
+                          ? t('loadingBookings')
+                          : t('searchBookings')
                     }
                     disabled={!propertyId || loadingBookings}
                     loading={loadingBookings}
-                    emptyText="No recent bookings found"
+                    emptyText={t('noRecentBookings')}
                     clearable
                   />
                 </div>
@@ -493,14 +495,14 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <UserIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Assign Cleaner <span className="text-gray-400">(optional)</span>
+                      {t('assignCleaner')} <span className="text-gray-400">({t('optional')})</span>
                     </label>
                     <SearchableSelect
                       options={cleanerOptions}
                       value={cleanerId}
                       onChange={setCleanerId}
-                      placeholder="Unassigned"
-                      emptyText="No cleaners found"
+                      placeholder={t('unassigned')}
+                      emptyText={t('noCleanersFound')}
                       clearable
                     />
                   </div>
@@ -509,20 +511,20 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClipboardDocumentListIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Checklist Template
+                      {t('checklistTemplate')}
                     </label>
                     <SearchableSelect
                       options={checklistOptions}
                       value={checklistId}
                       onChange={setChecklistId}
-                      placeholder={!propertyId ? 'Select property first...' : 'Search checklists...'}
+                      placeholder={!propertyId ? t('selectPropertyFirst') : t('searchChecklists')}
                       disabled={!propertyId}
-                      emptyText="No checklists for this property"
+                      emptyText={t('noChecklistsForProperty')}
                       clearable
                       headerAction={
                         propertyId
                           ? {
-                              label: 'Create New Checklist',
+                              label: t('createNewChecklist'),
                               icon: <PlusIcon className="w-4 h-4" />,
                               onClick: () => setShowCreateChecklistModal(true),
                             }
@@ -599,7 +601,7 @@ export default function EditProjectModal({
                             </div>
                           ) : (
                             <p className="text-sm text-gray-500 text-center py-2">
-                              No items in this checklist
+                              {t('noChecklistItems')}
                             </p>
                           )}
                         </motion.div>
@@ -613,7 +615,7 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Start Time
+                      {t('startTime')}
                     </label>
                     <TimeSelect
                       value={projectStartTime}
@@ -624,7 +626,7 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      End Time
+                      {t('endTime')}
                     </label>
                     <TimeSelect
                       value={projectEndTime}
@@ -635,7 +637,7 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Est. Duration
+                      {t('estimatedDurationLabel')}
                     </label>
                     <DurationSelect
                       value={estimatedDuration}
@@ -650,13 +652,13 @@ export default function EditProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <UsersIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Guest Count
+                      {t('guestCountLabel')}
                     </label>
                     <input
                       type="number"
                       value={guestCount}
                       onChange={(e) => setGuestCount(e.target.value)}
-                      placeholder="Number of guests"
+                      placeholder={t('numberOfGuests')}
                       min="0"
                       className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
@@ -671,7 +673,7 @@ export default function EditProjectModal({
                       />
                       <div className="flex items-center gap-2">
                         <ExclamationTriangleIcon className="w-4 h-4 text-amber-600" />
-                        <span className="text-sm font-medium text-amber-800">Same-day turnover</span>
+                        <span className="text-sm font-medium text-amber-800">{t('isSameDayTurnover')}</span>
                       </div>
                     </label>
                   </div>
@@ -681,12 +683,12 @@ export default function EditProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Notes for Cleaner
+                    {t('notesForCleaner')}
                   </label>
                   <textarea
                     value={pmNotes}
                     onChange={(e) => setPmNotes(e.target.value)}
-                    placeholder="Special instructions, access codes, etc..."
+                    placeholder={t('specialInstructionsPlaceholder')}
                     rows={3}
                     className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
@@ -701,7 +703,7 @@ export default function EditProjectModal({
                   disabled={loading}
                   className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -711,12 +713,12 @@ export default function EditProjectModal({
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving...
+                      {t('saving')}
                     </>
                   ) : (
                     <>
                       <CheckCircleIcon className="w-4 h-4" />
-                      Save Changes
+                      {t('saveChanges')}
                     </>
                   )}
                 </button>
@@ -752,15 +754,14 @@ export default function EditProjectModal({
                     <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Checklist Changed</h3>
-                    <p className="text-sm text-gray-500">New template selected</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{t('checklistChangedTitle')}</h3>
+                    <p className="text-sm text-gray-500">{t('newTemplateSelected')}</p>
                   </div>
                 </div>
               </div>
               <div className="px-6 py-4">
                 <p className="text-sm text-gray-700">
-                  You changed the checklist template. Would you like to re-initialize the checklist items
-                  from the new template? <span className="font-medium text-amber-700">This will clear any existing progress.</span>
+                  {t('checklistChangedDescription')} <span className="font-medium text-amber-700">{t('checklistChangedWarning')}</span>
                 </p>
               </div>
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
@@ -770,7 +771,7 @@ export default function EditProjectModal({
                   disabled={isReinitializing}
                   className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
                 >
-                  Keep Existing Items
+                  {t('keepExistingItems')}
                 </button>
                 <button
                   type="button"
@@ -781,12 +782,12 @@ export default function EditProjectModal({
                   {isReinitializing ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Re-initializing...
+                      {t('reinitializing')}
                     </>
                   ) : (
                     <>
                       <ClipboardDocumentListIcon className="w-4 h-4" />
-                      Re-initialize
+                      {t('reinitialize')}
                     </>
                   )}
                 </button>

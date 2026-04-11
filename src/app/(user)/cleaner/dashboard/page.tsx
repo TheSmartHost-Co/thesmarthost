@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -37,6 +38,7 @@ import type { Cleaner, CleanerProperty } from '@/services/types/cleaner'
 import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
 
 export default function CleanerDashboardPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const router = useRouter()
@@ -224,8 +226,8 @@ export default function CleanerDashboardPage() {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome, {firstName}!</h1>
-          <p className="mt-1 text-sm sm:text-base text-gray-600">Here&apos;s an overview of your cleaning assignments and tasks.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('welcomeUser', { name: firstName })}</h1>
+          <p className="mt-1 text-sm sm:text-base text-gray-600">{t('dashboardOverview')}</p>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -237,7 +239,7 @@ export default function CleanerDashboardPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading dashboard</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingDashboard')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -245,7 +247,7 @@ export default function CleanerDashboardPage() {
             onClick={fetchData}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -257,10 +259,10 @@ export default function CleanerDashboardPage() {
       {/* Welcome Header */}
       <div className="mb-5 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-          Welcome, {firstName}!
+          {t('welcomeUser', { name: firstName })}
         </h1>
         <p className="mt-0.5 sm:mt-1 text-sm sm:text-base text-gray-600">
-          Here&apos;s an overview of your cleaning assignments and tasks.
+          {t('dashboardOverview')}
         </p>
       </div>
 
@@ -268,7 +270,7 @@ export default function CleanerDashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-8">
         {[
           {
-            label: 'View Schedule',
+            label: t('viewSchedule'),
             icon: CalendarDaysIcon,
             onClick: () => router.push('/cleaner/schedule'),
             bg: 'bg-gradient-to-br from-blue-500 to-blue-600',
@@ -276,7 +278,7 @@ export default function CleanerDashboardPage() {
             hoverShadow: 'hover:shadow-blue-300',
           },
           {
-            label: 'View Tasks',
+            label: t('viewTasks'),
             icon: ClipboardDocumentListIcon,
             onClick: () => router.push('/cleaner/tasks'),
             bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
@@ -284,7 +286,7 @@ export default function CleanerDashboardPage() {
             hoverShadow: 'hover:shadow-purple-300',
           },
           {
-            label: 'Scan Receipt',
+            label: t('scanReceipt'),
             icon: CameraIcon,
             onClick: () => setShowUploadModal(true),
             bg: 'bg-gradient-to-br from-teal-500 to-teal-600',
@@ -292,7 +294,7 @@ export default function CleanerDashboardPage() {
             hoverShadow: 'hover:shadow-teal-300',
           },
           {
-            label: 'My Invoices',
+            label: t('myInvoices'),
             icon: BanknotesIcon,
             onClick: () => router.push('/cleaner/invoices'),
             bg: 'bg-gradient-to-br from-amber-500 to-amber-600',
@@ -324,28 +326,28 @@ export default function CleanerDashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-5 sm:mb-8">
         <StatCard
           icon={HomeIcon}
-          label="Assigned Properties"
+          label={t('assignedProperties')}
           value={stats.assignedProperties.toString()}
           color="purple"
           href="/cleaner/properties"
         />
         <StatCard
           icon={ClipboardDocumentListIcon}
-          label="Active Tasks"
+          label={t('activeTasks')}
           value={stats.pendingTasks.toString()}
           color="amber"
           href="/cleaner/tasks"
         />
         <StatCard
           icon={CalendarDaysIcon}
-          label="Upcoming This Week"
+          label={t('upcomingThisWeek')}
           value={stats.upcomingThisWeek.toString()}
           color="blue"
           href="/cleaner/schedule"
         />
         <StatCard
           icon={CheckCircleIcon}
-          label="Completed This Month"
+          label={t('completedThisMonth')}
           value={stats.completedThisMonth.toString()}
           color="green"
         />
@@ -360,12 +362,12 @@ export default function CleanerDashboardPage() {
           className="mb-5 sm:mb-8"
         >
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Earnings</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">{t('earnings')}</h2>
             <Link
               href="/cleaner/invoices"
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
             >
-              View Invoices <ArrowRightIcon className="h-3 w-3" />
+              {t('viewInvoices')} <ArrowRightIcon className="h-3 w-3" />
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -389,16 +391,16 @@ export default function CleanerDashboardPage() {
                   return (
                     <div className={`flex items-center gap-1 mt-1 text-xs ${isUp ? 'text-emerald-600' : 'text-red-500'}`}>
                       {isUp ? <ArrowTrendingUpIcon className="h-3.5 w-3.5" /> : <ArrowTrendingDownIcon className="h-3.5 w-3.5" />}
-                      {Math.abs(pctChange)}% vs last month
+                      {t('vsLastMonth', { percent: Math.abs(pctChange) })}
                     </div>
                   )
                 }
                 return null
               })()}
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                {earnings.currentMonth.paid > 0 && <span className="text-[11px] text-green-600">Paid: ${earnings.currentMonth.paid.toFixed(2)}</span>}
-                {earnings.currentMonth.approved > 0 && <span className="text-[11px] text-blue-600">Approved: ${earnings.currentMonth.approved.toFixed(2)}</span>}
-                {earnings.currentMonth.pending > 0 && <span className="text-[11px] text-amber-600">Pending: ${earnings.currentMonth.pending.toFixed(2)}</span>}
+                {earnings.currentMonth.paid > 0 && <span className="text-[11px] text-green-600">{t('paidLabel', { amount: earnings.currentMonth.paid.toFixed(2) })}</span>}
+                {earnings.currentMonth.approved > 0 && <span className="text-[11px] text-blue-600">{t('approvedLabel', { amount: earnings.currentMonth.approved.toFixed(2) })}</span>}
+                {earnings.currentMonth.pending > 0 && <span className="text-[11px] text-amber-600">{t('pendingLabel', { amount: earnings.currentMonth.pending.toFixed(2) })}</span>}
               </div>
             </div>
 
@@ -414,18 +416,18 @@ export default function CleanerDashboardPage() {
                 ${(earnings.lastMonth.paid + earnings.lastMonth.approved + earnings.lastMonth.pending).toFixed(2)}
               </p>
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                {earnings.lastMonth.paid > 0 && <span className="text-[11px] text-green-600">Paid: ${earnings.lastMonth.paid.toFixed(2)}</span>}
-                {earnings.lastMonth.approved > 0 && <span className="text-[11px] text-blue-600">Approved: ${earnings.lastMonth.approved.toFixed(2)}</span>}
-                {earnings.lastMonth.pending > 0 && <span className="text-[11px] text-amber-600">Pending: ${earnings.lastMonth.pending.toFixed(2)}</span>}
+                {earnings.lastMonth.paid > 0 && <span className="text-[11px] text-green-600">{t('paidLabel', { amount: earnings.lastMonth.paid.toFixed(2) })}</span>}
+                {earnings.lastMonth.approved > 0 && <span className="text-[11px] text-blue-600">{t('approvedLabel', { amount: earnings.lastMonth.approved.toFixed(2) })}</span>}
+                {earnings.lastMonth.pending > 0 && <span className="text-[11px] text-amber-600">{t('pendingLabel', { amount: earnings.lastMonth.pending.toFixed(2) })}</span>}
                 {earnings.lastMonth.paid === 0 && earnings.lastMonth.approved === 0 && earnings.lastMonth.pending === 0 && (
-                  <span className="text-[11px] text-gray-400">No invoices</span>
+                  <span className="text-[11px] text-gray-400">{t('noInvoices')}</span>
                 )}
               </div>
             </div>
           </div>
           {earnings.allTime.paid > 0 && (
             <p className="text-xs text-gray-400 mt-2 text-center">
-              All time paid: <span className="font-medium text-gray-600">${earnings.allTime.paid.toFixed(2)}</span>
+              {t('allTimePaid')} <span className="font-medium text-gray-600">${earnings.allTime.paid.toFixed(2)}</span>
             </p>
           )}
         </motion.div>
@@ -441,10 +443,10 @@ export default function CleanerDashboardPage() {
           className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
         >
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Tasks</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('todaysTasks')}</h2>
             {todaysTasks.length > 0 && (
               <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg">
-                {todaysTasks.length} task{todaysTasks.length !== 1 ? 's' : ''}
+                {t('taskCount', { count: todaysTasks.length })}
               </span>
             )}
           </div>
@@ -460,8 +462,8 @@ export default function CleanerDashboardPage() {
               <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mb-4">
                 <CheckCircleIcon className="w-7 h-7 text-green-600" />
               </div>
-              <p className="text-sm font-medium text-gray-900">No tasks for today</p>
-              <p className="text-xs text-gray-400 mt-1">Enjoy your day off!</p>
+              <p className="text-sm font-medium text-gray-900">{t('noTasksForToday')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('enjoyYourDayOff')}</p>
             </div>
           )}
 
@@ -471,7 +473,7 @@ export default function CleanerDashboardPage() {
                 href="/cleaner/tasks"
                 className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
-                View all tasks
+                {t('viewAllTasks')}
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
             </div>
@@ -486,10 +488,10 @@ export default function CleanerDashboardPage() {
           className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
         >
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Schedule</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('upcomingSchedule')}</h2>
             {upcomingSchedule.length > 0 && (
               <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg">
-                Next {upcomingSchedule.length}
+                {t('nextCount', { count: upcomingSchedule.length })}
               </span>
             )}
           </div>
@@ -505,8 +507,8 @@ export default function CleanerDashboardPage() {
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
                 <CalendarDaysIcon className="w-7 h-7 text-gray-400" />
               </div>
-              <p className="text-sm font-medium text-gray-700">No upcoming cleanings</p>
-              <p className="text-xs text-gray-400 mt-1">Your schedule will appear here</p>
+              <p className="text-sm font-medium text-gray-700">{t('noUpcomingCleanings')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('scheduleWillAppearHere')}</p>
             </div>
           )}
 
@@ -516,7 +518,7 @@ export default function CleanerDashboardPage() {
                 href="/cleaner/schedule"
                 className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
-                View full schedule
+                {t('viewFullSchedule')}
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
             </div>
@@ -532,10 +534,10 @@ export default function CleanerDashboardPage() {
         className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
       >
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">My Assigned Properties</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('myAssignedProperties')}</h2>
           {(cleaner?.assignedProperties?.length || 0) > 0 && (
             <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg">
-              {cleaner?.assignedProperties?.length} propert{cleaner?.assignedProperties?.length !== 1 ? 'ies' : 'y'}
+              {t('propertyCount', { count: cleaner?.assignedProperties?.length || 0 })}
             </span>
           )}
         </div>
@@ -552,7 +554,7 @@ export default function CleanerDashboardPage() {
                 href="/cleaner/properties"
                 className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 min-h-[44px]"
               >
-                View all properties
+                {t('viewAllProperties')}
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
             </div>
@@ -562,8 +564,8 @@ export default function CleanerDashboardPage() {
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
               <HomeIcon className="w-7 h-7 text-gray-400" />
             </div>
-            <p className="text-sm font-medium text-gray-700">No properties assigned yet</p>
-            <p className="text-xs text-gray-400 mt-1">Properties you&apos;re assigned to will appear here</p>
+            <p className="text-sm font-medium text-gray-700">{t('noPropertiesAssigned')}</p>
+            <p className="text-xs text-gray-400 mt-1">{t('propertiesAssignedWillAppear')}</p>
           </div>
         )}
       </motion.div>
@@ -574,7 +576,7 @@ export default function CleanerDashboardPage() {
         onClose={() => setShowUploadModal(false)}
         onUploaded={() => {
           setShowUploadModal(false)
-          showNotification('Receipt scanned successfully!', 'success')
+          showNotification(t('receiptScannedSuccessfully'), 'success')
         }}
       />
     </div>

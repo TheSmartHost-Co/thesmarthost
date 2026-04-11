@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowPathIcon, ClipboardDocumentIcon, CheckIcon, XMarkIcon, PlayIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -21,6 +22,7 @@ interface ApproveTaskModalProps {
 }
 
 export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated, onProcess }: ApproveTaskModalProps) {
+  const { t } = useTranslation('dashboard')
   const { showNotification } = useNotificationStore()
   const [editedContent, setEditedContent] = useState('')
   const [approving, setApproving] = useState(false)
@@ -55,25 +57,25 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
           const textToCopy = finalContent || content
           await navigator.clipboard.writeText(textToCopy)
           setCopied(true)
-          showNotification('Review copied to clipboard — paste it on Airbnb', 'success')
+          showNotification(t('automations.reviewCopiedToClipboard'), 'success')
           window.open('https://www.airbnb.com/users/reviews', '_blank')
           onTaskUpdated()
         } else if (task.type === 'review_nudge') {
           // Send nudge via Hostaway channel immediately after approval
           const sendRes = await sendAutomationTask(task.id)
           if (sendRes.status === 'success') {
-            showNotification(`Message sent to ${task.guestName || 'guest'} via ${task.platform || 'booking channel'}`, 'success')
+            showNotification(t('automations.messageSentToGuest', { guest: task.guestName || t('automations.guest'), platform: task.platform || t('automations.bookingChannel') }), 'success')
           } else {
-            showNotification('Approved but failed to send — you can retry from the dashboard', 'error')
+            showNotification(t('automations.approvedButFailedToSend'), 'error')
           }
           onTaskUpdated()
           onClose()
         }
       } else {
-        showNotification(res.message || 'Failed to approve', 'error')
+        showNotification(res.message || t('automations.failedToApprove'), 'error')
       }
     } catch {
-      showNotification('Failed to approve task', 'error')
+      showNotification(t('automations.failedToApproveTask'), 'error')
     } finally {
       setApproving(false)
     }
@@ -85,14 +87,14 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
     try {
       const res = await rejectAutomationTask(task.id)
       if (res.status === 'success') {
-        showNotification('Task rejected', 'info')
+        showNotification(t('automations.taskRejected'), 'info')
         onTaskUpdated()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to reject', 'error')
+        showNotification(res.message || t('automations.failedToReject'), 'error')
       }
     } catch {
-      showNotification('Failed to reject task', 'error')
+      showNotification(t('automations.failedToRejectTask'), 'error')
     } finally {
       setRejecting(false)
     }
@@ -104,14 +106,14 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
     try {
       const res = await regenerateAutomationTask(task.id)
       if (res.status === 'success') {
-        showNotification('Queued for regeneration — check back shortly', 'info')
+        showNotification(t('automations.queuedForRegeneration'), 'info')
         onTaskUpdated()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to regenerate', 'error')
+        showNotification(res.message || t('automations.failedToRegenerate'), 'error')
       }
     } catch {
-      showNotification('Failed to regenerate', 'error')
+      showNotification(t('automations.failedToRegenerate'), 'error')
     } finally {
       setRegenerating(false)
     }
@@ -123,14 +125,14 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
     try {
       const res = await sendAutomationTask(task.id)
       if (res.status === 'success') {
-        showNotification('Message sent to guest', 'success')
+        showNotification(t('automations.messageSentSuccess'), 'success')
         onTaskUpdated()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to send', 'error')
+        showNotification(res.message || t('automations.failedToSend'), 'error')
       }
     } catch {
-      showNotification('Failed to send message', 'error')
+      showNotification(t('automations.failedToSendMessage'), 'error')
     } finally {
       setSending(false)
     }
@@ -140,7 +142,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
     const textToCopy = editedContent.trim() || content
     await navigator.clipboard.writeText(textToCopy)
     setCopied(true)
-    showNotification('Copied to clipboard', 'info')
+    showNotification(t('automations.copiedToClipboard'), 'info')
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -148,7 +150,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
 
   const isAwaitingApproval = task.status === 'awaiting_approval'
   const isApproved = task.status === 'approved'
-  const typeLabel = task.type === 'guest_review' ? 'Guest Review' : 'Review Nudge'
+  const typeLabel = task.type === 'guest_review' ? t('automations.guestReview') : t('automations.reviewNudge')
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-2xl">
@@ -164,8 +166,8 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            {task.guestName || 'Guest'} at {task.listingName || 'Property'}
-            {task.departureDate && ` — Checkout ${new Date(task.departureDate).toLocaleDateString()}`}
+            {task.guestName || t('automations.guest')} {t('automations.at')} {task.listingName || t('automations.property')}
+            {task.departureDate && ` — ${t('automations.checkout')} ${new Date(task.departureDate).toLocaleDateString()}`}
           </p>
         </div>
 
@@ -180,23 +182,23 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
         {/* AI-Generated Content */}
         {task.status === 'pending' ? (
           <div className="mb-5 px-4 py-6 bg-gray-50 border border-gray-200 rounded-xl text-center">
-            <p className="text-sm text-gray-500">This task is scheduled and hasn&apos;t been processed yet.</p>
+            <p className="text-sm text-gray-500">{t('automations.taskScheduledNotProcessed')}</p>
             <p className="text-xs text-gray-400 mt-1">
-              Scheduled for {new Date(task.scheduledFor).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              {t('automations.scheduledFor')} {new Date(task.scheduledFor).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </p>
           </div>
         ) : (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
-                {isAwaitingApproval ? 'Review & Edit' : 'Content'}
+                {isAwaitingApproval ? t('automations.reviewAndEdit') : t('automations.content')}
               </label>
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
               >
                 {copied ? <CheckIcon className="w-3.5 h-3.5 text-green-500" /> : <ClipboardDocumentIcon className="w-3.5 h-3.5" />}
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? t('automations.copied') : t('automations.copy')}
               </button>
             </div>
             {isAwaitingApproval ? (
@@ -218,8 +220,8 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
         {isAwaitingApproval && (
           <p className="text-xs text-gray-400 mb-3 px-1">
             {task.type === 'guest_review'
-              ? 'Approving will copy the review to your clipboard and open Airbnb so you can paste it.'
-              : `Approving will send this message to ${task.guestName || 'the guest'} via their booking channel (${task.platform === 'airbnb' ? 'Airbnb' : task.platform === 'vrbo' ? 'VRBO' : task.platform === 'booking' ? 'Booking.com' : task.platform || 'the platform'} inbox).`
+              ? t('automations.approvingWillCopy')
+              : t('automations.approvingWillSend', { guest: task.guestName || t('automations.theGuest'), platform: task.platform === 'airbnb' ? 'Airbnb' : task.platform === 'vrbo' ? 'VRBO' : task.platform === 'booking' ? 'Booking.com' : task.platform || t('automations.thePlatform') })
             }
           </p>
         )}
@@ -234,7 +236,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 <CheckIcon className="w-4 h-4" />
-                {approving ? 'Approving...' : task.type === 'guest_review' ? 'Approve & Copy' : 'Approve & Send'}
+                {approving ? t('automations.approving') : task.type === 'guest_review' ? t('automations.approveAndCopy') : t('automations.approveAndSend')}
               </button>
               <button
                 onClick={handleRegenerate}
@@ -242,7 +244,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
                 className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 <ArrowPathIcon className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-                {regenerating ? '...' : 'Regenerate'}
+                {regenerating ? '...' : t('automations.regenerate')}
               </button>
               <button
                 onClick={handleReject}
@@ -250,7 +252,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
                 className="flex items-center gap-1.5 px-4 py-2.5 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 <XMarkIcon className="w-4 h-4" />
-                {rejecting ? '...' : 'Reject'}
+                {rejecting ? '...' : t('automations.reject')}
               </button>
             </>
           )}
@@ -262,7 +264,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 <ClipboardDocumentIcon className="w-4 h-4" />
-                Copy to Clipboard
+                {t('automations.copyToClipboard')}
               </button>
               <a
                 href="https://www.airbnb.com/users/reviews"
@@ -270,7 +272,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
               >
-                Open Airbnb
+                {t('automations.openAirbnb')}
               </a>
             </>
           )}
@@ -281,7 +283,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
               disabled={sending}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
-              {sending ? 'Sending...' : 'Send to Guest'}
+              {sending ? t('automations.sending') : t('automations.sendToGuest')}
             </button>
           )}
 
@@ -301,7 +303,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
               ) : (
                 <PlayIcon className="w-4 h-4" />
               )}
-              {processing ? 'Processing...' : 'Process This Task Now'}
+              {processing ? t('automations.processing') : t('automations.processThisTaskNow')}
             </button>
           )}
 
@@ -310,7 +312,7 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
               onClick={onClose}
               className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
             >
-              Close
+              {t('automations.close')}
             </button>
           )}
         </div>

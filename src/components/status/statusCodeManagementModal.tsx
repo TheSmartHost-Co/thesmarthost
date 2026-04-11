@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../shared/modal'
 import { getStatusCodesByUserId, createStatusCode, updateStatusCode, deleteStatusCode } from '@/services/clientCodeService'
 import { ClientStatusCode, CreateStatusCodePayload, UpdateStatusCodePayload } from '@/services/types/clientCode'

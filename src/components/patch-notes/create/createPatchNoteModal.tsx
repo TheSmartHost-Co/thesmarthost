@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { createPatchNote, uploadPatchNoteImage } from '@/services/patchNoteService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -50,6 +51,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
   const [submitting, setSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { t } = useTranslation('common')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   useEffect(() => {
@@ -162,13 +164,13 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="max-w-lg w-11/12 p-6">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        Create Patch Note
+        {t('createPatchNote')}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-5 text-black">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium mb-1">Title *</label>
+          <label className="block text-sm font-medium mb-1">{t('patchNoteTitle')} *</label>
           <input
             type="text"
             value={title}
@@ -180,7 +182,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
 
         {/* Version */}
         <div>
-          <label className="block text-sm font-medium mb-1">Version</label>
+          <label className="block text-sm font-medium mb-1">{t('patchNoteVersion')}</label>
           <input
             type="text"
             value={version}
@@ -193,7 +195,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
         {/* Target Roles */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Target Roles *
+            {t('targetRoles')} *
           </label>
           <div className="flex flex-wrap gap-2">
             {ALL_ROLES.map((role) => {
@@ -218,9 +220,9 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
 
         {/* Content */}
         <div>
-          <label className="block text-sm font-medium mb-1">Content *</label>
+          <label className="block text-sm font-medium mb-1">{t('patchNoteContent')} *</label>
           <p className="text-xs text-gray-500 mb-1">
-            Supports Markdown formatting
+            {t('supportsMarkdown')}
           </p>
           <textarea
             value={content}
@@ -233,8 +235,8 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
 
         {/* Images */}
         <div>
-          <label className="block text-sm font-medium mb-1">Screenshots</label>
-          <p className="text-xs text-gray-500 mb-2">Up to 5 images (JPG, PNG, GIF, WEBP). Max 5MB each.</p>
+          <label className="block text-sm font-medium mb-1">{t('screenshots')}</label>
+          <p className="text-xs text-gray-500 mb-2">{t('screenshotLimits')}</p>
 
           {/* Image previews */}
           {pendingImages.length > 0 && (
@@ -262,7 +264,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-amber-400 hover:text-amber-700 transition-colors"
             >
               <PhotoIcon className="w-4 h-4" />
-              Add Screenshots
+              {t('addScreenshots')}
             </button>
           )}
 
@@ -284,14 +286,14 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
             disabled={submitting}
             className="cursor-pointer px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="cursor-pointer px-4 py-2 text-white rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Creating...' : 'Create Note'}
+            {submitting ? t('creating') : t('createNote')}
           </button>
         </div>
       </form>

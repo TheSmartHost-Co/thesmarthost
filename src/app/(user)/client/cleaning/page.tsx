@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { SparklesIcon, CalendarDaysIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline'
 import { getClientPortalCleaningProjects, getClientPortalProperties, getClientPortalBookings } from '@/services/clientPortalService'
@@ -55,6 +56,7 @@ function formatDuration(minutes: number): string {
 }
 
 export default function ClientCleaningPage() {
+  const { t } = useTranslation('clientPortal')
   // Calendar state
   const [startDate, setStartDate] = useState<Date>(() => getMonday(new Date()))
   const [zoomDays, setZoomDays] = useState(14)
@@ -138,9 +140,9 @@ export default function ClientCleaningPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('scheduleTitle')}</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Cleaning schedule and bookings across your properties
+          {t('scheduleSubtitle')}
         </p>
       </div>
 
@@ -180,14 +182,14 @@ export default function ClientCleaningPage() {
           <div className="flex items-center gap-2">
             <CalendarDaysIcon className="h-5 w-5 text-emerald-600" />
             <h2 className="text-lg font-semibold text-gray-900">
-              Cleaning Projects
+              {t('cleaningProjects')}
             </h2>
             <span className="text-sm text-gray-400">({sortedCleanings.length})</span>
           </div>
 
           {sortedCleanings.length === 0 ? (
             <div className="text-center py-8 text-sm text-gray-400 rounded-xl bg-white border border-gray-100 shadow-sm">
-              No cleaning projects in this date range
+              {t('noCleaningProjectsInRange')}
             </div>
           ) : (
             <div className="grid gap-3">

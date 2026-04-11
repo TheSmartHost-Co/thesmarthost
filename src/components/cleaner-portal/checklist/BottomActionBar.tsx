@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircleIcon,
   XMarkIcon,
@@ -11,6 +12,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { CleaningProjectStatus, ChecklistProgress } from '@/services/types/cleaningProject'
+import type { StartBlockReason } from '@/services/cleaningProjectService'
 
 interface BottomActionBarProps {
   status: CleaningProjectStatus
@@ -22,7 +24,7 @@ interface BottomActionBarProps {
   onDecline?: (projectId: string) => Promise<void>
   onStart?: (projectId: string) => Promise<void>
   onUnbegin?: (projectId: string) => Promise<void>
-  startBlockReason?: string | null
+  startBlockReason?: StartBlockReason | null
   onComplete: () => void
   onClose: () => void
   onReportIssue: () => void
@@ -57,6 +59,7 @@ export default function BottomActionBar({
   walkthroughComplete,
   walkthroughRequired,
 }: BottomActionBarProps) {
+  const { t } = useTranslation('cleanerPortal')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const canComplete = progress &&
@@ -89,7 +92,7 @@ export default function BottomActionBar({
             className="flex-1 flex items-center justify-center gap-2 h-12 sm:h-10 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
           >
             {actionLoading === 'accept' ? <Spinner /> : <CheckCircleIcon className="w-5 h-5" />}
-            Accept
+            {t('accept')}
           </button>
           <button
             onClick={() => handleAction('decline', onDecline)}
@@ -97,7 +100,7 @@ export default function BottomActionBar({
             className="flex items-center justify-center gap-2 h-12 sm:h-10 px-5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
           >
             {actionLoading === 'decline' ? <Spinner className="border-gray-400/30 border-t-gray-400" /> : <XMarkIcon className="w-5 h-5" />}
-            Decline
+            {t('decline')}
           </button>
         </div>
       )}
@@ -111,10 +114,10 @@ export default function BottomActionBar({
             className="w-full flex items-center justify-center gap-2 h-12 sm:h-10 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {actionLoading === 'start' ? <Spinner /> : <PlayCircleIcon className="w-5 h-5" />}
-            Start Cleaning
+            {t('startCleaning')}
           </button>
           {startBlockReason && (
-            <p className="text-xs text-center text-amber-700">{startBlockReason}</p>
+            <p className="text-xs text-center text-amber-700">{t(startBlockReason.key, startBlockReason.data)}</p>
           )}
         </div>
       )}
@@ -126,10 +129,10 @@ export default function BottomActionBar({
           <button
             onClick={issueCount > 0 ? onViewIssues : onReportIssue}
             className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition-colors cursor-pointer"
-            title={issueCount > 0 ? `View ${issueCount} issues` : 'Report issue'}
+            title={issueCount > 0 ? t('viewIssuesCount', { count: issueCount }) : t('reportIssue')}
           >
             <FlagIcon className="w-5 h-5" />
-            <span className="text-[9px] sm:hidden">Issues</span>
+            <span className="text-[9px] sm:hidden">{t('issues')}</span>
             {issueCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-amber-600 rounded-full">
                 {issueCount}
@@ -154,12 +157,12 @@ export default function BottomActionBar({
             ) : (
               <CheckCircleIcon className="w-5 h-5" />
             )}
-            {completing ? 'Completing...' : 'Complete Project'}
+            {completing ? t('completingProject') : t('completeProject')}
           </button>
 
           {walkthroughRequired && !walkthroughComplete && (
             <p className="absolute -top-6 left-0 right-0 text-xs text-amber-600 text-center">
-              Upload walkthrough photos for all rooms first
+              {t('uploadWalkthroughPhotosFirst')}
             </p>
           )}
 
@@ -169,19 +172,19 @@ export default function BottomActionBar({
               <button
                 onClick={onScanReceipt}
                 className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-xl transition-colors cursor-pointer"
-                title="Scan receipt"
+                title={t('scanReceipt')}
               >
                 <CameraIcon className="w-5 h-5" />
-                <span className="text-[9px] sm:hidden">Scan</span>
+                <span className="text-[9px] sm:hidden">{t('scan')}</span>
               </button>
             )}
             <button
               onClick={supplyListCount > 0 ? onViewSupplyLists : onSubmitSupplyList}
               className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-xl transition-colors cursor-pointer"
-              title={supplyListCount > 0 ? `View ${supplyListCount} supply lists` : 'Request supplies'}
+              title={supplyListCount > 0 ? t('viewSupplyListsCount', { count: supplyListCount }) : t('requestSupplies')}
             >
               <ClipboardDocumentListIcon className="w-5 h-5" />
-              <span className="text-[9px] sm:hidden">Supplies</span>
+              <span className="text-[9px] sm:hidden">{t('supplies')}</span>
               {supplyListCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-teal-600 rounded-full">
                   {supplyListCount}
@@ -193,10 +196,10 @@ export default function BottomActionBar({
                 onClick={() => handleAction('unbegin', onUnbegin)}
                 disabled={actionLoading !== null}
                 className="relative flex flex-col items-center justify-center w-14 h-12 sm:w-10 sm:h-10 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
-                title="Unbegin — revert to confirmed"
+                title={t('unbeginRevertToConfirmed')}
               >
                 {actionLoading === 'unbegin' ? <Spinner className="border-gray-400/30 border-t-gray-400" /> : <ArrowPathIcon className="w-5 h-5" />}
-                <span className="text-[9px] sm:hidden">Unbegin</span>
+                <span className="text-[9px] sm:hidden">{t('unbegin')}</span>
               </button>
             )}
           </div>
@@ -209,7 +212,7 @@ export default function BottomActionBar({
           onClick={onClose}
           className="w-full flex items-center justify-center gap-2 h-12 sm:h-10 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors cursor-pointer"
         >
-          Close
+          {t('close')}
         </button>
       )}
     </div>

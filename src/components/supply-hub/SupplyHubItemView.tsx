@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SupplyList, AggregatedItem } from '@/services/types/supplyList'
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 
@@ -11,6 +12,7 @@ interface SupplyHubItemViewProps {
 }
 
 export default function SupplyHubItemView({ supplyLists }: SupplyHubItemViewProps) {
+  const { t } = useTranslation('turnover')
   const [sortField, setSortField] = useState<SortField>('listCount')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -86,17 +88,17 @@ export default function SupplyHubItemView({ supplyLists }: SupplyHubItemViewProp
             <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
           </svg>
         </div>
-        <p className="text-lg font-medium text-gray-900 mb-1">No items found</p>
-        <p className="text-sm text-gray-500">Try adjusting your filters.</p>
+        <p className="text-lg font-medium text-gray-900 mb-1">{t('noItemsFound')}</p>
+        <p className="text-sm text-gray-500">{t('tryAdjustingFilters')}</p>
       </div>
     )
   }
 
   const columns: { field: SortField; label: string; align: 'left' | 'right' }[] = [
-    { field: 'name', label: 'Item Name', align: 'left' },
-    { field: 'totalQuantity', label: 'Qty', align: 'right' },
-    { field: 'purchasedCount', label: 'Purchased', align: 'right' },
-    { field: 'listCount', label: 'Lists', align: 'right' },
+    { field: 'name', label: t('itemName'), align: 'left' },
+    { field: 'totalQuantity', label: t('quantity'), align: 'right' },
+    { field: 'purchasedCount', label: t('purchasedLabel'), align: 'right' },
+    { field: 'listCount', label: t('supplyListsLabel'), align: 'right' },
   ]
 
   return (
@@ -119,7 +121,7 @@ export default function SupplyHubItemView({ supplyLists }: SupplyHubItemViewProp
                   </button>
                 </th>
               ))}
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Properties</th>
+              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('properties')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

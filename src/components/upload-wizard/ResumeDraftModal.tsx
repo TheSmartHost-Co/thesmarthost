@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React from 'react'
 import Modal from '@/components/shared/modal'
 import { DocumentTextIcon, ClockIcon } from '@heroicons/react/24/outline'

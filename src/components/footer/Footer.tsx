@@ -1,26 +1,28 @@
 'use client'
 
 import { FC } from 'react'
+import { useTranslation } from 'react-i18next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 
 const Footer: FC = () => {
+  const { t } = useTranslation('common')
   const year = new Date().getFullYear()
 
   const footerLinks = {
     product: [
-      { label: 'Features', href: '/product' },
-      { label: 'How It Works', href: '/product#workflow' },
-      { label: 'Integrations', href: '/product#integrations' },
+      { label: t('features'), href: '/product' },
+      { label: t('howItWorks'), href: '/product#workflow' },
+      { label: t('integrations'), href: '/product#integrations' },
     ],
     company: [
-      { label: 'About', href: '/about' },
-      { label: 'Contact', href: '/contact' },
+      { label: t('aboutLink'), href: '/about' },
+      { label: t('contactLink'), href: '/contact' },
     ],
     legal: [
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
+      { label: t('privacyPolicy'), href: '/privacy' },
+      { label: t('termsOfService'), href: '/terms' },
     ],
   }
 
@@ -65,7 +67,7 @@ const Footer: FC = () => {
               />
             </Link>
             <p className="text-gray-600 mb-6 max-w-sm leading-relaxed">
-              Automate your property reporting workflow. Transform 4 hours of manual work into 10 minutes.
+              {t('footerTagline')}
             </p>
             <div className="flex items-center gap-3">
               {socialLinks.map((social) => (
@@ -88,7 +90,7 @@ const Footer: FC = () => {
           {/* Product Links */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">
-              Product
+              {t('productHeading')}
             </h3>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
@@ -107,7 +109,7 @@ const Footer: FC = () => {
           {/* Company Links */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">
-              Company
+              {t('companyHeading')}
             </h3>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
@@ -126,7 +128,7 @@ const Footer: FC = () => {
           {/* Legal Links */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">
-              Legal
+              {t('legalHeading')}
             </h3>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
@@ -146,7 +148,7 @@ const Footer: FC = () => {
         {/* Bottom Bar */}
         <div className="py-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            {year} TheSmartHost. All rights reserved.
+            {year} TheSmartHost. {t('allRightsReserved')}
           </p>
           <div className="flex items-center gap-6">
             <a

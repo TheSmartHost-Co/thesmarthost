@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -34,6 +35,7 @@ import CreatePropertyModal from '@/components/property/create/createPropertyModa
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { t } = useTranslation('dashboard')
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
   usePermissionGuard('dashboard')
@@ -177,14 +179,14 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-500 mt-1">Welcome back, {profile?.fullName}</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('welcomeBack', { name: profile?.fullName })}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading dashboard...</p>
+            <p className="text-sm text-gray-500">{t('loadingDashboard')}</p>
           </div>
         </div>
       </div>

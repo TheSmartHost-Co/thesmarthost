@@ -18,6 +18,7 @@ import { getTeamMembers, calculateTeamMemberStats, resendTeamMemberInvite } from
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { TeamMember, TeamMemberStats } from '@/services/types/teamMember'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissions } from '@/hooks/usePermissions'
 import { PERMISSION_TEMPLATES } from '@/constants/permissionTemplates'
 import { PERMISSION_KEYS } from '@/constants/permissionTemplates'
@@ -40,6 +41,7 @@ export default function TeamMembersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const { t } = useTranslation('settings')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { effectiveUserId, isPM } = usePermissions()
@@ -138,13 +140,13 @@ export default function TeamMembersPage() {
   const getMemberActions = (member: TeamMember): ActionItem[] => {
     const actions: ActionItem[] = [
       {
-        label: 'View Details',
+        label: t('viewDetails', { ns: 'common' }),
         icon: EyeIcon,
         onClick: () => handleViewMember(member.id),
         variant: 'default'
       },
       {
-        label: 'Edit Member',
+        label: t('editMember', { ns: 'common' }),
         icon: PencilIcon,
         onClick: () => handleEditMember(member.id),
         variant: 'default'
@@ -154,7 +156,7 @@ export default function TeamMembersPage() {
     // Only show Resend Invite for invited members
     if (member.status === 'invited' && member.email) {
       actions.push({
-        label: 'Resend Invite',
+        label: t('resendInvite'),
         icon: EnvelopeIcon,
         onClick: () => handleResendInvite(member.id),
         variant: 'default'
@@ -162,7 +164,7 @@ export default function TeamMembersPage() {
     }
 
     actions.push({
-      label: 'Delete Member',
+      label: t('deleteMember', { ns: 'common' }),
       icon: TrashIcon,
       onClick: () => handleDeleteMember(member.id),
       variant: 'danger'
@@ -253,7 +255,7 @@ export default function TeamMembersPage() {
 
   const statCards = [
     {
-      label: 'Total Members',
+      label: t('totalMembers'),
       value: stats.total,
       icon: UsersIcon,
       bgColor: 'bg-blue-50',
@@ -295,14 +297,14 @@ export default function TeamMembersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
-            <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('teamMembers')}</h1>
+            <p className="text-gray-500 mt-1">{t('teamSubtitle')}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading team members...</p>
+            <p className="text-sm text-gray-500">{t('loadingTeamMembers')}</p>
           </div>
         </div>
       </div>
@@ -314,8 +316,8 @@ export default function TeamMembersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
-            <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('teamMembers')}</h1>
+            <p className="text-gray-500 mt-1">{t('teamSubtitle')}</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -324,7 +326,7 @@ export default function TeamMembersPage() {
               <XCircleIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading team members</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingTeamMembers')}</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -338,8 +340,8 @@ export default function TeamMembersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
-          <p className="text-gray-500 mt-1">Manage your team and their permissions</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('teamMembers')}</h1>
+          <p className="text-gray-500 mt-1">{t('teamSubtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <motion.button
@@ -397,7 +399,7 @@ export default function TeamMembersPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                placeholder="Search by name, email, or phone..."
+                placeholder={t('searchMembers')}
               />
             </div>
 
@@ -503,7 +505,7 @@ export default function TeamMembersPage() {
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <UsersIcon className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">No team members found</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noTeamMembersFound')}</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
                 {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'

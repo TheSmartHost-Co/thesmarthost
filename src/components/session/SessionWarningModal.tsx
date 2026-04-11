@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline'
 
@@ -19,6 +20,7 @@ export function SessionWarningModal({
   onSignOut,
   onClose
 }: SessionWarningModalProps) {
+  const { t } = useTranslation('errors')
   const [isLoading, setIsLoading] = useState(false)
   // Live countdown: track remaining seconds internally
   const [displaySeconds, setDisplaySeconds] = useState(Math.round(timeRemaining * 60))
@@ -79,7 +81,7 @@ export function SessionWarningModal({
           </div>
           <div className="ml-3">
             <h3 className="text-lg font-medium text-gray-900">
-              Session Expiring Soon
+              {t('sessionExpiringSoon')}
             </h3>
           </div>
         </div>
@@ -88,13 +90,12 @@ export function SessionWarningModal({
           <div className="flex items-center text-sm text-gray-600 mb-3">
             <ClockIcon className="h-4 w-4 mr-2" />
             <span>
-              Your session expires in <span className="font-mono font-medium text-gray-900">{formatTimeRemaining(displaySeconds)}</span>
+              {t('sessionExpiresIn')} <span className="font-mono font-medium text-gray-900">{formatTimeRemaining(displaySeconds)}</span>
             </span>
           </div>
           
           <p className="text-sm text-gray-700">
-            To continue working without interruption, please refresh your session now. 
-            Otherwise, you'll be automatically signed out when your session expires.
+            {t('sessionWarningDescription')}
           </p>
         </div>
 
@@ -111,10 +112,10 @@ export function SessionWarningModal({
             {isLoading ? (
               <div className="flex items-center justify-center">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Refreshing...
+                {t('refreshing')}
               </div>
             ) : (
-              'Continue Session'
+              t('continueSession')
             )}
           </button>
           
@@ -123,7 +124,7 @@ export function SessionWarningModal({
             disabled={isLoading}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
-            Sign Out
+            {t('signOut')}
           </button>
         </div>
 
@@ -133,7 +134,7 @@ export function SessionWarningModal({
             disabled={isLoading}
             className="text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
           >
-            Remind me later
+            {t('remindMeLater')}
           </button>
         </div>
       </div>

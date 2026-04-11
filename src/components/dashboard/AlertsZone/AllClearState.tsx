@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { CheckCircleIcon } from '@heroicons/react/24/outline'
 
 interface AllClearStateProps {

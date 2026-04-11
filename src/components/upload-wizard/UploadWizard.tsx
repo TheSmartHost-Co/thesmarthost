@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useReducer, useCallback, useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {

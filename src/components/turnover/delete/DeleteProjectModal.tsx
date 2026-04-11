@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { deleteCleaningProject } from '@/services/cleaningProjectService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -20,6 +21,7 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   project,
   onDeleted,
 }) => {
+  const { t } = useTranslation('turnover')
   const [isDeleting, setIsDeleting] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -30,14 +32,14 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
     try {
       const res = await deleteCleaningProject(project.id)
       if (res.status === 'success') {
-        showNotification('Cleaning project deleted successfully', 'success')
+        showNotification(t('projectDeleted'), 'success')
         onDeleted(project.id)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete project', 'error')
+        showNotification(res.message || t('errorLoadingData'), 'error')
       }
     } catch (err) {
-      showNotification('Error deleting project', 'error')
+      showNotification(t('errorLoadingData'), 'error')
       console.error(err)
     } finally {
       setIsDeleting(false)
@@ -51,20 +53,19 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
           <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Delete Cleaning Project</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('deleteCleaningProject')}</h2>
           <p className="text-gray-600 mt-2">
-            Are you sure you want to delete the cleaning project for <strong>{projectLabel}</strong>?
+            {t('confirmDeleteProject')} <strong>{projectLabel}</strong>?
           </p>
           {project.cleanerName && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
-                <strong>Warning:</strong> This project has a cleaner assigned ({project.cleanerName}).
-                Deleting will remove the assignment.
+                <strong>{t('warning')}:</strong> {t('warningCleanerAssigned', { name: project.cleanerName })}
               </p>
             </div>
           )}
           <p className="text-sm text-gray-500 mt-3">
-            This action cannot be undone.
+            {t('actionCannotBeUndone')}
           </p>
         </div>
       </div>
@@ -75,14 +76,14 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
           disabled={isDeleting}
           className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors disabled:opacity-50"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           onClick={handleDelete}
           disabled={isDeleting}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer transition-colors disabled:opacity-50"
         >
-          {isDeleting ? 'Deleting...' : 'Delete Project'}
+          {isDeleting ? t('deleting') : t('deleteProject')}
         </button>
       </div>
     </Modal>

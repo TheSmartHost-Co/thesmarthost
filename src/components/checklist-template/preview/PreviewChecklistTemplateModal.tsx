@@ -12,6 +12,7 @@ import {
   BuildingOfficeIcon,
   LinkSlashIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { groupTemplateItemsByRoom, getLinkedProperties, unlinkPropertyFromTemplate } from '@/services/checklistTemplateService'
 import type { ChecklistTemplate, LinkedProperty } from '@/services/types/checklistTemplate'
 import UnlinkPropertyConfirmModal from '../unlink/UnlinkPropertyConfirmModal'
@@ -31,6 +32,7 @@ export default function PreviewChecklistTemplateModal({
   onApply,
   template,
 }: PreviewChecklistTemplateModalProps) {
+  const { t } = useTranslation('turnover')
   const [linkedProperties, setLinkedProperties] = useState<LinkedProperty[]>([])
   const [loadingLinked, setLoadingLinked] = useState(false)
   const [unlinkTarget, setUnlinkTarget] = useState<LinkedProperty | null>(null)

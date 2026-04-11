@@ -12,6 +12,7 @@ import {
   CheckIcon,
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -36,6 +37,7 @@ export default function DuplicateChecklistModal({
   onDuplicate,
   properties,
 }: DuplicateChecklistModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { createTeamMember } from '@/services/teamMemberService'
 import type { TeamMember, CreateTeamMemberPayload } from '@/services/types/teamMember'
@@ -20,6 +21,7 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   onClose,
   onAdd,
 }) => {
+  const { t } = useTranslation('settings')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -48,24 +50,24 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
     const trimmedPhone = phone.trim()
 
     if (!trimmedName) {
-      showNotification('Team member name is required', 'error')
+      showNotification(t('teamMemberNameRequired'), 'error')
       return
     }
 
     if (!trimmedEmail) {
-      showNotification('Email is required', 'error')
+      showNotification(t('emailRequired'), 'error')
       return
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(trimmedEmail)) {
-      showNotification('Please enter a valid email address', 'error')
+      showNotification(t('enterValidEmail'), 'error')
       return
     }
 
     if (!effectiveUserId) {
-      showNotification('User profile not found', 'error')
+      showNotification(t('userProfileNotFound'), 'error')
       return
     }
 
@@ -84,15 +86,15 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
 
       if (res.status === 'success') {
         onAdd(res.data)
-        showNotification('Team member invited successfully', 'success')
+        showNotification(t('teamMemberInvited'), 'success')
         onClose()
       } else {
-        showNotification(res.message || 'Failed to create team member', 'error')
+        showNotification(res.message || t('failedToCreateTeamMember'), 'error')
       }
     } catch (err) {
       console.error('Error creating team member:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error creating team member',
+        err instanceof Error ? err.message : t('errorCreatingTeamMember'),
         'error'
       )
     } finally {
@@ -102,27 +104,27 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 w-11/12 max-w-2xl max-h-[85vh]">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Invite Team Member</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900">{t('inviteTeamMember')}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Full Name <span className="text-red-500">*</span>
+            {t('fullName')} <span className="text-red-500">*</span>
           </label>
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="e.g. Jane Smith"
+            placeholder={t('fullNamePlaceholder')}
           />
         </div>
 
         {/* Email field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email <span className="text-red-500">*</span>
+            {t('email')} <span className="text-red-500">*</span>
           </label>
           <input
             type="email"
@@ -130,31 +132,31 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="e.g. jane@example.com"
+            placeholder={t('emailPlaceholder')}
           />
           <p className="text-xs text-gray-500 mt-1">
-            An invitation email will be sent to this address
+            {t('invitationEmailWillBeSent')}
           </p>
         </div>
 
         {/* Phone field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Phone Number
+            {t('phoneNumber')}
           </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="e.g. (555) 123-4567"
+            placeholder={t('phonePlaceholder')}
           />
         </div>
 
         {/* Permissions */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Permissions
+            {t('permissions')}
           </label>
           <PermissionEditor
             permissions={permissions}
@@ -170,7 +172,7 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
             disabled={loading}
             className="px-4 py-2 cursor-pointer bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
@@ -199,7 +201,7 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
                 />
               </svg>
             )}
-            {loading ? 'Sending Invite...' : 'Send Invite'}
+            {loading ? t('sendingInvite') : t('sendInvite')}
           </button>
         </div>
       </form>

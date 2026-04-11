@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState } from 'react'
 import Modal from '../../shared/modal'
 import { deleteProperty } from '@/services/propertyService'

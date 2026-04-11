@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ExclamationTriangleIcon,
@@ -25,6 +26,8 @@ export default function UnlinkPropertyConfirmModal({
   checklistName,
   submitting,
 }: UnlinkPropertyConfirmModalProps) {
+  const { t } = useTranslation('turnover')
+
   if (!isOpen) return null
 
   return (
@@ -48,7 +51,7 @@ export default function UnlinkPropertyConfirmModal({
                 <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Unlink Property</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('unlinkPropertyHeader')}</h2>
                 <p className="text-sm text-gray-500 truncate max-w-[250px]">{propertyName}</p>
               </div>
             </div>
@@ -69,7 +72,7 @@ export default function UnlinkPropertyConfirmModal({
               <span className="font-semibold text-gray-900">{propertyName}</span>.
             </p>
             <p className="text-sm text-gray-500">
-              Choose how to handle this property&apos;s checklist:
+              {t('chooseHowToHandle')}
             </p>
 
             {/* Option: Unlink Only */}
@@ -82,10 +85,9 @@ export default function UnlinkPropertyConfirmModal({
                 <LinkSlashIcon className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-blue-800">Unlink Only</p>
+                <p className="text-sm font-semibold text-blue-800">{t('unlinkOnlyTitle')}</p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Keep the checklist and its tasks, but remove the template connection.
-                  Future template edits won&apos;t affect this property.
+                  {t('unlinkOnlyDescription')}
                 </p>
               </div>
             </button>
@@ -100,10 +102,9 @@ export default function UnlinkPropertyConfirmModal({
                 <TrashIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-red-800">Delete Checklist</p>
+                <p className="text-sm font-semibold text-red-800">{t('deleteChecklistOption')}</p>
                 <p className="text-xs text-red-600 mt-0.5">
-                  Permanently remove the checklist and all its tasks from this property.
-                  This cannot be undone.
+                  {t('deleteChecklistOptionDescription')}
                 </p>
               </div>
             </button>
@@ -116,7 +117,7 @@ export default function UnlinkPropertyConfirmModal({
               disabled={submitting}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </motion.div>

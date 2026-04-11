@@ -22,6 +22,7 @@ import {
 } from '@/services/clientService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { Client } from '@/services/types/client'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
@@ -54,6 +55,7 @@ export default function ClientPortalPage() {
 
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { effectiveUserId } = usePermissions()
+  const { t } = useTranslation('clientPortal')
   usePermissionGuard('client_portal')
 
   const fetchClients = useCallback(async () => {
@@ -147,21 +149,21 @@ export default function ClientPortalPage() {
 
     if (portalStatus === 'not_invited' && client.email) {
       actions.push({
-        label: 'Invite to Portal',
+        label: t('inviteToPortal'),
         icon: EnvelopeIcon,
         onClick: () => handleInvite(client),
       })
     }
     if (portalStatus === 'invited') {
       actions.push({
-        label: 'Resend Invitation',
+        label: t('resendInvitation'),
         icon: ArrowPathIcon,
         onClick: () => handleResendInvite(client),
       })
     }
     if (portalStatus === 'active') {
       actions.push({
-        label: 'Revoke Access',
+        label: t('revokeAccess'),
         icon: ShieldExclamationIcon,
         onClick: () => handleRevoke(client),
         variant: 'danger' as const,
@@ -169,7 +171,7 @@ export default function ClientPortalPage() {
     }
     if (portalStatus === 'inactive') {
       actions.push({
-        label: 'Restore Access',
+        label: t('restoreAccess'),
         icon: CheckCircleIcon,
         onClick: () => handleRestore(client),
       })
@@ -232,8 +234,8 @@ export default function ClientPortalPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Client Portal</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage portal access for your property owner clients</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Stats */}
@@ -264,7 +266,7 @@ export default function ClientPortalPage() {
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search clients..."
+            placeholder={t('searchClients')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white text-gray-900"

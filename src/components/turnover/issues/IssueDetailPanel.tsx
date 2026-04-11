@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
@@ -70,6 +71,7 @@ export default function IssueDetailPanel({
   const [isDownloadingPhoto, setIsDownloadingPhoto] = useState(false)
   const notesEndRef = useRef<HTMLDivElement>(null)
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { effectiveUserId: userId } = usePermissions()
 
@@ -115,10 +117,10 @@ export default function IssueDetailPanel({
         setNotes(prev => [...prev, res.data])
         setNoteText('')
       } else {
-        showNotification(res.message || 'Failed to post note', 'error')
+        showNotification(res.message || t('failedToPostNote'), 'error')
       }
     } catch {
-      showNotification('Failed to post note', 'error')
+      showNotification(t('failedToPostNote'), 'error')
     } finally {
       setPublishLoading(false)
     }
@@ -136,13 +138,13 @@ export default function IssueDetailPanel({
     try {
       const res = await acknowledgeIssue(issue.id)
       if (res.status === 'success') {
-        showNotification('Issue acknowledged', 'success')
+        showNotification(t('issueAcknowledged'), 'success')
         onIssueUpdated?.(res.data)
       } else {
-        showNotification(res.message || 'Failed to acknowledge', 'error')
+        showNotification(res.message || t('failedToAcknowledge'), 'error')
       }
     } catch {
-      showNotification('Failed to acknowledge issue', 'error')
+      showNotification(t('failedToAcknowledge'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -153,31 +155,31 @@ export default function IssueDetailPanel({
     try {
       const res = await resolveIssue(issue.id)
       if (res.status === 'success') {
-        showNotification('Issue resolved', 'success')
+        showNotification(t('issueResolved'), 'success')
         onIssueUpdated?.(res.data)
       } else {
-        showNotification(res.message || 'Failed to resolve', 'error')
+        showNotification(res.message || t('failedToResolve'), 'error')
       }
     } catch {
-      showNotification('Failed to resolve issue', 'error')
+      showNotification(t('failedToResolve'), 'error')
     } finally {
       setActionLoading(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this issue?')) return
+    if (!confirm(t('confirmDeleteIssue'))) return
     setActionLoading(true)
     try {
       const res = await deleteIssue(issue.id)
       if (res.status === 'success') {
-        showNotification('Issue deleted', 'success')
+        showNotification(t('issueDeleted'), 'success')
         onIssueDeleted?.(issue.id)
       } else {
-        showNotification(res.message || 'Failed to delete', 'error')
+        showNotification(res.message || t('failedToDeleteIssue'), 'error')
       }
     } catch {
-      showNotification('Failed to delete issue', 'error')
+      showNotification(t('failedToDeleteIssue'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -188,7 +190,7 @@ export default function IssueDetailPanel({
     const now = new Date()
     const diffMs = now.getTime() - d.getTime()
     const diffMins = Math.floor(diffMs / (1000 * 60))
-    if (diffMins < 1) return 'Just now'
+    if (diffMins < 1) return t('justNow')
     if (diffMins < 60) return `${diffMins}m ago`
     const diffHours = Math.floor(diffMins / 60)
     if (diffHours < 24) return `${diffHours}h ago`
@@ -222,7 +224,7 @@ export default function IssueDetailPanel({
       {/* Reporter */}
       {issue.reporterName && (
         <div className="text-sm text-gray-600">
-          Reported by <span className="font-medium">{issue.reporterName}</span>
+          {t('reportedBy')} <span className="font-medium">{issue.reporterName}</span>
         </div>
       )}
 
@@ -235,7 +237,7 @@ export default function IssueDetailPanel({
       {issue.photoUrls.length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-2">
-            Photos ({issue.photoUrls.length})
+            {t('issuePhotos2')} ({issue.photoUrls.length})
           </h4>
           <div className="flex flex-wrap gap-2">
             {issue.photoUrls.map((url, index) => (
@@ -266,7 +268,7 @@ export default function IssueDetailPanel({
         <div className="flex items-center gap-2 mb-2">
           <ChatBubbleLeftIcon className="w-4 h-4 text-gray-500" />
           <h4 className="text-sm font-medium text-gray-700">
-            Notes {notes.length > 0 && `(${notes.length})`}
+            {t('issueNotes')} {notes.length > 0 && `(${notes.length})`}
           </h4>
         </div>
 
@@ -277,7 +279,7 @@ export default function IssueDetailPanel({
             </div>
           ) : notes.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">
-              No notes yet. Start the conversation below.
+              {t('noNotes')}
             </p>
           ) : (
             notes.map((note) => {
@@ -322,7 +324,7 @@ export default function IssueDetailPanel({
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={handleNoteKeyDown}
-              placeholder="Type a note..."
+              placeholder={t('typeNote')}
               rows={1}
               className="flex-1 px-3.5 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm min-h-[38px] max-h-[80px]"
               style={{ fieldSizing: 'content' } as React.CSSProperties}
@@ -353,7 +355,7 @@ export default function IssueDetailPanel({
                 className="flex-1 py-2.5 px-4 bg-amber-100 text-amber-700 rounded-xl font-medium hover:bg-amber-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <ClockIcon className="w-5 h-5" />
-                Acknowledge
+                {t('acknowledgeIssue')}
               </button>
             )}
             <button
@@ -362,7 +364,7 @@ export default function IssueDetailPanel({
               className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <CheckCircleIcon className="w-5 h-5" />
-              Mark Resolved
+              {t('resolveIssue')}
             </button>
             <button
               onClick={handleDelete}
@@ -380,7 +382,7 @@ export default function IssueDetailPanel({
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
           <CheckCircleIcon className="w-6 h-6 text-green-600" />
           <div>
-            <p className="font-medium text-green-700">Resolved</p>
+            <p className="font-medium text-green-700">{t('resolvedLabel')}</p>
             <p className="text-sm text-green-600">
               {new Date(issue.resolvedAt).toLocaleString()}
             </p>
@@ -421,7 +423,7 @@ export default function IssueDetailPanel({
             ) : (
               <ArrowDownTrayIcon className="w-4 h-4" />
             )}
-            Download with Timestamp
+            {t('download')}
           </button>
           <img
             src={getPhotoPublicUrl(issue.photoUrls[currentPhotoIndex])}

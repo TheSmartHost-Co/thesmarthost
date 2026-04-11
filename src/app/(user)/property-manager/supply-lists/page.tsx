@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -116,6 +117,7 @@ function getDateRange(preset: DatePreset, customStart: string, customEnd: string
 export default function SupplyListsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('turnover')
   usePermissionGuard('supply_lists')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -442,13 +444,13 @@ export default function SupplyListsPage() {
   }
 
   // Stats from summary
-  const t = summary?.totals
+  const totals = summary?.totals
   const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'CAD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
   const statCards = [
     {
       label: 'Total Lists',
-      value: t?.totalLists ?? 0,
+      value: totals?.totalLists ?? 0,
       icon: ClipboardDocumentListIcon,
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
@@ -457,7 +459,7 @@ export default function SupplyListsPage() {
     },
     {
       label: 'Pending',
-      value: t?.pendingLists ?? 0,
+      value: totals?.pendingLists ?? 0,
       icon: ClockIcon,
       bgColor: 'bg-amber-50',
       iconBg: 'bg-amber-100',
@@ -466,8 +468,8 @@ export default function SupplyListsPage() {
     },
     {
       label: 'Items',
-      value: t?.totalItems ?? 0,
-      sub: `${t?.purchasedItems ?? 0} purchased`,
+      value: totals?.totalItems ?? 0,
+      sub: `${totals?.purchasedItems ?? 0} purchased`,
       icon: ShoppingCartIcon,
       bgColor: 'bg-teal-50',
       iconBg: 'bg-teal-100',
@@ -476,7 +478,7 @@ export default function SupplyListsPage() {
     },
     {
       label: 'Total Spend',
-      value: fmt(t?.totalCost ?? 0),
+      value: fmt(totals?.totalCost ?? 0),
       icon: CurrencyDollarIcon,
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',

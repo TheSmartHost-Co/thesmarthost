@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import { searchReceipts } from '@/services/receiptService'
@@ -25,6 +26,7 @@ export default function UnappliedReceiptsModal({
   onReceiptApplied,
   properties,
 }: UnappliedReceiptsModalProps) {
+  const { t } = useTranslation('turnover')
   const [loading, setLoading] = useState(true)
   const [receipts, setReceipts] = useState<UploadedReceipt[]>([])
   const [reviewingReceiptId, setReviewingReceiptId] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export default function UnappliedReceiptsModal({
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Unapplied Receipts</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('unappliedReceipts')}</h2>
                 <p className="text-xs text-gray-500">
                   {loading ? 'Loading...' : `${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} pending review`}
                 </p>
@@ -94,8 +96,8 @@ export default function UnappliedReceiptsModal({
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
                   <DocumentTextIcon className="w-6 h-6 text-green-600" />
                 </div>
-                <p className="text-sm font-medium text-gray-900">All receipts have been reviewed</p>
-                <p className="text-xs text-gray-500 mt-1">No unapplied receipts at this time</p>
+                <p className="text-sm font-medium text-gray-900">{t('noUnappliedReceipts')}</p>
+                <p className="text-xs text-gray-500 mt-1">{t('noUnappliedReceipts')}</p>
               </div>
             )}
 
@@ -127,7 +129,7 @@ export default function UnappliedReceiptsModal({
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                       <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
-                        Pending Review
+                        {t('pendingReview')}
                       </span>
                       <button
                         onClick={() => setReviewingReceiptId(receipt.id)}

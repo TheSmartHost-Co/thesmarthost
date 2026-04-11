@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CogIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAutomationSettings, updateAutomationSettings } from '@/services/automationService'
@@ -22,6 +23,7 @@ interface AutomationSettingsPanelProps {
 }
 
 export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationSettingsPanelProps) {
+  const { t } = useTranslation('dashboard')
   const { showNotification } = useNotificationStore()
   const [settings, setSettings] = useState<AutomationSettings>({
     guestReviewEnabled: false,
@@ -45,7 +47,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
           setSettings(res.data)
         }
       })
-      .catch(() => showNotification('Failed to load settings', 'error'))
+      .catch(() => showNotification(t('automations.failedToLoadSettings'), 'error'))
       .finally(() => setLoading(false))
   }, [isOpen, showNotification])
 
@@ -54,10 +56,10 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
     try {
       const res = await updateAutomationSettings(settings)
       if (res.status === 'success') {
-        showNotification('Automation settings saved', 'success')
+        showNotification(t('automations.settingsSaved'), 'success')
         onClose()
       } else {
-        showNotification(res.message || 'Failed to save settings', 'error')
+        showNotification(res.message || t('automations.failedToSaveSettings'), 'error')
       }
     } catch {
       showNotification('Failed to save settings', 'error')
@@ -75,7 +77,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CogIcon className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Automation Settings</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('automations.automationSettings')}</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
@@ -88,7 +90,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
           <div className="p-6 space-y-6">
             {/* Automation Toggles */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Enabled Automations</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">{t('automations.enabledAutomations')}</h3>
               <div className="space-y-3">
                 <Toggle
                   label="Guest Review Writing"
@@ -108,8 +110,8 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
             {/* Delay Configuration */}
             {settings.reviewNudgeEnabled && (
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Nudge Delay</h3>
-                <p className="text-xs text-gray-500 mb-2">How long after checkout to send the review nudge</p>
+                <h3 className="text-sm font-medium text-gray-900 mb-2">{t('automations.nudgeDelay')}</h3>
+                <p className="text-xs text-gray-500 mb-2">{t('automations.nudgeDelayDescription')}</p>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -127,7 +129,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
             {/* Auto-Send */}
             {settings.reviewNudgeEnabled && (
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Automation Level</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">{t('automations.automationLevel')}</h3>
                 <Toggle
                   label="Auto-send review nudges"
                   description="Skip approval and send nudge messages automatically via the guest's booking channel (Airbnb, VRBO, etc.)"
@@ -136,7 +138,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
                 />
                 {settings.autoSendNudge && (
                   <p className="mt-2 ml-12 text-[11px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-                    Nudge messages will be sent automatically without your review. Guest reviews still require approval.
+                    {t('automations.autoSendWarning')}
                   </p>
                 )}
               </div>
@@ -144,8 +146,8 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
 
             {/* Custom Prompts */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-1">Custom AI Prompts</h3>
-              <p className="text-xs text-gray-500 mb-3">Customize the AI instructions. Leave blank to use the default. Click variables to insert them.</p>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">{t('automations.customAiPrompts')}</h3>
+              <p className="text-xs text-gray-500 mb-3">{t('automations.customAiPromptsDescription')}</p>
 
               {settings.guestReviewEnabled && (
                 <PromptEditor
@@ -168,7 +170,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
 
             {/* Notification Preferences */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Approval Notifications</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">{t('automations.approvalNotifications')}</h3>
               <div className="space-y-3">
                 <Toggle
                   label="Email notifications"
@@ -190,7 +192,7 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
               disabled={saving}
               className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? t('automations.saving') : t('automations.saveSettings')}
             </button>
           </div>
         )}

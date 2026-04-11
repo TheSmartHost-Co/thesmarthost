@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   BuildingOfficeIcon,
@@ -16,6 +17,7 @@ import { getCleanerByAuthUserId } from '@/services/cleanerService'
 import type { Cleaner, CleanerProperty } from '@/services/types/cleaner'
 
 export default function CleanerPropertiesPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
 
   // State
@@ -94,8 +96,8 @@ export default function CleanerPropertiesPage() {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Properties</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Properties assigned to you for cleaning</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('myProperties')}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('propertiesAssignedForCleaning')}</p>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -107,7 +109,7 @@ export default function CleanerPropertiesPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading properties</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingProperties')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -115,7 +117,7 @@ export default function CleanerPropertiesPage() {
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -126,8 +128,8 @@ export default function CleanerPropertiesPage() {
     <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-5 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Properties</h1>
-        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Properties assigned to you for cleaning</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('myProperties')}</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('propertiesAssignedForCleaning')}</p>
       </div>
 
       {/* Stats */}
@@ -142,7 +144,7 @@ export default function CleanerPropertiesPage() {
               <BuildingOfficeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Properties</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-500">{t('totalProperties')}</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalProperties}</p>
             </div>
           </div>
@@ -159,7 +161,7 @@ export default function CleanerPropertiesPage() {
               <StarIconSolid className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
             </div>
             <div>
-              <p className="text-xs sm:text-sm font-medium text-gray-500">Primary Cleaner</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-500">{t('primaryCleaner')}</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{primaryProperties}</p>
             </div>
           </div>
@@ -183,7 +185,7 @@ export default function CleanerPropertiesPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-              placeholder="Search properties..."
+              placeholder={t('searchProperties')}
             />
           </div>
         </motion.div>
@@ -211,8 +213,8 @@ export default function CleanerPropertiesPage() {
           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <MagnifyingGlassIcon className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No properties found</h3>
-          <p className="text-gray-500">Try adjusting your search term</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noPropertiesFound')}</h3>
+          <p className="text-gray-500">{t('tryAdjustingSearch')}</p>
         </motion.div>
       ) : (
         // No properties assigned
@@ -224,9 +226,9 @@ export default function CleanerPropertiesPage() {
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BuildingOfficeIcon className="w-8 h-8 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No properties assigned</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noPropertiesAssignedTitle')}</h3>
           <p className="text-gray-500 max-w-sm mx-auto">
-            Your property manager will assign properties to you. Check back later or contact them for assignments.
+            {t('noPropertiesAssignedDescription')}
           </p>
         </motion.div>
       )}
@@ -244,6 +246,7 @@ function PropertyCard({
   index: number
   cleanerHourlyRate?: number
 }) {
+  const { t } = useTranslation('cleanerPortal')
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -260,14 +263,14 @@ function PropertyCard({
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-white truncate">
-                {property.propertyName || 'Unnamed Property'}
+                {property.propertyName || t('unnamedProperty')}
               </h3>
             </div>
           </div>
           {property.isDefault && (
             <div className="flex items-center gap-1 px-2 py-1 bg-amber-400 rounded-lg">
               <StarIconSolid className="w-3.5 h-3.5 text-white" />
-              <span className="text-xs font-semibold text-white">Primary</span>
+              <span className="text-xs font-semibold text-white">{t('primary')}</span>
             </div>
           )}
         </div>
@@ -295,12 +298,12 @@ function PropertyCard({
             {property.isDefault ? (
               <>
                 <StarIconSolid className="w-3.5 h-3.5" />
-                Primary Cleaner
+                {t('primaryCleaner')}
               </>
             ) : (
               <>
                 <StarIcon className="w-3.5 h-3.5" />
-                Backup Cleaner
+                {t('backupCleaner')}
               </>
             )}
           </span>
@@ -309,22 +312,22 @@ function PropertyCard({
           {property.rateType === 'flat' && property.rateAmount != null ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700">
               <CurrencyDollarIcon className="w-3.5 h-3.5" />
-              ${property.rateAmount.toFixed(2)} / cleaning
+              {t('perCleaning', { amount: property.rateAmount.toFixed(2) })}
             </span>
           ) : property.rateType === 'hourly' && property.rateAmount != null ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700">
               <CurrencyDollarIcon className="w-3.5 h-3.5" />
-              ${property.rateAmount.toFixed(2)} / hr
+              {t('perHour', { amount: property.rateAmount.toFixed(2) })}
             </span>
           ) : cleanerHourlyRate ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600">
               <CurrencyDollarIcon className="w-3.5 h-3.5" />
-              ${cleanerHourlyRate.toFixed(2)} / hr (default)
+              {t('perHourDefault', { amount: cleanerHourlyRate.toFixed(2) })}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-600">
               <CurrencyDollarIcon className="w-3.5 h-3.5" />
-              Rate not set
+              {t('rateNotSet')}
             </span>
           )}
         </div>
@@ -332,8 +335,8 @@ function PropertyCard({
         {/* Info text */}
         <p className="text-xs text-gray-400 mt-3">
           {property.isDefault
-            ? 'You are the primary cleaner for this property'
-            : 'You are a backup cleaner for this property'
+            ? t('primaryCleanerDescription')
+            : t('backupCleanerDescription')
           }
         </p>
       </div>

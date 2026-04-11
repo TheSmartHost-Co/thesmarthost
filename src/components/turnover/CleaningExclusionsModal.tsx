@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../shared/modal'
 import { MagnifyingGlassIcon, NoSymbolIcon } from '@heroicons/react/24/outline'
 import type { Property } from '@/services/types/property'
@@ -21,6 +22,7 @@ export default function CleaningExclusionsModal({
   properties,
   onToggleCleaningManaged,
 }: CleaningExclusionsModalProps) {
+  const { t } = useTranslation('turnover')
   const [search, setSearch] = useState('')
 
   const sorted = properties
@@ -47,11 +49,11 @@ export default function CleaningExclusionsModal({
             <NoSymbolIcon className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Cleaning Exclusions</h2>
+            <h2 className="text-lg font-semibold text-white">{t('cleaningExclusions')}</h2>
             <p className="text-white/60 text-sm">
               {excludedCount === 0
-                ? 'All properties are cleaning-managed'
-                : `${excludedCount} of ${properties.length} propert${properties.length === 1 ? 'y' : 'ies'} excluded`}
+                ? t('allCleaningManaged')
+                : t('propertiesExcluded', { excluded: excludedCount, total: properties.length })}
             </p>
           </div>
         </div>
@@ -63,7 +65,7 @@ export default function CleaningExclusionsModal({
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search properties..."
+            placeholder={t('searchPropertiesPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
@@ -74,7 +76,7 @@ export default function CleaningExclusionsModal({
         <div className="max-h-80 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100">
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No properties found
+              {t('noPropertiesFound')}
             </div>
           ) : (
             filtered.map(p => {
@@ -113,7 +115,7 @@ export default function CleaningExclusionsModal({
 
         {/* Footer hint */}
         <p className="text-xs text-gray-400 text-center mt-3">
-          Excluded properties won&apos;t appear on the calendar or receive cleaning projects
+          {t('excludedPropertiesHint')}
         </p>
       </div>
     </Modal>

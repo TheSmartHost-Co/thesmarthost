@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect } from 'react'
 import { PropertyChannel, LocalPropertyChannel, CHANNEL_OPTIONS } from '@/services/types/propertyChannel'
 import { validateChannelUrl } from '@/services/propertyChannelService'

@@ -16,6 +16,7 @@ import {
   ChevronDownIcon,
   LinkSlashIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   updateChecklistTemplate,
@@ -55,6 +56,7 @@ export default function UpdateChecklistTemplateModal({
   onUpdated,
   template,
 }: UpdateChecklistTemplateModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Metadata state
@@ -155,7 +157,7 @@ export default function UpdateChecklistTemplateModal({
   // Item management
   const handleAddItem = () => {
     if (!newTask.trim()) {
-      showNotification('Please enter a task description', 'error')
+      showNotification(t('pleaseEnterTaskDescription'), 'error')
       return
     }
 
@@ -206,7 +208,7 @@ export default function UpdateChecklistTemplateModal({
   const handleSave = async () => {
     if (!template) return
     if (!name.trim()) {
-      showNotification('Please enter a template name', 'error')
+      showNotification(t('pleaseEnterTemplateName'), 'error')
       return
     }
 
@@ -221,7 +223,7 @@ export default function UpdateChecklistTemplateModal({
       })
 
       if (metaRes.status !== 'success') {
-        throw new Error(metaRes.message || 'Failed to update template')
+        throw new Error(metaRes.message || t('failedToUpdateTemplate'))
       }
 
       // 2. Delete removed items
@@ -264,7 +266,7 @@ export default function UpdateChecklistTemplateModal({
     } catch (err) {
       console.error('Error updating template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to update template',
+        err instanceof Error ? err.message : t('failedToUpdateTemplate'),
         'error'
       )
       return null
@@ -275,7 +277,7 @@ export default function UpdateChecklistTemplateModal({
 
   const handleSaveClick = () => {
     if (!name.trim()) {
-      showNotification('Please enter a template name', 'error')
+      showNotification(t('pleaseEnterTemplateName'), 'error')
       return
     }
     if (linkedProperties.length > 0) {
@@ -289,7 +291,7 @@ export default function UpdateChecklistTemplateModal({
   const handleSaveAndClose = async () => {
     const result = await handleSave()
     if (result) {
-      showNotification('Template updated successfully', 'success')
+      showNotification(t('templateUpdatedSuccess'), 'success')
       onUpdated(result)
       onClose()
     }
@@ -308,12 +310,12 @@ export default function UpdateChecklistTemplateModal({
       try {
         await propagateTemplateToChecklists(template.id, { checklistIds })
         showNotification(
-          `Template saved and ${checklistIds.length} ${checklistIds.length === 1 ? 'checklist' : 'checklists'} updated`,
+          t('templateSavedAndUpdated', { count: checklistIds.length }),
           'success'
         )
       } catch (err) {
         console.error('Error propagating:', err)
-        showNotification('Template saved but failed to update some checklists', 'error')
+        showNotification(t('templateSavedButFailed'), 'error')
       }
     } else {
       showNotification('Template updated successfully', 'success')
@@ -330,7 +332,7 @@ export default function UpdateChecklistTemplateModal({
     const result = await handleSave()
     setShowPropagateModal(false)
     if (result) {
-      showNotification('Template updated successfully', 'success')
+      showNotification(t('templateUpdatedSuccess'), 'success')
       onUpdated(result)
       onClose()
     }
@@ -346,18 +348,18 @@ export default function UpdateChecklistTemplateModal({
       })
       if (res.status === 'success') {
         showNotification(
-          action === 'delete' ? 'Checklist deleted' : 'Property unlinked',
+          action === 'delete' ? t('checklistDeletedNotification') : t('propertyUnlinkedNotification'),
           'success'
         )
         setLinkedProperties((prev) =>
           prev.filter((lp) => lp.checklistId !== unlinkTarget.checklistId)
         )
       } else {
-        showNotification(res.message || 'Failed to unlink', 'error')
+        showNotification(res.message || t('failedToUnlink'), 'error')
       }
     } catch (err) {
       console.error('Error unlinking:', err)
-      showNotification('Failed to unlink property', 'error')
+      showNotification(t('failedToUnlinkProperty'), 'error')
     } finally {
       setUnlinking(false)
       setShowUnlinkModal(false)
@@ -385,7 +387,7 @@ export default function UpdateChecklistTemplateModal({
                 <PencilSquareIcon className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Edit Template</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('editTemplateTitle')}</h2>
                 <p className="text-sm text-gray-500">
                   Update &ldquo;{template.name}&rdquo;
                 </p>
@@ -464,7 +466,7 @@ export default function UpdateChecklistTemplateModal({
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Template Name <span className="text-red-500">*</span>
+                  {t('templateName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -544,7 +546,7 @@ export default function UpdateChecklistTemplateModal({
 
             {/* Items Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-900">Tasks</h3>
+              <h3 className="text-sm font-semibold text-gray-900">{t('tasks')}</h3>
 
               {/* Add Item Form */}
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-3">
@@ -735,12 +737,12 @@ export default function UpdateChecklistTemplateModal({
               {saving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Saving...
+                  {t('saving')}
                 </>
               ) : (
                 <>
                   <CheckIcon className="w-4 h-4" />
-                  Save Changes
+                  {t('saveChanges')}
                 </>
               )}
             </button>

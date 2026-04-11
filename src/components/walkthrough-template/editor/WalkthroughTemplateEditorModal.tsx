@@ -12,6 +12,7 @@ import {
   ChevronRightIcon,
   CameraIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { upsertWalkthroughTemplate } from '@/services/walkthroughTemplateService'
@@ -57,6 +58,7 @@ export default function WalkthroughTemplateEditorModal({
   onSaved,
   template,
 }: WalkthroughTemplateEditorModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore(state => state.showNotification)
 
@@ -113,7 +115,7 @@ export default function WalkthroughTemplateEditorModal({
     const trimmed = newGroupName.trim()
     if (!trimmed) return
     if (groups.some(g => g.name.trim().toLowerCase() === trimmed.toLowerCase())) {
-      showNotification('A group with this name already exists', 'error')
+      showNotification(t('groupNameAlreadyExists'), 'error')
       return
     }
     setGroups(prev => [
@@ -154,7 +156,7 @@ export default function WalkthroughTemplateEditorModal({
       prev.map(g => {
         if (g.localKey !== groupLocalKey) return g
         if (g.items.some(it => it.name.trim().toLowerCase() === trimmed.toLowerCase())) {
-          showNotification(`"${trimmed}" is already in ${g.name}`, 'error')
+          showNotification(t('itemAlreadyInGroup', { item: trimmed, group: g.name }), 'error')
           return g
         }
         return {
@@ -203,18 +205,18 @@ export default function WalkthroughTemplateEditorModal({
     if (!profile?.id) return
     const trimmedName = name.trim()
     if (!trimmedName) {
-      showNotification('Template name is required', 'error')
+      showNotification(t('templateNameIsRequired'), 'error')
       return
     }
     // Validate group/item names are non-empty
     for (const g of groups) {
       if (!g.name.trim()) {
-        showNotification('All groups need a name', 'error')
+        showNotification(t('allGroupsNeedName'), 'error')
         return
       }
       for (const it of g.items) {
         if (!it.name.trim()) {
-          showNotification(`Item in "${g.name}" needs a name`, 'error')
+          showNotification(t('itemNeedsName', { group: g.name }), 'error')
           return
         }
       }
@@ -243,18 +245,18 @@ export default function WalkthroughTemplateEditorModal({
       const res = await upsertWalkthroughTemplate(payload)
       if (res.status === 'success') {
         showNotification(
-          isEdit ? 'Template updated' : 'Template created',
+          isEdit ? t('templateUpdated2') : t('templateCreated2'),
           'success'
         )
         onSaved(res.data)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to save template', 'error')
+        showNotification(res.message || t('failedToSaveTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error saving walkthrough template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error saving template',
+        err instanceof Error ? err.message : t('errorSavingTemplate'),
         'error'
       )
     } finally {
@@ -289,11 +291,11 @@ export default function WalkthroughTemplateEditorModal({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  {isEdit ? 'Edit Walkthrough Template' : 'Create Walkthrough Template'}
+                  {isEdit ? t('editWalkthroughTemplateTitle') : t('createWalkthroughTemplateTitle')}
                 </h2>
                 {isEdit && isDefault && (
                   <p className="text-[11px] text-gray-500">
-                    This is your default template — it applies to properties without a specific assignment.
+                    {t('defaultTemplateNote')}
                   </p>
                 )}
               </div>
@@ -313,35 +315,35 @@ export default function WalkthroughTemplateEditorModal({
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Template name
+                {t('templateNameLabel')}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 disabled={saving}
-                placeholder="e.g. Beach House Walkthrough"
+                placeholder={t('templateNameEditorPlaceholder')}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Description <span className="text-gray-400 font-normal">(optional)</span>
+                {t('descriptionOptional')} <span className="text-gray-400 font-normal">({t('optional')})</span>
               </label>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 disabled={saving}
                 rows={2}
-                placeholder="What this walkthrough is for..."
+                placeholder={t('descriptionPlaceholder')}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 resize-none"
               />
             </div>
             <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl">
               <div>
-                <p className="text-sm font-medium text-gray-900">Require Completion</p>
+                <p className="text-sm font-medium text-gray-900">{t('requireCompletion')}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Cleaners must upload photos for every group/item before completing the project
+                  {t('requireCompletionDescription')}
                 </p>
               </div>
               <button
@@ -364,8 +366,8 @@ export default function WalkthroughTemplateEditorModal({
           {/* Groups */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Groups &amp; Items</h3>
-              <span className="text-xs text-gray-500">Drag to reorder</span>
+              <h3 className="text-sm font-semibold text-gray-900">{t('groupsAndItems')}</h3>
+              <span className="text-xs text-gray-500">{t('dragToReorder')}</span>
             </div>
 
             {groups.length > 0 ? (
@@ -398,9 +400,9 @@ export default function WalkthroughTemplateEditorModal({
             ) : (
               <div className="text-center py-6 text-gray-500 border border-dashed border-gray-200 rounded-xl">
                 <CameraIcon className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No groups yet</p>
+                <p className="text-sm">{t('noGroupsYet')}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Add a group below (e.g. &ldquo;Bathroom&rdquo; or &ldquo;Living Room&rdquo;)
+                  {t('addGroupBelow')}
                 </p>
               </div>
             )}
@@ -418,7 +420,7 @@ export default function WalkthroughTemplateEditorModal({
                   }
                 }}
                 disabled={saving}
-                placeholder="Add a group..."
+                placeholder={t('addGroupPlaceholder')}
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400"
               />
               <button
@@ -428,16 +430,16 @@ export default function WalkthroughTemplateEditorModal({
                 className="inline-flex items-center gap-1 px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 cursor-pointer"
               >
                 <PlusIcon className="w-4 h-4" />
-                Add
+                {t('addLabel')}
               </button>
             </div>
           </div>
 
           {/* Property assignment */}
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-900">Apply to Properties</h3>
+            <h3 className="text-sm font-semibold text-gray-900">{t('applyToPropertiesTitle')}</h3>
             <p className="text-xs text-gray-500">
-              Properties assigned here use this template instead of the default.
+              {t('applyToPropertiesDescription')}
             </p>
             <PropertyAssignmentSelector
               assignedPropertyIds={assignedPropertyIds}
@@ -463,7 +465,7 @@ export default function WalkthroughTemplateEditorModal({
             disabled={saving}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -474,7 +476,7 @@ export default function WalkthroughTemplateEditorModal({
             {saving && (
               <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
             )}
-            {isEdit ? 'Save Changes' : 'Create Template'}
+            {isEdit ? t('saveChanges') : t('createTemplate')}
           </button>
         </div>
       </motion.div>
@@ -510,6 +512,7 @@ function GroupEditor({
   onRenameItem,
   onReorderItems,
 }: GroupEditorProps) {
+  const { t } = useTranslation('turnover')
   const [newItemName, setNewItemName] = useState('')
 
   return (
@@ -538,7 +541,7 @@ function GroupEditor({
           className="flex-1 bg-transparent px-2 py-1 text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200 focus:border-purple-300 rounded-md focus:outline-none"
         />
         <span className="text-[11px] text-gray-400 flex-shrink-0">
-          {group.items.length} item{group.items.length !== 1 ? 's' : ''}
+          {group.items.length} {group.items.length !== 1 ? t('itemsLabel') : t('itemLabel')}
         </span>
         <button
           type="button"
@@ -613,7 +616,7 @@ function GroupEditor({
                     }
                   }}
                   disabled={disabled}
-                  placeholder="Add an item..."
+                  placeholder={t('addAnItem')}
                   className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400"
                 />
                 <button

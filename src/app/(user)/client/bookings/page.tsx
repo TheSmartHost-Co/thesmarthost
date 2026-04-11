@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   MagnifyingGlassIcon,
@@ -34,6 +35,7 @@ const SORT_OPTIONS: { field: SortField; label: string; ascLabel: string; descLab
 ]
 
 export default function ClientBookingsPage() {
+  const { t } = useTranslation('clientPortal')
   const [bookings, setBookings] = useState<ClientPortalBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -191,7 +193,7 @@ export default function ClientBookingsPage() {
 
   const statCards = [
     {
-      label: 'Total Bookings',
+      label: t('totalBookings'),
       value: stats.totalBookings,
       icon: CalendarDaysIcon,
       bgColor: 'bg-emerald-50',
@@ -200,7 +202,7 @@ export default function ClientBookingsPage() {
       borderColor: 'border-emerald-100',
     },
     {
-      label: 'Total Nights',
+      label: t('totalNights'),
       value: stats.totalNights,
       icon: MoonIcon,
       bgColor: 'bg-blue-50',
@@ -209,7 +211,7 @@ export default function ClientBookingsPage() {
       borderColor: 'border-blue-100',
     },
     {
-      label: 'Platforms',
+      label: t('platforms'),
       value: stats.platformsCount,
       icon: ChartBarIcon,
       bgColor: 'bg-amber-50',
@@ -223,8 +225,8 @@ export default function ClientBookingsPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
-        <p className="text-sm text-gray-500 mt-1">View all bookings across your properties</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('bookingsTitle')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('bookingsSubtitle')}</p>
       </div>
 
       {/* Stat Cards */}
@@ -270,7 +272,7 @@ export default function ClientBookingsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:bg-white transition-all text-sm"
-                placeholder="Search by guest, property, or reservation..."
+                placeholder={t('searchBookingsPlaceholder')}
               />
             </div>
 
@@ -472,7 +474,7 @@ export default function ClientBookingsPage() {
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <CalendarDaysIcon className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">No bookings found</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noBookingsFound')}</h3>
             <p className="text-gray-500 max-w-sm mx-auto">
               {search || platformFilter !== 'All' || propertyFilter !== 'All' || startDate || endDate
                 ? 'Try adjusting your search or filter criteria.'

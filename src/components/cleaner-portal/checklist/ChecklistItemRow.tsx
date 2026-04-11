@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircleIcon,
   CameraIcon,
@@ -35,6 +36,7 @@ export default function ChecklistItemRow({
   isToggling,
   readOnly,
 }: ChecklistItemRowProps) {
+  const { t } = useTranslation('cleanerPortal')
   const [imageError, setImageError] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
@@ -138,13 +140,13 @@ export default function ChecklistItemRow({
                   {imageError ? (
                     <div className="w-20 h-20 flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-400">
                       <ExclamationTriangleIcon className="w-5 h-5" />
-                      <span className="text-[10px] mt-0.5">Failed</span>
+                      <span className="text-[10px] mt-0.5">{t('failed')}</span>
                     </div>
                   ) : (
                     <>
                       <img
                         src={item.photoUrl}
-                        alt="Uploaded photo"
+                        alt={t('uploadedPhoto')}
                         className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => onViewPhoto(item.photoUrl!)}
                         onError={() => setImageError(true)}
@@ -163,7 +165,7 @@ export default function ChecklistItemRow({
                     onClick={onDeletePhoto}
                     disabled={isUploading}
                     className="p-2.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                    title="Delete photo"
+                    title={t('deletePhoto')}
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -181,7 +183,7 @@ export default function ChecklistItemRow({
           ) : readOnly ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-400">
               <CameraIcon className="w-3.5 h-3.5" />
-              Photo Required
+              {t('photoRequired')}
             </span>
           ) : (
             <div className="relative">
@@ -201,12 +203,12 @@ export default function ChecklistItemRow({
                 {isUploading ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-                    Uploading...
+                    {t('uploading')}
                   </>
                 ) : (
                   <>
                     <CameraIcon className="w-3.5 h-3.5" />
-                    Add Photo
+                    {t('addPhoto')}
                   </>
                 )}
               </button>
@@ -228,7 +230,7 @@ export default function ChecklistItemRow({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
                     >
                       <CameraIcon className="w-4 h-4" />
-                      Take Photo
+                      {t('takePhoto')}
                     </button>
                     <button
                       type="button"
@@ -236,7 +238,7 @@ export default function ChecklistItemRow({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
                     >
                       <PhotoIcon className="w-4 h-4" />
-                      Choose Photo
+                      {t('choosePhoto')}
                     </button>
                     <button
                       type="button"
@@ -244,7 +246,7 @@ export default function ChecklistItemRow({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
                     >
                       <ArrowUpTrayIcon className="w-4 h-4" />
-                      Upload File
+                      {t('uploadFile')}
                     </button>
                   </motion.div>
                 </AnimatePresence>,

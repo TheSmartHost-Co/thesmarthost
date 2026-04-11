@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline'
 import type { DashboardMetrics } from '@/services/types/dashboard'
 import { MetricCard } from './MetricCard'
+import { useTranslation } from 'react-i18next'
 
 interface MetricsGridProps {
   metrics: DashboardMetrics

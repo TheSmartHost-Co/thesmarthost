@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { getClientPortalDashboard } from '@/services/clientPortalService'
@@ -14,6 +15,7 @@ import type {
 } from '@/services/types/clientPortal'
 
 export default function ClientDashboardPage() {
+  const { t } = useTranslation('clientPortal')
   const profile = useUserStore((s) => s.profile)
   const [stats, setStats] = useState<ClientPortalDashboardStats | null>(null)
   const [recentBookings, setRecentBookings] = useState<ClientPortalBookingSummary[]>([])
@@ -43,7 +45,7 @@ export default function ClientDashboardPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading dashboard...</p>
+          <p className="text-sm text-gray-500">{t('loadingDashboard')}</p>
         </div>
       </div>
     )
@@ -58,10 +60,10 @@ export default function ClientDashboardPage() {
         className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 p-5 text-white shadow-lg"
       >
         <h1 className="text-2xl font-bold">
-          Welcome back, {profile?.fullName?.split(' ')[0] || 'there'}
+          {t('welcomeBack', { name: profile?.fullName?.split(' ')[0] || 'there' })}
         </h1>
         <p className="mt-1 text-emerald-100 text-sm">
-          Here is an overview of your properties and upcoming activity.
+          {t('dashboardOverview')}
         </p>
       </motion.div>
 

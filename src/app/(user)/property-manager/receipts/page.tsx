@@ -17,6 +17,7 @@ import {
   ListBulletIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -70,6 +71,7 @@ export default function ReceiptsPage() {
 }
 
 function ReceiptsContent() {
+  const { t } = useTranslation('expenses')
   usePermissionGuard('receipts')
   const { effectiveUserId, canWrite } = usePermissions()
   const showNotification = useNotificationStore((s) => s.showNotification)
@@ -143,7 +145,7 @@ function ReceiptsContent() {
         if (receiptsRes.total != null) setTotalCount(receiptsRes.total)
         else setTotalCount(receiptsRes.data.length)
       } else {
-        setError(receiptsRes.message || 'Failed to load receipts')
+        setError(receiptsRes.message || t('failedToLoadReceipts'))
       }
 
       if (propertiesRes && propertiesRes.status === 'success') {
@@ -151,7 +153,7 @@ function ReceiptsContent() {
       }
     } catch (err) {
       console.error('Fetch receipts error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load receipts')
+      setError(err instanceof Error ? err.message : t('failedToLoadReceipts'))
     } finally {
       setLoading(false)
     }
@@ -178,7 +180,7 @@ function ReceiptsContent() {
   const buildActions = (receipt: UploadedReceipt): ActionItem[] => {
     const actions: ActionItem[] = [
       {
-        label: 'View Details',
+        label: t('viewDetails', { ns: 'common' }),
         icon: EyeIcon,
         onClick: () => {
           setSelectedReceiptId(receipt.id)
@@ -190,7 +192,7 @@ function ReceiptsContent() {
     if (canWrite('receipts')) {
       if (receipt.status === 'matched') {
         actions.push({
-          label: 'Apply as Expense',
+          label: t('applyAsExpense'),
           icon: CheckCircleIcon,
           variant: 'highlight',
           onClick: () => {
@@ -202,12 +204,12 @@ function ReceiptsContent() {
 
       if (receipt.status === 'archived') {
         actions.push({
-          label: 'Unarchive',
+          label: t('unarchive'),
           icon: ArchiveBoxXMarkIcon,
           onClick: async () => {
             const res = await unarchiveReceipt(receipt.id)
             if (res.status === 'success') {
-              showNotification('Receipt unarchived', 'success')
+              showNotification(t('receiptUnarchived'), 'success')
               fetchData()
             } else {
               showNotification(res.message || 'Failed', 'error')
@@ -216,12 +218,12 @@ function ReceiptsContent() {
         })
       } else if (receipt.status !== 'applied') {
         actions.push({
-          label: 'Archive',
+          label: t('archive'),
           icon: ArchiveBoxIcon,
           onClick: async () => {
             const res = await archiveReceipt(receipt.id)
             if (res.status === 'success') {
-              showNotification('Receipt archived', 'success')
+              showNotification(t('receiptArchived'), 'success')
               fetchData()
             } else {
               showNotification(res.message || 'Failed', 'error')
@@ -306,8 +308,8 @@ function ReceiptsContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Receipts</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage scanned receipts and create expenses</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('receiptTitle')}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{t('receiptSubtitle')}</p>
         </div>
         {canWrite('receipts') && (
           <button

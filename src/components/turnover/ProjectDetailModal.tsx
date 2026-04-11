@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -101,6 +102,7 @@ export default function ProjectDetailModal({
   onCancel,
   initialSection,
 }: ProjectDetailModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const user = useUserStore((state) => state.profile)
   const { canWrite } = usePermissions()
@@ -252,16 +254,16 @@ export default function ProjectDetailModal({
     try {
       const res = await approveTimeChangeRequest(project.id, pendingRequest.id)
       if (res.status === 'success') {
-        showNotification('Time change request approved', 'success')
+        showNotification(t('timeChangeApproved'), 'success')
         setPendingRequest(null)
         // Merge updated fields into existing project to preserve joined data (cleaner name, property name, etc.)
         onUpdate({ ...project, ...res.data.project })
       } else {
-        showNotification(res.message || 'Failed to approve request', 'error')
+        showNotification(res.message || t('failedToApproveRequest'), 'error')
       }
     } catch (err) {
       console.error('Error approving time change request:', err)
-      showNotification('Error approving request', 'error')
+      showNotification(t('errorApprovingRequest'), 'error')
     } finally {
       setIsResolvingRequest(false)
     }
@@ -276,15 +278,15 @@ export default function ProjectDetailModal({
         pmNotes: rejectionNotes.trim() || undefined,
       })
       if (res.status === 'success') {
-        showNotification('Time change request rejected', 'success')
+        showNotification(t('timeChangeRejected'), 'success')
         setPendingRequest(null)
         setRejectionNotes('')
       } else {
-        showNotification(res.message || 'Failed to reject request', 'error')
+        showNotification(res.message || t('failedToRejectRequest'), 'error')
       }
     } catch (err) {
       console.error('Error rejecting time change request:', err)
-      showNotification('Error rejecting request', 'error')
+      showNotification(t('errorRejectingRequest'), 'error')
     } finally {
       setIsResolvingRequest(false)
     }
@@ -297,14 +299,14 @@ export default function ProjectDetailModal({
     try {
       const res = await initializeProjectChecklist(project.id)
       if (res.status === 'success') {
-        showNotification(`Initialized ${res.data.initialized} checklist items`, 'success')
+        showNotification(t('checklistInitialized', { count: res.data.initialized }), 'success')
         await fetchChecklist()
       } else {
-        showNotification(res.message || 'Failed to initialize checklist', 'error')
+        showNotification(res.message || t('failedToInitializeChecklist'), 'error')
       }
     } catch (err) {
       console.error('Error initializing checklist:', err)
-      showNotification('Error initializing checklist', 'error')
+      showNotification(t('errorInitializingChecklist'), 'error')
     } finally {
       setIsInitializingChecklist(false)
     }
@@ -325,11 +327,11 @@ export default function ProjectDetailModal({
         // Refresh progress
         await fetchChecklist()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateChecklistItem'), 'error')
       }
     } catch (err) {
       console.error('Error updating checklist item:', err)
-      showNotification('Error updating item', 'error')
+      showNotification(t('errorUpdatingChecklistItem'), 'error')
     } finally {
       setUpdatingItemId(null)
     }
@@ -345,11 +347,11 @@ export default function ProjectDetailModal({
         setSelectedBooking(res.data)
         setShowBookingPreview(true)
       } else {
-        showNotification(res.message || 'Failed to load booking', 'error')
+        showNotification(res.message || t('failedToLoadBooking'), 'error')
       }
     } catch (err) {
       console.error('Error fetching booking:', err)
-      showNotification('Error loading booking details', 'error')
+      showNotification(t('errorLoadingBookingDetails'), 'error')
     } finally {
       setLoadingBookingId(null)
     }
@@ -391,15 +393,15 @@ export default function ProjectDetailModal({
             : { groupId: target.groupId }
       const res = await uploadWalkthroughPhotos(project.id, files, opts)
       if (res.status === 'success') {
-        showNotification(`${files.length} photo(s) uploaded`, 'success')
+        showNotification(t('photosUploaded', { count: files.length }), 'success')
         await fetchWalkthrough()
       } else {
-        showNotification(res.message || 'Failed to upload photos', 'error')
+        showNotification(res.message || t('failedToUploadWalkthroughPhotos'), 'error')
       }
     } catch (err) {
       console.error('Error uploading walkthrough photos:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error uploading photos',
+        err instanceof Error ? err.message : t('errorUploadingWalkthroughPhotos'),
         'error'
       )
     } finally {
@@ -411,14 +413,14 @@ export default function ProjectDetailModal({
     try {
       const res = await deleteWalkthroughPhoto(project.id, photoId)
       if (res.status === 'success') {
-        showNotification('Photo deleted', 'success')
+        showNotification(t('photoDeletedSuccess'), 'success')
         await fetchWalkthrough()
       } else {
-        showNotification(res.message || 'Failed to delete photo', 'error')
+        showNotification(res.message || t('failedToDeleteWalkthroughPhoto'), 'error')
       }
     } catch (err) {
       console.error('Error deleting walkthrough photo:', err)
-      showNotification('Error deleting photo', 'error')
+      showNotification(t('errorDeletingWalkthroughPhoto'), 'error')
     }
   }
 
@@ -457,7 +459,7 @@ export default function ProjectDetailModal({
 
   // Format time for display
   const formatTime = (time: string | null | undefined) => {
-    if (!time) return 'Not set'
+    if (!time) return t('notSet')
     const [hours, minutes] = time.split(':')
     const h = parseInt(hours, 10)
     const ampm = h >= 12 ? 'PM' : 'AM'
@@ -468,7 +470,7 @@ export default function ProjectDetailModal({
   // Handle cleaner assignment
   const handleAssignCleaner = async () => {
     if (!selectedCleanerId) {
-      showNotification('Please select a cleaner', 'error')
+      showNotification(t('pleaseSelectCleaner'), 'error')
       return
     }
 
@@ -476,14 +478,14 @@ export default function ProjectDetailModal({
     try {
       const res = await assignCleanerToProject(project.id, { cleanerId: selectedCleanerId })
       if (res.status === 'success') {
-        showNotification('Cleaner assigned successfully', 'success')
+        showNotification(t('cleanerAssignedSuccess'), 'success')
         onUpdate(res.data)
       } else {
-        showNotification(res.message || 'Failed to assign cleaner', 'error')
+        showNotification(res.message || t('failedToAssignCleaner'), 'error')
       }
     } catch (err) {
       console.error('Error assigning cleaner:', err)
-      showNotification('Error assigning cleaner', 'error')
+      showNotification(t('errorAssigningCleaner'), 'error')
     } finally {
       setIsAssigning(false)
     }
@@ -497,18 +499,18 @@ export default function ProjectDetailModal({
       setCancellingProject(true)
       const res = await cancelCleaningProject(project.id, user.id)
       if (res.status === 'success') {
-        showNotification('Project cancelled successfully', 'success')
+        showNotification(t('projectCancelledSuccess'), 'success')
         setShowCancelConfirm(false)
         if (onCancel) {
           onCancel(project.id)
         }
         onClose()
       } else {
-        showNotification(res.message || 'Failed to cancel project', 'error')
+        showNotification(res.message || t('failedToCancelProject'), 'error')
       }
     } catch (err) {
       console.error('Error cancelling project:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to cancel project', 'error')
+      showNotification(err instanceof Error ? err.message : t('failedToCancelProject'), 'error')
     } finally {
       setCancellingProject(false)
     }
@@ -519,15 +521,15 @@ export default function ProjectDetailModal({
       setUnbeginning(true)
       const res = await unstartProject(project.id)
       if (res.status === 'success') {
-        showNotification('Project reverted to confirmed', 'success')
+        showNotification(t('projectRevertedToConfirmedPm'), 'success')
         setShowUnbeginConfirm(false)
         onUpdate(res.data)
       } else {
-        showNotification(res.message || 'Failed to unbegin project', 'error')
+        showNotification(res.message || t('failedToUnbeginProject'), 'error')
       }
     } catch (err) {
       console.error('Error unbeginning project:', err)
-      showNotification('Failed to unbegin project', 'error')
+      showNotification(t('failedToUnbeginProject'), 'error')
     } finally {
       setUnbeginning(false)
     }
@@ -539,15 +541,15 @@ export default function ProjectDetailModal({
       setOverriding(true)
       const res = await overrideCleaningProject(project.id, user.id, overrideTarget as CleaningProjectStatus)
       if (res.status === 'success') {
-        showNotification(`Project overridden to '${overrideTarget}'`, 'success')
+        showNotification(t('projectOverridden', { status: overrideTarget }), 'success')
         setShowOverrideConfirm(false)
         onUpdate(res.data)
       } else {
-        showNotification(res.message || 'Override failed', 'error')
+        showNotification(res.message || t('overrideFailed'), 'error')
       }
     } catch (err) {
       console.error('Error overriding project:', err)
-      showNotification('Error overriding project', 'error')
+      showNotification(t('errorOverridingProject'), 'error')
     } finally {
       setOverriding(false)
     }
@@ -558,14 +560,14 @@ export default function ProjectDetailModal({
     try {
       const res = await removeCleaningProjectOverride(project.id, user.id)
       if (res.status === 'success') {
-        showNotification('Override removed', 'success')
+        showNotification(t('overrideRemovedSuccess'), 'success')
         onUpdate(res.data)
       } else {
-        showNotification(res.message || 'Failed to remove override', 'error')
+        showNotification(res.message || t('failedToRemoveOverride'), 'error')
       }
     } catch (err) {
       console.error('Error removing override:', err)
-      showNotification('Error removing override', 'error')
+      showNotification(t('errorRemovingOverride'), 'error')
     }
   }
 
@@ -598,7 +600,7 @@ export default function ProjectDetailModal({
               <CalendarDaysIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Project Details</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('projectDetails')}</h2>
               <p className="text-sm text-gray-500">{formatDate(project.projectDate)}</p>
             </div>
           </div>
@@ -609,7 +611,7 @@ export default function ProjectDetailModal({
           {/* Status and Same-day badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-lg border ${getStatusBadgeClasses()}`}>
-              {overdue ? 'Overdue' : statusDisplay.label}
+              {overdue ? t('overdue') : statusDisplay.label}
             </span>
             {overdue && overdueLabel && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-red-100 text-red-700 rounded-lg border border-red-200">
@@ -620,13 +622,13 @@ export default function ProjectDetailModal({
             {project.isSameDayTurnover && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-700 rounded-lg border border-amber-200">
                 <ExclamationTriangleIcon className="w-4 h-4" />
-                Same-Day Turnover
+                {t('sameDayTurnover')}
               </span>
             )}
             {project.pmOverride && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-orange-100 text-orange-700 rounded-lg border border-orange-200">
                 <BoltIcon className="w-3.5 h-3.5" />
-                Override Active
+                {t('overrideActive')}
               </span>
             )}
             {project.source !== 'manual' && (
@@ -641,23 +643,23 @@ export default function ProjectDetailModal({
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <ClockIcon className="w-5 h-5 text-amber-600" />
-                <h3 className="font-semibold text-amber-800">Time Change Requested</h3>
+                <h3 className="font-semibold text-amber-800">{t('timeChangeRequested')}</h3>
                 {pendingRequest.cleanerName && (
-                  <span className="text-sm text-amber-600">by {pendingRequest.cleanerName}</span>
+                  <span className="text-sm text-amber-600">{t('byCleanerName', { name: pendingRequest.cleanerName })}</span>
                 )}
               </div>
 
               {/* Current vs Requested side-by-side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div className="bg-white/60 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Current</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">{t('currentSchedule')}</p>
                   <p className="text-sm font-medium text-gray-900">{formatDate(pendingRequest.currentProjectDate)}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {formatTime(pendingRequest.currentProjectStartTime)} – {formatTime(pendingRequest.currentProjectEndTime)}
                   </p>
                 </div>
                 <div className="bg-amber-100/50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-amber-700 uppercase mb-1">Requested</p>
+                  <p className="text-xs font-medium text-amber-700 uppercase mb-1">{t('requestedChanges')}</p>
                   <p className="text-sm font-medium text-amber-900">{formatDate(pendingRequest.requestedProjectDate)}</p>
                   <p className="text-xs text-amber-700 mt-0.5">
                     {formatTime(pendingRequest.requestedProjectStartTime)} – {formatTime(pendingRequest.requestedProjectEndTime)}
@@ -668,7 +670,7 @@ export default function ProjectDetailModal({
               {/* Reason */}
               {pendingRequest.reason && (
                 <p className="text-sm text-amber-800 mb-3">
-                  <span className="font-medium">Reason:</span> {pendingRequest.reason}
+                  <span className="font-medium">{t('reasonLabel')}:</span> {pendingRequest.reason}
                 </p>
               )}
 
@@ -677,7 +679,7 @@ export default function ProjectDetailModal({
                 <textarea
                   value={rejectionNotes}
                   onChange={(e) => setRejectionNotes(e.target.value)}
-                  placeholder="Notes (optional, shown to cleaner if rejected)"
+                  placeholder={t('rejectionNotesPlaceholder')}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-3"
                 />
@@ -696,7 +698,7 @@ export default function ProjectDetailModal({
                     ) : (
                       <CheckCircleIcon className="w-4 h-4" />
                     )}
-                    Approve
+                    {t('approve')}
                   </button>
                   <button
                     onClick={handleRejectRequest}
@@ -708,7 +710,7 @@ export default function ProjectDetailModal({
                     ) : (
                       <XMarkIcon className="w-4 h-4" />
                     )}
-                    Reject
+                    {t('reject')}
                   </button>
                 </div>
               )}
@@ -724,8 +726,8 @@ export default function ProjectDetailModal({
                   <HomeModernIcon className="w-4.5 h-4.5 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Property</p>
-                  <p className="font-semibold text-gray-900 mt-0.5">{project.propertyName || 'Unknown'}</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{t('property')}</p>
+                  <p className="font-semibold text-gray-900 mt-0.5">{project.propertyName || t('unknownProperty')}</p>
                   {project.propertyAddress && (
                     <p className="text-sm text-gray-500 mt-0.5">{project.propertyAddress}</p>
                   )}
@@ -763,13 +765,13 @@ export default function ProjectDetailModal({
                   <div className="flex items-center gap-3 flex-wrap">
                     {project.propertyWifiSsid && (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">Network:</span>
+                        <span className="text-xs text-gray-500">{t('networkLabel')}:</span>
                         <span className="text-xs font-medium text-gray-900 font-mono">{project.propertyWifiSsid}</span>
                         <button
                           type="button"
                           onClick={() => navigator.clipboard.writeText(project.propertyWifiSsid || '')}
                           className="p-0.5 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
-                          title="Copy network name"
+                          title={t('copyNetworkName')}
                         >
                           <ClipboardDocumentIcon className="w-3.5 h-3.5" />
                         </button>
@@ -777,13 +779,13 @@ export default function ProjectDetailModal({
                     )}
                     {project.propertyWifiPassword && (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">Pass:</span>
+                        <span className="text-xs text-gray-500">{t('passLabel')}:</span>
                         <span className="text-xs font-medium text-gray-900 font-mono">{project.propertyWifiPassword}</span>
                         <button
                           type="button"
                           onClick={() => navigator.clipboard.writeText(project.propertyWifiPassword || '')}
                           className="p-0.5 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
-                          title="Copy password"
+                          title={t('copyPassword')}
                         >
                           <ClipboardDocumentIcon className="w-3.5 h-3.5" />
                         </button>
@@ -799,15 +801,15 @@ export default function ProjectDetailModal({
                   <KeyIcon className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-gray-500">Access Codes</span>
+                      <span className="text-xs text-gray-500">{t('accessCodesLabel')}</span>
                       <button
                         type="button"
                         onClick={() => navigator.clipboard.writeText(project.propertyAccessCodes || '')}
                         className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
-                        title="Copy all codes"
+                        title={t('copyAllCodes')}
                       >
                         <ClipboardDocumentIcon className="w-3 h-3" />
-                        Copy
+                        {t('copyButton')}
                       </button>
                     </div>
                     <pre className="text-xs text-gray-900 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded-lg">
@@ -826,7 +828,7 @@ export default function ProjectDetailModal({
                   className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
                 >
                   <ArrowRightIcon className="w-3 h-3" />
-                  View on Google Maps
+                  {t('viewOnGoogleMaps')}
                 </a>
               )}
             </div>
@@ -838,11 +840,11 @@ export default function ProjectDetailModal({
                   <UserCircleIcon className={`w-4.5 h-4.5 ${project.cleanerId ? 'text-green-600' : 'text-amber-600'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Cleaner</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{t('assignedCleanerLabel')}</p>
                   {project.cleanerId ? (
                     <div className="mt-0.5">
                       <p className="font-semibold text-gray-900">{project.cleanerName}</p>
-                      <p className="text-sm text-gray-500">{project.cleanerEmail || project.cleanerPhone || 'No contact'}</p>
+                      <p className="text-sm text-gray-500">{project.cleanerEmail || project.cleanerPhone || t('noContact')}</p>
                     </div>
                   ) : hasWrite ? (
                     <div className="mt-2">
@@ -851,7 +853,7 @@ export default function ProjectDetailModal({
                         onChange={(e) => setSelectedCleanerId(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
-                        <option value="">Select a cleaner...</option>
+                        <option value="">{t('selectCleanerPlaceholder')}</option>
                         {cleaners.filter(c => c.status !== 'inactive').map(cleaner => (
                           <option key={cleaner.id} value={cleaner.id}>
                             {cleaner.name}
@@ -863,11 +865,11 @@ export default function ProjectDetailModal({
                         disabled={!selectedCleanerId || isAssigning}
                         className="mt-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                       >
-                        {isAssigning ? 'Assigning...' : 'Assign Cleaner'}
+                        {isAssigning ? t('assigningCleaner') : t('assignCleaner')}
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500 mt-1">No cleaner assigned</p>
+                    <p className="text-sm text-gray-500 mt-1">{t('noCleanerAssigned')}</p>
                   )}
                 </div>
               </div>
@@ -878,7 +880,7 @@ export default function ProjectDetailModal({
                 <span className="text-sm font-semibold text-gray-900">
                   {formatTime(project.projectStartTime)}
                   {' – '}
-                  {project.projectEndTime ? formatTime(project.projectEndTime) : 'TBD'}
+                  {project.projectEndTime ? formatTime(project.projectEndTime) : t('tbd')}
                 </span>
               </div>
 
@@ -909,7 +911,7 @@ export default function ProjectDetailModal({
             >
               <div className="flex items-center gap-2">
                 <CalendarDaysIcon className="w-4 h-4 text-gray-600" />
-                <p className="text-sm font-semibold text-gray-700">Related Bookings</p>
+                <p className="text-sm font-semibold text-gray-700">{t('relatedBookingsLabel')}</p>
               </div>
               <ChevronDownIcon
                 className={`w-4 h-4 text-gray-400 transition-transform ${showRelatedBookings ? 'rotate-180' : ''}`}
@@ -925,7 +927,7 @@ export default function ProjectDetailModal({
                   className="overflow-hidden"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Departing Guest */}
+                    {/* {t('departingGuest')} */}
                     {project.previousBookingId ? (
                       <button
                         type="button"
@@ -933,9 +935,9 @@ export default function ProjectDetailModal({
                         disabled={!!loadingBookingId}
                         className="group bg-gray-50 hover:bg-amber-50/50 rounded-xl p-4 border-l-3 border-amber-400 text-left transition-colors cursor-pointer"
                       >
-                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Departing Guest</p>
+                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">{t('departingGuest')}</p>
                         <div className="space-y-1.5">
-                          <p className="text-sm font-semibold text-gray-900">{project.previousBookingGuestName || 'Guest'}</p>
+                          <p className="text-sm font-semibold text-gray-900">{project.previousBookingGuestName || t('guestDefault')}</p>
                           {project.previousBookingCheckIn && project.previousBookingCheckOut ? (
                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <span>{formatDate(project.previousBookingCheckIn)}</span>
@@ -945,30 +947,30 @@ export default function ProjectDetailModal({
                           ) : (
                             <>
                               {project.previousBookingCheckIn && (
-                                <p className="text-xs text-gray-500">Check-in: {formatDate(project.previousBookingCheckIn)}</p>
+                                <p className="text-xs text-gray-500">{t('checkInLabel')}: {formatDate(project.previousBookingCheckIn)}</p>
                               )}
                               {project.previousBookingCheckOut && (
-                                <p className="text-xs text-gray-500">Check-out: {formatDate(project.previousBookingCheckOut)}</p>
+                                <p className="text-xs text-gray-500">{t('checkOutLabel')}: {formatDate(project.previousBookingCheckOut)}</p>
                               )}
                             </>
                           )}
                         </div>
                         <div className="mt-2 flex justify-end">
                           {loadingBookingId === project.previousBookingId ? (
-                            <span className="text-xs text-amber-500 animate-pulse">Loading...</span>
+                            <span className="text-xs text-amber-500 animate-pulse">{t('loading')}</span>
                           ) : (
-                            <span className="text-xs text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">View details &rarr;</span>
+                            <span className="text-xs text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">{t('viewDetailsArrow')} &rarr;</span>
                           )}
                         </div>
                       </button>
                     ) : (
                       <div className="bg-gray-50 rounded-xl p-4 border-l-3 border-amber-400">
-                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Departing Guest</p>
-                        <p className="text-sm text-gray-400 italic">No booking linked</p>
+                        <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">{t('departingGuest')}</p>
+                        <p className="text-sm text-gray-400 italic">{t('noBookingLinked')}</p>
                       </div>
                     )}
 
-                    {/* Arriving Guest */}
+                    {/* {t('arrivingGuest')} */}
                     {project.nextBookingId ? (
                       <button
                         type="button"
@@ -976,9 +978,9 @@ export default function ProjectDetailModal({
                         disabled={!!loadingBookingId}
                         className="group bg-gray-50 hover:bg-blue-50/50 rounded-xl p-4 border-l-3 border-blue-400 text-left transition-colors cursor-pointer"
                       >
-                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Arriving Guest</p>
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">{t('arrivingGuest')}</p>
                         <div className="space-y-1.5">
-                          <p className="text-sm font-semibold text-gray-900">{project.nextBookingGuestName || 'Guest'}</p>
+                          <p className="text-sm font-semibold text-gray-900">{project.nextBookingGuestName || t('guestDefault')}</p>
                           {project.nextBookingCheckIn && project.nextBookingCheckOut ? (
                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <span>{formatDate(project.nextBookingCheckIn)}</span>
@@ -988,26 +990,26 @@ export default function ProjectDetailModal({
                           ) : (
                             <>
                               {project.nextBookingCheckIn && (
-                                <p className="text-xs text-gray-500">Check-in: {formatDate(project.nextBookingCheckIn)}</p>
+                                <p className="text-xs text-gray-500">{t('checkInLabel')}: {formatDate(project.nextBookingCheckIn)}</p>
                               )}
                               {project.nextBookingCheckOut && (
-                                <p className="text-xs text-gray-500">Check-out: {formatDate(project.nextBookingCheckOut)}</p>
+                                <p className="text-xs text-gray-500">{t('checkOutLabel')}: {formatDate(project.nextBookingCheckOut)}</p>
                               )}
                             </>
                           )}
                         </div>
                         <div className="mt-2 flex justify-end">
                           {loadingBookingId === project.nextBookingId ? (
-                            <span className="text-xs text-blue-500 animate-pulse">Loading...</span>
+                            <span className="text-xs text-blue-500 animate-pulse">{t('loading')}</span>
                           ) : (
-                            <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View details &rarr;</span>
+                            <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">{t('viewDetailsArrow')} &rarr;</span>
                           )}
                         </div>
                       </button>
                     ) : (
                       <div className="bg-gray-50 rounded-xl p-4 border-l-3 border-blue-400">
-                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Arriving Guest</p>
-                        <p className="text-sm text-gray-400 italic">No booking linked</p>
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">{t('arrivingGuest')}</p>
+                        <p className="text-sm text-gray-400 italic">{t('noBookingLinked')}</p>
                       </div>
                     )}
                   </div>
@@ -1021,7 +1023,7 @@ export default function ProjectDetailModal({
             <div className="border-t border-gray-100 pt-4">
               <div className="flex items-center gap-2 text-gray-500 mb-2">
                 <DocumentTextIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">PM Notes</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('pmNotes')}</span>
               </div>
               <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{project.pmNotes}</p>
             </div>
@@ -1032,7 +1034,7 @@ export default function ProjectDetailModal({
             <div className="border-t border-gray-100 pt-4">
               <div className="flex items-center gap-2 text-teal-600 mb-2">
                 <PencilSquareIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Cleaner Notes</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('cleanerNotes')}</span>
               </div>
               <p className="text-sm text-gray-700 bg-teal-50 rounded-lg p-3 border-l-3 border-teal-400">{project.cleanerNotes}</p>
             </div>
@@ -1043,7 +1045,7 @@ export default function ProjectDetailModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-gray-500">
                 <ClipboardDocumentCheckIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Checklist</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('checklistLabel')}</span>
                 {checklistProgress && checklistProgress.totalItems > 0 && (
                   <span className="ml-2 text-xs font-semibold text-purple-600">
                     {checklistProgress.completedItems}/{checklistProgress.totalItems} ({getCompletionPercentage(checklistProgress)}%)
@@ -1056,21 +1058,21 @@ export default function ProjectDetailModal({
                   disabled={isInitializingChecklist}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {isInitializingChecklist ? 'Initializing...' : 'Initialize Checklist'}
+                  {isInitializingChecklist ? t('initializingChecklist') : t('initializeChecklist')}
                 </button>
               )}
             </div>
 
             {isLoadingChecklist ? (
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500">Loading checklist...</p>
+                <p className="text-sm text-gray-500">{t('loadingChecklist')}</p>
               </div>
             ) : checklistItems.length > 0 ? (
               <div className="bg-gray-50 rounded-xl p-4 max-h-64 overflow-y-auto">
                 {Object.entries(groupChecklistItemsByRoom(checklistItems)).map(([roomName, items]) => (
                   <div key={roomName} className="mb-4 last:mb-0">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      {roomName || 'General'}
+                      {roomName || t('generalRoom')}
                     </p>
                     <div className="space-y-2">
                       {items.map(item => (
@@ -1111,10 +1113,10 @@ export default function ProjectDetailModal({
                                     downloadFn: () => downloadChecklistPhotoWatermarked(project.id, item.id),
                                   })}
                                   className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors cursor-pointer"
-                                  title="View photo"
+                                  title={t('viewPhoto')}
                                 >
                                   <CameraIcon className="w-3.5 h-3.5" />
-                                  View
+                                  {t('viewButton')}
                                 </button>
                                 {(item.photoTakenAt || item.photoUploadedAt) && (
                                   <span className="text-[10px] text-gray-400">
@@ -1128,7 +1130,7 @@ export default function ProjectDetailModal({
                             ) : item.requiresPhoto ? (
                               <span className="inline-flex items-center gap-0.5 px-2 py-1 text-xs text-amber-600 bg-amber-50 rounded-lg">
                                 <CameraIcon className="w-3.5 h-3.5" />
-                                Required
+                                {t('photoRequired')}
                               </span>
                             ) : null}
                           </div>
@@ -1140,11 +1142,11 @@ export default function ProjectDetailModal({
               </div>
             ) : project.checklistId ? (
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500">Checklist not initialized yet</p>
+                <p className="text-sm text-gray-500">{t('checklistNotInitialized')}</p>
               </div>
             ) : (
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500">No checklist assigned</p>
+                <p className="text-sm text-gray-500">{t('noChecklist')}</p>
               </div>
             )}
           </div>
@@ -1154,7 +1156,7 @@ export default function ProjectDetailModal({
             <div className="border-t border-gray-100 pt-4">
               <div className="flex items-center gap-2 text-gray-500 mb-3 px-1">
                 <CameraIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Walkthrough Photos</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('walkthroughPhotosLabel')}</span>
               </div>
               <WalkthroughAccordion
                 walkthrough={walkthrough}
@@ -1213,7 +1215,7 @@ export default function ProjectDetailModal({
               <div className="border-t border-gray-100 pt-4">
                 <div className="flex items-center gap-2 text-gray-500 mb-3">
                   <PhotoIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">Photos</span>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('photos')}</span>
                   {totalPhotoCount > 0 && (
                     <span className="text-xs font-semibold text-purple-600">{totalPhotoCount}</span>
                   )}
@@ -1273,7 +1275,7 @@ export default function ProjectDetailModal({
                   </div>
                 ) : (
                   <div className="bg-gray-50 rounded-xl p-4 text-center">
-                    <p className="text-sm text-gray-500">No photos uploaded</p>
+                    <p className="text-sm text-gray-500">{t('noPhotosUploaded')}</p>
                   </div>
                 )}
               </div>
@@ -1285,7 +1287,7 @@ export default function ProjectDetailModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-gray-500">
                 <ClipboardDocumentCheckIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Supply Lists</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('supplyListsLabel')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1293,14 +1295,14 @@ export default function ProjectDetailModal({
                   className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
                 >
                   <PlusIcon className="w-3.5 h-3.5" />
-                  Request
+                  {t('requestButton')}
                 </button>
                 <button
                   onClick={() => setShowScanReceiptModal(true)}
                   className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
                 >
                   <CameraIcon className="w-3.5 h-3.5" />
-                  Scan Receipt
+                  {t('scanReceipt')}
                 </button>
               </div>
             </div>
@@ -1317,17 +1319,17 @@ export default function ProjectDetailModal({
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        {supplyListCount} supply list{supplyListCount !== 1 ? 's' : ''}
+                        {t('supplyListCountLabel', { count: supplyListCount })}
                       </p>
-                      <p className="text-xs text-gray-500">Tap to review</p>
+                      <p className="text-xs text-gray-500">{t('tapToReview')}</p>
                     </div>
                   </div>
-                  <span className="text-sm text-purple-600 font-medium">View →</span>
+                  <span className="text-sm text-purple-600 font-medium">{t('viewButton')} →</span>
                 </div>
               </button>
             ) : (
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500">No supply requests</p>
+                <p className="text-sm text-gray-500">{t('noSupplyRequests')}</p>
               </div>
             )}
           </div>
@@ -1337,14 +1339,14 @@ export default function ProjectDetailModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-gray-500">
                 <FlagIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">Issues</span>
+                <span className="text-xs font-medium uppercase tracking-wider">{t('issuesLabel')}</span>
               </div>
               <button
                 onClick={() => setShowReportIssueModal(true)}
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
               >
                 <PlusIcon className="w-3.5 h-3.5" />
-                Report Issue
+                {t('reportIssue')}
               </button>
             </div>
 
@@ -1364,27 +1366,27 @@ export default function ProjectDetailModal({
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        {issueCounts.total} issue{issueCounts.total !== 1 ? 's' : ''}
+                        {t('issueCountLabel', { count: issueCounts.total })}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         {issueCounts.open > 0 && (
-                          <span className="text-red-600">{issueCounts.open} open</span>
+                          <span className="text-red-600">{t('openIssuesBadge', { count: issueCounts.open })}</span>
                         )}
                         {issueCounts.acknowledged > 0 && (
-                          <span className="text-amber-600">{issueCounts.acknowledged} acknowledged</span>
+                          <span className="text-amber-600">{t('acknowledgedIssuesBadge', { count: issueCounts.acknowledged })}</span>
                         )}
                         {issueCounts.resolved > 0 && (
-                          <span className="text-green-600">{issueCounts.resolved} resolved</span>
+                          <span className="text-green-600">{t('resolvedIssuesBadge', { count: issueCounts.resolved })}</span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <span className="text-sm text-purple-600 font-medium">View →</span>
+                  <span className="text-sm text-purple-600 font-medium">{t('viewButton')} →</span>
                 </div>
               </button>
             ) : (
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500">No issues reported</p>
+                <p className="text-sm text-gray-500">{t('noIssuesForProject')}</p>
               </div>
             )}
           </div>
@@ -1397,7 +1399,7 @@ export default function ProjectDetailModal({
               onClick={() => setShowDeleteModal(true)}
               className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
             >
-              Delete
+              {t('deleteProject')}
             </button>
           )}
           {hasWrite && onCancel && !LOCKED_STATUSES.includes(project.status) && (
@@ -1406,7 +1408,7 @@ export default function ProjectDetailModal({
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
             >
               <XCircleIcon className="w-3.5 h-3.5" />
-              Cancel Project
+              {t('cancelProject')}
             </button>
           )}
           {hasWrite && project.status === 'in_progress' && (
@@ -1415,7 +1417,7 @@ export default function ProjectDetailModal({
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
-              Unbegin
+              {t('unstartProjectLabel')}
             </button>
           )}
           {hasWrite && (
@@ -1425,7 +1427,7 @@ export default function ProjectDetailModal({
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
               >
                 <BoltIcon className="w-3.5 h-3.5" />
-                Remove Override
+                {t('removeOverride')}
               </button>
             ) : (
               <button
@@ -1433,7 +1435,7 @@ export default function ProjectDetailModal({
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
               >
                 <BoltIcon className="w-3.5 h-3.5" />
-                Override
+                {t('overrideProject')}
               </button>
             )
           )}
@@ -1442,7 +1444,7 @@ export default function ProjectDetailModal({
             onClick={onClose}
             className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
-            Close
+            {t('close')}
           </button>
           {hasWrite && (
             <button
@@ -1450,7 +1452,7 @@ export default function ProjectDetailModal({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer"
             >
               <PencilSquareIcon className="w-3.5 h-3.5" />
-              Edit Project
+              {t('editProject')}
             </button>
           )}
         </div>
@@ -1489,23 +1491,23 @@ export default function ProjectDetailModal({
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
             <XCircleIcon className="h-6 w-6 text-amber-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Project</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('cancelProject')}</h3>
           <p className="text-sm text-gray-600 mb-6">
-            Are you sure you want to cancel the cleaning project for <strong>{project.propertyName}</strong>?
+            {t('confirmCancelProject', { property: project.propertyName })}
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => setShowCancelConfirm(false)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
-              Keep Project
+              {t('keepProject')}
             </button>
             <button
               onClick={handleCancelProject}
               disabled={cancellingProject}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              {cancellingProject ? 'Cancelling...' : 'Cancel Project'}
+              {cancellingProject ? t('cancellingProject') : t('cancelProject')}
             </button>
           </div>
         </div>
@@ -1517,23 +1519,23 @@ export default function ProjectDetailModal({
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
             <ArrowPathIcon className="h-6 w-6 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unbegin Project</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('unbeginProjectTitle')}</h3>
           <p className="text-sm text-gray-600 mb-6">
-            This will revert <strong>{project.propertyName}</strong> back to confirmed status and clear the start time. Checklist progress will be preserved.
+            {t('unbeginProjectDescription', { property: project.propertyName })}
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => setShowUnbeginConfirm(false)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
-              Keep In Progress
+              {t('keepInProgress')}
             </button>
             <button
               onClick={handleUnbeginProject}
               disabled={unbeginning}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {unbeginning ? 'Reverting...' : 'Unbegin Project'}
+              {unbeginning ? t('revertingProject') : t('unbeginProjectTitle')}
             </button>
           </div>
         </div>
@@ -1547,23 +1549,23 @@ export default function ProjectDetailModal({
               <BoltIcon className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Override Project Status</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{t('overrideProjectStatus')}</h3>
               <p className="text-xs text-gray-500">{project.propertyName}</p>
             </div>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            This bypasses all date and status restrictions. The cleaner will be able to work on this project regardless of its scheduled date.
+            {t('overrideProjectDescription')}
           </p>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Set status to:</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('setStatusTo')}</label>
           <select
             value={overrideTarget}
             onChange={e => setOverrideTarget(e.target.value)}
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           >
-            <option value="pending">Pending (no cleaner action needed)</option>
-            <option value="assigned">Assigned (awaiting cleaner acceptance)</option>
-            <option value="confirmed">Confirmed (ready for cleaner to start)</option>
-            <option value="in_progress">In Progress (start immediately)</option>
+            <option value="pending">{t('overrideOptionPending')}</option>
+            <option value="assigned">{t('overrideOptionAssigned')}</option>
+            <option value="confirmed">{t('overrideOptionConfirmed')}</option>
+            <option value="in_progress">{t('overrideOptionInProgress')}</option>
           </select>
           <div className="flex gap-3 justify-end mt-5">
             <button
@@ -1577,7 +1579,7 @@ export default function ProjectDetailModal({
               disabled={overriding}
               className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {overriding ? 'Overriding...' : 'Override'}
+              {overriding ? t('overridingProject') : t('overrideProject')}
             </button>
           </div>
         </div>

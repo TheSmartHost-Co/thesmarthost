@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import type { ChecklistProgress, CleaningProjectStatus } from '@/services/types/cleaningProject'
@@ -16,13 +17,13 @@ interface ChecklistHeaderProps {
   status?: CleaningProjectStatus
 }
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-gray-400/20 text-gray-200' },
-  assigned: { label: 'Awaiting', className: 'bg-amber-400/20 text-amber-200' },
-  confirmed: { label: 'Confirmed', className: 'bg-blue-400/20 text-blue-200' },
-  in_progress: { label: 'In Progress', className: 'bg-emerald-400/20 text-emerald-200' },
-  completed: { label: 'Completed', className: 'bg-green-400/20 text-green-200' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-400/20 text-red-200' },
+const statusConfig: Record<string, { labelKey: string; className: string }> = {
+  pending: { labelKey: 'pendingStatus', className: 'bg-gray-400/20 text-gray-200' },
+  assigned: { labelKey: 'awaitingResponse', className: 'bg-amber-400/20 text-amber-200' },
+  confirmed: { labelKey: 'confirmedStatus', className: 'bg-blue-400/20 text-blue-200' },
+  in_progress: { labelKey: 'inProgressStatus', className: 'bg-emerald-400/20 text-emerald-200' },
+  completed: { labelKey: 'completedStatus', className: 'bg-green-400/20 text-green-200' },
+  cancelled: { labelKey: 'cancelledStatus', className: 'bg-red-400/20 text-red-200' },
 }
 
 function formatHeaderDate(dateStr?: string) {
@@ -41,6 +42,7 @@ export default function ChecklistHeader({
   projectEndTime,
   status,
 }: ChecklistHeaderProps) {
+  const { t } = useTranslation('cleanerPortal')
   const completionPct = progress?.completionPercentage ?? 0
   const statusInfo = status ? statusConfig[status] : null
 
@@ -65,7 +67,7 @@ export default function ChecklistHeader({
             </button>
           )}
           <h2 className="flex-1 text-sm font-semibold text-white line-clamp-2 leading-snug">
-            {propertyName || 'Checklist'}
+            {propertyName || t('checklistTitle')}
           </h2>
         </div>
 
@@ -80,7 +82,7 @@ export default function ChecklistHeader({
         <div className="flex items-center gap-2 mt-1.5 ml-8">
           {statusInfo && (
             <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusInfo.className}`}>
-              {statusInfo.label}
+              {t(statusInfo.labelKey)}
             </span>
           )}
           {progress && (

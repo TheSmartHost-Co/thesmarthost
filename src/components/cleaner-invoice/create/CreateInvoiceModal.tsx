@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../shared/modal'
 import { createInvoice, getAvailableProjects, getAvailableExpenses } from '@/services/cleanerInvoiceService'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { CleanerInvoice, AvailableProject, AvailableExpense } from '@/services/types/cleanerInvoice'
@@ -66,18 +67,18 @@ function calcAmount(
   return 0
 }
 
-/** Get rate label for display */
-function getRateLabel(project: AvailableProject, cleanerHourlyRate?: number): string {
+/** Get rate label for display — uses t() from caller */
+function getRateLabel(project: AvailableProject, cleanerHourlyRate: number | undefined, t: (key: string, opts?: Record<string, string>) => string): string {
   if (project.propertyRateType === 'flat' && project.propertyRateAmount) {
-    return `$${project.propertyRateAmount.toFixed(2)} flat`
+    return `$${project.propertyRateAmount.toFixed(2)} ${t('flatRateShort')}`
   }
   if (project.propertyRateType === 'hourly' && project.propertyRateAmount) {
-    return `$${project.propertyRateAmount.toFixed(2)}/hr`
+    return `$${project.propertyRateAmount.toFixed(2)}/${t('hourlyRateShort')}`
   }
   if (cleanerHourlyRate) {
-    return `$${cleanerHourlyRate.toFixed(2)}/hr (default)`
+    return `$${cleanerHourlyRate.toFixed(2)}/${t('hourlyRateShort')} (${t('defaultLower')})`
   }
-  return 'No rate set'
+  return t('noRateSetLabel')
 }
 
 function isHourlyRate(project: AvailableProject, cleanerHourlyRate?: number): boolean {
@@ -127,6 +128,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [taxGstEnabled, setTaxGstEnabled] = useState(cleaner.taxGstEnabled || false)
   const [taxQstEnabled, setTaxQstEnabled] = useState(cleaner.taxQstEnabled || false)
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Fetch projects and expenses when modal opens or dates change
@@ -381,16 +383,16 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
       if (res.status === 'success') {
         showNotification(
-          `Invoice ${res.data.invoiceNumber} generated with ${res.data.items?.length || selectedCount} items`,
+          t('invoiceGeneratedWithItems', { number: res.data.invoiceNumber, count: res.data.items?.length || selectedCount }),
           'success'
         )
         onCreated(res.data)
       } else {
-        showNotification(res.message || 'Failed to generate invoice', 'error')
+        showNotification(res.message || t('failedToGenerateInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error creating invoice:', err)
-      showNotification(err instanceof Error ? err.message : 'Error generating invoice', 'error')
+      showNotification(err instanceof Error ? err.message : t('errorGeneratingInvoice'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -402,9 +404,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-3xl w-[95%] sm:w-11/12 max-h-[90vh] flex flex-col">
       {/* Header */}
       <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-gray-100">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Generate Invoice</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t('generateInvoiceTitle')}</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Select a date range, review your projects, and adjust hours or amounts before generating
+          {t('generateInvoiceSubtitle')}
         </p>
       </div>
 
@@ -413,18 +415,18 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         {/* Quick Presets */}
         <div className="flex flex-wrap gap-2 mb-4">
           {[
-            { label: 'Current Month', getRange: () => {
+            { label: t('currentMonth'), getRange: () => {
               const now = new Date()
               return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now }
             }},
-            { label: 'Last Month', getRange: () => {
+            { label: t('lastMonth'), getRange: () => {
               const now = new Date()
               return {
                 start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
                 end: new Date(now.getFullYear(), now.getMonth(), 0), // last day of previous month
               }
             }},
-            { label: 'Past 2 Weeks', getRange: () => {
+            { label: t('pastTwoWeeks'), getRange: () => {
               const now = new Date()
               const twoWeeksAgo = new Date(now)
               twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
@@ -455,7 +457,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         {/* Date Range */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Period Start</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('periodStart')}</label>
             <div className="relative">
               <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -467,7 +469,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Period End</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('periodEnd')}</label>
             <div className="relative">
               <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -485,7 +487,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           <div className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
               <div className="w-7 h-7 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-gray-500">Searching for completed projects...</span>
+              <span className="text-sm text-gray-500">{t('searchingCompletedProjects')}</span>
             </div>
           </div>
         ) : availableProjects.length > 0 ? (
@@ -504,21 +506,21 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   {allSelected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                 </button>
                 <span className="text-sm font-semibold text-gray-700">
-                  {availableProjects.length} completed project{availableProjects.length !== 1 ? 's' : ''}
+                  {t('completedProjectCount', { count: availableProjects.length })}
                 </span>
               </div>
               <span className="text-xs text-gray-400">
-                {selectedCount} selected
+                {t('selectedCount', { count: selectedCount })}
               </span>
             </div>
 
             {/* Column Headers (desktop) */}
             <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto_auto_auto] gap-2 px-4 pb-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
               <div className="w-5" />
-              <div>Project</div>
-              <div className="text-center w-20">Rate</div>
-              <div className="text-center w-32">Duration</div>
-              <div className="text-right w-28">Amount</div>
+              <div>{t('projectColumnHeader')}</div>
+              <div className="text-center w-20">{t('rateColumnHeader')}</div>
+              <div className="text-center w-32">{t('durationColumnHeader')}</div>
+              <div className="text-right w-28">{t('amountColumnHeader')}</div>
             </div>
 
             {/* Project List */}
@@ -527,7 +529,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 const isSelected = selectedIds.has(project.id)
                 const override = overrides.get(project.id)
                 const hourly = isHourlyRate(project, cleaner.hourlyRate)
-                const rateLabel = getRateLabel(project, cleaner.hourlyRate)
+                const rateLabel = getRateLabel(project, cleaner.hourlyRate, t)
 
                 return (
                   <div
@@ -553,7 +555,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         <div className="flex items-center gap-1.5">
                           <BuildingOfficeIcon className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {project.propertyName || project.propertyAddress || 'Unknown Property'}
+                            {project.propertyName || project.propertyAddress || t('unknownProperty')}
                           </p>
                         </div>
                         <p className="text-xs text-gray-400 ml-5">{formatProjectDate(project.projectDate)}</p>
@@ -576,7 +578,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                               onClick={(e) => e.stopPropagation()}
                               className="w-12 px-1.5 py-1 text-xs text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                             />
-                            <span className="text-[10px] text-gray-400">hr</span>
+                            <span className="text-[10px] text-gray-400">{t('hrShort')}</span>
                             <input
                               type="number"
                               min="0"
@@ -586,7 +588,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                               onClick={(e) => e.stopPropagation()}
                               className="w-12 px-1.5 py-1 text-xs text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                             />
-                            <span className="text-[10px] text-gray-400">min</span>
+                            <span className="text-[10px] text-gray-400">{t('minShort')}</span>
                           </div>
                         ) : (
                           <p className="text-xs text-gray-400 text-center">—</p>
@@ -612,9 +614,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                                 ? 'bg-blue-100 text-blue-600'
                                 : 'bg-gray-100 text-gray-400 line-through hover:bg-gray-200'
                             }`}
-                            title={override?.isTaxable ? 'Taxable — click to remove' : 'Not taxable — click to add'}
+                            title={override?.isTaxable ? t('taxableClickRemove') : t('notTaxableClickAdd')}
                           >
-                            TAX
+                            {t('taxShort')}
                           </button>
                           <span className="text-xs text-gray-400">$</span>
                           <input
@@ -653,7 +655,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <BuildingOfficeIcon className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {project.propertyName || project.propertyAddress || 'Unknown'}
+                              {project.propertyName || project.propertyAddress || t('unknownProperty')}
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 ml-5 mb-2">
@@ -672,7 +674,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                                   onChange={(e) => handleHoursChange(project.id, e.target.value)}
                                   className="w-12 px-1.5 py-1 text-xs text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 />
-                                <span className="text-[10px] text-gray-400">hr</span>
+                                <span className="text-[10px] text-gray-400">{t('hrShort')}</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -681,7 +683,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                                   onChange={(e) => handleMinsChange(project.id, e.target.value)}
                                   className="w-12 px-1.5 py-1 text-xs text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 />
-                                <span className="text-[10px] text-gray-400">min</span>
+                                <span className="text-[10px] text-gray-400">{t('minShort')}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-1">
@@ -710,7 +712,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
 
             <p className="text-[11px] text-gray-400 mt-2">
-              Hours and amounts are pre-filled from your rates. Edit them if needed — you can also adjust everything after the invoice is generated.
+              {t('hoursAmountsPrefilledHint')}
             </p>
           </div>
         ) : !loadingExpenses && availableExpenses.length === 0 ? (
@@ -718,9 +720,9 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
               <ExclamationTriangleIcon className="h-7 w-7 text-gray-400" />
             </div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">No projects found</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">{t('noProjectsFound')}</h3>
             <p className="text-xs text-gray-500 max-w-xs">
-              No uninvoiced completed cleaning projects found for this date range. Try adjusting the dates.
+              {t('noUninvoicedProjectsHint')}
             </p>
           </div>
         ) : null}
@@ -730,7 +732,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           <div className="flex items-center justify-center py-8">
             <div className="flex flex-col items-center gap-3">
               <div className="w-7 h-7 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-gray-500">Searching for reimbursable expenses...</span>
+              <span className="text-sm text-gray-500">{t('searchingReimbursableExpenses')}</span>
             </div>
           </div>
         ) : availableExpenses.length > 0 ? (
@@ -749,11 +751,11 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   {selectedExpenseIds.size === availableExpenses.length && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                 </button>
                 <span className="text-sm font-semibold text-gray-700">
-                  {availableExpenses.length} reimbursable expense{availableExpenses.length !== 1 ? 's' : ''}
+                  {t('reimbursableExpenseCount', { count: availableExpenses.length })}
                 </span>
               </div>
               <span className="text-xs text-gray-400">
-                {selectedExpenseIds.size} selected
+                {t('selectedCount', { count: selectedExpenseIds.size })}
               </span>
             </div>
 
@@ -779,7 +781,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {expense.vendorName || 'Unknown Vendor'}
+                        {expense.vendorName || t('unknownVendor')}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         {expense.propertyName && (
@@ -791,7 +793,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {expense.receiptId && (
-                        <DocumentTextIcon className="h-4 w-4 text-blue-400" title="Has receipt" />
+                        <DocumentTextIcon className="h-4 w-4 text-blue-400" title={t('hasReceipt')} />
                       )}
                       <span className="text-sm font-semibold text-gray-900 tabular-nums">
                         ${expense.amount.toFixed(2)}
@@ -810,7 +812,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         {/* Tax Toggles */}
         {selectedCount > 0 && (
           <div className="flex flex-wrap items-center gap-3 mb-3">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tax:</span>
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">{t('taxLabel')}:</span>
             {([
               { key: 'hst' as const, enabled: taxHstEnabled, setter: setTaxHstEnabled },
               { key: 'gst' as const, enabled: taxGstEnabled, setter: setTaxGstEnabled },
@@ -841,26 +843,26 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           <div className="flex items-center justify-between mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
             <div>
               <p className="text-sm font-semibold text-emerald-800">
-                {selectedIds.size > 0 && `${selectedIds.size} project${selectedIds.size !== 1 ? 's' : ''}`}
+                {selectedIds.size > 0 && t('projectCount', { count: selectedIds.size })}
                 {selectedIds.size > 0 && selectedExpenseIds.size > 0 && ' + '}
-                {selectedExpenseIds.size > 0 && `${selectedExpenseIds.size} expense${selectedExpenseIds.size !== 1 ? 's' : ''}`}
+                {selectedExpenseIds.size > 0 && t('expenseCount', { count: selectedExpenseIds.size })}
               </p>
               <p className="text-xs text-emerald-600 mt-0.5">
-                You can continue editing after generating
+                {t('canContinueEditingAfter')}
               </p>
             </div>
             <div className="text-right flex-shrink-0 ml-4">
               {hasTax ? (
                 <>
-                  <p className="text-xs text-emerald-600">Subtotal: ${selectedSubtotal.toFixed(2)}</p>
-                  {taxHstEnabled && <p className="text-[10px] text-emerald-500">HST: ${taxPreview.hst.toFixed(2)}</p>}
-                  {taxGstEnabled && <p className="text-[10px] text-emerald-500">GST: ${taxPreview.gst.toFixed(2)}</p>}
-                  {taxQstEnabled && <p className="text-[10px] text-emerald-500">QST: ${taxPreview.qst.toFixed(2)}</p>}
+                  <p className="text-xs text-emerald-600">{t('subtotal')}: ${selectedSubtotal.toFixed(2)}</p>
+                  {taxHstEnabled && <p className="text-[10px] text-emerald-500">{TAX_RATES.hst.label}: ${taxPreview.hst.toFixed(2)}</p>}
+                  {taxGstEnabled && <p className="text-[10px] text-emerald-500">{TAX_RATES.gst.label}: ${taxPreview.gst.toFixed(2)}</p>}
+                  {taxQstEnabled && <p className="text-[10px] text-emerald-500">{TAX_RATES.qst.label}: ${taxPreview.qst.toFixed(2)}</p>}
                   <p className="text-lg font-bold text-emerald-800 mt-0.5">${selectedTotal.toFixed(2)}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-emerald-600">Total</p>
+                  <p className="text-xs text-emerald-600">{t('total')}</p>
                   <p className="text-xl font-bold text-emerald-800">${selectedTotal.toFixed(2)}</p>
                 </>
               )}
@@ -874,7 +876,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             disabled={isSubmitting}
             className="px-4 py-2.5 min-h-[44px] text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm font-medium"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={handleGenerate}
@@ -882,8 +884,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             className="px-6 py-2.5 min-h-[44px] text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 font-semibold text-sm shadow-lg shadow-emerald-500/25"
           >
             {isSubmitting
-              ? 'Generating...'
-              : `Generate Invoice — $${selectedTotal.toFixed(2)}`
+              ? t('generatingInvoice')
+              : `${t('generateInvoice')} — $${selectedTotal.toFixed(2)}`
             }
           </button>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import type { UploadedReceipt, ReceiptStatus } from '@/services/types/receipt'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
@@ -25,6 +26,7 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
   onOpen,
   actions,
 }) => {
+  const { t } = useTranslation('expenses')
   const status = statusConfig[receipt.status] || statusConfig.pending
   const isImage = receipt.mimeType?.startsWith('image/')
 

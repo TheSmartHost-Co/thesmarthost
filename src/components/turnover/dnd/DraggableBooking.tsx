@@ -1,6 +1,7 @@
 'use client'
 
 import { useDraggable } from '@dnd-kit/core'
+import { useTranslation } from 'react-i18next'
 import type { Booking } from '@/services/types/booking'
 import { parseLocalDate } from '@/utils/dateUtils'
 import type { BookingDragData } from './types'
@@ -32,6 +33,7 @@ export default function DraggableBooking({
   isActivated = false,
   onOpenModal,
 }: DraggableBookingProps) {
+  const { t } = useTranslation('turnover')
   const dragData: BookingDragData = {
     type: 'booking',
     booking,
@@ -67,7 +69,7 @@ export default function DraggableBooking({
             e.stopPropagation()
             onOpenModal()
           }}
-          title="Open details"
+          title={t('openDetails')}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M1 9L9 1M9 1H3M9 1V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SupplyList } from '@/services/types/supplyList'
 import SupplyHubListCard from './SupplyHubListCard'
 import { ShoppingCartIcon } from '@heroicons/react/24/outline'
@@ -22,6 +23,7 @@ export default function SupplyHubListView({
   onScanReceipt,
   canWrite,
 }: SupplyHubListViewProps) {
+  const { t } = useTranslation('turnover')
   const [visibleCount, setVisibleCount] = useState(10)
 
   if (supplyLists.length === 0) {
@@ -30,8 +32,8 @@ export default function SupplyHubListView({
         <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
           <ShoppingCartIcon className="w-7 h-7 text-gray-400" />
         </div>
-        <p className="text-lg font-medium text-gray-900 mb-1">No supply lists found</p>
-        <p className="text-sm text-gray-500">Try adjusting your filters.</p>
+        <p className="text-lg font-medium text-gray-900 mb-1">{t('noSupplyLists')}</p>
+        <p className="text-sm text-gray-500">{t('tryAdjustingFilters')}</p>
       </div>
     )
   }

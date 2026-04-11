@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getScheduleRuns, getRunDetails, formatRunDate, getRunStatusColor, getDeliveryStatusColor } from '@/services/scheduleService'
@@ -33,6 +34,7 @@ const ScheduleRunsModal: React.FC<ScheduleRunsModalProps> = ({
   onClose,
   schedule
 }) => {
+  const { t } = useTranslation('reports')
   const { showNotification } = useNotificationStore()
 
   // State

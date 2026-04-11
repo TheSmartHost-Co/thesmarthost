@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -25,6 +26,7 @@ import Notification from '@/components/shared/notification'
  * 5. Create profile and redirect to dashboard
  */
 export default function SetPasswordPage() {
+  const { t } = useTranslation('auth')
   const router = useRouter()
   const supabase = createClient()
   const setProfile = useUserStore(s => s.setProfile)
@@ -54,7 +56,7 @@ export default function SetPasswordPage() {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
-        notify('Please use the invite link from your email', 'error')
+        notify(t('useInviteLink'), 'error')
         router.push('/login')
         return
       }
@@ -72,7 +74,7 @@ export default function SetPasswordPage() {
 
   async function handleSetPassword() {
     if (!isPasswordValid) {
-      notify('Please meet all password requirements', 'error')
+      notify(t('meetPasswordRequirements'), 'error')
       return
     }
 
@@ -86,7 +88,7 @@ export default function SetPasswordPage() {
 
       if (updateError) {
         console.error('Password update error:', updateError)
-        notify(updateError.message || 'Failed to set password', 'error')
+        notify(updateError.message || t('failedToSetPassword'), 'error')
         setIsLoading(false)
         return
       }
@@ -112,7 +114,7 @@ export default function SetPasswordPage() {
             pmUserId: profileData.pmUserId ?? null,
             permissions: profileData.permissions ?? null,
           })
-          notify('Account setup complete! Welcome to TheSmartHost.', 'success')
+          notify(t('accountSetupComplete'), 'success')
           router.push('/property-manager/dashboard')
         } else if (isClient) {
           setProfile({
@@ -122,7 +124,7 @@ export default function SetPasswordPage() {
             email: userEmail,
             pmUserId: profileData.pmUserId ?? null,
           })
-          notify('Account setup complete! Welcome to your Owner Portal.', 'success')
+          notify(t('accountSetupCompleteOwner'), 'success')
           router.push('/client/dashboard')
         } else {
           setProfile({
@@ -132,17 +134,17 @@ export default function SetPasswordPage() {
             email: userEmail,
             pmUserId: profileData.pmUserId ?? null,
           })
-          notify('Account setup complete! Welcome to TheSmartHost.', 'success')
+          notify(t('accountSetupComplete'), 'success')
           router.push('/cleaner/dashboard')
         }
       } else {
         console.error('Profile creation error:', profileResponse.message)
-        notify(profileResponse.message || 'Failed to create profile', 'error')
+        notify(profileResponse.message || t('failedToCreateProfile'), 'error')
         setIsLoading(false)
       }
     } catch (error) {
       console.error('Set password error:', error)
-      notify(error instanceof Error ? error.message : 'Something went wrong', 'error')
+      notify(error instanceof Error ? error.message : t('somethingWentWrong'), 'error')
       setIsLoading(false)
     }
   }
@@ -155,7 +157,7 @@ export default function SetPasswordPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          Loading...
+          {t('loading')}
         </div>
       </div>
     )
@@ -179,10 +181,10 @@ export default function SetPasswordPage() {
               <LockClosedIcon className="w-7 h-7 text-purple-600" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Create Your Password
+              {t('createYourPassword')}
             </h1>
             <p className="mt-2 text-gray-600">
-              Welcome, {userName}! Set a password to secure your account.
+              {t('welcomeSetPassword', { name: userName })}
             </p>
           </div>
 
@@ -192,7 +194,7 @@ export default function SetPasswordPage() {
               {/* Email (read-only) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email address
+                  {t('emailAddress')}
                 </label>
                 <input
                   type="email"
@@ -205,7 +207,7 @@ export default function SetPasswordPage() {
               {/* Password */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  {t('password')}
                 </label>
                 <div className="relative">
                   <input
@@ -214,7 +216,7 @@ export default function SetPasswordPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full text-gray-900 px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:bg-white transition-all"
-                    placeholder="Create a password"
+                    placeholder={t('createPassword')}
                   />
                   <button
                     type="button"
@@ -233,7 +235,7 @@ export default function SetPasswordPage() {
               {/* Confirm Password */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
+                  {t('confirmPassword')}
                 </label>
                 <div className="relative">
                   <input
@@ -242,7 +244,7 @@ export default function SetPasswordPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full text-gray-900 px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:bg-white transition-all"
-                    placeholder="Confirm your password"
+                    placeholder={t('confirmYourPassword')}
                   />
                   <button
                     type="button"
@@ -260,12 +262,12 @@ export default function SetPasswordPage() {
 
               {/* Password Requirements */}
               <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <p className="text-sm font-medium text-gray-700 mb-2">Password requirements:</p>
-                <PasswordRequirement met={hasMinLength} text="At least 8 characters" />
-                <PasswordRequirement met={hasUppercase} text="One uppercase letter" />
-                <PasswordRequirement met={hasLowercase} text="One lowercase letter" />
-                <PasswordRequirement met={hasNumber} text="One number" />
-                <PasswordRequirement met={passwordsMatch} text="Passwords match" />
+                <p className="text-sm font-medium text-gray-700 mb-2">{t('passwordRequirementsLabel')}</p>
+                <PasswordRequirement met={hasMinLength} text={t('atLeast8Chars')} />
+                <PasswordRequirement met={hasUppercase} text={t('oneUppercase')} />
+                <PasswordRequirement met={hasLowercase} text={t('oneLowercase')} />
+                <PasswordRequirement met={hasNumber} text={t('oneNumber')} />
+                <PasswordRequirement met={passwordsMatch} text={t('passwordsMatch')} />
               </div>
 
               {/* Submit Button */}
@@ -283,17 +285,17 @@ export default function SetPasswordPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Setting up your account...
+                    {t('settingUpAccount')}
                   </span>
                 ) : (
-                  'Complete Setup'
+                  t('completeSetup')
                 )}
               </motion.button>
             </div>
           </div>
 
           <p className="text-center mt-6 text-xs text-gray-500">
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            {t('agreeToTermsContinuing')}
           </p>
         </motion.div>
       </div>

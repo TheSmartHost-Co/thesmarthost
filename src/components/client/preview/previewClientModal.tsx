@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React from 'react'
 import Modal from '../../shared/modal'
 import { Client } from '@/services/types/client'

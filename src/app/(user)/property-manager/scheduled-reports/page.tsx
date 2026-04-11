@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getSchedules, deleteSchedule, toggleSchedule, runScheduleNow, formatScheduleFrequency, formatNextRun } from '@/services/scheduleService'
@@ -34,6 +35,7 @@ import ScheduleActionsModal from '@/components/scheduled-reports/actions/schedul
 export default function ScheduledReportsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('reports')
   usePermissionGuard('scheduled_reports')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -86,16 +88,16 @@ export default function ScheduledReportsPage() {
       const res = await toggleSchedule(schedule.id)
       if (res.status === 'success') {
         showNotification(
-          schedule.isActive ? 'Schedule paused' : 'Schedule activated',
+          schedule.isActive ? t('schedulePaused') : t('scheduleActivated'),
           'success'
         )
         await loadSchedules()
       } else {
-        showNotification(res.message || 'Failed to toggle schedule', 'error')
+        showNotification(res.message || t('failedToToggleSchedule'), 'error')
       }
     } catch (err) {
       console.error('Error toggling schedule:', err)
-      showNotification('Failed to toggle schedule', 'error')
+      showNotification(t('failedToToggleSchedule'), 'error')
     } finally {
       setTogglingId(null)
     }
@@ -106,14 +108,14 @@ export default function ScheduledReportsPage() {
       setRunningId(schedule.id)
       const res = await runScheduleNow(schedule.id)
       if (res.status === 'success') {
-        showNotification('Schedule execution started', 'success')
+        showNotification(t('scheduleExecutionStarted'), 'success')
         await loadSchedules()
       } else {
-        showNotification(res.message || 'Failed to run schedule', 'error')
+        showNotification(res.message || t('failedToRunSchedule'), 'error')
       }
     } catch (err) {
       console.error('Error running schedule:', err)
-      showNotification('Failed to run schedule', 'error')
+      showNotification(t('failedToRunSchedule'), 'error')
     } finally {
       setRunningId(null)
     }
@@ -126,14 +128,14 @@ export default function ScheduledReportsPage() {
       setDeletingId(schedule.id)
       const res = await deleteSchedule(schedule.id)
       if (res.status === 'success') {
-        showNotification('Schedule deleted', 'success')
+        showNotification(t('scheduleDeleted'), 'success')
         await loadSchedules()
       } else {
-        showNotification(res.message || 'Failed to delete schedule', 'error')
+        showNotification(res.message || t('failedToDeleteSchedule'), 'error')
       }
     } catch (err) {
       console.error('Error deleting schedule:', err)
-      showNotification('Failed to delete schedule', 'error')
+      showNotification(t('failedToDeleteSchedule'), 'error')
     } finally {
       setDeletingId(null)
     }
@@ -179,7 +181,7 @@ export default function ScheduledReportsPage() {
           variant: 'default'
         },
         {
-          label: 'Run Now',
+          label: t('runNow'),
           icon: BoltIcon,
           onClick: () => handleRunNow(schedule),
           variant: 'default'
@@ -188,7 +190,7 @@ export default function ScheduledReportsPage() {
     }
 
     actions.push({
-      label: 'View Runs',
+      label: t('viewRuns'),
       icon: ChartBarIcon,
       onClick: () => handleViewRuns(schedule),
       variant: 'default'
@@ -228,7 +230,7 @@ export default function ScheduledReportsPage() {
 
   const statCards = [
     {
-      label: 'Total Schedules',
+      label: t('totalSchedules'),
       value: stats.total,
       icon: ClockIcon,
       bgColor: 'bg-blue-50',
@@ -261,14 +263,14 @@ export default function ScheduledReportsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Scheduled Reports</h1>
-            <p className="text-gray-500 mt-1">Automate report generation and distribution</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('scheduledReports')}</h1>
+            <p className="text-gray-500 mt-1">{t('scheduledReportsSubtitle')}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading schedules...</p>
+            <p className="text-sm text-gray-500">{t('loadingSchedules')}</p>
           </div>
         </div>
       </div>
@@ -280,8 +282,8 @@ export default function ScheduledReportsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Scheduled Reports</h1>
-            <p className="text-gray-500 mt-1">Automate report generation and distribution</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('scheduledReports')}</h1>
+            <p className="text-gray-500 mt-1">{t('scheduledReportsSubtitle')}</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -290,7 +292,7 @@ export default function ScheduledReportsPage() {
               <XCircleIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading schedules</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingSchedules')}</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -308,8 +310,8 @@ export default function ScheduledReportsPage() {
             <ClockIcon className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Scheduled Reports</h1>
-            <p className="text-gray-500">Automate report generation and distribution</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('scheduledReports')}</h1>
+            <p className="text-gray-500">{t('scheduledReportsSubtitle')}</p>
           </div>
         </div>
         {canWrite('scheduled_reports') && (
@@ -369,7 +371,7 @@ export default function ScheduledReportsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:bg-white transition-all"
-              placeholder="Search schedules..."
+              placeholder={t('searchSchedules')}
             />
           </div>
         </div>
@@ -381,7 +383,7 @@ export default function ScheduledReportsPage() {
               <ClockIcon className="w-8 h-8 text-blue-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {searchTerm ? 'No schedules found' : 'No schedules yet'}
+              {searchTerm ? t('noSchedulesFound') : t('noSchedulesYet')}
             </h3>
             <p className="text-gray-500 mb-6 max-w-sm mx-auto">
               {searchTerm

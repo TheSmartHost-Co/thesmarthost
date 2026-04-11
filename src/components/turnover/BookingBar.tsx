@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { Booking } from '@/services/types/booking'
 import type { ZoomLevel } from './TurnoverCalendar'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -69,6 +70,7 @@ function getPlatformStyle(platform: string): { bg: string; text: string; border:
 }
 
 export default function BookingBar({ booking, isClippedLeft, isClippedRight, isActivated = false, compact = false, zoomLevel = 7 }: BookingBarProps) {
+  const { t } = useTranslation('turnover')
   const NOTCH = compact ? 5 : 10
   const style = getPlatformStyle(booking.platform)
 
@@ -237,16 +239,16 @@ export default function BookingBar({ booking, isClippedLeft, isClippedRight, isA
             {!isReservedName(booking.guestName) && <div className="font-semibold">{booking.guestName}</div>}
             <div className="border-t border-gray-700 my-1" />
             <div className="text-gray-300">
-              {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {computedNights > 0 ? `${computedNights} nights` : '\u2014'}
+              {formatShortDate(booking.checkInDate)} &rarr; {booking.checkOutDate ? formatShortDate(booking.checkOutDate) : '?'} &middot; {computedNights > 0 ? `${computedNights} ${t('nights')}` : '\u2014'}
             </div>
             <div className="text-gray-300 mt-0.5">
-              In: {formatTime(checkinTime)} &middot; Out: {formatTime(checkoutTime)}
+              {t('in')}: {formatTime(checkinTime)} &middot; {t('out')}: {formatTime(checkoutTime)}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span style={{ color: style.text }} className="font-medium">{style.label}</span>
             </div>
             {booking.listingName && (
-              <div className="text-gray-300 mt-0.5 truncate">Listing: {booking.listingName}</div>
+              <div className="text-gray-300 mt-0.5 truncate">{t('listing')}: {booking.listingName}</div>
             )}
           </div>
         </div>,

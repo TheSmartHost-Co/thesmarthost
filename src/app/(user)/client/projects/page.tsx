@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeftIcon,
@@ -108,6 +109,7 @@ interface PhotoEntry {
 /* ═══ Main Page ═══ */
 
 export default function ClientProjectsPage() {
+  const { t } = useTranslation('clientPortal')
   const [projects, setProjects] = useState<ClientPortalCleaningProject[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')

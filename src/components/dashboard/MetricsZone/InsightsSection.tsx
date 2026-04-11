@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
 import type { PerformanceInsight } from '@/services/types/dashboard'

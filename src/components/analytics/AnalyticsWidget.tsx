@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChartBarIcon, ArrowPathIcon } from '@heroicons/react/24/outline'

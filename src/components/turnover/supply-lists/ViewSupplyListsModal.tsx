@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import {
   getSupplyListsByProject,
@@ -79,6 +80,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   initialSupplyList,
   onScanReceipt,
 }) => {
+  const { t } = useTranslation('turnover')
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedList, setSelectedList] = useState<SupplyList | null>(null)
@@ -123,11 +125,11 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       if (res.status === 'success') {
         setSupplyLists(res.data)
       } else {
-        showNotification(res.message || 'Failed to load supply lists', 'error')
+        showNotification(res.message || t('failedToLoadSupplyLists'), 'error')
       }
     } catch (err) {
       console.error('Error fetching supply lists:', err)
-      showNotification('Failed to load supply lists', 'error')
+      showNotification(t('failedToLoadSupplyLists'), 'error')
     } finally {
       setLoading(false)
     }
@@ -232,10 +234,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         onSupplyListsChanged?.()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch (err) {
-      showNotification('Failed to update item', 'error')
+      showNotification(t('failedToUpdateItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -280,10 +282,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         onSupplyListsChanged?.()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch {
-      showNotification('Failed to update item', 'error')
+      showNotification(t('failedToUpdateItem'), 'error')
     } finally {
       setActionLoading(false)
       setEditingItemId(null)
@@ -326,12 +328,12 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         setNewItemName('')
         setNewItemQuantity('1')
-        showNotification('Item added', 'success')
+        showNotification(t('itemAdded'), 'success')
       } else {
-        showNotification(res.message || 'Failed to add item', 'error')
+        showNotification(res.message || t('failedToAddItem'), 'error')
       }
     } catch (err) {
-      showNotification('Failed to add item', 'error')
+      showNotification(t('failedToAddItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -348,12 +350,12 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       if (res.status === 'success') {
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
-        showNotification('Item removed', 'success')
+        showNotification(t('itemRemoved'), 'success')
       } else {
-        showNotification(res.message || 'Failed to remove item', 'error')
+        showNotification(res.message || t('failedToRemoveItem'), 'error')
       }
     } catch (err) {
-      showNotification('Failed to remove item', 'error')
+      showNotification(t('failedToRemoveItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -366,15 +368,15 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     try {
       const res = await fulfillSupplyList(selectedList.id, fulfilledBy)
       if (res.status === 'success') {
-        showNotification('Supply list marked as fulfilled', 'success')
+        showNotification(t('supplyListFulfilled'), 'success')
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         onSupplyListsChanged?.()
       } else {
-        showNotification(res.message || 'Failed to fulfill supply list', 'error')
+        showNotification(res.message || t('failedToFulfillSupplyList'), 'error')
       }
     } catch (err) {
-      showNotification('Failed to fulfill supply list', 'error')
+      showNotification(t('failedToFulfillSupplyList'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -387,7 +389,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     try {
       const res = await deleteSupplyList(selectedList.id)
       if (res.status === 'success') {
-        showNotification('Supply list deleted', 'success')
+        showNotification(t('supplyListDeleted'), 'success')
         setSupplyLists(prev => prev.filter(sl => sl.id !== selectedList.id))
         setShowDeleteConfirm(false)
         onSupplyListsChanged?.()
@@ -397,10 +399,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
           setSelectedList(null)
         }
       } else {
-        showNotification(res.message || 'Failed to delete', 'error')
+        showNotification(res.message || t('failedToDelete'), 'error')
       }
     } catch (err) {
-      showNotification('Failed to delete supply list', 'error')
+      showNotification(t('failedToDeleteSupplyList'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -413,7 +415,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     try {
       const res = await deleteReceipt(receiptId)
       if (res.status === 'success') {
-        showNotification('Receipt deleted', 'success')
+        showNotification(t('receiptDeleted'), 'success')
         setReceipts(prev => prev.filter(r => r.id !== receiptId))
         setConfirmDeleteReceiptId(null)
         // Refetch supply list to get updated item statuses
@@ -432,10 +434,10 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         }
         onSupplyListsChanged?.()
       } else {
-        showNotification(res.message || 'Failed to delete receipt', 'error')
+        showNotification(res.message || t('failedToDeleteReceipt'), 'error')
       }
     } catch {
-      showNotification('Error deleting receipt', 'error')
+      showNotification(t('errorDeletingReceipt'), 'error')
     } finally {
       setDeletingReceiptId(null)
     }
@@ -515,11 +517,11 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
             )}
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {selectedList ? 'Supply List Details' : 'Supply Lists'}
+                {selectedList ? t('supplyListDetails') : t('supplyListsTitle')}
               </h2>
               <p className="text-sm text-gray-500">
                 {selectedList
-                  ? `Submitted ${formatSupplyListAge(selectedList.createdAt)}`
+                  ? t('submittedAgo', { time: formatSupplyListAge(selectedList.createdAt) })
                   : projectName || `${supplyLists.length} list${supplyLists.length !== 1 ? 's' : ''}`
                 }
               </p>
@@ -558,7 +560,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 value={listNotes}
                 onChange={(e) => setListNotes(e.target.value)}
                 onBlur={handleUpdateListNotes}
-                placeholder="Add notes for this supply list..."
+                placeholder={t('addNotesForSupplyList')}
                 rows={2}
                 className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded-lg focus:ring-1 focus:ring-teal-300 bg-gray-50 focus:bg-white resize-none transition-colors"
               />
@@ -567,7 +569,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               {selectedList.items.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} purchased</span>
+                    <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} {t('purchasedLabel').toLowerCase()}</span>
                     <span>{getProgress(selectedList).percentage}%</span>
                   </div>
                   <ProgressBar percentage={getProgress(selectedList).percentage} />
@@ -581,9 +583,9 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 return (
                   <div className="flex items-center gap-1.5">
                     {([
-                      { key: 'all' as const, label: 'All', count: selectedList.items.length },
-                      { key: 'remaining' as const, label: 'Remaining', count: remaining },
-                      { key: 'purchased' as const, label: 'Purchased', count: purchased },
+                      { key: 'all' as const, label: t('all'), count: selectedList.items.length },
+                      { key: 'remaining' as const, label: t('remaining'), count: remaining },
+                      { key: 'purchased' as const, label: t('purchasedLabel'), count: purchased },
                     ]).map(({ key, label, count }) => (
                       <button
                         key={key}
@@ -646,14 +648,14 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               onClick={() => setEditingItemId(null)}
                               className="px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
                             >
-                              Cancel
+                              {t('cancel')}
                             </button>
                             <button
                               onClick={handleSaveItemEdit}
                               disabled={actionLoading || !editName.trim()}
                               className="px-2.5 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 cursor-pointer"
                             >
-                              {actionLoading ? 'Saving...' : 'Save'}
+                              {actionLoading ? t('saving') : t('saveChanges')}
                             </button>
                           </div>
                         </div>
@@ -726,7 +728,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               } : null)
                             }}
                             onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
-                            placeholder="Add a note..."
+                            placeholder={t('addANote')}
                             className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
                           />
                         </div>
@@ -750,14 +752,14 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
                     <DocumentTextIcon className="w-4 h-4 text-gray-400" />
-                    Receipts
+                    {t('receipts')}
                   </h4>
                   {onScanReceipt && selectedList && (
                     <button
                       onClick={() => onScanReceipt(selectedList)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                     >
-                      <CameraIcon className="w-3.5 h-3.5" /> Scan Receipt
+                      <CameraIcon className="w-3.5 h-3.5" /> {t('scanReceipt')}
                     </button>
                   )}
                 </div>
@@ -766,7 +768,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                     <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
                   </div>
                 ) : receipts.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">No receipts scanned yet</p>
+                  <p className="text-xs text-gray-400 text-center py-3">{t('noReceiptsScannedYet')}</p>
                 ) : (
                   <div className="space-y-2">
                     {receipts.map(receipt => {
@@ -814,14 +816,14 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                                   onClick={() => setReviewReceiptId(receipt.id)}
                                   className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors cursor-pointer"
                                 >
-                                  Review
+                                  {t('review')}
                                 </button>
                               )}
                               <button
                                 onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
                                 disabled={deletingReceiptId === receipt.id}
                                 className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
-                                title="Delete receipt"
+                                title={t('deleteReceipt')}
                               >
                                 <TrashIcon className="w-3.5 h-3.5" />
                               </button>
@@ -839,11 +841,11 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <p className="text-[11px] font-medium text-gray-700">
-                                      Line Items ({lineItems.length})
+                                      {t('lineItems')} ({lineItems.length})
                                     </p>
                                     {lineItems.length > 0 && (
                                       <p className="text-[11px] font-medium text-teal-600">
-                                        Total: ${lineItems.reduce((sum, li) => sum + (Number(li.totalPrice) || 0), 0).toFixed(2)}
+                                        {t('total')}: ${lineItems.reduce((sum, li) => sum + (Number(li.totalPrice) || 0), 0).toFixed(2)}
                                       </p>
                                     )}
                                   </div>
@@ -868,22 +870,22 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                             <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
                               <p className="text-[10px] text-red-700 mb-1.5">
                                 {receipt.status === 'applied'
-                                  ? 'This will delete the linked expense and revert matched items to unpurchased.'
-                                  : 'Delete this receipt?'}
+                                  ? t('deleteReceiptLinkedWarning')
+                                  : t('deleteThisReceipt')}
                               </p>
                               <div className="flex gap-1.5">
                                 <button
                                   onClick={() => setConfirmDeleteReceiptId(null)}
                                   className="flex-1 py-1 text-[10px] font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
                                 >
-                                  Cancel
+                                  {t('cancel')}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteReceipt(receipt.id)}
                                   disabled={!!deletingReceiptId}
                                   className="flex-1 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                  {deletingReceiptId === receipt.id ? 'Deleting...' : 'Delete'}
+                                  {deletingReceiptId === receipt.id ? t('deleting') : t('deleteList')}
                                 </button>
                               </div>
                             </div>
@@ -900,7 +902,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
                   <CheckCircleIcon className="w-6 h-6 text-green-600" />
                   <div>
-                    <p className="font-medium text-green-700">Fulfilled</p>
+                    <p className="font-medium text-green-700">{t('fulfilled')}</p>
                     <p className="text-sm text-green-600">
                       {new Date(selectedList.fulfilledAt).toLocaleString()}
                     </p>
@@ -912,21 +914,21 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               {showDeleteConfirm && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-sm text-red-700 font-medium mb-3">
-                    Are you sure you want to delete this supply list?
+                    {t('confirmDeleteSupplyList')}
                   </p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
                       className="flex-1 py-2 px-3 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                     <button
                       onClick={handleDelete}
                       disabled={actionLoading}
                       className="flex-1 py-2 px-3 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                     >
-                      {actionLoading ? 'Deleting...' : 'Delete'}
+                      {actionLoading ? t('deleting') : t('deleteList')}
                     </button>
                   </div>
                 </div>
@@ -947,7 +949,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               ) : supplyLists.length === 0 ? (
                 <div className="text-center py-12">
                   <ClipboardDocumentListIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No supply requests</p>
+                  <p className="text-gray-500">{t('noSupplyLists')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -993,7 +995,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               )}
                               {list.status !== 'fulfilled' && progress.purchasedItems > 0 && (
                                 <span className="text-teal-600">
-                                  {progress.purchasedItems}/{progress.totalItems} purchased
+                                  {progress.purchasedItems}/{progress.totalItems} {t('purchasedLabel').toLowerCase()}
                                 </span>
                               )}
                             </div>
@@ -1026,7 +1028,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && newItemName.trim() && handleAddItem()}
-              placeholder="Add new item..."
+              placeholder={t('addNewItemPlaceholder')}
               className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
             <input
@@ -1053,7 +1055,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <CheckCircleIcon className="w-5 h-5" />
-              Mark as Fulfilled
+              {t('markAsFulfilled')}
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}

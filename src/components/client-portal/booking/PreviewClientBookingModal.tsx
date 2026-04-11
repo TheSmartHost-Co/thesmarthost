@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { ClientPortalBooking } from '@/services/types/clientPortal'
 import { getPlatformBadge } from '@/components/client-portal/shared/platformUtils'

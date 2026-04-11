@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { createCleaner } from '@/services/cleanerService'
 import { CreateCleanerPayload, Cleaner } from '@/services/types/cleaner'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 
@@ -34,6 +35,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
   const [turnaroundMinutes, setTurnaroundMinutes] = useState(120)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -56,31 +58,31 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
     const trimmedPhone = phone.trim()
 
     if (!trimmedName) {
-      showNotification('Cleaner name is required', 'error')
+      showNotification(t('cleanerNameRequired'), 'error')
       return
     }
 
     if (!trimmedEmail) {
-      showNotification('Email is required for cleaner login', 'error')
+      showNotification(t('emailRequiredForLogin'), 'error')
       return
     }
 
     if (!profile?.id) {
-      showNotification('User profile not found', 'error')
+      showNotification(t('userProfileNotFound'), 'error')
       return
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(trimmedEmail)) {
-      showNotification('Please enter a valid email address', 'error')
+      showNotification(t('pleaseEnterValidEmail'), 'error')
       return
     }
 
     // Validate hourly rate if provided
     const rate = hourlyRate ? parseFloat(hourlyRate) : undefined
     if (hourlyRate && (isNaN(rate!) || rate! < 0)) {
-      showNotification('Please enter a valid hourly rate', 'error')
+      showNotification(t('pleaseEnterValidRate'), 'error')
       return
     }
 
@@ -103,17 +105,17 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
         // Show appropriate message based on whether invite was sent
         const inviteSent = (res as { inviteSent?: boolean }).inviteSent !== false
         if (inviteSent) {
-          showNotification('Cleaner created and invite email sent!', 'success')
+          showNotification(t('cleanerCreatedAndInviteSent'), 'success')
         } else {
-          showNotification('Cleaner created but invite email could not be sent', 'info')
+          showNotification(t('cleanerCreatedNoInvite'), 'info')
         }
         onClose()
       } else {
-        showNotification(res.message || 'Failed to create cleaner', 'error')
+        showNotification(res.message || t('failedToCreateCleaner'), 'error')
       }
     } catch (err) {
       console.error('Error creating cleaner:', err)
-      showNotification(err instanceof Error ? err.message : 'Error creating cleaner', 'error')
+      showNotification(err instanceof Error ? err.message : t('errorCreatingCleaner'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -121,7 +123,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[80vh]">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Add New Cleaner</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900">{t('createCleanerTitle')}</h2>
       <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
         {/* Name field */}
         <div>
@@ -208,7 +210,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
             disabled={isSubmitting}
             className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Creating...' : 'Add Cleaner'}
+            {isSubmitting ? t('addingCleaner') : t('addCleanerButton')}
           </button>
         </div>
       </form>

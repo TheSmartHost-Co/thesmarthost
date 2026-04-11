@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { uploadReceipt } from '@/services/receiptService'
 import type { UploadReceiptResponse } from '@/services/types/receipt'
@@ -33,6 +34,7 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
   propertyId,
   supplyListId,
 }) => {
+  const { t } = useTranslation('expenses')
   const [step, setStep] = useState<Step>('select')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -50,11 +52,11 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
 
   const handleFileSelect = (file: File) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
-      showNotification('Invalid file type. Upload an image or PDF.', 'error')
+      showNotification(t('invalidFileType'), 'error')
       return
     }
     if (file.size > MAX_FILE_SIZE) {
-      showNotification('File too large. Maximum 10MB.', 'error')
+      showNotification(t('fileTooLarge'), 'error')
       return
     }
     setSelectedFile(file)
@@ -109,8 +111,8 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="max-w-lg w-full mx-4" closable={step !== 'uploading'}>
       <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">Scan Receipt</h3>
-        <p className="text-sm text-gray-500 mb-5">Upload a receipt image to extract data with OCR</p>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('scanReceipt')}</h3>
+        <p className="text-sm text-gray-500 mb-5">{t('uploadReceiptDescription')}</p>
 
         {step === 'select' && (
           <>
@@ -157,7 +159,7 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
                   className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
                 >
                   <CameraIcon className="w-5 h-5" />
-                  <span className="text-sm font-semibold">Take Photo</span>
+                  <span className="text-sm font-semibold">{t('takePhoto')}</span>
                 </button>
                 <input
                   id="receipt-camera-input"
@@ -175,7 +177,7 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
                 {/* Divider */}
                 <div className="flex items-center gap-3">
                   <div className="flex-1 border-t border-gray-200" />
-                  <span className="text-xs text-gray-400 font-medium">or upload a file</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('orUploadAFile')}</span>
                   <div className="flex-1 border-t border-gray-200" />
                 </div>
 
@@ -201,8 +203,8 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
                     className="hidden"
                   />
                   <CloudArrowUpIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-600">Drag & drop or click to browse</p>
-                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP, or PDF up to 10MB</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dragDropOrBrowse')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('allowedFileTypes')}</p>
                 </div>
               </div>
             )}
@@ -218,14 +220,14 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
                 onClick={onClose}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={handleUpload}
                 disabled={!selectedFile}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Upload & Process
+                {t('uploadAndProcess')}
               </button>
             </div>
           </>
@@ -234,8 +236,8 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
         {step === 'uploading' && (
           <div className="py-12 text-center">
             <ArrowPathIcon className="w-10 h-10 text-blue-500 mx-auto mb-4 animate-spin" />
-            <p className="text-base font-medium text-gray-900 mb-1">Processing receipt...</p>
-            <p className="text-sm text-gray-500">Extracting data with OCR. This may take a few seconds.</p>
+            <p className="text-base font-medium text-gray-900 mb-1">{t('processingReceipt')}</p>
+            <p className="text-sm text-gray-500">{t('extractingDataWithOcr')}</p>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircleIcon,
   ChevronDownIcon,
@@ -65,6 +66,7 @@ export default function WalkthroughAccordion({
   expandedGroupIds,
   onToggleGroup,
 }: WalkthroughAccordionProps) {
+  const { t } = useTranslation('turnover')
   const { effectiveTemplate, orphanedGroups, freeformPhotos } = walkthrough
   const groups = [...effectiveTemplate.groups].sort((a, b) => a.sortOrder - b.sortOrder)
 
@@ -74,7 +76,7 @@ export default function WalkthroughAccordion({
         <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl">
           <PhotoIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
-            Walkthrough photos are optional for this project.
+            {t('walkthroughOptional')}
           </p>
         </div>
       )}
@@ -82,9 +84,9 @@ export default function WalkthroughAccordion({
       {groups.length === 0 && orphanedGroups.length === 0 && freeformPhotos.length === 0 && (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <CameraIcon className="w-10 h-10 text-gray-300 mb-2" />
-          <p className="text-sm text-gray-500">No walkthrough template configured</p>
+          <p className="text-sm text-gray-500">{t('noWalkthroughTemplate')}</p>
           {canEdit && (
-            <p className="text-xs text-gray-400 mt-1">Use &ldquo;Other Photos&rdquo; below to upload freeform images</p>
+            <p className="text-xs text-gray-400 mt-1">{t('useFreeformBelow')}</p>
           )}
         </div>
       )}
@@ -112,7 +114,7 @@ export default function WalkthroughAccordion({
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <ArchiveBoxIcon className="w-4 h-4 text-gray-400" />
-            Archived from previous template
+            {t('archivedFromPrevious')}
           </div>
           {orphanedGroups.map(bucket => (
             <OrphanBucket
@@ -169,6 +171,7 @@ function GroupCard({
   const items = [...group.items].sort((a, b) => a.sortOrder - b.sortOrder)
   const groupPhotoCount = group.photos.length
   const itemPhotoCount = items.reduce((acc, it) => acc + it.photos.length, 0)
+  const { t } = useTranslation('turnover')
   const totalPhotos = groupPhotoCount + itemPhotoCount
 
   // A group is "complete" when every item has ≥1 photo, OR (if no items) when
@@ -207,11 +210,11 @@ function GroupCard({
           )}
           <span className="text-sm font-medium text-gray-900 truncate">{group.name}</span>
           <span className="text-xs text-gray-400 flex-shrink-0">
-            {totalPhotos} photo{totalPhotos !== 1 ? 's' : ''}
+            {totalPhotos} {totalPhotos !== 1 ? t('photos') : t('photo')}
           </span>
           {isMissing && (
             <span className="text-[10px] font-bold uppercase tracking-wide text-red-600 flex-shrink-0">
-              Missing
+              {t('missingLabel')}
             </span>
           )}
         </button>
@@ -234,7 +237,7 @@ function GroupCard({
           {group.photos.length > 0 && (
             <div>
               <div className="text-[10px] font-semibold uppercase text-gray-400 mb-1.5 tracking-wide">
-                Group photos
+                {t('groupPhotos')}
               </div>
               <PhotoGrid
                 photos={group.photos}
@@ -263,7 +266,7 @@ function GroupCard({
           ) : (
             group.photos.length === 0 && (
               <p className="text-xs text-gray-400 italic text-center py-2">
-                No photos yet{canEdit ? '. Tap “Add” above to upload.' : ''}
+                {t('noPhotosYet')}{canEdit ? ` ${t('tapAddAbove')}` : ''}
               </p>
             )
           )}
@@ -350,13 +353,14 @@ interface OrphanBucketProps {
 }
 
 function OrphanBucket({ groupName, photos, canEdit, onDelete, onViewPhoto }: OrphanBucketProps) {
+  const { t } = useTranslation('turnover')
   return (
     <div className="bg-amber-50/50 border border-amber-100 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100">
         <ArchiveBoxIcon className="w-4 h-4 text-amber-500" />
         <span className="text-xs font-medium text-amber-900">{groupName}</span>
         <span className="text-[10px] text-amber-600 ml-auto">
-          {photos.length} photo{photos.length !== 1 ? 's' : ''}
+          {photos.length} {photos.length !== 1 ? t('photos') : t('photo')}
         </span>
       </div>
       <div className="p-2">
@@ -393,15 +397,16 @@ function FreeformSection({
   onDelete,
   onViewPhoto,
 }: FreeformSectionProps) {
+  const { t } = useTranslation('turnover')
   if (!canEdit && photos.length === 0) return null
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <PhotoIcon className="w-5 h-5 text-gray-400" />
-          <span className="text-sm font-medium text-gray-900">Other Photos</span>
+          <span className="text-sm font-medium text-gray-900">{t('otherPhotos')}</span>
           <span className="text-xs text-gray-400">
-            {photos.length} photo{photos.length !== 1 ? 's' : ''}
+            {photos.length} {photos.length !== 1 ? t('photos') : t('photo')}
           </span>
         </div>
         {canEdit && (

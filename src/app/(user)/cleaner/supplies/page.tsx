@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   ShoppingCartIcon,
@@ -26,6 +27,7 @@ import type { UploadReceiptResponse } from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 
 export default function CleanerSuppliesPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -147,7 +149,7 @@ export default function CleanerSuppliesPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading supplies</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingSupplies')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -155,7 +157,7 @@ export default function CleanerSuppliesPage() {
             onClick={fetchData}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -167,8 +169,8 @@ export default function CleanerSuppliesPage() {
       {/* Header with New Request button */}
       <div className="flex items-center justify-between mb-5 sm:mb-8">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Supplies</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Track your supply requests</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('mySupplies')}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('trackSupplyRequests')}</p>
         </div>
         {cleaner && (
           <div className="flex items-center gap-2">
@@ -177,15 +179,15 @@ export default function CleanerSuppliesPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors cursor-pointer"
             >
               <CameraIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Receipt</span>
+              <span className="hidden sm:inline">{t('receipt')}</span>
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors cursor-pointer"
             >
               <PlusIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">New Request</span>
-              <span className="sm:hidden">New</span>
+              <span className="hidden sm:inline">{t('newRequest')}</span>
+              <span className="sm:hidden">{t('new')}</span>
             </button>
           </div>
         )}
@@ -194,10 +196,10 @@ export default function CleanerSuppliesPage() {
       {/* Filter Pills */}
       <div className="flex items-center gap-2 mb-5 sm:mb-6 overflow-x-auto pb-1 -mx-1 px-1">
         {([
-          { key: 'all' as const, label: 'All', count: supplyLists.length, color: 'gray' },
-          { key: 'pending' as const, label: 'Pending', count: pendingCount, color: 'amber' },
-          { key: 'in_progress' as const, label: 'In Progress', count: inProgressCount, color: 'blue' },
-          { key: 'fulfilled' as const, label: 'Fulfilled', count: fulfilledCount, color: 'green' },
+          { key: 'all' as const, label: t('allFilter'), count: supplyLists.length, color: 'gray' },
+          { key: 'pending' as const, label: t('statusPending'), count: pendingCount, color: 'amber' },
+          { key: 'in_progress' as const, label: t('inProgress'), count: inProgressCount, color: 'blue' },
+          { key: 'fulfilled' as const, label: t('fulfilled'), count: fulfilledCount, color: 'green' },
         ]).map(({ key, label, count, color }) => {
           const isActive = statusFilter === key
           const activeStyles: Record<string, string> = {
@@ -235,16 +237,16 @@ export default function CleanerSuppliesPage() {
           <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto">
             <ShoppingCartIcon className="w-8 h-8 text-amber-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-4">No supply requests yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mt-4">{t('noSupplyRequestsYet')}</h3>
           <p className="text-gray-500 mt-2 max-w-md mx-auto">
-            Tap &quot;New Request&quot; to submit a supply request for a cleaning project.
+            {t('noSupplyRequestsDescription')}
           </p>
         </motion.div>
       ) : (
         <div className="space-y-3">
           {filteredLists.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">
-              No {statusFilter === 'all' ? '' : statusFilter.replace('_', ' ')} supply lists
+              {t('noSupplyLists', { status: statusFilter === 'all' ? '' : statusFilter.replace('_', ' ') })}
             </div>
           ) : (
             filteredLists.map((sl, index) => (
@@ -317,6 +319,7 @@ function SupplyCard({
   index: number
   onClick: () => void
 }) {
+  const { t } = useTranslation('cleanerPortal')
   const itemPreview = supplyList.items.slice(0, 3).map(i => i.name).join(', ')
   const remaining = supplyList.items.length - 3
   const statusInfo = SUPPLY_LIST_STATUS_INFO[supplyList.status]
@@ -346,7 +349,7 @@ function SupplyCard({
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-gray-900 truncate">
-              {supplyList.propertyName || 'Unknown Property'}
+              {supplyList.propertyName || t('unknownProperty')}
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
               {supplyList.items.length} item{supplyList.items.length !== 1 ? 's' : ''} &middot; {formatSupplyListAge(supplyList.createdAt)}
@@ -357,7 +360,7 @@ function SupplyCard({
             {supplyList.status !== 'fulfilled' && purchasedCount > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>{purchasedCount}/{totalCount} purchased</span>
+                  <span>{t('purchased', { purchased: purchasedCount, total: totalCount })}</span>
                   <span>{percentage}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">

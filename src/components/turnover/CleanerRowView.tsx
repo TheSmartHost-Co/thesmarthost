@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useEffect, useLayoutEffect, useCallback, useState, useRef, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { DndContext, type DragEndEvent, type DragMoveEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
@@ -73,6 +74,7 @@ export default function CleanerRowView({
   onOpenProjectModal,
   sizeConfig = NORMAL_SIZE_CONFIG,
 }: CleanerRowViewProps) {
+  const { t } = useTranslation('turnover')
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
   const BAR_H = isMobile ? BAR_HEIGHT : sizeConfig.barHeightDesktop
@@ -203,28 +205,28 @@ export default function CleanerRowView({
   const resourceRows: ResourceRow[] = useMemo(() => [
     {
       id: 'unassigned',
-      label: 'Unassigned',
-      sublabel: 'Needs assignment',
+      label: t('unassigned'),
+      sublabel: t('needsAssignment'),
       isUnassigned: true,
       count: unassignedCount,
     },
     ...cleaners.map(c => ({
       id: c.id,
-      label: c.name || c.email || 'Unnamed',
-      sublabel: c.email || c.phone || 'No contact',
+      label: c.name || c.email || t('unnamed'),
+      sublabel: c.email || c.phone || t('noContact'),
       isUnassigned: false,
     })),
-  ], [cleaners, unassignedCount])
+  ], [cleaners, unassignedCount, t])
 
   // Build cleaner name lookup for confirmation modal
   const cleanerNameById = useMemo(() => {
     const map = new Map<string, string>()
-    map.set('unassigned', 'Unassigned')
+    map.set('unassigned', t('unassigned'))
     for (const c of cleaners) {
-      map.set(c.id, c.name || c.email || 'Unnamed')
+      map.set(c.id, c.name || c.email || t('unnamed'))
     }
     return map
-  }, [cleaners])
+  }, [cleaners, t])
 
   const projectsByResource = useMemo(() => {
     const map = new Map<string, typeof positionedProjects>()
@@ -442,7 +444,7 @@ export default function CleanerRowView({
             {isMobile ? (
               <UserCircleIcon className="w-4 h-4 text-gray-400" />
             ) : (
-              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{t('cleanersHeader')}</span>
             )}
           </div>
           {resourceRows.map(row => {
@@ -621,7 +623,7 @@ export default function CleanerRowView({
               {isMobile ? (
                 <UserCircleIcon className="w-4 h-4 text-gray-400" />
               ) : (
-                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cleaners</span>
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{t('cleanersHeader')}</span>
               )}
             </div>
             <div className="flex-1 overflow-hidden">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo } from './types'
@@ -27,6 +28,7 @@ export default function ConfirmDragModal({
   onConfirm,
   onCancel,
 }: ConfirmDragModalProps) {
+  const { t } = useTranslation('turnover')
   const [loading, setLoading] = useState(false)
 
   if (!pendingDrop) return null
@@ -99,7 +101,7 @@ export default function ConfirmDragModal({
   return (
     <Modal isOpen={isOpen} onClose={onCancel} style="w-full max-w-md p-6" zIndex={70}>
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Confirm Move</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{t('confirmMove')}</h3>
         {getDescription()}
         <div className="flex justify-end gap-3 pt-2">
           <button
@@ -107,7 +109,7 @@ export default function ConfirmDragModal({
             disabled={loading}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={handleConfirm}
@@ -117,7 +119,7 @@ export default function ConfirmDragModal({
             {loading && (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             )}
-            Confirm
+            {t('confirm')}
           </button>
         </div>
       </div>
@@ -132,6 +134,7 @@ interface InvalidDropModalProps {
 }
 
 export function InvalidDropModal({ isOpen, info, onClose }: InvalidDropModalProps) {
+  const { t } = useTranslation('turnover')
   if (!info) return null
 
   let message: string
@@ -181,7 +184,7 @@ export function InvalidDropModal({ isOpen, info, onClose }: InvalidDropModalProp
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
           >
-            Got it
+            {t('gotIt')}
           </button>
         </div>
       </div>

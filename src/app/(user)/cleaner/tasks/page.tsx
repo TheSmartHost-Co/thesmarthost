@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   ClipboardDocumentListIcon,
@@ -110,6 +111,7 @@ function CleanerDeepLinkHandler({
   loading: boolean
   onOpenChecklist: (project: CleaningProject) => void
 }) {
+  const { t } = useTranslation('cleanerPortal')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const handleDeepLink = useCallback((result: DeepLinkResult) => {
@@ -118,7 +120,7 @@ function CleanerDeepLinkHandler({
     if (project && project.assignmentType !== 'implicit') {
       onOpenChecklist(project)
     } else {
-      showNotification('Task not found — it may have been reassigned.', 'info')
+      showNotification(t('taskNotFound'), 'info')
     }
   }, [projects, onOpenChecklist, showNotification])
 
@@ -128,6 +130,7 @@ function CleanerDeepLinkHandler({
 }
 
 export default function CleanerTasksPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -253,13 +256,13 @@ export default function CleanerTasksPage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
-        showNotification('Task accepted!', 'success')
+        showNotification(t('taskAccepted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to accept task', 'error')
+        showNotification(res.message || t('failedToAcceptTask'), 'error')
       }
     } catch (err) {
       console.error('Error accepting task:', err)
-      showNotification('Error accepting task', 'error')
+      showNotification(t('errorAcceptingTask'), 'error')
     }
   }
 
@@ -269,13 +272,13 @@ export default function CleanerTasksPage() {
       if (res.status === 'success') {
         // Remove from list since it's no longer assigned to this cleaner
         setProjects(prev => prev.filter(p => p.id !== projectId))
-        showNotification('Task declined', 'info')
+        showNotification(t('taskDeclined'), 'info')
       } else {
-        showNotification(res.message || 'Failed to decline task', 'error')
+        showNotification(res.message || t('failedToDeclineTask'), 'error')
       }
     } catch (err) {
       console.error('Error declining task:', err)
-      showNotification('Error declining task', 'error')
+      showNotification(t('errorDecliningTask'), 'error')
     }
   }
 
@@ -286,16 +289,16 @@ export default function CleanerTasksPage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
-        showNotification('Task started! Good luck!', 'success')
+        showNotification(t('taskStarted'), 'success')
         // Open checklist modal with the updated project data from response
         setSelectedProject(res.data)
         setShowChecklistModal(true)
       } else {
-        showNotification(res.message || 'Failed to start task', 'error')
+        showNotification(res.message || t('failedToStartTask'), 'error')
       }
     } catch (err) {
       console.error('Error starting task:', err)
-      showNotification('Error starting task', 'error')
+      showNotification(t('errorStartingTask'), 'error')
     }
   }
 
@@ -306,17 +309,17 @@ export default function CleanerTasksPage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
-        showNotification('Project reverted to confirmed.', 'info')
+        showNotification(t('projectRevertedToConfirmed'), 'info')
         // Update the selected project in modal if open
         if (selectedProject?.id === projectId) {
           setSelectedProject(res.data)
         }
       } else {
-        showNotification(res.message || 'Failed to unbegin task', 'error')
+        showNotification(res.message || t('failedToUnbeginTask'), 'error')
       }
     } catch (err) {
       console.error('Error unbeginning task:', err)
-      showNotification('Error unbeginning task', 'error')
+      showNotification(t('errorUnbeginningTask'), 'error')
     }
   }
 
@@ -327,9 +330,9 @@ export default function CleanerTasksPage() {
         setProjects(prev => prev.map(p =>
           p.id === projectId ? res.data : p
         ))
-        showNotification('Great job! Task completed!', 'success')
+        showNotification(t('taskCompleted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to complete task', 'error')
+        showNotification(res.message || t('failedToCompleteTask'), 'error')
       }
     } catch (err) {
       // Walkthrough completion gate: backend returns 400 with missingGroups.
@@ -337,7 +340,7 @@ export default function CleanerTasksPage() {
       // without leaving the page.
       const missing = getMissingGroupsFromError(err)
       if (missing && missing.length > 0) {
-        showNotification(`Upload walkthrough photos for: ${missing.join(', ')}`, 'error')
+        showNotification(t('uploadWalkthroughPhotos', { groups: missing.join(', ') }), 'error')
         const proj = projects.find(p => p.id === projectId)
         if (proj) {
           setSelectedProject(proj)
@@ -348,7 +351,7 @@ export default function CleanerTasksPage() {
       }
       console.error('Error completing task:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error completing task',
+        err instanceof Error ? err.message : t('errorCompletingTask'),
         'error'
       )
     }
@@ -420,7 +423,7 @@ export default function CleanerTasksPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading tasks</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingTasks')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -428,7 +431,7 @@ export default function CleanerTasksPage() {
             onClick={fetchData}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -446,8 +449,8 @@ export default function CleanerTasksPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="mb-5 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Tasks</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Your assigned cleaning projects</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('myTasks')}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('yourAssignedProjects')}</p>
         </div>
 
         <motion.div
@@ -458,10 +461,9 @@ export default function CleanerTasksPage() {
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
             <ClipboardDocumentListIcon className="w-8 h-8 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-4">No tasks assigned</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mt-4">{t('noTasksAssigned')}</h3>
           <p className="text-gray-500 mt-2 max-w-md mx-auto">
-            When you get assigned to cleaning projects, they will appear here.
-            Check back later!
+            {t('noTasksAssignedDescription')}
           </p>
         </motion.div>
       </div>
@@ -481,11 +483,11 @@ export default function CleanerTasksPage() {
 
       {/* Header */}
       <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Tasks</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('myTasks')}</h1>
         <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">
           {activeCount > 0
-            ? `You have ${activeCount} active task${activeCount !== 1 ? 's' : ''}`
-            : 'All caught up!'
+            ? t('activeTaskCount', { count: activeCount })
+            : t('allCaughtUp')
           }
         </p>
       </div>
@@ -494,26 +496,26 @@ export default function CleanerTasksPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5 sm:mb-6">
         <StatCard
           icon={ClockIcon}
-          label="Today"
+          label={t('today')}
           value={groupedProjects.today.length}
           color="purple"
           highlight={groupedProjects.today.length > 0}
         />
         <StatCard
           icon={CalendarDaysIcon}
-          label="Tomorrow"
+          label={t('tomorrow')}
           value={groupedProjects.tomorrow.length}
           color="blue"
         />
         <StatCard
           icon={CalendarDaysIcon}
-          label="This Week"
+          label={t('thisWeek')}
           value={groupedProjects.thisWeek.length}
           color="indigo"
         />
         <StatCard
           icon={CheckCircleIcon}
-          label="Completed"
+          label={t('completed')}
           value={groupedProjects.completed.length}
           color="green"
         />
@@ -524,7 +526,7 @@ export default function CleanerTasksPage() {
         {/* Today */}
         {groupedProjects.today.length > 0 && (
           <TaskGroup
-            title="Today"
+            title={t('today')}
             titleColor="text-purple-700"
             bgColor="bg-purple-50"
             projects={groupedProjects.today}
@@ -546,7 +548,7 @@ export default function CleanerTasksPage() {
         {/* Tomorrow */}
         {groupedProjects.tomorrow.length > 0 && (
           <TaskGroup
-            title="Tomorrow"
+            title={t('tomorrow')}
             titleColor="text-blue-700"
             bgColor="bg-blue-50"
             projects={groupedProjects.tomorrow}
@@ -568,7 +570,7 @@ export default function CleanerTasksPage() {
         {/* This Week */}
         {groupedProjects.thisWeek.length > 0 && (
           <TaskGroup
-            title="This Week"
+            title={t('thisWeek')}
             titleColor="text-indigo-700"
             bgColor="bg-indigo-50"
             projects={groupedProjects.thisWeek}
@@ -590,7 +592,7 @@ export default function CleanerTasksPage() {
         {/* Later */}
         {groupedProjects.later.length > 0 && (
           <TaskGroup
-            title="Upcoming"
+            title={t('upcoming')}
             titleColor="text-gray-700"
             bgColor="bg-gray-50"
             projects={groupedProjects.later}
@@ -796,6 +798,7 @@ function TaskGroup({
 
 // Completed Section (collapsible)
 function CompletedSection({ projects, onViewChecklist, onViewIssues, issueCountsMap = {} }: { projects: CleaningProject[], onViewChecklist?: (project: CleaningProject) => void, onViewIssues?: (project: CleaningProject) => void, issueCountsMap?: Record<string, number> }) {
+  const { t } = useTranslation('cleanerPortal')
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
@@ -806,7 +809,7 @@ function CompletedSection({ projects, onViewChecklist, onViewIssues, issueCounts
       >
         <CheckCircleIcon className="w-4 h-4" />
         <span className="text-sm font-semibold">
-          Recently Completed ({projects.length})
+          {t('recentlyCompleted', { count: projects.length })}
         </span>
         <span className="text-xs">{isExpanded ? '−' : '+'}</span>
       </button>
@@ -828,7 +831,7 @@ function CompletedSection({ projects, onViewChecklist, onViewIssues, issueCounts
           ))}
           {projects.length > 5 && (
             <p className="text-sm text-gray-500 text-center py-2">
-              + {projects.length - 5} more completed tasks
+              {t('moreCompletedTasks', { count: projects.length - 5 })}
             </p>
           )}
         </motion.div>

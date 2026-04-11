@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   HomeIcon,
@@ -12,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function NotFound() {
+  const { t } = useTranslation('errors')
   const router = useRouter()
   const [countdown, setCountdown] = useState(15)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -33,9 +35,9 @@ export default function NotFound() {
   }, [router])
 
   const quickLinks = [
-    { name: 'Dashboard', href: '/property-manager/dashboard', icon: HomeIcon },
-    { name: 'Properties', href: '/property-manager/properties', icon: MapIcon },
-    { name: 'Bookings', href: '/property-manager/bookings', icon: MagnifyingGlassIcon },
+    { name: t('quickLinkDashboard'), href: '/property-manager/dashboard', icon: HomeIcon },
+    { name: t('quickLinkProperties'), href: '/property-manager/properties', icon: MapIcon },
+    { name: t('quickLinkBookings'), href: '/property-manager/bookings', icon: MagnifyingGlassIcon },
   ]
 
   return (
@@ -119,11 +121,10 @@ export default function NotFound() {
           className="space-y-4 mb-10"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Page Not Found
+            {t('pageNotFound')}
           </h2>
           <p className="text-lg text-slate-400 max-w-md mx-auto">
-            Oops! The page you&apos;re looking for seems to have wandered off.
-            Let&apos;s get you back on track.
+            {t('pageNotFoundDescription')}
           </p>
         </motion.div>
 
@@ -165,7 +166,7 @@ export default function NotFound() {
               </span>
             </div>
             <span className="text-slate-400 text-sm">
-              {isRedirecting ? 'Redirecting...' : 'Redirecting to home in'}
+              {isRedirecting ? t('redirecting') : t('redirectingToHomeIn')}
             </span>
           </div>
         </motion.div>
@@ -184,7 +185,7 @@ export default function NotFound() {
             className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5" />
-            Go Back
+            {t('goBack')}
           </motion.button>
           <Link href="/">
             <motion.span
@@ -193,7 +194,7 @@ export default function NotFound() {
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all cursor-pointer"
             >
               <HomeIcon className="w-5 h-5" />
-              Back to Home
+              {t('backToHome')}
             </motion.span>
           </Link>
         </motion.div>
@@ -204,7 +205,7 @@ export default function NotFound() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          <p className="text-sm text-slate-500 mb-4">Or try one of these pages:</p>
+          <p className="text-sm text-slate-500 mb-4">{t('orTryThesePages')}</p>
           <div className="flex flex-wrap justify-center gap-3">
             {quickLinks.map((link, index) => (
               <motion.div

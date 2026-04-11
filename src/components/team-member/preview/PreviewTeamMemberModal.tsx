@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import type { TeamMember } from '@/services/types/teamMember'
 import PermissionEditor from '@/components/team-member/permissions/PermissionEditor'
@@ -26,6 +27,8 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
   onEdit,
   member,
 }) => {
+  const { t } = useTranslation('settings')
+
   if (!member) return null
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -56,21 +59,21 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-            Active
+            {t('active')}
           </span>
         )
       case 'invited':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-yellow-100 text-yellow-700">
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-            Invited
+            {t('invited')}
           </span>
         )
       case 'inactive':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-            Inactive
+            {t('inactive')}
           </span>
         )
       default:
@@ -103,7 +106,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
       {/* Contact Information */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Contact Information
+          {t('contactInformation')}
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
@@ -111,7 +114,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
               <EnvelopeIcon className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Email</p>
+              <p className="text-xs text-gray-500">{t('email')}</p>
               <p className="text-sm font-medium text-gray-900">{member.email}</p>
             </div>
           </div>
@@ -120,9 +123,9 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
               <PhoneIcon className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Phone</p>
+              <p className="text-xs text-gray-500">{t('phone')}</p>
               <p className="text-sm font-medium text-gray-900">
-                {member.phone || <span className="text-gray-400">Not provided</span>}
+                {member.phone || <span className="text-gray-400">{t('notProvided')}</span>}
               </p>
             </div>
           </div>
@@ -132,7 +135,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
       {/* Activity Information */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Activity
+          {t('activity')}
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
@@ -140,7 +143,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
               <CalendarDaysIcon className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Joined</p>
+              <p className="text-xs text-gray-500">{t('joined')}</p>
               <p className="text-sm font-medium text-gray-900">
                 {formatDate(member.createdAt)}
               </p>
@@ -151,10 +154,10 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
               <ClockIcon className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Last Active</p>
+              <p className="text-xs text-gray-500">{t('lastActive')}</p>
               <p className="text-sm font-medium text-gray-900">
                 {formatDateTime(member.lastActiveAt) || (
-                  <span className="text-gray-400">Never</span>
+                  <span className="text-gray-400">{t('never')}</span>
                 )}
               </p>
             </div>
@@ -165,7 +168,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
       {/* Permissions */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Permissions
+          {t('permissions')}
         </h3>
         <PermissionEditor
           permissions={member.permissions || DEFAULT_PERMISSIONS}
@@ -181,7 +184,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
           onClick={onClose}
           className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
         >
-          Close
+          {t('close')}
         </button>
         {onEdit && (
           <button
@@ -189,7 +192,7 @@ const PreviewTeamMemberModal: React.FC<PreviewTeamMemberModalProps> = ({
             onClick={onEdit}
             className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
           >
-            Edit
+            {t('edit')}
           </button>
         )}
       </div>

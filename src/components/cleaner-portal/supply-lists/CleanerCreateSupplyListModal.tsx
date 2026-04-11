@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { createSupplyList, createStandaloneSupplyList } from '@/services/supplyListService'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
@@ -40,6 +41,7 @@ export default function CleanerCreateSupplyListModal({
   properties: assignedProperties,
   onCreated,
 }: CleanerCreateSupplyListModalProps) {
+  const { t } = useTranslation('cleanerPortal')
   const showNotification = useNotificationStore((s) => s.showNotification)
 
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
@@ -110,13 +112,13 @@ export default function CleanerCreateSupplyListModal({
 
   const handleSubmit = async () => {
     if (!preSelectedProjectId && !selectedPropertyId) {
-      showNotification('Please select a property', 'error')
+      showNotification(t('pleaseSelectProperty'), 'error')
       return
     }
 
     const validItems = items.filter((item) => item.name.trim())
     if (validItems.length === 0) {
-      showNotification('Please add at least one item', 'error')
+      showNotification(t('pleaseAddAtLeastOneItem'), 'error')
       return
     }
 
@@ -138,16 +140,16 @@ export default function CleanerCreateSupplyListModal({
           })
 
       if (res.status === 'success') {
-        showNotification('Supply list submitted', 'success')
+        showNotification(t('supplyListSubmitted'), 'success')
         onCreated(res.data)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to create supply list', 'error')
+        showNotification(res.message || t('failedToCreateSupplyList'), 'error')
       }
     } catch (err) {
       console.error('Error creating supply list:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Network error',
+        err instanceof Error ? err.message : t('networkError'),
         'error'
       )
     } finally {
@@ -162,7 +164,7 @@ export default function CleanerCreateSupplyListModal({
         <div className="flex items-center gap-2 mb-4">
           <ClipboardDocumentListIcon className="w-5 h-5 text-amber-600" />
           <h2 className="text-base font-semibold text-gray-900">
-            Request Supplies
+            {t('requestSupplies')}
           </h2>
         </div>
 
@@ -170,14 +172,14 @@ export default function CleanerCreateSupplyListModal({
         {!preSelectedProjectId && assignedProperties && assignedProperties.length > 0 && (
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Property
+              {t('propertyLabel')}
             </label>
             <select
               value={selectedPropertyId}
               onChange={(e) => { setSelectedPropertyId(e.target.value); setSelectedProjectId('') }}
               className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 cursor-pointer"
             >
-              <option value="">Select a property...</option>
+              <option value="">{t('selectAProperty')}</option>
               {assignedProperties.map((p) => (
                 <option key={p.id} value={p.id}>{p.listingName}</option>
               ))}
@@ -189,13 +191,13 @@ export default function CleanerCreateSupplyListModal({
         {!preSelectedProjectId && selectedPropertyId && (
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Cleaning Project <span className="text-gray-400 font-normal">(optional)</span>
+              {t('cleaningProject')} <span className="text-gray-400 font-normal">({t('optional')})</span>
             </label>
             {loadingProjects ? (
-              <div className="text-xs text-gray-500 py-2">Loading projects...</div>
+              <div className="text-xs text-gray-500 py-2">{t('loadingProjects')}</div>
             ) : projects.length === 0 ? (
               <div className="text-xs text-gray-400 py-2">
-                No active projects — will create a standalone supply list
+                {t('noActiveProjectsStandalone')}
               </div>
             ) : (
               <select
@@ -203,7 +205,7 @@ export default function CleanerCreateSupplyListModal({
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 cursor-pointer"
               >
-                <option value="">No project (standalone)</option>
+                <option value="">{t('noProjectStandalone')}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {parseLocalDate(p.projectDate).toLocaleDateString()}
@@ -217,14 +219,14 @@ export default function CleanerCreateSupplyListModal({
         {/* Items */}
         <div className="mb-4">
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Items Needed
+            {t('itemsNeeded')}
           </label>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {items.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Item name"
+                  placeholder={t('itemName')}
                   value={item.name}
                   onChange={(e) => updateItem(index, 'name', e.target.value)}
                   className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
@@ -253,7 +255,7 @@ export default function CleanerCreateSupplyListModal({
             className="mt-2 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium cursor-pointer"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            Add Item
+            {t('addItem')}
           </button>
         </div>
 
@@ -264,7 +266,7 @@ export default function CleanerCreateSupplyListModal({
             onClick={onClose}
             className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 cursor-pointer"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -272,7 +274,7 @@ export default function CleanerCreateSupplyListModal({
             disabled={loading || (!selectedProjectId && !selectedPropertyId)}
             className="px-4 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md disabled:opacity-50 cursor-pointer"
           >
-            {loading ? 'Submitting...' : 'Submit Request'}
+            {loading ? t('submittingList') : t('submitRequest')}
           </button>
         </div>
       </div>

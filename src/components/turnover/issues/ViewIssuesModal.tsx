@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import {
   getIssuesByProject,
@@ -55,6 +56,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   onReportIssue,
   onIssuesChanged
 }) => {
+  const { t } = useTranslation('turnover')
   const [issues, setIssues] = useState<ProjectIssue[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
@@ -72,11 +74,11 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
       if (res.status === 'success') {
         setIssues(res.data)
       } else {
-        showNotification(res.message || 'Failed to load issues', 'error')
+        showNotification(res.message || t('failedToLoadIssues'), 'error')
       }
     } catch (err) {
       console.error('Error fetching issues:', err)
-      showNotification('Failed to load issues', 'error')
+      showNotification(t('failedToLoadIssues'), 'error')
     } finally {
       setLoading(false)
     }
@@ -139,12 +141,12 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
             )}
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {selectedIssue ? 'Issue Details' : 'Project Issues'}
+                {selectedIssue ? t('issueDescription') : t('viewIssuesTitle')}
               </h2>
               <p className="text-sm text-gray-500">
                 {selectedIssue
-                  ? `Reported ${formatIssueAge(selectedIssue.createdAt)}`
-                  : projectName || `${issues.length} issue${issues.length !== 1 ? 's' : ''}`
+                  ? `${t('reportedBy')} ${formatIssueAge(selectedIssue.createdAt)}`
+                  : projectName || t('issueCountLabel', { count: issues.length })
                 }
               </p>
             </div>
@@ -156,7 +158,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
               className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
             >
               <PlusIcon className="w-5 h-5" />
-              Report Issue
+              {t('reportIssue')}
             </button>
           )}
         </div>
@@ -200,7 +202,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                       }
                     `}
                   >
-                    {status === 'all' ? 'All' : getIssueStatusDisplay(status).label}
+                    {status === 'all' ? t('all') : getIssueStatusDisplay(status).label}
                     <span className="ml-1.5 text-xs opacity-60">
                       ({statusCounts[status]})
                     </span>
@@ -217,14 +219,14 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                 <div className="text-center py-12">
                   <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">
-                    {filterStatus === 'all' ? 'No issues reported' : `No ${filterStatus} issues`}
+                    {filterStatus === 'all' ? t('noIssuesForProject') : t('noIssuesFound')}
                   </p>
                   {onReportIssue && filterStatus === 'all' && (
                     <button
                       onClick={onReportIssue}
                       className="mt-4 text-amber-600 font-medium hover:text-amber-700"
                     >
-                      Report an issue
+                      {t('reportIssue')}
                     </button>
                   )}
                 </div>
@@ -273,7 +275,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                               <span>{formatIssueAge(issue.createdAt)}</span>
                               {issue.reporterName && (
-                                <span>by {issue.reporterName}</span>
+                                <span>{t('byReporter', { name: issue.reporterName })}</span>
                               )}
                               {issue.photoUrls.length > 0 && (
                                 <span className="flex items-center gap-1">

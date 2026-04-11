@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
+
 export type ChecklistTab = 'checklist' | 'walkthrough' | 'info'
 
 export interface WalkthroughTabBadge {
@@ -22,6 +24,7 @@ export default function ChecklistTabs({
   supplyListCount = 0,
   walkthroughBadge,
 }: ChecklistTabsProps) {
+  const { t } = useTranslation('cleanerPortal')
   const showInfoDot = issueCount > 0 || supplyListCount > 0
 
   const badgeClass =
@@ -39,7 +42,7 @@ export default function ChecklistTabs({
             : 'text-gray-400 hover:text-gray-600'
         }`}
       >
-        Checklist
+        {t('checklistTab')}
       </button>
       <button
         onClick={() => onTabChange('walkthrough')}
@@ -50,7 +53,7 @@ export default function ChecklistTabs({
         }`}
       >
         <span className="inline-flex items-center gap-1">
-          Walkthrough
+          {t('walkthroughTab')}
           {walkthroughBadge && (
             <span className={`min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold text-white rounded-full ${badgeClass}`}>
               {walkthroughBadge.text}
@@ -67,7 +70,7 @@ export default function ChecklistTabs({
         }`}
       >
         <span className="inline-flex items-center gap-1">
-          Info
+          {t('infoTab')}
           {showInfoDot && (
             <span className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-amber-500 rounded-full">
               {issueCount + supplyListCount}

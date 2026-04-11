@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -59,6 +60,7 @@ const PAYMENT_STATUSES: { value: PaymentStatus | ''; label: string }[] = [
 export default function ExpensesPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('expenses')
   usePermissionGuard('expenses')
   const { effectiveUserId, canWrite } = usePermissions()
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 

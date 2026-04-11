@@ -6,6 +6,7 @@ import { assignPropertiesToCleaner } from '@/services/cleanerService'
 import { getProperties } from '@/services/propertyService'
 import { Cleaner, AssignPropertiesPayload } from '@/services/types/cleaner'
 import { Property } from '@/services/types/property'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import {
@@ -45,6 +46,7 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -79,7 +81,7 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
         }
       } catch (err) {
         console.error('Error fetching properties:', err)
-        showNotification('Failed to load properties', 'error')
+        showNotification(t('failedToLoadProperties'), 'error')
       } finally {
         setLoading(false)
       }
@@ -216,14 +218,14 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
 
       if (res.status === 'success') {
         onUpdate(res.data)
-        showNotification('Property assignments updated', 'success')
+        showNotification(t('propertyAssignmentsUpdated'), 'success')
         onClose()
       } else {
-        showNotification(res.message || 'Failed to update assignments', 'error')
+        showNotification(res.message || t('failedToUpdateAssignments'), 'error')
       }
     } catch (err) {
       console.error('Error updating assignments:', err)
-      showNotification('Error updating assignments', 'error')
+      showNotification(t('errorUpdatingAssignments'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -249,7 +251,7 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-2xl w-11/12 max-h-[80vh]">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Assign Properties</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{t('assignPropertiesTitle')}</h2>
           <p className="text-sm text-gray-500 mt-1">
             Select properties for <strong>{cleaner.name}</strong>
           </p>
@@ -487,7 +489,7 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
           disabled={isSubmitting || loading}
           className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
-          {isSubmitting ? 'Saving...' : 'Save Assignments'}
+          {isSubmitting ? t('saving') : t('saveAssignments')}
         </button>
       </div>
     </Modal>

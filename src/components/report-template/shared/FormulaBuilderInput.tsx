@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getDataSourceColumns } from '@/services/reportTemplateService'
 import type { SectionFieldReference, ColumnType, DataSource, DataSourceColumn } from '@/services/types/reportTemplate'
 import {

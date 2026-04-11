@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon, ChatBubbleLeftRightIcon, StarIcon, ArrowLeftIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline'

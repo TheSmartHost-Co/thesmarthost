@@ -1,1 +1,10 @@
-{}
+{
+  "title": "Analytics",
+  "subtitle": "Track performance and gain insights across your portfolio",
+  "loadingAnalytics": "Loading your analytics...",
+  "loadingProperties": "Loading properties...",
+  "noPropertiesFound": "No properties found",
+  "addPropertiesToSeeAnalytics": "Add some properties to see analytics",
+  "property_one": "{{count}} Property",
+  "property_other": "{{count}} Properties"
+}

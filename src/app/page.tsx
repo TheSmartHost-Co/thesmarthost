@@ -4,6 +4,7 @@ import Link from "next/link"
 import PreNavbar from "@/components/navbar/PreNavbar"
 import Footer from '@/components/footer/Footer'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   ClockIcon,
   DocumentChartBarIcon,
@@ -29,49 +30,50 @@ const stagger = {
 }
 
 export default function Home() {
+  const { t } = useTranslation('auth')
   const features = [
     {
       icon: ClockIcon,
-      title: "90% Time Savings",
-      description: "Reduce monthly reporting from 4 hours to just 10 minutes with automated calculations.",
+      title: t('homeFeatureTimeSavings'),
+      description: t('homeFeatureTimeSavingsDesc'),
       color: "from-blue-500 to-blue-600",
     },
     {
       icon: CloudArrowUpIcon,
-      title: "PMS-Agnostic",
-      description: "Works with Hostaway, Airbnb, VRBO exports. One platform for all your booking data.",
+      title: t('homeFeaturePms'),
+      description: t('homeFeaturePmsDesc'),
       color: "from-teal-500 to-teal-600",
     },
     {
       icon: DocumentChartBarIcon,
-      title: "Branded Reports",
-      description: "Professional PDF reports with your branding, generated automatically every month.",
+      title: t('homeFeatureBrandedReports'),
+      description: t('homeFeatureBrandedReportsDesc'),
       color: "from-purple-500 to-purple-600",
     },
     {
       icon: ShieldCheckIcon,
-      title: "Secure Portal",
-      description: "Property owners access their reports 24/7 through a secure, multi-tenant portal.",
+      title: t('homeFeatureSecurePortal'),
+      description: t('homeFeatureSecurePortalDesc'),
       color: "from-orange-500 to-orange-600",
     },
     {
       icon: ChartBarIcon,
-      title: "Real-time Analytics",
-      description: "Interactive dashboards with drill-down capability for revenue and booking insights.",
+      title: t('homeFeatureAnalytics'),
+      description: t('homeFeatureAnalyticsDesc'),
       color: "from-pink-500 to-pink-600",
     },
     {
       icon: UsersIcon,
-      title: "Multi-Owner Support",
-      description: "Handle co-ownership with custom commission splits and individual reporting.",
+      title: t('homeFeatureMultiOwner'),
+      description: t('homeFeatureMultiOwnerDesc'),
       color: "from-indigo-500 to-indigo-600",
     },
   ]
 
   const stats = [
-    { value: "90%", label: "Time Saved" },
-    { value: "10min", label: "Per Report" },
-    { value: "100%", label: "Automated" },
+    { value: "90%", label: t('homeTimeSaved') },
+    { value: "10min", label: t('homePerReport') },
+    { value: "100%", label: t('homeAutomated') },
   ]
 
   const testimonials = [
@@ -115,7 +117,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 mb-6"
               >
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                <span className="text-sm font-medium text-blue-700">Now in Beta</span>
+                <span className="text-sm font-medium text-blue-700">{t('homeNowInBeta')}</span>
               </motion.div>
 
               <motion.h1
@@ -123,9 +125,9 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.1 }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6"
               >
-                Property Reporting
+                {t('homeHeroTitle')}
                 <br />
-                <span className="text-blue-600">Automated</span>
+                <span className="text-blue-600">{t('homeHeroTitleHighlight')}</span>
               </motion.h1>
 
               <motion.p
@@ -133,8 +135,7 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="text-lg sm:text-xl text-gray-600 mb-8 max-w-xl mx-auto lg:mx-0 leading-relaxed"
               >
-                Transform 4 hours of manual work into 10 minutes.
-                PMS-agnostic owner reporting platform for short-term rental managers.
+                {t('homeHeroDescription')}
               </motion.p>
 
               <motion.div
@@ -147,7 +148,7 @@ export default function Home() {
                     href="/signup"
                     className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg shadow-blue-500/25 transition-all"
                   >
-                    Start Free Trial
+                    {t('homeStartFreeTrial')}
                     <ArrowRightIcon className="w-5 h-5" />
                   </Link>
                 </motion.div>
@@ -156,7 +157,7 @@ export default function Home() {
                     href="/product"
                     className="inline-flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-blue-500 text-gray-700 hover:text-blue-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all"
                   >
-                    See How It Works
+                    {t('homeSeeHowItWorks')}
                   </Link>
                 </motion.div>
               </motion.div>

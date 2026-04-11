@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { BellSlashIcon } from '@heroicons/react/24/outline'
 import type { NotificationFilter } from '@/store/useNotificationCenterStore'
 
@@ -7,23 +8,24 @@ interface NotificationEmptyStateProps {
   activeFilter: NotificationFilter
 }
 
-const filterLabels: Record<NotificationFilter, string> = {
-  urgent: 'urgent',
+const filterLabelKeys: Record<NotificationFilter, string> = {
+  urgent: 'notifEmptyUrgent',
   all: '',
-  cleaning: 'cleaning',
-  issues: 'issue',
-  supplies: 'supply',
-  schedule: 'schedule',
-  bookings: 'booking',
-  invoices: 'invoice',
-  automations: 'automation',
+  cleaning: 'notifEmptyCleaning',
+  issues: 'notifEmptyIssue',
+  supplies: 'notifEmptySupply',
+  schedule: 'notifEmptySchedule',
+  bookings: 'notifEmptyBooking',
+  invoices: 'notifEmptyInvoice',
+  automations: 'notifEmptyAutomation',
 }
 
 export default function NotificationEmptyState({ activeFilter }: NotificationEmptyStateProps) {
-  const label = filterLabels[activeFilter]
-  const message = label
-    ? `No ${label} notifications`
-    : 'No notifications yet'
+  const { t } = useTranslation('common')
+  const labelKey = filterLabelKeys[activeFilter]
+  const message = labelKey
+    ? t(labelKey)
+    : t('noNotificationsYet')
 
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
@@ -32,7 +34,7 @@ export default function NotificationEmptyState({ activeFilter }: NotificationEmp
       </div>
       <p className="text-sm font-medium text-gray-500">{message}</p>
       <p className="text-xs text-gray-400 mt-1">
-        {"You're all caught up!"}
+        {t('allCaughtUp')}
       </p>
     </div>
   )

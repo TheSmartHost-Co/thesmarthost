@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   BanknotesIcon,
@@ -38,25 +39,27 @@ import type {
 import CreateInvoiceModal from '@/components/cleaner-invoice/create/CreateInvoiceModal'
 import ViewInvoiceModal from '@/components/cleaner-invoice/view/ViewInvoiceModal'
 
-const STATUS_FILTERS: { value: InvoiceStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'paid', label: 'Paid' },
+// Labels resolved inside the component via t()
+const STATUS_FILTER_KEYS: { value: InvoiceStatus | 'all'; labelKey: string }[] = [
+  { value: 'all', labelKey: 'allFilter' },
+  { value: 'draft', labelKey: 'statusDraft' },
+  { value: 'pending', labelKey: 'statusPending' },
+  { value: 'approved', labelKey: 'statusApproved' },
+  { value: 'rejected', labelKey: 'statusRejected' },
+  { value: 'paid', labelKey: 'statusPaid' },
 ]
 
-const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }> = {
-  draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
-  pending: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
-  approved: { label: 'Approved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
-  rejected: { label: 'Rejected', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-  paid: { label: 'Paid', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-  archived: { label: 'Archived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
+const statusConfigBase: Record<InvoiceStatus, { labelKey: string; bg: string; text: string; dot: string }> = {
+  draft: { labelKey: 'statusDraft', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+  pending: { labelKey: 'statusPending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  approved: { labelKey: 'statusApproved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  rejected: { labelKey: 'statusRejected', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  paid: { labelKey: 'statusPaid', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  archived: { labelKey: 'statusArchived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
 }
 
 export default function CleanerInvoicesPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -125,33 +128,33 @@ export default function CleanerInvoicesPage() {
     try {
       const res = await submitInvoice(invoice.id)
       if (res.status === 'success') {
-        showNotification('Invoice submitted to property manager', 'success')
+        showNotification(t('invoiceSubmitted'), 'success')
         fetchData()
       } else {
-        showNotification(res.message || 'Failed to submit invoice', 'error')
+        showNotification(res.message || t('failedToSubmitInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error submitting invoice:', err)
-      showNotification('Error submitting invoice', 'error')
+      showNotification(t('errorSubmittingInvoice'), 'error')
     } finally {
       setSubmittingId(null)
     }
   }
 
   const handleDeleteInvoice = async (invoice: CleanerInvoice) => {
-    if (!confirm(`Delete invoice ${invoice.invoiceNumber}?`)) return
+    if (!confirm(t('deleteInvoiceConfirm', { number: invoice.invoiceNumber }))) return
 
     try {
       const res = await deleteInvoice(invoice.id)
       if (res.status === 'success') {
-        showNotification('Invoice deleted', 'success')
+        showNotification(t('invoiceDeleted'), 'success')
         fetchData()
       } else {
-        showNotification(res.message || 'Failed to delete invoice', 'error')
+        showNotification(res.message || t('failedToDeleteInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error deleting invoice:', err)
-      showNotification('Error deleting invoice', 'error')
+      showNotification(t('errorDeletingInvoice'), 'error')
     }
   }
 
@@ -160,12 +163,12 @@ export default function CleanerInvoicesPage() {
       const res = await generateInvoicePDF(invoice.id)
       if (res.status === 'success' && res.data?.signedUrl) {
         window.open(res.data.signedUrl, '_blank')
-        showNotification(`PDF generated for ${invoice.invoiceNumber}`, 'success')
+        showNotification(t('pdfGenerated', { number: invoice.invoiceNumber }), 'success')
       } else {
-        showNotification(res.message || 'Failed to generate PDF', 'error')
+        showNotification(res.message || t('failedToGeneratePdf'), 'error')
       }
     } catch (err) {
-      showNotification('Error generating PDF', 'error')
+      showNotification(t('errorGeneratingPdf'), 'error')
     }
   }
 
@@ -218,7 +221,7 @@ export default function CleanerInvoicesPage() {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Invoices</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('invoicesTitle')}</h1>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -230,7 +233,7 @@ export default function CleanerInvoicesPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading invoices</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingInvoices')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -238,7 +241,7 @@ export default function CleanerInvoicesPage() {
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -250,8 +253,8 @@ export default function CleanerInvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5 sm:mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-0.5">Generate and manage your cleaning invoices</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('invoicesTitle')}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5">{t('invoicesSubtitle')}</p>
         </div>
         <motion.button
           onClick={() => setShowCreateModal(true)}
@@ -260,8 +263,8 @@ export default function CleanerInvoicesPage() {
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors cursor-pointer"
         >
           <PlusIcon className="h-5 w-5" />
-          <span className="hidden sm:inline">Generate Invoice</span>
-          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">{t('generateInvoice')}</span>
+          <span className="sm:hidden">{t('new')}</span>
         </motion.button>
       </div>
 
@@ -269,7 +272,7 @@ export default function CleanerInvoicesPage() {
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 sm:mb-6">
           <SummaryCard
-            label="Draft"
+            label={t('statusDraft')}
             count={summary.draft}
             amount={null}
             icon={DocumentTextIcon}
@@ -277,7 +280,7 @@ export default function CleanerInvoicesPage() {
             index={0}
           />
           <SummaryCard
-            label="Pending"
+            label={t('statusPending')}
             count={summary.pending}
             amount={summary.pendingTotal}
             icon={ClockIcon}
@@ -285,7 +288,7 @@ export default function CleanerInvoicesPage() {
             index={1}
           />
           <SummaryCard
-            label="Approved"
+            label={t('statusApproved')}
             count={summary.approved}
             amount={summary.approvedTotal}
             icon={CheckCircleIcon}
@@ -293,7 +296,7 @@ export default function CleanerInvoicesPage() {
             index={2}
           />
           <SummaryCard
-            label="Paid"
+            label={t('statusPaid')}
             count={summary.paid}
             amount={summary.paidTotal}
             icon={CurrencyDollarIcon}
@@ -316,12 +319,12 @@ export default function CleanerInvoicesPage() {
             className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl text-lg font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all cursor-pointer active:shadow-md"
           >
             <CurrencyDollarIcon className="h-7 w-7" />
-            Cash Out
+            {t('cashOut')}
             <ArrowRightIcon className="h-5 w-5 opacity-70" />
           </motion.button>
           {uninvoicedCount > 0 && (
             <p className="text-sm font-medium text-emerald-600">
-              {uninvoicedCount} completed project{uninvoicedCount !== 1 ? 's' : ''} not yet invoiced
+              {t('uninvoicedProjects', { count: uninvoicedCount })}
             </p>
           )}
         </div>
@@ -329,7 +332,7 @@ export default function CleanerInvoicesPage() {
 
       {/* Status Filter */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((filter) => (
+        {STATUS_FILTER_KEYS.map((filter) => (
           <button
             key={filter.value}
             onClick={() => setStatusFilter(filter.value)}
@@ -339,7 +342,7 @@ export default function CleanerInvoicesPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {filter.label}
+            {t(filter.labelKey)}
             {filter.value !== 'all' && (
               <span className="ml-1.5 text-xs opacity-70">
                 {invoices.filter(i => i.status === filter.value).length}
@@ -362,9 +365,9 @@ export default function CleanerInvoicesPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-amber-800">
-                {draftInvoices.length} draft invoice{draftInvoices.length !== 1 ? 's' : ''} ready to send
+                {t('draftInvoicesReady', { count: draftInvoices.length })}
               </p>
-              <p className="text-xs text-amber-600 mt-0.5">Submit to your property manager for approval</p>
+              <p className="text-xs text-amber-600 mt-0.5">{t('submitToPmDescription')}</p>
             </div>
           </div>
           {draftInvoices.length === 1 && (
@@ -373,7 +376,7 @@ export default function CleanerInvoicesPage() {
               disabled={submittingId === draftInvoices[0].id}
               className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors whitespace-nowrap disabled:opacity-50 cursor-pointer"
             >
-              {submittingId === draftInvoices[0].id ? 'Sending...' : 'Send Now'}
+              {submittingId === draftInvoices[0].id ? t('sending') : t('sendNow')}
             </button>
           )}
         </motion.div>
@@ -383,7 +386,7 @@ export default function CleanerInvoicesPage() {
       {filteredInvoices.length > 0 ? (
         <div className="space-y-3">
           {filteredInvoices.map((invoice, index) => {
-            const status = statusConfig[invoice.status]
+            const status = statusConfigBase[invoice.status]
             const isEditable = invoice.status === 'draft' || invoice.status === 'rejected'
 
             return (
@@ -401,21 +404,21 @@ export default function CleanerInvoicesPage() {
                       <h3 className="text-sm font-bold text-gray-900">{invoice.invoiceNumber}</h3>
                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                        {status.label}
+                        {t(status.labelKey)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500">{formatPeriod(invoice.periodStart, invoice.periodEnd)}</p>
                     <div className="flex items-center gap-4 mt-2">
                       <span className="text-xs text-gray-400">
-                        {invoice.itemCount ?? 0} items
+                        {t('items', { count: invoice.itemCount ?? 0 })}
                       </span>
                       <span className="text-xs text-gray-400">
-                        Created {formatDate(invoice.createdAt)}
+                        {t('created', { date: formatDate(invoice.createdAt) })}
                       </span>
                       {invoice.status === 'rejected' && invoice.pmNotes && (
                         <span className="inline-flex items-center gap-1 text-xs text-red-600">
                           <ExclamationTriangleIcon className="h-3.5 w-3.5" />
-                          Rejected
+                          {t('rejected')}
                         </span>
                       )}
                     </div>
@@ -431,14 +434,14 @@ export default function CleanerInvoicesPage() {
                       <button
                         onClick={() => handleViewInvoice(invoice)}
                         className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                        title="View"
+                        title={t('view')}
                       >
                         <EyeIcon className="h-4 w-4 text-gray-400" />
                       </button>
                       <button
                         onClick={() => handleGeneratePDF(invoice)}
                         className="p-2 rounded-lg hover:bg-blue-100 transition-colors"
-                        title="Generate PDF"
+                        title={t('generatePdf')}
                       >
                         <DocumentArrowDownIcon className="h-4 w-4 text-blue-500" />
                       </button>
@@ -447,14 +450,14 @@ export default function CleanerInvoicesPage() {
                           <button
                             onClick={() => handleSubmitInvoice(invoice)}
                             className="p-2 rounded-lg hover:bg-emerald-100 transition-colors"
-                            title="Submit to PM"
+                            title={t('submitToPm')}
                           >
                             <PaperAirplaneIcon className="h-4 w-4 text-emerald-600" />
                           </button>
                           <button
                             onClick={() => handleDeleteInvoice(invoice)}
                             className="p-2 rounded-lg hover:bg-red-100 transition-colors"
-                            title="Delete"
+                            title={t('deleteInvoiceConfirm', { number: '' })}
                           >
                             <TrashIcon className="h-4 w-4 text-red-400" />
                           </button>
@@ -473,7 +476,7 @@ export default function CleanerInvoicesPage() {
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-xl text-sm font-semibold hover:from-amber-500 hover:to-amber-600 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />
-                      {submittingId === invoice.id ? 'Sending...' : 'Send to Property Manager'}
+                      {submittingId === invoice.id ? t('sending') : t('sendToPropertyManager')}
                     </button>
                   </div>
                 )}
@@ -487,7 +490,7 @@ export default function CleanerInvoicesPage() {
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-xl text-sm font-semibold hover:from-amber-500 hover:to-amber-600 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />
-                      {submittingId === invoice.id ? 'Sending...' : 'Resubmit to Property Manager'}
+                      {submittingId === invoice.id ? t('sending') : t('resubmitToPropertyManager')}
                     </button>
                   </div>
                 )}
@@ -502,8 +505,8 @@ export default function CleanerInvoicesPage() {
           className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center"
         >
           <DocumentTextIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <h3 className="font-semibold text-gray-900 mb-1">No invoices with this status</h3>
-          <p className="text-gray-500 text-sm">Try a different filter</p>
+          <h3 className="font-semibold text-gray-900 mb-1">{t('noInvoicesWithStatus')}</h3>
+          <p className="text-gray-500 text-sm">{t('tryDifferentFilter')}</p>
         </motion.div>
       ) : (
         <motion.div
@@ -514,13 +517,13 @@ export default function CleanerInvoicesPage() {
           <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BanknotesIcon className="w-8 h-8 text-emerald-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No invoices yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noInvoicesYet')}</h3>
           <p className="text-gray-500 max-w-sm mx-auto mb-4">
-            Generate your first invoice from completed cleaning projects to get started.
+            {t('noInvoicesDescription')}
           </p>
           {uninvoicedCount > 0 && (
             <p className="text-sm font-medium text-emerald-600 mb-4">
-              {uninvoicedCount} completed project{uninvoicedCount !== 1 ? 's' : ''} ready to invoice
+              {t('readyToInvoice', { count: uninvoicedCount })}
             </p>
           )}
           <motion.button
@@ -530,7 +533,7 @@ export default function CleanerInvoicesPage() {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors"
           >
             <PlusIcon className="h-5 w-5" />
-            Generate Your First Invoice
+            {t('generateFirstInvoice')}
           </motion.button>
         </motion.div>
       )}

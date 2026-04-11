@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import CleanerCreateSupplyListModal from './CleanerCreateSupplyListModal'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
@@ -91,6 +92,7 @@ export default function CleanerSupplyListModal({
   propertyId,
   onChanged,
 }: CleanerSupplyListModalProps) {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const itemOrderRef = useRef<string[]>([])
@@ -142,10 +144,10 @@ export default function CleanerSupplyListModal({
       if (res.status === 'success') {
         setSupplyLists(res.data)
       } else {
-        showNotification(res.message || 'Failed to load supply lists', 'error')
+        showNotification(res.message || t('failedToLoadSupplyLists'), 'error')
       }
     } catch {
-      showNotification('Failed to load supply lists', 'error')
+      showNotification(t('failedToLoadSupplyLists'), 'error')
     } finally {
       setLoading(false)
     }
@@ -278,10 +280,10 @@ export default function CleanerSupplyListModal({
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch {
-      showNotification('Failed to update item', 'error')
+      showNotification(t('failedToUpdateItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -308,13 +310,13 @@ export default function CleanerSupplyListModal({
         const notes = { ...localItemNotes }
         res.data.items.forEach(i => { if (!(i.id in notes)) notes[i.id] = i.pmNotes || '' })
         setLocalItemNotes(notes)
-        showNotification('Item added', 'success')
+        showNotification(t('itemAdded'), 'success')
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to add item', 'error')
+        showNotification(res.message || t('failedToAddItem'), 'error')
       }
     } catch {
-      showNotification('Failed to add item', 'error')
+      showNotification(t('failedToAddItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -332,13 +334,13 @@ export default function CleanerSupplyListModal({
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         if (editingItemId === itemId) setEditingItemId(null)
-        showNotification('Item removed', 'success')
+        showNotification(t('itemRemoved'), 'success')
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to remove item', 'error')
+        showNotification(res.message || t('failedToRemoveItem'), 'error')
       }
     } catch {
-      showNotification('Failed to remove item', 'error')
+      showNotification(t('failedToRemoveItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -365,10 +367,10 @@ export default function CleanerSupplyListModal({
         setEditingItemId(null)
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch {
-      showNotification('Failed to update item', 'error')
+      showNotification(t('failedToUpdateItem'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -423,15 +425,15 @@ export default function CleanerSupplyListModal({
     try {
       const res = await fulfillSupplyList(selectedList.id, cleanerId)
       if (res.status === 'success') {
-        showNotification('Supply list marked as fulfilled', 'success')
+        showNotification(t('supplyListFulfilled'), 'success')
         setSelectedList(res.data)
         setSupplyLists(prev => prev.map(sl => sl.id === res.data.id ? res.data : sl))
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to fulfill supply list', 'error')
+        showNotification(res.message || t('failedToFulfillSupplyList'), 'error')
       }
     } catch {
-      showNotification('Failed to fulfill supply list', 'error')
+      showNotification(t('failedToFulfillSupplyList'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -444,17 +446,17 @@ export default function CleanerSupplyListModal({
     try {
       const res = await deleteSupplyList(selectedList.id)
       if (res.status === 'success') {
-        showNotification('Supply list deleted', 'success')
+        showNotification(t('supplyListDeleted'), 'success')
         setSupplyLists(prev => prev.filter(sl => sl.id !== selectedList.id))
         setSelectedList(null)
         setShowDeleteConfirm(false)
         onChanged?.()
         if (!projectId) onClose()
       } else {
-        showNotification(res.message || 'Failed to delete', 'error')
+        showNotification(res.message || t('failedToDelete'), 'error')
       }
     } catch {
-      showNotification('Failed to delete supply list', 'error')
+      showNotification(t('failedToDeleteSupplyList'), 'error')
     } finally {
       setActionLoading(false)
     }
@@ -466,15 +468,15 @@ export default function CleanerSupplyListModal({
     try {
       const res = await deleteSupplyList(listId)
       if (res.status === 'success') {
-        showNotification('Supply list deleted', 'success')
+        showNotification(t('supplyListDeleted'), 'success')
         setSupplyLists(prev => prev.filter(sl => sl.id !== listId))
         setDeleteListId(null)
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to delete', 'error')
+        showNotification(res.message || t('failedToDelete'), 'error')
       }
     } catch {
-      showNotification('Failed to delete supply list', 'error')
+      showNotification(t('failedToDeleteSupplyList'), 'error')
     } finally {
       setDeletingListFromView(false)
     }
@@ -489,7 +491,7 @@ export default function CleanerSupplyListModal({
     try {
       const res = await deleteReceipt(receiptId)
       if (res.status === 'success') {
-        showNotification('Receipt deleted', 'success')
+        showNotification(t('receiptDeleted'), 'success')
         setReceipts(prev => prev.filter(r => r.id !== receiptId))
         setConfirmDeleteReceiptId(null)
         // Refetch supply list to get updated item statuses
@@ -500,10 +502,10 @@ export default function CleanerSupplyListModal({
         }
         onChanged?.()
       } else {
-        showNotification(res.message || 'Failed to delete receipt', 'error')
+        showNotification(res.message || t('failedToDeleteReceipt'), 'error')
       }
     } catch {
-      showNotification('Error deleting receipt', 'error')
+      showNotification(t('errorDeletingReceipt'), 'error')
     } finally {
       setDeletingReceiptId(null)
     }
@@ -532,11 +534,11 @@ export default function CleanerSupplyListModal({
               )}
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedList ? 'Supply List Details' : 'Supply Lists'}
+                  {selectedList ? t('supplyListDetails') : t('supplyLists')}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {selectedList
-                    ? `Submitted ${formatSupplyListAge(selectedList.createdAt)}`
+                    ? `${t('submitted', { date: formatSupplyListAge(selectedList.createdAt) })}`
                     : projectName || `${supplyLists.length} list${supplyLists.length !== 1 ? 's' : ''}`
                   }
                 </p>
@@ -548,7 +550,7 @@ export default function CleanerSupplyListModal({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
               >
                 <PlusIcon className="w-3.5 h-3.5" />
-                New Request
+                {t('newRequest')}
               </button>
             )}
           </div>
@@ -591,7 +593,7 @@ export default function CleanerSupplyListModal({
                   <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
                     <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-green-700">Fulfilled</p>
+                      <p className="text-sm font-medium text-green-700">{t('fulfilled')}</p>
                       <p className="text-xs text-green-600">
                         {new Date(selectedList.fulfilledAt).toLocaleString()}
                       </p>
@@ -603,9 +605,9 @@ export default function CleanerSupplyListModal({
                 {(() => {
                   const purchased = selectedList.items.filter(i => i.isPurchased).length
                   const tabs: { key: 'items' | 'notes' | 'receipts'; label: string; badge?: string; dot?: boolean }[] = [
-                    { key: 'items', label: 'Items', badge: `${purchased}/${selectedList.items.length}` },
-                    { key: 'notes', label: 'Notes', dot: !!listNotes },
-                    { key: 'receipts', label: 'Receipts', badge: receipts.length > 0 ? String(receipts.length) : undefined },
+                    { key: 'items', label: t('itemsTab'), badge: `${purchased}/${selectedList.items.length}` },
+                    { key: 'notes', label: t('notesTab'), dot: !!listNotes },
+                    { key: 'receipts', label: t('receiptsTab'), badge: receipts.length > 0 ? String(receipts.length) : undefined },
                   ]
                   return (
                     <div className="flex items-center border-b border-gray-200">
@@ -643,7 +645,7 @@ export default function CleanerSupplyListModal({
                     {selectedList.items.length > 0 && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} purchased</span>
+                          <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} {t('purchasedFilter').toLowerCase()}</span>
                           <span>{getProgress(selectedList).percentage}%</span>
                         </div>
                         <ProgressBar percentage={getProgress(selectedList).percentage} />
@@ -657,9 +659,9 @@ export default function CleanerSupplyListModal({
                       return (
                         <div className="flex items-center gap-1.5">
                           {([
-                            { key: 'all' as const, label: 'All', count: selectedList.items.length },
-                            { key: 'remaining' as const, label: 'Remaining', count: remaining },
-                            { key: 'purchased' as const, label: 'Purchased', count: purchased },
+                            { key: 'all' as const, label: t('allFilter'), count: selectedList.items.length },
+                            { key: 'remaining' as const, label: t('remaining'), count: remaining },
+                            { key: 'purchased' as const, label: t('purchasedFilter'), count: purchased },
                           ]).map(({ key, label, count }) => (
                             <button
                               key={key}
@@ -724,7 +726,7 @@ export default function CleanerSupplyListModal({
                                     />
                                     <div className="flex items-center gap-2">
                                       <div className="flex items-center gap-1">
-                                        <span className="text-xs text-gray-400">Qty:</span>
+                                        <span className="text-xs text-gray-400">{t('quantity')}:</span>
                                         <input
                                           type="number"
                                           value={editQuantity}
@@ -742,13 +744,13 @@ export default function CleanerSupplyListModal({
                                         disabled={actionLoading || !editName.trim()}
                                         className="px-2.5 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 transition-colors cursor-pointer"
                                       >
-                                        Save
+                                        {t('save')}
                                       </button>
                                       <button
                                         onClick={() => setEditingItemId(null)}
                                         className="px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                                       >
-                                        Cancel
+                                        {t('cancel')}
                                       </button>
                                     </div>
                                   </div>
@@ -799,7 +801,7 @@ export default function CleanerSupplyListModal({
                                     value={localItemNotes[item.id] ?? (item.pmNotes || '')}
                                     onChange={(e) => setLocalItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
                                     onBlur={(e) => handleUpdateItemNotes(item, e.target.value)}
-                                    placeholder="Add a note..."
+                                    placeholder={t('addNotesPlaceholder')}
                                     className="w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded bg-transparent transition-colors"
                                   />
                                 </div>
@@ -814,16 +816,16 @@ export default function CleanerSupplyListModal({
 
                 {detailTab === 'notes' && (
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-500">List Notes</label>
+                    <label className="block text-xs font-medium text-gray-500">{t('listNotes')}</label>
                     <textarea
                       value={listNotes}
                       onChange={(e) => setListNotes(e.target.value)}
                       onBlur={handleUpdateListNotes}
-                      placeholder="Add notes for this supply list..."
+                      placeholder={t('addNotesPlaceholder')}
                       rows={5}
                       className="w-full text-sm px-3 py-2 border border-gray-200 hover:border-gray-300 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded-lg bg-gray-50 focus:bg-white resize-none transition-colors"
                     />
-                    <p className="text-[10px] text-gray-400">Notes are saved automatically when you click away.</p>
+                    <p className="text-[10px] text-gray-400">{t('notesSavedAutomatically')}</p>
                   </div>
                 )}
 
@@ -836,7 +838,7 @@ export default function CleanerSupplyListModal({
                           onClick={() => setShowScanReceiptModal(true)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                         >
-                          <CameraIcon className="w-3.5 h-3.5" /> Scan Receipt
+                          <CameraIcon className="w-3.5 h-3.5" /> {t('scanReceipt')}
                         </button>
                       </div>
                     )}
@@ -849,7 +851,7 @@ export default function CleanerSupplyListModal({
                     ) : receipts.length === 0 ? (
                       <div className="text-center py-8">
                         <DocumentTextIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-xs text-gray-400">No receipts uploaded yet</p>
+                        <p className="text-xs text-gray-400">{t('noReceiptsYet')}</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -877,7 +879,7 @@ export default function CleanerSupplyListModal({
                                       onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
                                       disabled={deletingReceiptId === receipt.id}
                                       className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
-                                      title="Delete receipt"
+                                      title={t('deleteReceipt')}
                                     >
                                       <TrashIcon className="w-3.5 h-3.5" />
                                     </button>
@@ -888,22 +890,22 @@ export default function CleanerSupplyListModal({
                                 <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
                                   <p className="text-[10px] text-red-700 mb-1.5">
                                     {receipt.status === 'applied'
-                                      ? 'This will delete the linked expense and revert matched items.'
-                                      : 'Delete this receipt?'}
+                                      ? t('deleteReceiptLinkedWarning')
+                                      : t('deleteThisReceipt')}
                                   </p>
                                   <div className="flex gap-1.5">
                                     <button
                                       onClick={() => setConfirmDeleteReceiptId(null)}
                                       className="flex-1 py-1 text-[10px] font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
                                     >
-                                      Cancel
+                                      {t('cancel')}
                                     </button>
                                     <button
                                       onClick={() => handleDeleteReceipt(receipt.id)}
                                       disabled={!!deletingReceiptId}
                                       className="flex-1 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                     >
-                                      {deletingReceiptId === receipt.id ? 'Deleting...' : 'Delete'}
+                                      {deletingReceiptId === receipt.id ? t('deleting') : t('deleteAction')}
                                     </button>
                                   </div>
                                 </div>
@@ -920,21 +922,21 @@ export default function CleanerSupplyListModal({
                 {showDeleteConfirm && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                     <p className="text-sm text-red-700 font-medium mb-3">
-                      Are you sure you want to delete this supply list?
+                      {t('confirmDeleteSupplyList')}
                     </p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowDeleteConfirm(false)}
                         className="flex-1 py-2 px-3 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
                       >
-                        Cancel
+                        {t('cancel')}
                       </button>
                       <button
                         onClick={handleDelete}
                         disabled={actionLoading}
                         className="flex-1 py-2 px-3 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                       >
-                        {actionLoading ? 'Deleting...' : 'Delete'}
+                        {actionLoading ? t('deleting') : t('deleteAction')}
                       </button>
                     </div>
                   </div>
@@ -955,14 +957,14 @@ export default function CleanerSupplyListModal({
                 ) : supplyLists.length === 0 ? (
                   <div className="text-center py-12">
                     <ClipboardDocumentListIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No supply requests</p>
+                    <p className="text-gray-500">{t('noSupplyRequestsYet')}</p>
                     {pmUserId && projectId && (
                       <button
                         onClick={() => setShowCreateModal(true)}
                         className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors cursor-pointer"
                       >
                         <PlusIcon className="w-4 h-4" />
-                        Request Supplies
+                        {t('requestSupplies')}
                       </button>
                     )}
                   </div>
@@ -1014,7 +1016,7 @@ export default function CleanerSupplyListModal({
                                     )}
                                     {list.status !== 'fulfilled' && progress.purchasedItems > 0 && (
                                       <span className="text-teal-600">
-                                        {progress.purchasedItems}/{progress.totalItems} purchased
+                                        {progress.purchasedItems}/{progress.totalItems} {t('purchasedFilter').toLowerCase()}
                                       </span>
                                     )}
                                   </div>
@@ -1029,7 +1031,7 @@ export default function CleanerSupplyListModal({
                               <button
                                 onClick={(e) => { e.stopPropagation(); setDeleteListId(isConfirmingDelete ? null : list.id) }}
                                 className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
-                                title="Delete supply list"
+                                title={t('deleteSupplyList')}
                               >
                                 <TrashIcon className="w-4 h-4" />
                               </button>
@@ -1039,21 +1041,21 @@ export default function CleanerSupplyListModal({
                           {isConfirmingDelete && (
                             <div className="mt-1.5 p-3 bg-red-50 border border-red-200 rounded-xl">
                               <p className="text-xs text-red-700 font-medium mb-2">
-                                Delete this supply list and all its items?
+                                {t('deleteSupplyListConfirm')}
                               </p>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setDeleteListId(null)}
                                   className="flex-1 py-1.5 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
                                 >
-                                  Cancel
+                                  {t('cancel')}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteFromListView(list.id)}
                                   disabled={deletingListFromView}
                                   className="flex-1 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                  {deletingListFromView ? 'Deleting...' : 'Delete'}
+                                  {deletingListFromView ? t('deleting') : t('deleteAction')}
                                 </button>
                               </div>
                             </div>
@@ -1079,7 +1081,7 @@ export default function CleanerSupplyListModal({
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && newItemName.trim() && handleAddItem()}
-              placeholder="Add new item..."
+              placeholder={t('addNewItemPlaceholder')}
               className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
             <input
@@ -1106,7 +1108,7 @@ export default function CleanerSupplyListModal({
               className="flex-1 py-2.5 px-4 bg-green-100 text-green-700 rounded-xl font-medium hover:bg-green-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               <CheckCircleIcon className="w-5 h-5" />
-              Mark as Fulfilled
+              {t('markAsFulfilled')}
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}

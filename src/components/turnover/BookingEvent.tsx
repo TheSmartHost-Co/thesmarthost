@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { UserIcon, ArrowRightStartOnRectangleIcon, ArrowLeftEndOnRectangleIcon } from '@heroicons/react/24/outline'
 import type { Booking } from '@/services/types/booking'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -52,6 +53,7 @@ function formatShortDate(dateStr: string): string {
 }
 
 export default function BookingEvent({ booking, isFirstDay, isLastDay }: BookingEventProps) {
+  const { t } = useTranslation('turnover')
   const config = getPlatformConfig(booking.platform)
   const checkinTime = booking.defaultCheckinTime || DEFAULT_CHECKIN
   const checkoutTime = booking.defaultCheckoutTime || DEFAULT_CHECKOUT
@@ -107,7 +109,7 @@ export default function BookingEvent({ booking, isFirstDay, isLastDay }: Booking
         {/* Nights count */}
         {booking.numNights > 0 && (
           <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-100 rounded">
-            {booking.numNights} night{booking.numNights !== 1 ? 's' : ''}
+            {booking.numNights} {booking.numNights !== 1 ? t('nightPlural') : t('nightSingular')}
           </span>
         )}
       </div>

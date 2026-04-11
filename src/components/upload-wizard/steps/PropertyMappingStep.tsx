@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   CheckCircleIcon,

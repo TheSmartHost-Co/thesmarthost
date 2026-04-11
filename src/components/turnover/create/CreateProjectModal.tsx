@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -53,6 +54,7 @@ export default function CreateProjectModal({
   initialDate,
   initialPropertyId,
 }: CreateProjectModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { effectiveUserId } = usePermissions()
@@ -295,17 +297,17 @@ export default function CreateProjectModal({
     e.preventDefault()
 
     if (!effectiveUserId) {
-      showNotification('Please log in to create a project', 'error')
+      showNotification(t('pleaseLogIn'), 'error')
       return
     }
 
     if (!propertyId) {
-      showNotification('Please select a property', 'error')
+      showNotification(t('pleaseSelectProperty'), 'error')
       return
     }
 
     if (!projectDate) {
-      showNotification('Please select a project date', 'error')
+      showNotification(t('pleaseSelectProjectDate'), 'error')
       return
     }
 
@@ -334,15 +336,15 @@ export default function CreateProjectModal({
       const res = await createCleaningProject(payload)
 
       if (res.status === 'success') {
-        showNotification('Project created successfully', 'success')
+        showNotification(t('projectCreated'), 'success')
         onAdd(res.data)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to create project', 'error')
+        showNotification(res.message || t('failedToCreateProject'), 'error')
       }
     } catch (err) {
       console.error('Error creating project:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to create project', 'error')
+      showNotification(err instanceof Error ? err.message : t('failedToCreateProject'), 'error')
     } finally {
       setLoading(false)
     }
@@ -368,8 +370,8 @@ export default function CreateProjectModal({
                   <CalendarDaysIcon className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Create Cleaning Project</h2>
-                  <p className="text-sm text-gray-500">Schedule a new turnover</p>
+                  <h2 className="text-lg font-semibold text-gray-900">{t('createCleaningProject')}</h2>
+                  <p className="text-sm text-gray-500">{t('subtitle')}</p>
                 </div>
               </div>
               <button
@@ -389,13 +391,13 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <HomeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Property <span className="text-red-500">*</span>
+                      {t('property')} <span className="text-red-500">*</span>
                     </label>
                     <SearchableSelect
                       options={propertyOptions}
                       value={propertyId}
                       onChange={setPropertyId}
-                      placeholder="Search properties..."
+                      placeholder={t('searchProperties')}
                       emptyText="No properties found"
                       clearable={false}
                     />
@@ -405,7 +407,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <CalendarDaysIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Project Date <span className="text-red-500">*</span>
+                      {t('projectDateLabel')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -421,7 +423,7 @@ export default function CreateProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Previous Booking (Departing Guest) <span className="text-gray-400">(optional)</span>
+                    {t('previousBookingLabel')} <span className="text-gray-400">({t('cancel').toLowerCase()})</span>
                   </label>
                   <SearchableSelect
                     options={previousBookingOptions}
@@ -429,14 +431,14 @@ export default function CreateProjectModal({
                     onChange={setPreviousBookingId}
                     placeholder={
                       !propertyId
-                        ? 'Select property first...'
+                        ? t('selectProperty')
                         : loadingBookings
-                          ? 'Loading bookings...'
-                          : 'Search bookings...'
+                          ? t('loadingBookings')
+                          : t('selectPreviousBooking')
                     }
                     disabled={!propertyId || loadingBookings}
                     loading={loadingBookings}
-                    emptyText="No recent bookings found"
+                    emptyText={t('noBookings')}
                     clearable
                   />
                 </div>
@@ -445,7 +447,7 @@ export default function CreateProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Next Booking (Arriving Guest) <span className="text-gray-400">(optional)</span>
+                    {t('nextBookingLabel')} <span className="text-gray-400">({t('cancel').toLowerCase()})</span>
                   </label>
                   <SearchableSelect
                     options={nextBookingOptions}
@@ -453,14 +455,14 @@ export default function CreateProjectModal({
                     onChange={setNextBookingId}
                     placeholder={
                       !propertyId
-                        ? 'Select property first...'
+                        ? t('selectProperty')
                         : loadingBookings
-                          ? 'Loading bookings...'
-                          : 'Search bookings...'
+                          ? t('loadingBookings')
+                          : t('selectNextBooking')
                     }
                     disabled={!propertyId || loadingBookings}
                     loading={loadingBookings}
-                    emptyText="No recent bookings found"
+                    emptyText={t('noBookings')}
                     clearable
                   />
                 </div>
@@ -471,13 +473,13 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <UserIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Assign Cleaner <span className="text-gray-400">(optional)</span>
+                      {t('assignCleaner')} <span className="text-gray-400">({t('cancel').toLowerCase()})</span>
                     </label>
                     <SearchableSelect
                       options={cleanerOptions}
                       value={cleanerId}
                       onChange={setCleanerId}
-                      placeholder="Unassigned"
+                      placeholder={t('unassigned')}
                       emptyText="No cleaners found"
                       clearable
                     />
@@ -487,7 +489,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClipboardDocumentListIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Checklist Template
+                      {t('checklistLabel')}
                     </label>
                     <SearchableSelect
                       options={checklistOptions}
@@ -500,7 +502,7 @@ export default function CreateProjectModal({
                       headerAction={
                         propertyId
                           ? {
-                              label: 'Create New Checklist',
+                              label: t('createNewChecklist'),
                               icon: <PlusIcon className="w-4 h-4" />,
                               onClick: () => setShowCreateChecklistModal(true),
                             }
@@ -591,7 +593,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Start Time
+                      {t('startTime')}
                     </label>
                     <TimeSelect
                       value={projectStartTime}
@@ -602,7 +604,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      End Time
+                      {t('endTime')}
                     </label>
                     <TimeSelect
                       value={projectEndTime}
@@ -613,7 +615,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <ClockIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Est. Duration
+                      {t('estimatedDurationLabel')}
                     </label>
                     <DurationSelect
                       value={estimatedDuration}
@@ -628,7 +630,7 @@ export default function CreateProjectModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <UsersIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                      Guest Count
+                      {t('guestCountLabel')}
                     </label>
                     <input
                       type="number"
@@ -649,7 +651,7 @@ export default function CreateProjectModal({
                       />
                       <div className="flex items-center gap-2">
                         <ExclamationTriangleIcon className="w-4 h-4 text-amber-600" />
-                        <span className="text-sm font-medium text-amber-800">Same-day turnover</span>
+                        <span className="text-sm font-medium text-amber-800">{t('isSameDayTurnover')}</span>
                       </div>
                     </label>
                   </div>
@@ -659,7 +661,7 @@ export default function CreateProjectModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     <DocumentTextIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                    Notes for Cleaner
+                    {t('pmNotesLabel')}
                   </label>
                   <textarea
                     value={pmNotes}
@@ -679,7 +681,7 @@ export default function CreateProjectModal({
                   disabled={loading}
                   className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -689,12 +691,12 @@ export default function CreateProjectModal({
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Creating...
+                      {t('creating')}
                     </>
                   ) : (
                     <>
                       <CalendarDaysIcon className="w-4 h-4" />
-                      Create Project
+                      {t('createProject')}
                     </>
                   )}
                 </button>

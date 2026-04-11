@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Modal from '../../shared/modal'
 import { deleteCleaner } from '@/services/cleanerService'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { Cleaner } from '@/services/types/cleaner'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
@@ -20,6 +21,7 @@ const DeleteCleanerModal: React.FC<DeleteCleanerModalProps> = ({
   cleaner,
   onDeleted,
 }) => {
+  const { t } = useTranslation('turnover')
   const [isDeleting, setIsDeleting] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -30,14 +32,14 @@ const DeleteCleanerModal: React.FC<DeleteCleanerModalProps> = ({
     try {
       const res = await deleteCleaner(cleaner.id)
       if (res.status === 'success') {
-        showNotification('Cleaner deleted successfully', 'success')
+        showNotification(t('cleanerDeleted'), 'success')
         onDeleted(cleaner.id)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete cleaner', 'error')
+        showNotification(res.message || t('failedToDeleteCleaner'), 'error')
       }
     } catch (err) {
-      showNotification('Error deleting cleaner', 'error')
+      showNotification(t('errorDeletingCleaner'), 'error')
       console.error(err)
     } finally {
       setIsDeleting(false)
@@ -51,20 +53,19 @@ const DeleteCleanerModal: React.FC<DeleteCleanerModalProps> = ({
           <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Delete Cleaner</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('deleteCleanerTitle')}</h2>
           <p className="text-gray-600 mt-2">
-            Are you sure you want to delete <strong>{cleaner.name}</strong>?
+            {t('confirmDeleteCleanerNamed', { name: cleaner.name })}
           </p>
           {assignedCount > 0 && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
-                <strong>Warning:</strong> This cleaner is assigned to {assignedCount} {assignedCount === 1 ? 'property' : 'properties'}.
-                Deleting will remove all property assignments.
+                <strong>{t('warning')}:</strong> {t('cleanerAssignedToProperties', { count: assignedCount })}
               </p>
             </div>
           )}
           <p className="text-sm text-gray-500 mt-3">
-            This action cannot be undone.
+            {t('actionCannotBeUndone')}
           </p>
         </div>
       </div>
@@ -75,14 +76,14 @@ const DeleteCleanerModal: React.FC<DeleteCleanerModalProps> = ({
           disabled={isDeleting}
           className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors disabled:opacity-50"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           onClick={handleDelete}
           disabled={isDeleting}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer transition-colors disabled:opacity-50"
         >
-          {isDeleting ? 'Deleting...' : 'Delete Cleaner'}
+          {isDeleting ? t('deletingCleaner') : t('deleteCleanerButton')}
         </button>
       </div>
     </Modal>

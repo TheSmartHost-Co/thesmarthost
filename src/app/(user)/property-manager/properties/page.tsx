@@ -30,6 +30,7 @@ import { getClientsByParentId } from '@/services/clientService'
 import { Property } from '@/services/types/property'
 import { Client } from '@/services/types/client'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
@@ -94,6 +95,7 @@ export default function PropertyManagerPropertiesPage() {
   const [openedFromPreview, setOpenedFromPreview] = useState(false)
 
   const { profile } = useUserStore()
+  const { t } = useTranslation('properties')
   usePermissionGuard('properties')
   const { effectiveUserId, canWrite } = usePermissions()
 

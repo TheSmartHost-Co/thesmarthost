@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { updateTeamMember } from '@/services/teamMemberService'
 import type { TeamMember, UpdateTeamMemberPayload } from '@/services/types/teamMember'
@@ -22,6 +23,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
   member,
   onUpdate,
 }) => {
+  const { t } = useTranslation('settings')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [status, setStatus] = useState<'active' | 'inactive'>('active')
@@ -50,7 +52,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
     const trimmedPhone = phone.trim()
 
     if (!trimmedName) {
-      showNotification('Team member name is required', 'error')
+      showNotification(t('teamMemberNameRequired'), 'error')
       return
     }
 
@@ -68,15 +70,15 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
 
       if (res.status === 'success') {
         onUpdate(res.data)
-        showNotification('Team member updated successfully', 'success')
+        showNotification(t('teamMemberUpdated'), 'success')
         onClose()
       } else {
-        showNotification(res.message || 'Failed to update team member', 'error')
+        showNotification(res.message || t('failedToUpdateTeamMember'), 'error')
       }
     } catch (err) {
       console.error('Error updating team member:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error updating team member',
+        err instanceof Error ? err.message : t('errorUpdatingTeamMember'),
         'error'
       )
     } finally {
@@ -88,27 +90,27 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 w-11/12 max-w-2xl max-h-[85vh]">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Edit Team Member</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900">{t('editTeamMember')}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Full Name <span className="text-red-500">*</span>
+            {t('fullName')} <span className="text-red-500">*</span>
           </label>
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="e.g. Jane Smith"
+            placeholder={t('fullNamePlaceholder')}
           />
         </div>
 
         {/* Email field (read-only) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email
+            {t('email')}
           </label>
           <input
             type="email"
@@ -117,40 +119,40 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
             className="w-full text-gray-500 px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl cursor-not-allowed"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Email cannot be changed after invitation
+            {t('emailCannotBeChangedAfterInvite')}
           </p>
         </div>
 
         {/* Phone field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Phone Number
+            {t('phoneNumber')}
           </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="e.g. (555) 123-4567"
+            placeholder={t('phonePlaceholder')}
           />
         </div>
 
         {/* Status field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Status
+            {t('statusLabel')}
           </label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
             className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
           >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="active">{t('active')}</option>
+            <option value="inactive">{t('inactive')}</option>
           </select>
           {member.status === 'invited' && (
             <p className="text-xs text-amber-600 mt-1">
-              This member has a pending invitation. Changing status will override the invite status.
+              {t('pendingInvitationWarning')}
             </p>
           )}
         </div>
@@ -158,7 +160,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
         {/* Permissions */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Permissions
+            {t('permissions')}
           </label>
           <PermissionEditor
             permissions={permissions}
@@ -174,7 +176,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
             disabled={loading}
             className="px-4 py-2 cursor-pointer bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
@@ -203,7 +205,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
                 />
               </svg>
             )}
-            {loading ? 'Saving...' : 'Save Changes'}
+            {loading ? t('savingChanges') : t('saveChanges')}
           </button>
         </div>
       </form>

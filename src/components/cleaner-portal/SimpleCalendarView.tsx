@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import { isProjectOverdue } from '@/services/cleaningProjectService'
 import ProjectEvent from '@/components/turnover/ProjectEvent'
@@ -51,6 +52,7 @@ export default function SimpleCalendarView({
   onProjectClick,
   issueCountsMap = {},
 }: SimpleCalendarViewProps) {
+  const { t } = useTranslation('cleanerPortal')
   const todayStr = formatLocalDate(new Date())
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -276,8 +278,8 @@ export default function SimpleCalendarView({
         </div>
       ) : (
         <div className="py-16 text-center">
-          <div className="text-gray-300 text-sm font-medium">No projects this week</div>
-          <div className="text-gray-300 text-xs mt-1">Navigate to another week to see your schedule</div>
+          <div className="text-gray-300 text-sm font-medium">{t('noProjectsThisWeek')}</div>
+          <div className="text-gray-300 text-xs mt-1">{t('navigateToAnotherWeek')}</div>
         </div>
       )}
     </div>

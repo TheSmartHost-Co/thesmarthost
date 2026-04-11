@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { deleteTeamMember } from '@/services/teamMemberService'
 import type { TeamMember } from '@/services/types/teamMember'
@@ -19,6 +20,7 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
   member,
   onDelete,
 }) => {
+  const { t } = useTranslation('settings')
   const [loading, setLoading] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -31,16 +33,16 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
       const res = await deleteTeamMember(member.id)
 
       if (res.status === 'success') {
-        showNotification('Team member removed successfully', 'success')
+        showNotification(t('teamMemberRemoved'), 'success')
         onDelete(member.id)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete team member', 'error')
+        showNotification(res.message || t('failedToDeleteTeamMember'), 'error')
       }
     } catch (err) {
       console.error('Error deleting team member:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error deleting team member',
+        err instanceof Error ? err.message : t('errorDeletingTeamMember'),
         'error'
       )
     } finally {
@@ -52,16 +54,16 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-sm w-11/12">
-      <h2 className="text-lg font-semibold mb-4 text-gray-900">Remove Team Member</h2>
+      <h2 className="text-lg font-semibold mb-4 text-gray-900">{t('removeTeamMember')}</h2>
       <p className="text-gray-900 mb-2">
-        Are you sure you want to remove <strong>{member.name}</strong>?
+        {t('confirmRemoveMember', { name: member.name })}
       </p>
       <p className="text-sm text-gray-600 mb-2">
         {member.email}
       </p>
       <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-6">
         <p className="text-sm text-red-700">
-          This action cannot be undone. The team member&apos;s login access will be revoked and their account will be permanently removed.
+          {t('removeTeamMemberWarning')}
         </p>
       </div>
       <div className="flex justify-end space-x-4">
@@ -70,7 +72,7 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
           disabled={loading}
           className="px-4 py-2 bg-gray-300 text-black rounded-md hover:bg-gray-400 cursor-pointer transition-colors disabled:opacity-50"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           onClick={handleDelete}
@@ -99,7 +101,7 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
               />
             </svg>
           )}
-          {loading ? 'Removing...' : 'Remove Member'}
+          {loading ? t('removing') : t('removeMember')}
         </button>
       </div>
     </Modal>

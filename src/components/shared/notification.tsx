@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircleIcon, XCircleIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -31,16 +32,17 @@ const toneStyles = {
   },
 } as const;
 
-const toneLabels = {
-  success: 'Success',
-  error: 'Error',
-  info: 'Info',
-} as const;
-
 const Notification: React.FC = () => {
+  const { t } = useTranslation('common');
   const { message, type = 'info', isOpen, closeNotification } = useNotificationStore();
+
+  const toneLabels = {
+    success: t('success'),
+    error: t('error'),
+    info: t('info'),
+  } as const;
   const styles = toneStyles[type as keyof typeof toneStyles] ?? toneStyles.info;
-  const label = toneLabels[type as keyof typeof toneLabels] ?? 'Info';
+  const label = toneLabels[type as keyof typeof toneLabels] ?? t('info');
   const [progress, setProgress] = useState(100);
 
   useEffect(() => {
@@ -112,7 +114,7 @@ const Notification: React.FC = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-              aria-label="Close notification"
+              aria-label={t('closeNotification')}
             >
               <XMarkIcon className="w-5 h-5" />
             </motion.button>

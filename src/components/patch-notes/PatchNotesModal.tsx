@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import ReactMarkdown from 'react-markdown'
 import type { PatchNote } from '@/services/types/patchNote'
@@ -22,6 +23,7 @@ const PatchNotesModal: React.FC<PatchNotesModalProps> = ({
   onDismissAll,
   onClose,
 }) => {
+  const { t } = useTranslation('common')
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -53,8 +55,8 @@ const PatchNotesModal: React.FC<PatchNotesModalProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎉</span>
           <div>
-            <h2 className="text-lg font-bold text-white">What&apos;s New</h2>
-            <p className="text-sm text-amber-100">Latest updates to HostMetrics</p>
+            <h2 className="text-lg font-bold text-white">{t('whatsNew')}</h2>
+            <p className="text-sm text-amber-100">{t('latestUpdatesToHostMetrics')}</p>
           </div>
         </div>
       </div>
@@ -133,7 +135,7 @@ const PatchNotesModal: React.FC<PatchNotesModalProps> = ({
             disabled={loading}
             className="text-sm text-gray-500 hover:text-gray-700"
           >
-            Don&apos;t show again
+            {t('dontShowAgain')}
           </button>
 
           <div className="flex gap-2">
@@ -141,14 +143,14 @@ const PatchNotesModal: React.FC<PatchNotesModalProps> = ({
               onClick={handleViewAll}
               className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
-              View All Notes
+              {t('viewAllNotes')}
             </button>
             <button
               onClick={onDismissAll}
               disabled={loading}
               className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg hover:from-amber-600 hover:to-amber-700 disabled:opacity-50"
             >
-              {loading ? 'Dismissing...' : 'Got it ✓'}
+              {loading ? t('dismissing') : t('gotIt')}
             </button>
           </div>
         </div>

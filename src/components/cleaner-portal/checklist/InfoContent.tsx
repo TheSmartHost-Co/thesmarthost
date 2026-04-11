@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   WifiIcon,
   KeyIcon,
@@ -31,6 +32,7 @@ interface InfoContentProps {
 }
 
 export default function InfoContent({ project, onRequestTimeChange, onNotesUpdated }: InfoContentProps) {
+  const { t } = useTranslation('cleanerPortal')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const [showPassword, setShowPassword] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
@@ -39,7 +41,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
-    showNotification(`${label} copied to clipboard`, 'success')
+    showNotification(t('copiedToClipboard', { label }), 'success')
   }
 
   const formatDate = (dateStr?: string) => {
@@ -53,15 +55,15 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
     try {
       const res = await updateProjectNotes(project.id, notesValue.trim())
       if (res.status === 'success') {
-        showNotification('Notes saved', 'success')
+        showNotification(t('notesSaved'), 'success')
         setEditingNotes(false)
         onNotesUpdated?.(res.data)
       } else {
-        showNotification(res.message || 'Failed to save notes', 'error')
+        showNotification(res.message || t('failedToSaveNotes'), 'error')
       }
     } catch (err) {
       console.error('Error saving notes:', err)
-      showNotification('Error saving notes', 'error')
+      showNotification(t('errorSavingNotes'), 'error')
     } finally {
       setSavingNotes(false)
     }
@@ -94,14 +96,14 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
         <div className="border-l-4 border-indigo-500 bg-indigo-50/40 rounded-r-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <CalendarDaysIcon className="w-4 h-4 text-indigo-600" />
-            <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Related Bookings</span>
+            <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">{t('relatedBookings')}</span>
           </div>
           <div className="rounded-lg border border-indigo-100 bg-white/80 divide-y divide-gray-100">
             <div className="flex items-center gap-3 px-3 py-2.5">
-              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider w-20 flex-shrink-0">Departing</span>
+              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider w-20 flex-shrink-0">{t('departing')}</span>
               {project.previousBookingId ? (
                 <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                  <span className="font-medium text-gray-900 truncate">{project.previousBookingGuestName || 'Unknown'}</span>
+                  <span className="font-medium text-gray-900 truncate">{project.previousBookingGuestName || t('unknown')}</span>
                   <span className="text-xs text-gray-400 flex-shrink-0">
                     {formatDate(project.previousBookingCheckIn)}
                     <ArrowRightIcon className="w-2.5 h-2.5 inline mx-1" />
@@ -117,14 +119,14 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                   )}
                 </div>
               ) : (
-                <span className="text-sm text-gray-400">No booking linked</span>
+                <span className="text-sm text-gray-400">{t('noBookingLinked')}</span>
               )}
             </div>
             <div className="flex items-center gap-3 px-3 py-2.5">
-              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider w-20 flex-shrink-0">Arriving</span>
+              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider w-20 flex-shrink-0">{t('arriving')}</span>
               {project.nextBookingId ? (
                 <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                  <span className="font-medium text-gray-900 truncate">{project.nextBookingGuestName || 'Unknown'}</span>
+                  <span className="font-medium text-gray-900 truncate">{project.nextBookingGuestName || t('unknown')}</span>
                   <span className="text-xs text-gray-400 flex-shrink-0">
                     {formatDate(project.nextBookingCheckIn)}
                     <ArrowRightIcon className="w-2.5 h-2.5 inline mx-1" />
@@ -140,7 +142,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                   )}
                 </div>
               ) : (
-                <span className="text-sm text-gray-400">No booking linked</span>
+                <span className="text-sm text-gray-400">{t('noBookingLinked')}</span>
               )}
             </div>
           </div>
@@ -153,7 +155,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ClockIcon className="w-4 h-4 text-purple-600" />
-              <span className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Time Window</span>
+              <span className="text-xs font-semibold text-purple-700 uppercase tracking-wider">{t('timeWindow')}</span>
             </div>
             {onRequestTimeChange && project.status !== 'completed' && (
               <button
@@ -161,7 +163,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
               >
                 <ArrowPathIcon className="w-3 h-3" />
-                Request Change
+                {t('requestChange')}
               </button>
             )}
           </div>
@@ -179,7 +181,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <KeyIcon className="w-4 h-4 text-orange-600" />
-              <span className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Access Codes</span>
+              <span className="text-xs font-semibold text-orange-700 uppercase tracking-wider">{t('accessCodes')}</span>
             </div>
             <button
               type="button"
@@ -188,7 +190,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
               title="Copy all codes"
             >
               <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-              Copy All
+              {t('copyAll')}
             </button>
           </div>
           <pre className="text-sm text-gray-900 whitespace-pre-wrap break-all overflow-x-auto max-w-full font-mono bg-white/80 p-3 rounded-lg">
@@ -202,13 +204,13 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
         <div className="border-l-4 border-sky-500 bg-sky-50/40 rounded-r-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <WifiIcon className="w-4 h-4 text-sky-600" />
-            <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">WiFi</span>
+            <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">{t('wifi')}</span>
           </div>
           <div className="space-y-2">
             {project.propertyWifiSsid && (
               <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
                 <div>
-                  <span className="text-xs text-gray-500 block">Network</span>
+                  <span className="text-xs text-gray-500 block">{t('network')}</span>
                   <span className="text-sm font-mono font-medium text-gray-900">{project.propertyWifiSsid}</span>
                 </div>
                 <button
@@ -224,7 +226,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
             {project.propertyWifiPassword && (
               <div className="flex items-center justify-between bg-white/80 rounded-lg px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <span className="text-xs text-gray-500 block">Password</span>
+                  <span className="text-xs text-gray-500 block">{t('password')}</span>
                   <span className="text-sm font-mono font-medium text-gray-900">
                     {showPassword ? project.propertyWifiPassword : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
                   </span>
@@ -258,7 +260,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
         <div className="border-l-4 border-gray-400 bg-gray-50/40 rounded-r-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <ChatBubbleLeftIcon className="w-4 h-4 text-gray-500" />
-            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Manager Notes</span>
+            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('managerNotes')}</span>
           </div>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.pmNotes}</p>
         </div>
@@ -269,7 +271,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <PencilSquareIcon className="w-4 h-4 text-teal-600" />
-            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">My Notes</span>
+            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">{t('myNotes')}</span>
           </div>
           {!editingNotes && project.status !== 'completed' && (
             <button
@@ -281,7 +283,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
               className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
             >
               <PencilSquareIcon className="w-3 h-3" />
-              Edit
+              {t('edit')}
             </button>
           )}
         </div>
@@ -290,7 +292,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
             <textarea
               value={notesValue}
               onChange={(e) => setNotesValue(e.target.value)}
-              placeholder="Add notes about this cleaning..."
+              placeholder={t('addNotesPlaceholder')}
               rows={3}
               className="w-full text-sm text-gray-900 bg-white/80 border border-teal-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
               autoFocus
@@ -303,7 +305,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 <XMarkIcon className="w-3.5 h-3.5" />
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 type="button"
@@ -316,13 +318,13 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
                 ) : (
                   <CheckIcon className="w-3.5 h-3.5" />
                 )}
-                Save
+                {t('save')}
               </button>
             </div>
           </div>
         ) : (
           <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {project.cleanerNotes || <span className="text-gray-400 italic">No notes yet</span>}
+            {project.cleanerNotes || <span className="text-gray-400 italic">{t('noNotesYet')}</span>}
           </p>
         )}
       </div>
@@ -332,7 +334,7 @@ export default function InfoContent({ project, onRequestTimeChange, onNotesUpdat
         <div className="border-l-4 border-stone-400 bg-stone-50/40 rounded-r-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <HomeIcon className="w-4 h-4 text-stone-500" />
-            <span className="text-xs font-semibold text-stone-600 uppercase tracking-wider">Property Details</span>
+            <span className="text-xs font-semibold text-stone-600 uppercase tracking-wider">{t('propertyDetails')}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {project.propertyNumBeds != null && (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -99,6 +100,7 @@ export default function TurnoverCalendar({
   deepLinkView,
   onCalendarReady,
 }: TurnoverCalendarProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { effectiveUserId } = usePermissions()
@@ -467,10 +469,10 @@ export default function TurnoverCalendar({
             if (deepLinkSection) setDeepLinkInitialSection(deepLinkSection)
             setShowDetailModal(true)
           } else {
-            showNotification('This project no longer exists.', 'info')
+            showNotification(t('projectNoLongerExists'), 'info')
           }
         } catch {
-          showNotification('This project no longer exists.', 'info')
+          showNotification(t('projectNoLongerExists'), 'info')
         }
       })()
     }
@@ -822,16 +824,16 @@ export default function TurnoverCalendar({
           }
           return next
         })
-        showNotification('Booking deleted successfully', 'success')
+        showNotification(t('bookingDeleted'), 'success')
         setShowBookingDeleteConfirm(false)
         setShowBookingPreview(false)
         setSelectedBooking(null)
       } else {
-        showNotification(res.message || 'Failed to delete booking', 'error')
+        showNotification(res.message || t('failedToDeleteBooking'), 'error')
       }
     } catch (err) {
       console.error('Error deleting booking:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to delete booking', 'error')
+      showNotification(err instanceof Error ? err.message : t('failedToDeleteBooking'), 'error')
     } finally {
       setBookingActionLoading(false)
     }
@@ -866,16 +868,16 @@ export default function TurnoverCalendar({
           }
           return next
         })
-        showNotification('Booking cancelled successfully', 'success')
+        showNotification(t('bookingCancelled'), 'success')
         setShowBookingCancelConfirm(false)
         setShowBookingPreview(false)
         setSelectedBooking(null)
       } else {
-        showNotification(res.message || 'Failed to cancel booking', 'error')
+        showNotification(res.message || t('failedToCancelBooking'), 'error')
       }
     } catch (err) {
       console.error('Error cancelling booking:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to cancel booking', 'error')
+      showNotification(err instanceof Error ? err.message : t('failedToCancelBooking'), 'error')
     } finally {
       setBookingActionLoading(false)
     }
@@ -1081,9 +1083,9 @@ export default function TurnoverCalendar({
           // 4. Refresh stats
           refreshStats()
 
-          showNotification('Booking rescheduled', 'success')
+          showNotification(t('bookingRescheduled'), 'success')
         } else {
-          showNotification(res.message || 'Failed to reschedule booking', 'error')
+          showNotification(res.message || t('failedToRescheduleBooking'), 'error')
           setPendingDrop(null)
           return
         }
@@ -1093,7 +1095,7 @@ export default function TurnoverCalendar({
       if (isValidationError(err)) {
         err.errors.forEach((e) => showNotification(e, 'error'))
       } else {
-        showNotification(err instanceof Error ? err.message : 'Failed to complete move', 'error')
+        showNotification(err instanceof Error ? err.message : t('failedToCompleteMove'), 'error')
       }
     } finally {
       setPendingDrop(null)
@@ -1126,15 +1128,15 @@ export default function TurnoverCalendar({
           setSelectedPropertyIds(prev => prev.filter(id => id !== propertyId))
         }
         showNotification(
-          enabled ? 'Cleaning management enabled' : 'Cleaning management disabled',
+          enabled ? t('cleaningManagementEnabled') : t('cleaningManagementDisabled'),
           'success'
         )
       } else {
-        showNotification(res.message || 'Failed to update property', 'error')
+        showNotification(res.message || t('failedToUpdatePropertyCleaning'), 'error')
       }
     } catch (err) {
       console.error('Error toggling cleaning managed:', err)
-      showNotification('Failed to update property', 'error')
+      showNotification(t('failedToUpdatePropertyCleaning'), 'error')
     }
   }, [showNotification])
 
@@ -1427,7 +1429,7 @@ export default function TurnoverCalendar({
         onClose={() => setShowCreateChecklistModal(false)}
         onAdd={() => {
           setShowCreateChecklistModal(false)
-          showNotification('Checklist created successfully', 'success')
+          showNotification(t('checklistCreated'), 'success')
         }}
         properties={properties}
       />
@@ -1438,7 +1440,7 @@ export default function TurnoverCalendar({
         onClose={() => setShowDuplicateChecklistModal(false)}
         onDuplicate={() => {
           setShowDuplicateChecklistModal(false)
-          showNotification('Checklist duplicated successfully', 'success')
+          showNotification(t('checklistDuplicated'), 'success')
         }}
         properties={properties}
       />

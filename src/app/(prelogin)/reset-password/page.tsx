@@ -7,12 +7,14 @@ import Link from 'next/link'
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, ArrowLeftIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
 
 function ResetPasswordForm() {
+  const { t } = useTranslation('auth')
   const router = useRouter()
   const supabase = createClient()
   const notify = useNotificationStore(s => s.showNotification)
@@ -29,7 +31,7 @@ function ResetPasswordForm() {
       // Session was already established by /api/auth/callback (server-side PKCE code exchange)
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        notify("Invalid or expired reset link", "error")
+        notify(t('invalidResetLink'), "error")
         router.push('/forgot-password')
         return
       }
@@ -41,12 +43,12 @@ function ResetPasswordForm() {
 
   async function updatePassword() {
     if (password !== confirmPassword) {
-      notify("Passwords don't match", "error")
+      notify(t('passwordsDontMatch'), "error")
       return
     }
 
     if (password.length < 6) {
-      notify("Password must be at least 6 characters", "error")
+      notify(t('passwordMinLength'), "error")
       return
     }
 
@@ -61,15 +63,15 @@ function ResetPasswordForm() {
     if (error) {
       notify(error.message, "error")
     } else {
-      notify("Password updated successfully!", "success")
+      notify(t('passwordUpdated'), "success")
       await supabase.auth.signOut()
       router.push('/login?message=password-updated')
     }
   }
 
   const passwordRequirements = [
-    { met: password.length >= 6, text: "At least 6 characters" },
-    { met: password === confirmPassword && password.length > 0, text: "Passwords match" },
+    { met: password.length >= 6, text: t('atLeast6Chars') },
+    { met: password === confirmPassword && password.length > 0, text: t('passwordsMatch') },
   ]
 
   return (
@@ -89,9 +91,9 @@ function ResetPasswordForm() {
           >
             <ShieldCheckIcon className="h-10 w-10 text-white" />
           </motion.div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Set new password</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('setNewPassword')}</h2>
           <p className="mt-2 text-gray-600">
-            Please enter your new password below
+            {t('enterNewPasswordBelow')}
           </p>
         </div>
 
@@ -99,7 +101,7 @@ function ResetPasswordForm() {
           <form className="space-y-5">
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
+                {t('newPassword')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -111,7 +113,7 @@ function ResetPasswordForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full text-gray-900 pl-11 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                  placeholder="Enter your new password"
+                  placeholder={t('enterNewPassword')}
                   required
                 />
                 <button
@@ -130,7 +132,7 @@ function ResetPasswordForm() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm New Password
+                {t('confirmNewPassword')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -142,7 +144,7 @@ function ResetPasswordForm() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full text-gray-900 pl-11 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                  placeholder="Confirm your new password"
+                  placeholder={t('confirmNewPasswordPlaceholder')}
                   required
                 />
                 <button
@@ -161,7 +163,7 @@ function ResetPasswordForm() {
 
             {/* Password Requirements */}
             <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-xs font-medium text-gray-500 uppercase mb-2">Password Requirements</p>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-2">{t('passwordRequirements')}</p>
               <div className="space-y-1.5">
                 {passwordRequirements.map((req, index) => (
                   <div key={index} className="flex items-center gap-2">
@@ -194,10 +196,10 @@ function ResetPasswordForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Updating password...
+                  {t('updatingPassword')}
                 </span>
               ) : (
-                'Update password'
+                t('updatePassword')
               )}
             </motion.button>
           </form>
@@ -209,7 +211,7 @@ function ResetPasswordForm() {
             className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
-            Back to sign in
+            {t('backToSignIn')}
           </Link>
         </div>
       </motion.div>
@@ -218,6 +220,7 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation('common')
   return (
     <div className="min-h-screen bg-white">
       <PreNavbar />
@@ -229,7 +232,7 @@ export default function ResetPasswordPage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Loading...
+            {t('loading')}
           </div>
         </div>
       }>

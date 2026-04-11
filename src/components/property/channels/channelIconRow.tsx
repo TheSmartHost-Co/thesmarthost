@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React from 'react'
 import { PropertyChannel } from '@/services/types/propertyChannel'
 import { getChannelIcon, getChannelDisplayName } from '@/services/channelUtils'

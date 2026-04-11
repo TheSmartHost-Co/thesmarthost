@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { updateCleaner } from '@/services/cleanerService'
 import { UpdateCleanerPayload, Cleaner } from '@/services/types/cleaner'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface UpdateCleanerModalProps {
@@ -36,6 +37,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
   const [status, setStatus] = useState<'active' | 'inactive'>('active')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Reset form fields whenever the modal opens or cleaner changes
@@ -58,7 +60,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
     const trimmedPhone = phone.trim()
 
     if (!trimmedName) {
-      showNotification('Cleaner name is required', 'error')
+      showNotification(t('cleanerNameRequired'), 'error')
       return
     }
 
@@ -66,7 +68,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
     if (trimmedEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(trimmedEmail)) {
-        showNotification('Please enter a valid email address', 'error')
+        showNotification(t('pleaseEnterValidEmail'), 'error')
         return
       }
     }
@@ -74,7 +76,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
     // Validate hourly rate if provided
     const rate = hourlyRate ? parseFloat(hourlyRate) : null
     if (hourlyRate && (isNaN(rate!) || rate! < 0)) {
-      showNotification('Please enter a valid hourly rate', 'error')
+      showNotification(t('pleaseEnterValidRate'), 'error')
       return
     }
 
@@ -94,14 +96,14 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
 
       if (res.status === 'success') {
         onUpdate(res.data)
-        showNotification('Cleaner updated successfully', 'success')
+        showNotification(t('cleanerUpdated'), 'success')
         onClose()
       } else {
-        showNotification(res.message || 'Failed to update cleaner', 'error')
+        showNotification(res.message || t('failedToUpdateCleaner'), 'error')
       }
     } catch (err) {
       console.error('Error updating cleaner:', err)
-      showNotification('Error updating cleaner', 'error')
+      showNotification(t('errorUpdatingCleaner'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -109,7 +111,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[80vh]">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Edit Cleaner</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900">{t('editCleanerTitle')}</h2>
       <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
         {/* Name field */}
         <div>
@@ -221,7 +223,7 @@ const UpdateCleanerModal: React.FC<UpdateCleanerModalProps> = ({
             disabled={isSubmitting}
             className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
+            {isSubmitting ? t('savingCleaner') : t('saveChanges')}
           </button>
         </div>
       </form>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -46,6 +47,7 @@ export default function WalkthroughUploadMenu({
   variant = 'primary',
   label = 'Add Photos',
 }: WalkthroughUploadMenuProps) {
+  const { t } = useTranslation('turnover')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -137,7 +139,7 @@ export default function WalkthroughUploadMenu({
         {isUploading ? (
           <>
             <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-            Uploading...
+            {t('uploading')}
           </>
         ) : (
           <>
@@ -164,7 +166,7 @@ export default function WalkthroughUploadMenu({
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
             >
               <CameraIcon className="w-4 h-4" />
-              Take Photo
+              {t('takePhoto')}
             </button>
             <button
               type="button"
@@ -172,7 +174,7 @@ export default function WalkthroughUploadMenu({
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
             >
               <PhotoIcon className="w-4 h-4" />
-              Choose Photos
+              {t('choosePhotos')}
             </button>
             <button
               type="button"
@@ -180,7 +182,7 @@ export default function WalkthroughUploadMenu({
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
             >
               <ArrowUpTrayIcon className="w-4 h-4" />
-              Upload Files
+              {t('uploadFiles')}
             </button>
           </motion.div>
         </AnimatePresence>,

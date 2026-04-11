@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -34,6 +35,7 @@ import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActio
 export default function ReportsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('reports')
   usePermissionGuard('reports')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -110,7 +112,7 @@ export default function ReportsPage() {
       if (reportsRes.status === 'success') {
         setReports(reportsRes.data || [])
       } else {
-        setError(reportsRes.message || 'Failed to load reports')
+        setError(reportsRes.message || t('failedToLoadReports'))
       }
 
       if (templatesRes.status === 'success') {
@@ -135,29 +137,29 @@ export default function ReportsPage() {
       if (res.status === 'success') {
         setReports(res.data || [])
       } else {
-        showNotification(res.message || 'Failed to load reports', 'error')
+        showNotification(res.message || t('failedToLoadReports'), 'error')
       }
     } catch (err) {
       console.error('Error loading reports:', err)
-      showNotification('Failed to load reports', 'error')
+      showNotification(t('failedToLoadReports'), 'error')
     }
   }
 
   const handleDeleteReport = async (reportId: string) => {
-    if (!confirm('Are you sure you want to delete this report?')) return
+    if (!confirm(t('confirmDeleteReport'))) return
 
     try {
       setDeletingReportId(reportId)
       const res = await deleteReport(reportId)
       if (res.status === 'success') {
-        showNotification('Report deleted successfully', 'success')
+        showNotification(t('reportDeleted'), 'success')
         await loadReports()
       } else {
-        showNotification(res.message || 'Failed to delete report', 'error')
+        showNotification(res.message || t('failedToDeleteReport'), 'error')
       }
     } catch (err) {
       console.error('Error deleting report:', err)
-      showNotification('Failed to delete report', 'error')
+      showNotification(t('failedToDeleteReport'), 'error')
     } finally {
       setDeletingReportId(null)
     }
@@ -197,7 +199,7 @@ export default function ReportsPage() {
   const getReportActions = (report: Report): ActionItem[] => {
     const actions: ActionItem[] = [
       {
-        label: 'View Details',
+        label: t('viewDetails', { ns: 'common' }),
         icon: EyeIcon,
         onClick: () => handleViewReport(report.id),
         variant: 'default'
@@ -205,7 +207,7 @@ export default function ReportsPage() {
     ]
     if (canWrite('reports')) {
       actions.push({
-        label: 'Delete Report',
+        label: t('deleteReport', { ns: 'common' }),
         icon: TrashIcon,
         onClick: () => handleDeleteReport(report.id),
         variant: 'danger'
@@ -277,7 +279,7 @@ export default function ReportsPage() {
 
   const statCards = [
     {
-      label: 'Total Reports',
+      label: t('totalReports'),
       value: stats.total,
       icon: DocumentChartBarIcon,
       bgColor: 'bg-blue-50',
@@ -286,7 +288,7 @@ export default function ReportsPage() {
       borderColor: 'border-blue-100'
     },
     {
-      label: 'PDF Reports',
+      label: t('pdfReports'),
       value: stats.pdfCount,
       icon: DocumentTextIcon,
       bgColor: 'bg-red-50',
@@ -295,7 +297,7 @@ export default function ReportsPage() {
       borderColor: 'border-red-100'
     },
     {
-      label: 'CSV Reports',
+      label: t('csvReports'),
       value: stats.csvCount,
       icon: TableCellsIcon,
       bgColor: 'bg-green-50',
@@ -304,7 +306,7 @@ export default function ReportsPage() {
       borderColor: 'border-green-100'
     },
     {
-      label: 'Excel Reports',
+      label: t('excelReports'),
       value: stats.excelCount,
       icon: TableCellsIcon,
       bgColor: 'bg-purple-50',
@@ -319,14 +321,14 @@ export default function ReportsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-            <p className="text-gray-500 mt-1">Generate and manage financial reports</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading reports...</p>
+            <p className="text-sm text-gray-500">{t('loadingReports')}</p>
           </div>
         </div>
       </div>
@@ -338,8 +340,8 @@ export default function ReportsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-            <p className="text-gray-500 mt-1">Generate and manage financial reports</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('subtitle')}</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -348,7 +350,7 @@ export default function ReportsPage() {
               <XMarkIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading reports</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingReports')}</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -362,8 +364,8 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-500 mt-1">Generate and manage financial reports</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-500 mt-1">{t('subtitle')}</p>
         </div>
         {canWrite('reports') && (
           <motion.button
@@ -421,7 +423,7 @@ export default function ReportsPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                placeholder="Search by property name or address..."
+                placeholder={t('searchReports')}
               />
             </div>
 
@@ -674,11 +676,11 @@ export default function ReportsPage() {
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <DocumentChartBarIcon className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">No reports found</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noReportsFound')}</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
                 {searchTerm || activeFiltersCount > 0
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by generating your first financial report.'}
+                  ? t('tryAdjustingFilters', { ns: 'common' })
+                  : t('getStartedReports')}
               </p>
               {!searchTerm && activeFiltersCount === 0 && (
                 <motion.button

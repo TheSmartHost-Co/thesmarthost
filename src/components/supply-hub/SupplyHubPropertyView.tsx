@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SupplyList, SupplyListSummary } from '@/services/types/supplyList'
 import SupplyHubListCard from './SupplyHubListCard'
 import { ChevronDownIcon, ChevronRightIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline'
@@ -30,6 +31,7 @@ export default function SupplyHubPropertyView({
   onScanReceipt,
   canWrite,
 }: SupplyHubPropertyViewProps) {
+  const { t } = useTranslation('turnover')
   const grouped = useMemo(() => {
     const map = new Map<string, { propertyName: string; lists: SupplyList[] }>()
     for (const sl of supplyLists) {
@@ -80,8 +82,8 @@ export default function SupplyHubPropertyView({
         <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
           <BuildingOfficeIcon className="w-7 h-7 text-gray-400" />
         </div>
-        <p className="text-lg font-medium text-gray-900 mb-1">No supply lists found</p>
-        <p className="text-sm text-gray-500">Try adjusting your filters.</p>
+        <p className="text-lg font-medium text-gray-900 mb-1">{t('noSupplyLists')}</p>
+        <p className="text-sm text-gray-500">{t('tryAdjustingFilters')}</p>
       </div>
     )
   }

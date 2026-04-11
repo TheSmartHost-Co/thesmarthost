@@ -17,6 +17,7 @@ import {
   DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { updateUserProfile } from '@/services/profileService'
@@ -74,6 +75,7 @@ export default function PropertyManagerSettingsPage() {
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('settings')
   usePermissionGuard('settings')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -390,14 +392,14 @@ export default function PropertyManagerSettingsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage your account and integrations</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('manageAccountAndIntegrations')}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading settings...</p>
+            <p className="text-sm text-gray-500">{t('loadingSettings')}</p>
           </div>
         </div>
       </div>
@@ -409,8 +411,8 @@ export default function PropertyManagerSettingsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage your account and integrations</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('manageAccountAndIntegrations')}</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -419,7 +421,7 @@ export default function PropertyManagerSettingsPage() {
               <XMarkIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading settings</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingSettings')}</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -457,8 +459,8 @@ export default function PropertyManagerSettingsPage() {
                   <UserIcon className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Profile Settings</h3>
-                  <p className="text-sm text-gray-500">Update your personal information</p>
+                  <h3 className="text-lg font-semibold text-gray-900">{t('profileSettings')}</h3>
+                  <p className="text-sm text-gray-500">{t('updatePersonalInfo')}</p>
                 </div>
               </div>
               {canWrite('settings') && (
@@ -480,20 +482,20 @@ export default function PropertyManagerSettingsPage() {
               // View Mode
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Name</label>
-                  <p className="text-gray-900 font-medium">{profile?.fullName || 'Not set'}</p>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('nameLabel')}</label>
+                  <p className="text-gray-900 font-medium">{profile?.fullName || t('notSet')}</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Email</label>
-                  <p className="text-gray-900 font-medium">{profileData.email || 'Not set'}</p>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('email')}</label>
+                  <p className="text-gray-900 font-medium">{profileData.email || t('notSet')}</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Phone</label>
-                  <p className="text-gray-900 font-medium">{profile?.phoneNumber || 'Not set'}</p>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('phone')}</label>
+                  <p className="text-gray-900 font-medium">{profile?.phoneNumber || t('notSet')}</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Company</label>
-                  <p className="text-gray-900 font-medium">{profile?.companyName || 'Not set'}</p>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('company')}</label>
+                  <p className="text-gray-900 font-medium">{profile?.companyName || t('notSet')}</p>
                 </div>
               </div>
             ) : (
@@ -502,7 +504,7 @@ export default function PropertyManagerSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name <span className="text-red-500">*</span>
+                      {t('fullName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -510,27 +512,27 @@ export default function PropertyManagerSettingsPage() {
                       value={profileData.fullName}
                       onChange={(e) => setProfileData(prev => ({ ...prev, fullName: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                      placeholder="Enter full name"
+                      placeholder={t('enterFullName')}
                       required
                     />
                   </div>
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
+                      {t('email')}
                     </label>
                     <input
                       type="email"
                       id="email"
                       value={profileData.email}
                       className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
-                      placeholder="Enter email address"
+                      placeholder={t('enterEmail')}
                       disabled
-                      title="Email cannot be changed"
+                      title={t('emailCannotBeChanged')}
                     />
                   </div>
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone
+                      {t('phone')}
                     </label>
                     <input
                       type="tel"
@@ -538,12 +540,12 @@ export default function PropertyManagerSettingsPage() {
                       value={profileData.phone}
                       onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                      placeholder="Enter phone number"
+                      placeholder={t('enterPhone')}
                     />
                   </div>
                   <div>
                     <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
-                      Company
+                      {t('company')}
                     </label>
                     <input
                       type="text"
@@ -551,7 +553,7 @@ export default function PropertyManagerSettingsPage() {
                       value={profileData.company}
                       onChange={(e) => setProfileData(prev => ({ ...prev, company: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                      placeholder="Enter company name"
+                      placeholder={t('enterCompany')}
                     />
                   </div>
                 </div>
@@ -564,7 +566,7 @@ export default function PropertyManagerSettingsPage() {
                     className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                     disabled={loading}
                   >
-                    Cancel
+                    {t('cancel')}
                   </motion.button>
                   <motion.button
                     onClick={handleProfileSave}
@@ -573,7 +575,7 @@ export default function PropertyManagerSettingsPage() {
                     className="px-5 py-2.5 text-white bg-blue-600 rounded-xl font-medium hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={loading}
                   >
-                    Save Changes
+                    {t('saveChanges')}
                   </motion.button>
                 </div>
               </div>
@@ -597,8 +599,8 @@ export default function PropertyManagerSettingsPage() {
                 <BellIcon className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
-                <p className="text-sm text-gray-500">Choose how you want to receive notifications for turnovers, cleaners, and more</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t('notificationPreferences')}</h3>
+                <p className="text-sm text-gray-500">{t('notificationPreferencesDesc')}</p>
               </div>
             </div>
           </div>
@@ -612,8 +614,8 @@ export default function PropertyManagerSettingsPage() {
                     <EnvelopeIcon className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
-                    <p className="text-sm text-gray-500">Receive email alerts for turnover projects, cleaner assignments, and updates</p>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('emailNotifications')}</h4>
+                    <p className="text-sm text-gray-500">{t('emailNotificationsDescPM')}</p>
                   </div>
                 </div>
                 <button
@@ -641,7 +643,7 @@ export default function PropertyManagerSettingsPage() {
                     <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900">SMS Notifications</h4>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('smsNotifications')}</h4>
                     <p className="text-sm text-gray-500">
                       Receive text message alerts for turnover projects, cleaner assignments, and updates
                       {!profile?.phoneNumber && (
@@ -677,7 +679,7 @@ export default function PropertyManagerSettingsPage() {
                     <ArrowPathIcon className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900">Auto-Import Bookings</h4>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('autoImportBookings')}</h4>
                     <p className="text-sm text-gray-500">
                       Automatically import new bookings when properties are matched (exact or fuzzy)
                     </p>
@@ -731,8 +733,8 @@ export default function PropertyManagerSettingsPage() {
                 <LinkIcon className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">PMS Connections</h3>
-                <p className="text-sm text-gray-500">Connect your property management systems</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t('pmsConnections')}</h3>
+                <p className="text-sm text-gray-500">{t('pmsConnectionsDesc')}</p>
               </div>
             </div>
           </div>
@@ -752,7 +754,7 @@ export default function PropertyManagerSettingsPage() {
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">Hostaway</h4>
                     <p className="text-sm text-gray-500">
-                      Sync bookings and reservations automatically
+                      {t('syncBookingsDesc')}
                     </p>
                     <div className="mt-2">
                       {loadingHostawayConnection ? (
@@ -763,12 +765,12 @@ export default function PropertyManagerSettingsPage() {
                       ) : hostawayConnection ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          Connected
+                          {t('connected')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
                           <XCircleIcon className="w-3.5 h-3.5" />
-                          Not Connected
+                          {t('notConnected')}
                         </span>
                       )}
                     </div>
@@ -847,7 +849,7 @@ export default function PropertyManagerSettingsPage() {
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">Guesty</h4>
                     <p className="text-sm text-gray-500">
-                      Sync bookings and reservations automatically
+                      {t('syncBookingsDesc')}
                     </p>
                     <div className="mt-2">
                       {loadingGuestyConnection ? (
@@ -858,12 +860,12 @@ export default function PropertyManagerSettingsPage() {
                       ) : guestyConnection ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          Connected
+                          {t('connected')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
                           <XCircleIcon className="w-3.5 h-3.5" />
-                          Not Connected
+                          {t('notConnected')}
                         </span>
                       )}
                     </div>
@@ -942,7 +944,7 @@ export default function PropertyManagerSettingsPage() {
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">Hospitable</h4>
                     <p className="text-sm text-gray-500">
-                      Sync bookings and reservations automatically
+                      {t('syncBookingsDesc')}
                     </p>
                     <div className="mt-2">
                       {loadingHospitableConnection ? (
@@ -953,12 +955,12 @@ export default function PropertyManagerSettingsPage() {
                       ) : hospitableConnection ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          Connected
+                          {t('connected')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
                           <XCircleIcon className="w-3.5 h-3.5" />
-                          Not Connected
+                          {t('notConnected')}
                         </span>
                       )}
                     </div>
@@ -1033,9 +1035,9 @@ export default function PropertyManagerSettingsPage() {
                 <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Cog6ToothIcon className="h-6 w-6 text-gray-400" />
                 </div>
-                <h4 className="text-sm font-semibold text-gray-900">More Integrations Coming Soon</h4>
+                <h4 className="text-sm font-semibold text-gray-900">{t('moreIntegrations')}</h4>
                 <p className="mt-1 text-sm text-gray-500">
-                  We&apos;re working on integrations with Airbnb, Booking.com, and other major platforms
+                  {t('moreIntegrationsDesc')}
                 </p>
               </div>
             </div>

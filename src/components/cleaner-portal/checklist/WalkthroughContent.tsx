@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { CameraIcon } from '@heroicons/react/24/outline'
 import type { ProjectWalkthrough } from '@/services/types/cleaningProject'
 import WalkthroughAccordion, {
@@ -35,6 +36,8 @@ export default function WalkthroughContent({
   expandedGroupIds,
   onToggleGroup,
 }: WalkthroughContentProps) {
+  const { t } = useTranslation('cleanerPortal')
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -47,7 +50,7 @@ export default function WalkthroughContent({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <CameraIcon className="w-12 h-12 text-gray-300 mb-3" />
-        <p className="text-sm text-gray-500">Could not load walkthrough</p>
+        <p className="text-sm text-gray-500">{t('couldNotLoadWalkthrough')}</p>
       </div>
     )
   }

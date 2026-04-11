@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import {
   uploadReceipt,
@@ -76,6 +77,7 @@ export default function ScanSupplyReceiptModal({
   paidByType,
   paidById,
 }: ScanSupplyReceiptModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore(s => s.showNotification)
 

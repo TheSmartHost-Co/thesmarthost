@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import type { SupplyList } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { formatSupplyListAge } from '@/services/supplyListService'
@@ -55,10 +56,11 @@ export default function SupplyHubTableView({
   onScanReceipt,
   canWrite,
 }: SupplyHubTableViewProps) {
+  const { t } = useTranslation('turnover')
   const getActions = (sl: SupplyList): ActionItem[] => {
     const actions: ActionItem[] = [
       {
-        label: 'View Details',
+        label: t('itemDetails'),
         icon: EyeIcon,
         onClick: () => onViewDetails(sl),
       },
@@ -66,12 +68,12 @@ export default function SupplyHubTableView({
     if (canWrite && sl.status !== 'fulfilled') {
       actions.push(
         {
-          label: 'Scan Receipt',
+          label: t('scanReceipt'),
           icon: CameraIcon,
           onClick: () => onScanReceipt(sl),
         },
         {
-          label: 'Mark Fulfilled',
+          label: t('fulfillList'),
           icon: CheckCircleIcon,
           onClick: () => onFulfill(sl.id),
         },
@@ -79,7 +81,7 @@ export default function SupplyHubTableView({
     }
     if (canWrite) {
       actions.push({
-        label: 'Delete',
+        label: t('deleteList'),
         icon: TrashIcon,
         onClick: () => onDelete(sl.id),
         variant: 'danger',
@@ -94,9 +96,9 @@ export default function SupplyHubTableView({
         <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <ShoppingCartIcon className="w-8 h-8 text-gray-400" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">No supply lists found</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noSupplyLists')}</h3>
         <p className="text-gray-500 max-w-sm mx-auto">
-          Try adjusting your search or filter criteria.
+          {t('tryAdjustingFilters')}
         </p>
       </div>
     )
@@ -108,19 +110,19 @@ export default function SupplyHubTableView({
         <thead>
           <tr className="bg-gray-50/50">
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
-              Property
+              {t('property')}
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[110px]">
-              Status
+              {t('status')}
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
-              Items
+              {t('items')}
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
-              Submitter
+              {t('submitterLabel')}
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
-              Date
+              {t('invoiceDate')}
             </th>
             <th className="sticky right-0 bg-gray-50/95 backdrop-blur-sm px-6 py-4 min-w-[60px] shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
               <span className="sr-only">Actions</span>

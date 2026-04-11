@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { useNotificationCenterStore } from '@/store/useNotificationCenterStore'
 import type { NotificationFilter } from '@/store/useNotificationCenterStore'
@@ -14,6 +15,7 @@ interface NotificationPanelProps {
 }
 
 export default function NotificationPanel({ onFetchFiltered }: NotificationPanelProps) {
+  const { t } = useTranslation('common')
   const {
     notifications,
     unreadCount,
@@ -68,13 +70,13 @@ export default function NotificationPanel({ onFetchFiltered }: NotificationPanel
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{t('notifications')}</h3>
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
             className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
           >
-            Mark all read
+            {t('markAllRead')}
           </button>
         )}
       </div>

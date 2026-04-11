@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   PERMISSION_KEYS,
   PERMISSION_LABELS,
@@ -82,10 +83,10 @@ const SECTIONS: PermissionSection[] = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-const LEVEL_OPTIONS: { value: PermissionLevel; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'read', label: 'Read' },
-  { value: 'read-write', label: 'Read-Write' },
+const LEVEL_OPTIONS: { value: PermissionLevel; labelKey: string }[] = [
+  { value: 'none', labelKey: 'permNone' },
+  { value: 'read', labelKey: 'permRead' },
+  { value: 'read-write', labelKey: 'permReadWrite' },
 ]
 
 /** Detect which template key matches the current permissions, or 'custom'. */
@@ -120,6 +121,7 @@ const PermissionRow: React.FC<PermissionRowProps> = ({
   readOnly,
   isLast,
 }) => {
+  const { t } = useTranslation('settings')
   return (
     <div
       className={`flex items-center justify-between py-2.5 px-3 ${
@@ -154,7 +156,7 @@ const PermissionRow: React.FC<PermissionRowProps> = ({
                 onChange={() => onChange(permKey, opt.value)}
                 className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 border-gray-300 cursor-pointer disabled:cursor-default"
               />
-              <span className="whitespace-nowrap">{opt.label}</span>
+              <span className="whitespace-nowrap">{t(opt.labelKey)}</span>
             </label>
           )
         })}
@@ -172,6 +174,7 @@ const PermissionEditor: React.FC<PermissionEditorProps> = ({
   onChange,
   readOnly = false,
 }) => {
+  const { t } = useTranslation('settings')
   const activeTemplate = useMemo(() => detectTemplate(permissions), [permissions])
 
   const handleTemplateChange = (templateKey: string) => {
@@ -195,7 +198,7 @@ const PermissionEditor: React.FC<PermissionEditorProps> = ({
             htmlFor="permission-template"
             className="text-sm font-semibold text-gray-800"
           >
-            Permission Template
+            {t('permissionTemplate')}
           </label>
         </div>
         <select
@@ -217,7 +220,7 @@ const PermissionEditor: React.FC<PermissionEditorProps> = ({
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">
-            Page / Resource
+            {t('pageResource')}
           </span>
           <div className="flex items-center gap-6">
             {LEVEL_OPTIONS.map((opt) => (
@@ -225,7 +228,7 @@ const PermissionEditor: React.FC<PermissionEditorProps> = ({
                 key={opt.value}
                 className="text-xs font-semibold text-gray-500 uppercase tracking-wider w-[80px] text-center"
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </span>
             ))}
           </div>

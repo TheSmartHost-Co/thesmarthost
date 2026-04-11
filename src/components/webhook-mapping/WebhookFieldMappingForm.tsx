@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDownIcon, CheckIcon, MagnifyingGlassIcon, MapIcon } from '@heroicons/react/24/outline'
 import type { IncomingBooking } from '@/services/types/incomingBooking'
 import SearchableSelect from './SearchableSelect'
@@ -58,6 +59,7 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
   onMappingsChange,
   onValidationChange
 }) => {
+  const { t } = useTranslation('properties')
   const [mappings, setMappings] = useState<Record<string, string>>(initialMappings)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['guest', 'dates', 'booking']))
   
@@ -242,7 +244,7 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-gray-900">{field.label}</span>
                 {field.required && (
-                  <span className="text-xs text-red-500">Required</span>
+                  <span className="text-xs text-red-500">{t('requiredField')}</span>
                 )}
               </div>
               <span className="text-xs text-gray-500">{field.field}</span>
@@ -258,14 +260,14 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
                 value={currentMapping}
                 onChange={(value) => handleMappingChange(field.field, value)}
                 options={pathOptions}
-                placeholder="Select webhook field..."
+                placeholder={t('selectWebhookField')}
                 className="w-full"
               />
             </div>
           </div>
           {currentValue !== undefined && (
             <div className="ml-6 text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded border">
-              <span className="font-medium">Preview:</span> {String(currentValue)}
+              <span className="font-medium">{t('previewLabel')}:</span> {String(currentValue)}
             </div>
           )}
         </div>
@@ -279,12 +281,12 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
       <div className="flex items-center justify-between">
         <h4 className="text-lg font-medium text-gray-900 flex items-center">
           <MapIcon className="h-5 w-5 mr-2" />
-          Webhook Field Mapping
+          {t('webhookFieldMapping')}
         </h4>
       </div>
 
       <p className="text-sm text-gray-600">
-        Map webhook data fields to your standard booking fields. Required fields must be mapped to proceed. Each field has a searchable dropdown to help you find the right webhook field.
+        {t('webhookFieldMappingDesc')}
       </p>
 
       {/* Field Categories */}
@@ -301,9 +303,9 @@ const WebhookFieldMappingForm: React.FC<WebhookFieldMappingFormProps> = ({
               >
                 <span className="flex items-center">
                   <ChevronDownIcon className={`h-4 w-4 mr-2 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  {category.charAt(0).toUpperCase() + category.slice(1)} Fields
+                  {category.charAt(0).toUpperCase() + category.slice(1)} {t('fields')}
                   <span className="ml-2 text-xs text-gray-500">
-                    ({categoryMappedCount}/{fields.length} mapped)
+                    ({categoryMappedCount}/{fields.length} {t('mapped')})
                   </span>
                 </span>
               </button>

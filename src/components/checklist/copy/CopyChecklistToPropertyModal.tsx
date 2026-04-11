@@ -11,6 +11,7 @@ import {
   CheckIcon,
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getChecklistById,
@@ -37,6 +38,7 @@ export default function CopyChecklistToPropertyModal({
   checklist,
   properties,
 }: CopyChecklistToPropertyModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const [fullChecklist, setFullChecklist] = useState<Checklist | null>(null)
@@ -57,7 +59,7 @@ export default function CopyChecklistToPropertyModal({
         })
         .catch((err) => {
           console.error('Error fetching checklist details:', err)
-          showNotification('Failed to load checklist details', 'error')
+          showNotification(t('failedToLoadChecklistDetails'), 'error')
         })
         .finally(() => setLoadingDetails(false))
     }
@@ -91,11 +93,11 @@ export default function CopyChecklistToPropertyModal({
 
   const handleSubmit = async () => {
     if (selectedPropertyIds.length === 0) {
-      showNotification('Please select at least one property', 'error')
+      showNotification(t('pleaseSelectAtLeastOneProperty'), 'error')
       return
     }
     if (!newName.trim()) {
-      showNotification('Please enter a name for the checklist', 'error')
+      showNotification(t('pleaseEnterChecklistName'), 'error')
       return
     }
     if (!checklist) return
@@ -118,23 +120,23 @@ export default function CopyChecklistToPropertyModal({
 
       if (failed === 0) {
         showNotification(
-          `Checklist copied to ${succeeded} ${succeeded === 1 ? 'property' : 'properties'}`,
+          t('checklistCopiedToProperties', { count: succeeded }),
           'success'
         )
         onCopied()
       } else if (succeeded > 0) {
         showNotification(
-          `Copied to ${succeeded} ${succeeded === 1 ? 'property' : 'properties'}, ${failed} failed`,
+          t('checklistCopiedPartial', { succeeded, failed }),
           'error'
         )
         onCopied()
       } else {
-        showNotification('Failed to copy checklist', 'error')
+        showNotification(t('failedToCopyChecklist'), 'error')
       }
     } catch (err) {
       console.error('Error copying checklist:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to copy checklist',
+        err instanceof Error ? err.message : t('failedToCopyChecklist'),
         'error'
       )
     } finally {
@@ -166,10 +168,10 @@ export default function CopyChecklistToPropertyModal({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Copy Checklist to Property
+                  {t('copyChecklistTitle')}
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Copy &ldquo;{checklist.name}&rdquo; to other properties
+                  {t('copyChecklistDescription', { name: checklist.name })}
                 </p>
               </div>
             </div>
@@ -199,10 +201,10 @@ export default function CopyChecklistToPropertyModal({
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-xs text-emerald-600">
                   <HomeIcon className="w-3 h-3 inline mr-0.5" />
-                  {checklist.propertyName || 'Unknown property'}
+                  {checklist.propertyName || t('unknownProperty')}
                 </span>
                 <span className="text-xs text-emerald-600">
-                  {checklist.itemCount || fullChecklist?.items?.length || 0} tasks
+                  {checklist.itemCount || fullChecklist?.items?.length || 0} {t('tasks')}
                 </span>
               </div>
             </div>
@@ -211,12 +213,12 @@ export default function CopyChecklistToPropertyModal({
             {loadingDetails ? (
               <div className="flex items-center justify-center py-6 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="w-4 h-4 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-                <span className="ml-2 text-sm text-gray-500">Loading tasks...</span>
+                <span className="ml-2 text-sm text-gray-500">{t('loadingTasks')}</span>
               </div>
             ) : fullChecklist?.items && fullChecklist.items.length > 0 ? (
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Tasks to Copy
+                  {t('tasksToCopy')}
                 </label>
                 <div className="bg-gray-50 border border-gray-100 rounded-xl max-h-48 overflow-y-auto">
                   {Object.entries(groupedItems).map(([room, items]) => (
@@ -247,9 +249,9 @@ export default function CopyChecklistToPropertyModal({
             ) : fullChecklist?.items?.length === 0 ? (
               <div className="text-center py-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <ExclamationCircleIcon className="w-8 h-8 mx-auto mb-1 text-yellow-400" />
-                <p className="text-sm text-yellow-700">This checklist has no tasks</p>
+                <p className="text-sm text-yellow-700">{t('checklistHasNoTasks')}</p>
                 <p className="text-xs text-yellow-500 mt-0.5">
-                  It will be copied as an empty checklist
+                  {t('willBeCopiedAsEmpty')}
                 </p>
               </div>
             ) : null}
@@ -258,14 +260,14 @@ export default function CopyChecklistToPropertyModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <HomeIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                Copy to Properties <span className="text-red-500">*</span>
+                {t('copyToProperties')} <span className="text-red-500">*</span>
               </label>
               {propertyOptions.length === 0 ? (
                 <div className="text-center py-4 bg-gray-50 border border-gray-100 rounded-xl">
                   <ExclamationCircleIcon className="w-8 h-8 mx-auto mb-1 text-gray-300" />
-                  <p className="text-sm text-gray-500">No other properties available</p>
+                  <p className="text-sm text-gray-500">{t('noOtherPropertiesAvailable')}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Add more properties to copy this checklist
+                    {t('addMorePropertiesToCopy')}
                   </p>
                 </div>
               ) : (
@@ -273,10 +275,10 @@ export default function CopyChecklistToPropertyModal({
                   options={propertyOptions}
                   selectedValues={selectedPropertyIds}
                   onChange={setSelectedPropertyIds}
-                  placeholder="Search properties..."
-                  emptyText="No properties found"
+                  placeholder={t('searchProperties')}
+                  emptyText={t('noPropertiesFound')}
                   maxHeight="12rem"
-                  selectAllLabel="Select All Properties"
+                  selectAllLabel={t('selectAllProperties')}
                 />
               )}
             </div>
@@ -285,13 +287,13 @@ export default function CopyChecklistToPropertyModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <ClipboardDocumentListIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
-                Checklist Name <span className="text-red-500">*</span>
+                {t('checklistName')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Enter a name for the copied checklist"
+                placeholder={t('enterCopiedChecklistName')}
                 className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
               />
             </div>
@@ -305,7 +307,7 @@ export default function CopyChecklistToPropertyModal({
               disabled={submitting}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               type="button"
@@ -316,15 +318,12 @@ export default function CopyChecklistToPropertyModal({
               {submitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Copying...
+                  {t('copying')}
                 </>
               ) : (
                 <>
                   <CheckIcon className="w-4 h-4" />
-                  Copy to{' '}
-                  {selectedPropertyIds.length > 0
-                    ? `${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'Property' : 'Properties'}`
-                    : 'Properties'}
+                  {t('copyToCount', { count: selectedPropertyIds.length })}
                 </>
               )}
             </button>

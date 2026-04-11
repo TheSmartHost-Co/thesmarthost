@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, ChartBarIcon, ClockIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
@@ -18,6 +19,7 @@ import { getClientByAuthUserId } from '@/services/clientService'
 import { getCleanerByAuthUserId } from '@/services/cleanerService'
 
 function LoginForm() {
+  const { t } = useTranslation('auth')
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -43,13 +45,13 @@ function LoginForm() {
     const session = searchParams.get('session')
 
     if (message === 'email-verified') {
-      notify("Email verified successfully! You can now sign in.", "success")
+      notify(t('emailVerifiedSuccess'), "success")
     } else if (message === 'verification-error') {
-      notify("Email verification failed. Please try again.", "error")
+      notify(t('emailVerificationFailed'), "error")
     } else if (message === 'password-updated') {
-      notify("Password updated successfully! Please sign in with your new password.", "success")
+      notify(t('passwordUpdatedSuccess'), "success")
     } else if (session === 'expired') {
-      notify("Your session has expired for security. Please sign in again.", "error")
+      notify(t('sessionExpired'), "error")
     }
   }, [searchParams, notify, isClient])
 
@@ -60,10 +62,10 @@ function LoginForm() {
 
     if (error) {
       if (error.message === "Email not confirmed") {
-        notify("Please verify your email before signing in", "error")
+        notify(t('pleaseVerifyEmail'), "error")
         router.push(`/check-email?email=${encodeURIComponent(email)}`)
       } else {
-        notify("Invalid credentials, please check your email or password", "error")
+        notify(t('invalidCredentials'), "error")
       }
       return
     }
@@ -118,7 +120,7 @@ function LoginForm() {
 
           setProfile(profileData)
 
-          notify("You've successfully signed in!", "success");
+          notify(t('signInSuccess'), "success");
 
           console.log(`auth token: ${data.session.access_token}`)
 
@@ -126,11 +128,11 @@ function LoginForm() {
           const redirectPath = getRedirectPath()
           router.push(redirectPath)
         } else {
-          notify("Login successful, but couldn't load profile", "error")
+          notify(t('loginSuccessProfileFailed'), "error")
         }
       } catch (profileError) {
         console.error('Profile fetch failed:', profileError)
-        notify("Login successful, but couldn't load profile", "error")
+        notify(t('loginSuccessProfileFailed'), "error")
       }
     }
   }
@@ -138,18 +140,18 @@ function LoginForm() {
   const features = [
     {
       icon: ClockIcon,
-      title: "90% Time Saved",
-      description: "Reduce reporting from hours to minutes"
+      title: t('featureTimeSaved'),
+      description: t('featureTimeSavedDesc')
     },
     {
       icon: ChartBarIcon,
-      title: "Real-time Analytics",
-      description: "Track performance across all properties"
+      title: t('featureAnalytics'),
+      description: t('featureAnalyticsDesc')
     },
     {
       icon: DocumentTextIcon,
-      title: "Professional Reports",
-      description: "Branded PDF reports in one click"
+      title: t('featureReports'),
+      description: t('featureReportsDesc')
     },
   ]
 
@@ -171,12 +173,12 @@ function LoginForm() {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6">
-              Welcome Back to
+              {t('welcomeBackTo')}
               <br />
               <span className="text-blue-200">TheSmartHost</span>
             </h1>
             <p className="text-blue-100 text-lg mb-10 max-w-md">
-              Access your dashboard and continue automating your property management workflow.
+              {t('accessDashboard')}
             </p>
 
             <div className="space-y-6">
@@ -214,9 +216,9 @@ function LoginForm() {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-100 mb-4">
               <LockClosedIcon className="w-7 h-7 text-blue-600" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('welcomeBack')}</h2>
             <p className="mt-2 text-gray-600">
-              Sign in to your account to continue
+              {t('signInToContinue')}
             </p>
           </div>
 
@@ -224,7 +226,7 @@ function LoginForm() {
             <form className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email address
+                  {t('emailAddress')}
                 </label>
                 <input
                   id="email"
@@ -232,14 +234,14 @@ function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                  placeholder="Enter your email"
+                  placeholder={t('enterEmail')}
                   required
                 />
               </div>
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  {t('password')}
                 </label>
                 <div className="relative">
                   <input
@@ -248,7 +250,7 @@ function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full text-gray-900 px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                    placeholder="Enter your password"
+                    placeholder={t('enterPassword')}
                     required
                   />
                   <button
@@ -267,7 +269,7 @@ function LoginForm() {
 
               <div className="flex items-center justify-end">
                 <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 font-medium">
-                  Forgot your password?
+                  {t('forgotPassword')}
                 </Link>
               </div>
 
@@ -285,10 +287,10 @@ function LoginForm() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Signing in...
+                    {t('signingIn')}
                   </span>
                 ) : (
-                  'Sign in'
+                  t('signIn')
                 )}
               </motion.button>
             </form>
@@ -296,16 +298,16 @@ function LoginForm() {
 
           <div className="text-center mt-6">
             <p className="text-gray-600">
-              Don&apos;t have an account?{' '}
+              {t('dontHaveAccount')}{' '}
               <Link href="/signup" className="font-semibold text-blue-600 hover:text-blue-500">
-                Sign up here
+                {t('signUpHere')}
               </Link>
             </p>
           </div>
 
           <div className="text-center mt-4">
             <p className="text-xs text-gray-500">
-              By signing in, you agree to our Terms of Service and Privacy Policy
+              {t('agreeToTermsSignIn')}
             </p>
           </div>
         </motion.div>
@@ -315,6 +317,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation('common')
   return (
     <div className="min-h-screen bg-white">
       <PreNavbar />
@@ -326,7 +329,7 @@ export default function LoginPage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Loading...
+            {t('loading')}
           </div>
         </div>
       }>

@@ -12,6 +12,7 @@ import {
   CheckIcon,
   PencilSquareIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getChecklistById,
@@ -47,6 +48,7 @@ export default function EditPropertyChecklistModal({
   onUpdated,
   checklistId,
 }: EditPropertyChecklistModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Data state

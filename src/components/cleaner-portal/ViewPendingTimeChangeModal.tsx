@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { getPendingTimeChangeRequest } from '@/services/timeChangeRequestService'
 import { formatTime } from '@/services/cleaningProjectService'
@@ -31,6 +32,7 @@ export default function ViewPendingTimeChangeModal({
   onClose,
   project,
 }: ViewPendingTimeChangeModalProps) {
+  const { t } = useTranslation('cleanerPortal')
   const [request, setRequest] = useState<TimeChangeRequest | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -49,9 +51,9 @@ export default function ViewPendingTimeChangeModal({
   }, [isOpen, project.id])
 
   const statusConfig = {
-    pending: { label: 'Pending Review', color: 'bg-amber-100 text-amber-700', icon: <ClockIcon className="w-4 h-4" /> },
-    approved: { label: 'Approved', color: 'bg-green-100 text-green-700', icon: <CheckCircleIcon className="w-4 h-4" /> },
-    rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: <XMarkIcon className="w-4 h-4" /> },
+    pending: { label: t('pendingReview'), color: 'bg-amber-100 text-amber-700', icon: <ClockIcon className="w-4 h-4" /> },
+    approved: { label: t('approved'), color: 'bg-green-100 text-green-700', icon: <CheckCircleIcon className="w-4 h-4" /> },
+    rejected: { label: t('rejected'), color: 'bg-red-100 text-red-700', icon: <XMarkIcon className="w-4 h-4" /> },
   }
 
   return (
@@ -63,7 +65,7 @@ export default function ViewPendingTimeChangeModal({
             <ClockIcon className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Time Change Request</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{t('timeChangeRequestTitle')}</h2>
             <p className="text-sm text-gray-500">{project.propertyName}</p>
           </div>
         </div>
@@ -74,7 +76,7 @@ export default function ViewPendingTimeChangeModal({
           </div>
         ) : !request ? (
           <div className="text-center py-8 text-gray-500">
-            <p>No pending time change request found.</p>
+            <p>{t('noPendingRequest')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -92,17 +94,17 @@ export default function ViewPendingTimeChangeModal({
             {/* Current vs Requested */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-xs font-medium text-gray-500 uppercase mb-2">Current</p>
+                <p className="text-xs font-medium text-gray-500 uppercase mb-2">{t('currentLabel')}</p>
                 <p className="text-sm font-semibold text-gray-900">{formatDate(request.currentProjectDate)}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {formatTime(request.currentProjectStartTime) || 'Not set'} – {formatTime(request.currentProjectEndTime) || 'Not set'}
+                  {formatTime(request.currentProjectStartTime) || t('notSet')} – {formatTime(request.currentProjectEndTime) || t('notSet')}
                 </p>
               </div>
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <p className="text-xs font-medium text-amber-700 uppercase mb-2">Requested</p>
+                <p className="text-xs font-medium text-amber-700 uppercase mb-2">{t('requestedLabel')}</p>
                 <p className="text-sm font-semibold text-amber-900">{formatDate(request.requestedProjectDate)}</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  {formatTime(request.requestedProjectStartTime) || 'Not set'} – {formatTime(request.requestedProjectEndTime) || 'Not set'}
+                  {formatTime(request.requestedProjectStartTime) || t('notSet')} – {formatTime(request.requestedProjectEndTime) || t('notSet')}
                 </p>
               </div>
             </div>
@@ -110,7 +112,7 @@ export default function ViewPendingTimeChangeModal({
             {/* Reason */}
             {request.reason && (
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Your Reason</p>
+                <p className="text-xs font-medium text-gray-500 uppercase mb-1">{t('yourReason')}</p>
                 <p className="text-sm text-gray-700">{request.reason}</p>
               </div>
             )}
@@ -118,7 +120,7 @@ export default function ViewPendingTimeChangeModal({
             {/* PM Notes (if rejected) */}
             {request.pmNotes && (
               <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-                <p className="text-xs font-medium text-red-600 uppercase mb-1">PM Response</p>
+                <p className="text-xs font-medium text-red-600 uppercase mb-1">{t('pmResponse')}</p>
                 <p className="text-sm text-red-700">{request.pmNotes}</p>
               </div>
             )}
@@ -130,7 +132,7 @@ export default function ViewPendingTimeChangeModal({
           onClick={onClose}
           className="w-full mt-6 py-3 px-4 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
         >
-          Close
+          {t('close')}
         </button>
       </div>
     </Modal>

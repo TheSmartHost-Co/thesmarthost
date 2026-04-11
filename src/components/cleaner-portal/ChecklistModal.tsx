@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { XMarkIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import {
   getProjectChecklist,
@@ -64,6 +65,7 @@ export default function ChecklistModal({
   onUnbegin,
   initialTab,
 }: ChecklistModalProps) {
+  const { t } = useTranslation('cleanerPortal')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { profile } = useUserStore()
   const isMobile = useIsMobile()
@@ -143,11 +145,11 @@ export default function ChecklistModal({
         setItems(res.data.items)
         setProgress(res.data.progress)
       } else {
-        showNotification(res.message || 'Failed to load checklist', 'error')
+        showNotification(res.message || t('failedToLoadChecklist'), 'error')
       }
     } catch (err) {
       console.error('Error fetching checklist:', err)
-      showNotification('Error loading checklist', 'error')
+      showNotification(t('errorLoadingChecklist'), 'error')
     } finally {
       setLoading(false)
     }
@@ -242,12 +244,12 @@ export default function ChecklistModal({
         })
       } else {
         setItems(previousItems)
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch (err) {
       setItems(previousItems)
       console.error('Error updating checklist item:', err)
-      showNotification('Error updating item', 'error')
+      showNotification(t('errorUpdatingItem'), 'error')
     } finally {
       setTogglingItems(prev => {
         const next = new Set(prev)
@@ -260,11 +262,11 @@ export default function ChecklistModal({
   const handlePhotoUpload = async (itemId: string, file: File) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
     if (!allowedTypes.includes(file.type)) {
-      showNotification('Invalid file type. Only images allowed.', 'error')
+      showNotification(t('invalidFileType'), 'error')
       return
     }
     if (file.size > 20 * 1024 * 1024) {
-      showNotification('File too large. Maximum 20MB.', 'error')
+      showNotification(t('fileTooLarge'), 'error')
       return
     }
 
@@ -278,13 +280,13 @@ export default function ChecklistModal({
         if (hadNoPhoto) {
           setProgress(prev => prev ? { ...prev, photosUploaded: prev.photosUploaded + 1 } : prev)
         }
-        showNotification('Photo uploaded successfully', 'success')
+        showNotification(t('photoUploaded'), 'success')
       } else {
-        showNotification(res.message || 'Failed to upload photo', 'error')
+        showNotification(res.message || t('failedToUploadPhoto'), 'error')
       }
     } catch (err) {
       console.error('Error uploading photo:', err)
-      showNotification('Error uploading photo', 'error')
+      showNotification(t('errorUploadingPhoto'), 'error')
     } finally {
       setUploadingItems(prev => {
         const next = new Set(prev)
@@ -308,13 +310,13 @@ export default function ChecklistModal({
         if (item.requiresPhoto) {
           setProgress(prev => prev ? { ...prev, photosUploaded: Math.max(0, prev.photosUploaded - 1) } : prev)
         }
-        showNotification('Photo deleted', 'success')
+        showNotification(t('photoDeleted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to delete photo', 'error')
+        showNotification(res.message || t('failedToDeletePhoto'), 'error')
       }
     } catch (err) {
       console.error('Error deleting photo:', err)
-      showNotification('Error deleting photo', 'error')
+      showNotification(t('errorDeletingPhoto'), 'error')
     } finally {
       setUploadingItems(prev => {
         const next = new Set(prev)
@@ -338,7 +340,7 @@ export default function ChecklistModal({
       const res = await uploadWalkthroughPhotos(project.id, files, opts)
       if (res.status === 'success') {
         showNotification(
-          `${files.length} photo${files.length > 1 ? 's' : ''} uploaded`,
+          t('photosUploadedCount', { count: files.length }),
           'success'
         )
         await fetchWalkthrough()
@@ -352,12 +354,12 @@ export default function ChecklistModal({
           })
         }
       } else {
-        showNotification(res.message || 'Failed to upload photos', 'error')
+        showNotification(res.message || t('failedToUploadPhotos'), 'error')
       }
     } catch (err) {
       console.error('Error uploading walkthrough photos:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error uploading photos',
+        err instanceof Error ? err.message : t('errorUploadingPhotos'),
         'error'
       )
     } finally {
@@ -369,14 +371,14 @@ export default function ChecklistModal({
     try {
       const res = await deleteWalkthroughPhoto(project.id, photoId)
       if (res.status === 'success') {
-        showNotification('Photo deleted', 'success')
+        showNotification(t('photoDeleted'), 'success')
         await fetchWalkthrough()
       } else {
-        showNotification(res.message || 'Failed to delete photo', 'error')
+        showNotification(res.message || t('failedToDeletePhoto'), 'error')
       }
     } catch (err) {
       console.error('Error deleting walkthrough photo:', err)
-      showNotification('Error deleting photo', 'error')
+      showNotification(t('errorDeletingPhoto'), 'error')
     }
   }
 
@@ -410,11 +412,11 @@ export default function ChecklistModal({
   const handleComplete = async () => {
     if (completing) return
     if (progress && progress.completedItems < progress.totalItems) {
-      showNotification('Please complete all checklist items first', 'error')
+      showNotification(t('pleaseCompleteAllItems'), 'error')
       return
     }
     if (progress && progress.photosUploaded < progress.photoRequired) {
-      showNotification(`Please upload all required photos (${progress.photosUploaded}/${progress.photoRequired})`, 'error')
+      showNotification(t('pleaseUploadRequiredPhotos', { uploaded: progress.photosUploaded, required: progress.photoRequired }), 'error')
       return
     }
 
@@ -422,11 +424,11 @@ export default function ChecklistModal({
     try {
       const res = await completeProject(project.id)
       if (res.status === 'success') {
-        showNotification('Project marked as complete!', 'success')
+        showNotification(t('projectCompleted'), 'success')
         onProjectComplete?.(res.data)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to complete project', 'error')
+        showNotification(res.message || t('failedToComplete'), 'error')
       }
     } catch (err) {
       // Walkthrough completion gate: backend returns 400 with
@@ -449,12 +451,12 @@ export default function ChecklistModal({
         })
         setActiveTab('walkthrough')
         showNotification(
-          `Upload walkthrough photos for: ${missingNames.join(', ')}`,
+          t('uploadWalkthroughPhotos', { groups: missingNames.join(', ') }),
           'error'
         )
       } else {
         showNotification(
-          err instanceof Error ? err.message : 'Error completing project',
+          err instanceof Error ? err.message : t('errorCompletingTask'),
           'error'
         )
       }
@@ -481,7 +483,7 @@ export default function ChecklistModal({
       {project.pmOverride && (
         <div className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 border-b border-orange-100 text-xs font-medium text-orange-700">
           <BoltIcon className="w-3.5 h-3.5" />
-          PM Override Active — date restrictions removed
+          {t('pmOverrideActive')}
         </div>
       )}
       <ChecklistTabs
@@ -584,7 +586,7 @@ export default function ChecklistModal({
         onIssueCreated={() => {
           setShowReportIssueModal(false)
           fetchIssueCount()
-          showNotification('Issue reported successfully', 'success')
+          showNotification(t('issueReportedSuccess'), 'success')
         }}
       />
 
@@ -646,7 +648,7 @@ export default function ChecklistModal({
             >
               <img
                 src={viewingImage}
-                alt="Full size photo"
+                alt={t('fullSizePhoto')}
                 className="max-w-full max-h-[90vh] object-contain rounded-lg"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
@@ -666,7 +668,7 @@ export default function ChecklistModal({
                 className="absolute bottom-4 right-4 px-3 py-2 bg-white/90 rounded-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                Open in new tab
+                {t('openInNewTab')}
               </a>
             </motion.div>
           </motion.div>

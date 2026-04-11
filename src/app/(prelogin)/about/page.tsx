@@ -4,6 +4,7 @@ import PreNavbar from "@/components/navbar/PreNavbar"
 import Link from "next/link"
 import Footer from '@/components/footer/Footer'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   LightBulbIcon,
   RocketLaunchIcon,
@@ -18,21 +19,22 @@ const fadeInUp = {
 }
 
 export default function AboutPage() {
+  const { t } = useTranslation('auth')
   const values = [
     {
       icon: LightBulbIcon,
-      title: "Innovation First",
-      description: "We constantly push boundaries to find better ways to automate property management workflows.",
+      title: t('aboutValueInnovation'),
+      description: t('aboutValueInnovationDesc'),
     },
     {
       icon: RocketLaunchIcon,
-      title: "Speed & Efficiency",
-      description: "Every feature we build is designed to save property managers time and reduce manual work.",
+      title: t('aboutValueSpeed'),
+      description: t('aboutValueSpeedDesc'),
     },
     {
       icon: HeartIcon,
-      title: "Customer Success",
-      description: "Your growth is our growth. We're committed to helping you scale your property management business.",
+      title: t('aboutValueCustomer'),
+      description: t('aboutValueCustomerDesc'),
     },
   ]
 
@@ -76,12 +78,12 @@ export default function AboutPage() {
             transition={{ duration: 0.6 }}
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 mb-6">
-              <span className="text-sm font-medium text-blue-700">Our Story</span>
+              <span className="text-sm font-medium text-blue-700">{t('aboutOurStory')}</span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-              Building the Future of
+              {t('aboutHeroTitle')}
               <br />
-              <span className="text-blue-600">Property Reporting</span>
+              <span className="text-blue-600">{t('aboutHeroTitleHighlight')}</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               We're on a mission to eliminate the tedious hours property managers spend on manual financial reporting,

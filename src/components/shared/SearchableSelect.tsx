@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronUpDownIcon, MagnifyingGlassIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 /**
@@ -76,6 +77,7 @@ function SearchableSelect<T = string>({
   id,
   headerAction,
 }: SearchableSelectProps<T>) {
+  const { t } = useTranslation('common')
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -280,7 +282,7 @@ function SearchableSelect<T = string>({
               type="button"
               onClick={handleClear}
               className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Clear selection"
+              aria-label={t('clearSelection')}
             >
               <XMarkIcon className="w-4 h-4" />
             </button>
@@ -312,7 +314,7 @@ function SearchableSelect<T = string>({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search..."
+                placeholder={t('searchEllipsis')}
                 className="
                   w-full pl-9 pr-3 py-2
                   bg-gray-50 border-0 rounded-lg
@@ -393,15 +395,15 @@ function SearchableSelect<T = string>({
             <div className="flex items-center gap-3 text-xs text-gray-400">
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 font-mono">↑↓</kbd>
-                navigate
+                {t('navigate')}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 font-mono">↵</kbd>
-                select
+                {t('select')}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 font-mono">esc</kbd>
-                close
+                {t('close')}
               </span>
             </div>
           </div>

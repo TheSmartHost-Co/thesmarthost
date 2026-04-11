@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { deleteWalkthroughTemplate } from '@/services/walkthroughTemplateService'
@@ -22,6 +23,7 @@ export default function DeleteWalkthroughTemplateModal({
   onDeleted,
   template,
 }: Props) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore(state => state.showNotification)
   const [deleting, setDeleting] = useState(false)
@@ -34,16 +36,16 @@ export default function DeleteWalkthroughTemplateModal({
     try {
       const res = await deleteWalkthroughTemplate(template.id, profile.id)
       if (res.status === 'success') {
-        showNotification('Template deleted', 'success')
+        showNotification(t('templateDeleted'), 'success')
         onDeleted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete template', 'error')
+        showNotification(res.message || t('failedToDeleteTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error deleting walkthrough template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error deleting template',
+        err instanceof Error ? err.message : t('errorDeletingTemplate'),
         'error'
       )
     } finally {
@@ -68,8 +70,8 @@ export default function DeleteWalkthroughTemplateModal({
               <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900">Delete Walkthrough Template</h2>
-              <p className="text-xs text-gray-500 mt-0.5">This cannot be undone.</p>
+              <h2 className="text-base font-bold text-gray-900">{t('deleteWalkthroughTemplate')}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">{t('actionCannotBeUndone')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg cursor-pointer">
@@ -79,18 +81,17 @@ export default function DeleteWalkthroughTemplateModal({
 
         <div className="px-6 py-5 space-y-3">
           <p className="text-sm text-gray-700">
-            Delete <span className="font-semibold">{template.name}</span>?
+            {t('confirmDeleteNamed', { name: template.name })}
           </p>
           {assignedCount > 0 && (
             <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg">
               <p className="text-xs text-amber-800">
-                This template is currently assigned to {assignedCount} propert
-                {assignedCount === 1 ? 'y' : 'ies'}. Those properties will fall back to your default template.
+                {t('templateAssignedToProperties', { count: assignedCount })}
               </p>
             </div>
           )}
           <p className="text-xs text-gray-500">
-            Photos that were uploaded against this template will still be visible in their projects as &ldquo;archived&rdquo; entries.
+            {t('photosWillBeArchived')}
           </p>
         </div>
 
@@ -101,7 +102,7 @@ export default function DeleteWalkthroughTemplateModal({
             disabled={deleting}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -112,7 +113,7 @@ export default function DeleteWalkthroughTemplateModal({
             {deleting && (
               <div className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
             )}
-            Delete
+            {t('deleteTemplateButton')}
           </button>
         </div>
       </motion.div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarDaysIcon,
@@ -121,6 +122,7 @@ export default function ICalSubscriptionsSection({
   properties,
   loadingProperties,
 }: ICalSubscriptionsSectionProps) {
+  const { t } = useTranslation('settings')
   const { showNotification } = useNotificationStore()
 
   // State

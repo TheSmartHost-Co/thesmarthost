@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { BoltIcon, ClipboardDocumentIcon, ArrowPathIcon, ExclamationCircleIcon, PlayIcon } from '@heroicons/react/24/outline'
 import type { AutomationTask } from '@/services/types/automation'
 
@@ -30,6 +31,7 @@ const typeConfig: Record<string, { label: string; color: string }> = {
 }
 
 export default function AutomationTaskCard({ task, onReview, onRetry, onProcess, processingTaskId, selected, onSelect }: AutomationTaskCardProps) {
+  const { t } = useTranslation('dashboard')
   const status = statusConfig[task.status] || statusConfig.pending
   const type = typeConfig[task.type] || typeConfig.guest_review
 
@@ -59,14 +61,14 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
           {/* Guest name + listing */}
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-sm font-semibold text-gray-900 truncate">
-              {task.guestName || 'Unknown Guest'}
+              {task.guestName || t('automations.unknownGuest')}
             </h3>
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${type.color}`}>
               {type.label}
             </span>
           </div>
           <p className="text-xs text-gray-500 truncate mb-2">
-            {task.listingName || 'Unknown Property'}
+            {task.listingName || t('automations.unknownProperty')}
             {task.departureDate && ` — Checkout ${formatDate(task.departureDate)}`}
           </p>
 
@@ -118,7 +120,7 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
               className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
             >
               <BoltIcon className="w-3.5 h-3.5" />
-              Review
+              {t('automations.review')}
             </button>
           )}
           {task.status === 'approved' && task.type === 'guest_review' && (
@@ -127,7 +129,7 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
               className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
             >
               <ClipboardDocumentIcon className="w-3.5 h-3.5" />
-              Copy
+              {t('automations.copy')}
             </button>
           )}
           {task.status === 'approved' && task.type === 'review_nudge' && (
@@ -135,7 +137,7 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
               onClick={(e) => { e.stopPropagation(); onReview(task) }}
               className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors"
             >
-              Send
+              {t('automations.send')}
             </button>
           )}
           {task.status === 'failed' && (
@@ -144,7 +146,7 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
               className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
-              Retry
+              {t('automations.retry')}
             </button>
           )}
         </div>

@@ -7,12 +7,14 @@ import Link from 'next/link'
 import { EnvelopeIcon, ArrowPathIcon, InboxIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
 
 function CheckEmailContent() {
+  const { t } = useTranslation('auth')
   const searchParams = useSearchParams()
   const email = searchParams.get('email')
   const supabase = createClient()
@@ -22,7 +24,7 @@ function CheckEmailContent() {
 
   async function resendVerification() {
     if (!email) {
-      notify("Email not found. Please sign up again.", "error")
+      notify(t('emailNotFound'), "error")
       return
     }
 
@@ -41,7 +43,7 @@ function CheckEmailContent() {
     if (error) {
       notify(error.message, "error")
     } else {
-      notify("Verification email sent!", "success")
+      notify(t('verificationEmailSent'), "success")
     }
   }
 
@@ -62,9 +64,9 @@ function CheckEmailContent() {
           >
             <EnvelopeIcon className="h-10 w-10 text-white" />
           </motion.div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Check your email</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('checkYourEmail')}</h2>
           <p className="mt-2 text-gray-600">
-            We&apos;ve sent a verification link to
+            {t('sentVerificationLink')}
           </p>
           {email && (
             <p className="mt-1 font-semibold text-blue-600">{email}</p>
@@ -76,15 +78,15 @@ function CheckEmailContent() {
             <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
               <InboxIcon className="w-6 h-6 text-blue-600 flex-shrink-0" />
               <p className="text-sm text-blue-800 text-left">
-                Click the link in your email to verify your account and complete registration.
+                {t('clickVerificationLink')}
               </p>
             </div>
 
             <div className="p-4 bg-gray-50 rounded-xl">
               <p className="text-sm text-gray-600 mb-3">
-                <strong className="text-gray-800">Can&apos;t find the email?</strong>
+                <strong className="text-gray-800">{t('cantFindEmail')}</strong>
                 <br />
-                Check your spam folder or try resending.
+                {t('checkSpamOrResendVerification')}
               </p>
 
               <motion.button
@@ -100,7 +102,7 @@ function CheckEmailContent() {
                 ) : (
                   <EnvelopeIcon className="-ml-1 mr-2 h-4 w-4" />
                 )}
-                {isResending ? 'Sending...' : 'Resend verification email'}
+                {isResending ? t('sending') : t('resendVerificationEmail')}
               </motion.button>
             </div>
           </div>
@@ -108,9 +110,9 @@ function CheckEmailContent() {
 
         <div className="text-center mt-6 space-y-3">
           <p className="text-gray-600">
-            Already verified?{' '}
+            {t('alreadyVerified')}{' '}
             <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-500">
-              Sign in here
+              {t('signInHere')}
             </Link>
           </p>
 
@@ -119,13 +121,13 @@ function CheckEmailContent() {
             className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
-            Back to sign up
+            {t('backToSignUp')}
           </Link>
         </div>
 
         <div className="text-center mt-6">
           <p className="text-xs text-gray-500">
-            Having trouble? Contact our support team at support@thesmarthost.com
+            {t('havingTrouble')}
           </p>
         </div>
       </motion.div>
@@ -134,6 +136,7 @@ function CheckEmailContent() {
 }
 
 export default function CheckEmailPage() {
+  const { t } = useTranslation('common')
   return (
     <div className="min-h-screen bg-white">
       <PreNavbar />
@@ -145,7 +148,7 @@ export default function CheckEmailPage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Loading...
+            {t('loading')}
           </div>
         </div>
       }>

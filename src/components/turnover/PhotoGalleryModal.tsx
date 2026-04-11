@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CameraIcon,
@@ -109,6 +110,7 @@ function ProgressiveImage({ url, alt }: { url: string; alt: string }) {
 }
 
 export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStartDate, initialEndDate }: PhotoGalleryModalProps) {
+  const { t } = useTranslation('turnover')
   // Data
   const [projects, setProjects] = useState<ProjectWithPhotos[]>([])
   const [loading, setLoading] = useState(false)
@@ -360,7 +362,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
         {(photoFilter === 'all' || photoFilter === 'checklist') && project.checklistPhotos.length > 0 && (
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">
-              Checklist Photos ({project.checklistPhotos.length})
+              {t('checklistPhotosLabel')} ({project.checklistPhotos.length})
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {project.checklistPhotos.map((cp) =>
@@ -388,7 +390,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
           <div>
             <p className="text-xs font-medium text-amber-600 mb-2 flex items-center gap-1">
               <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-              Issue Photos ({project.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0)})
+              {t('issuePhotosLabel')} ({project.issuePhotos.reduce((s, ip) => s + ip.photoUrls.length, 0)})
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {project.issuePhotos.flatMap((ip) =>
@@ -422,7 +424,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
             <div>
               <p className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
                 <CameraIcon className="w-3.5 h-3.5" />
-                Walkthrough Photos ({visible.length})
+                {t('walkthroughPhotosLabel')} ({visible.length})
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {visible.map((wp) => {
@@ -551,9 +553,9 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 <CameraIcon className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Photo Gallery</h2>
+                <h2 className="text-lg font-bold text-gray-900">{t('photoGalleryTitle')}</h2>
                 <p className="text-xs text-gray-500">
-                  {loading ? 'Loading...' : `${totalPhotoCount} photo${totalPhotoCount !== 1 ? 's' : ''} across ${pagination.totalProjects} project${pagination.totalProjects !== 1 ? 's' : ''}`}
+                  {loading ? t('loadingPhotos') : t('photosAcrossProjects', { count: totalPhotoCount, projects: pagination.totalProjects })}
                 </p>
               </div>
             </div>
@@ -568,7 +570,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 onChange={(e) => setStartDate(e.target.value)}
                 className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
               />
-              <span className="text-xs text-gray-400">to</span>
+              <span className="text-xs text-gray-400">{t('to')}</span>
               <input
                 type="date"
                 value={endDate}
@@ -601,7 +603,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 activeTab === 'project' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              By Project
+              {t('byProject')}
             </button>
             <button
               onClick={() => setActiveTab('property')}
@@ -609,19 +611,19 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                 activeTab === 'property' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              By Property
+              {t('byProperty')}
             </button>
           </div>
 
           {/* Photo type filter */}
           <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
-            <span className="text-xs text-gray-500">Show:</span>
+            <span className="text-xs text-gray-500">{t('show')}:</span>
             <div className="flex items-center gap-1">
               {[
-                { value: 'all', label: 'All Photos' },
-                { value: 'checklist', label: 'Checklist' },
-                { value: 'issue', label: 'Issues' },
-                { value: 'walkthrough', label: 'Walkthrough' },
+                { value: 'all', label: t('allPhotos') },
+                { value: 'checklist', label: t('checklistPhotos') },
+                { value: 'issue', label: t('issuePhotos') },
+                { value: 'walkthrough', label: t('walkthroughPhotos') },
               ].map(opt => (
                 <button
                   key={opt.value}
@@ -647,7 +649,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                   }`}
                   title="Show freeform (untagged) walkthrough photos"
                 >
-                  {showFreeform ? '✓ ' : ''}Freeform
+                  {showFreeform ? '✓ ' : ''}{t('freeform')}
                 </button>
                 <button
                   onClick={() => setShowOrphaned(v => !v)}
@@ -658,7 +660,7 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
                   }`}
                   title="Show photos from groups that no longer exist in the current template"
                 >
-                  {showOrphaned ? '✓ ' : ''}Orphaned
+                  {showOrphaned ? '✓ ' : ''}{t('orphaned')}
                 </button>
               </div>
             )}
@@ -684,8 +686,8 @@ export default function PhotoGalleryModal({ isOpen, onClose, userId, initialStar
               // Empty state
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <CameraIcon className="w-12 h-12 text-gray-300 mb-3" />
-                <p className="text-sm font-medium text-gray-500">No photos found in this date range</p>
-                <p className="text-xs text-gray-400 mt-1">Try expanding the date range or selecting different dates</p>
+                <p className="text-sm font-medium text-gray-500">{t('noPhotosFound')}</p>
+                <p className="text-xs text-gray-400 mt-1">{t('tryExpandingDateRange')}</p>
               </div>
             ) : activeTab === 'project' ? (
               // By Project view

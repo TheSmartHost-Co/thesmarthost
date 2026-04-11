@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { KeyIcon, ClipboardDocumentIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { MissingBookingAlert, MissingReportAlert } from '@/services/types/dashboard'
 import { AlertCard } from './AlertCard'

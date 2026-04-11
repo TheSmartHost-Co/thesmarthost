@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
@@ -56,6 +57,7 @@ type MainTab = 'checklists' | 'walkthrough-templates'
 export default function ChecklistsPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('turnover')
   usePermissionGuard('checklists')
   const { effectiveUserId, canWrite } = usePermissions()
 

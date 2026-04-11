@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   HomeModernIcon,
@@ -52,6 +53,7 @@ export default function ProjectCard({
   pendingSupplyListCount = 0,
   hasPendingTimeChange = false,
 }: ProjectCardProps) {
+  const { t } = useTranslation('cleanerPortal')
   const [isLoading, setIsLoading] = useState<string | null>(null)
 
   const baseStatusConfig = getStatusConfig(project.status)
@@ -62,7 +64,7 @@ export default function ProjectCard({
   const statusConfig = overdue
     ? {
         ...baseStatusConfig,
-        label: 'Overdue',
+        labelKey: 'overdueStatus',
         border: 'border-red-500',
         badge: 'bg-red-100 text-red-700',
         icon: <ExclamationTriangleIcon className="w-3.5 h-3.5" />,
@@ -105,7 +107,7 @@ export default function ProjectCard({
 
   // Implicit label
   const implicitLabel = isImplicit
-    ? (project.cleanerName ? 'Assigned to another cleaner' : 'Unassigned')
+    ? (project.cleanerName ? t('assignedToAnotherCleaner') : t('unassigned'))
     : null
 
   return (
@@ -127,7 +129,7 @@ export default function ProjectCard({
             <div className="flex items-center gap-2">
               <HomeModernIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />
               <h3 className="font-semibold text-gray-900 line-clamp-2">
-                {project.propertyName || 'Unknown Property'}
+                {project.propertyName || t('unknownProperty')}
               </h3>
             </div>
             {/* Address */}
@@ -150,13 +152,13 @@ export default function ProjectCard({
                 ${statusConfig.badge}
               `}>
                 {statusConfig.icon}
-                {statusConfig.label}
+                {t(statusConfig.labelKey)}
               </span>
             )}
             {project.pmOverride && (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700 rounded">
                 <BoltIcon className="w-3 h-3" />
-                Override
+                {t('override')}
               </span>
             )}
           </div>
@@ -179,7 +181,7 @@ export default function ProjectCard({
           {project.guestCount && project.guestCount > 0 && (
             <div className="flex items-center gap-1.5 mt-1">
               <UserGroupIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span>{project.guestCount} guests</span>
+              <span>{t('guestsCount', { count: project.guestCount })}</span>
             </div>
           )}
         </div>
@@ -196,19 +198,19 @@ export default function ProjectCard({
             {project.isSameDayTurnover && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
                 <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-                Same Day
+                {t('sameDay')}
               </span>
             )}
             {openIssueCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
                 <FlagIcon className="w-3.5 h-3.5" />
-                {openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}
+                {t('issueCount', { count: openIssueCount })}
               </span>
             )}
             {pendingSupplyListCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded">
                 <ClipboardDocumentListIcon className="w-3.5 h-3.5" />
-                {pendingSupplyListCount} supply
+                {t('supplyCount', { count: pendingSupplyListCount })}
               </span>
             )}
             {hasPendingTimeChange && (
@@ -217,7 +219,7 @@ export default function ProjectCard({
                 className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors cursor-pointer"
               >
                 <ArrowPathIcon className="w-3.5 h-3.5" />
-                Time Change Pending
+                {t('timeChangePending')}
               </button>
             )}
           </div>
@@ -227,8 +229,8 @@ export default function ProjectCard({
         {project.checklistProgress && (
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-              <span>Checklist Progress</span>
-              <span>{project.checklistProgress.completedItems}/{project.checklistProgress.totalItems} items</span>
+              <span>{t('checklistProgress')}</span>
+              <span>{t('roomItems', { count: `${project.checklistProgress.completedItems}/${project.checklistProgress.totalItems}` })}</span>
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
@@ -243,7 +245,7 @@ export default function ProjectCard({
         {project.pmNotes && (
           <div className="mt-3 p-2.5 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-600">
-              <span className="font-medium">Note:</span> {project.pmNotes}
+              <span className="font-medium">{t('noteLabel')}:</span> {project.pmNotes}
             </p>
           </div>
         )}
@@ -265,7 +267,7 @@ export default function ProjectCard({
                 ) : (
                   <CheckCircleIcon className="w-5 h-5" />
                 )}
-                Accept
+                {t('accept')}
               </button>
               <button
                 onClick={(e) => handleAction(e, 'decline', onDecline)}
@@ -277,7 +279,7 @@ export default function ProjectCard({
                 ) : (
                   <XMarkIcon className="w-5 h-5" />
                 )}
-                Decline
+                {t('decline')}
               </button>
             </>
           )}
@@ -295,10 +297,10 @@ export default function ProjectCard({
                 ) : (
                   <PlayCircleIcon className="w-5 h-5" />
                 )}
-                Start Cleaning
+                {t('startCleaning')}
               </button>
               {startBlockReason && (
-                <p className="text-xs text-center text-amber-700">{startBlockReason}</p>
+                <p className="text-xs text-center text-amber-700">{t(startBlockReason.key, startBlockReason.data)}</p>
               )}
             </div>
           )}
@@ -310,7 +312,7 @@ export default function ProjectCard({
               className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 rounded-xl transition-colors cursor-pointer"
             >
               <ClipboardDocumentCheckIcon className="w-5 h-5" />
-              View Checklist
+              {t('viewChecklist')}
             </button>
           )}
 
@@ -322,7 +324,7 @@ export default function ProjectCard({
               className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 rounded-xl transition-colors cursor-pointer"
             >
               <ArrowPathIcon className="w-5 h-5" />
-              Request Time Change
+              {t('requestTimeChange')}
             </button>
           )}
 
@@ -333,7 +335,7 @@ export default function ProjectCard({
               className="flex-1 min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-xl transition-colors cursor-pointer"
             >
               <FlagIcon className="w-5 h-5" />
-              View Issues ({openIssueCount})
+              {t('viewIssuesCount', { count: openIssueCount })}
             </button>
           )}
 
@@ -349,7 +351,7 @@ export default function ProjectCard({
               ) : (
                 <CheckCircleIcon className="w-5 h-5" />
               )}
-              Mark Complete
+              {t('markComplete')}
             </button>
           )}
 
@@ -365,7 +367,7 @@ export default function ProjectCard({
               ) : (
                 <ArrowPathIcon className="w-5 h-5" />
               )}
-              Unbegin
+              {t('unbegin')}
             </button>
           )}
         </div>
@@ -374,46 +376,46 @@ export default function ProjectCard({
   )
 }
 
-// Status configuration helper
+// Status configuration helper — labels use i18n keys resolved by the caller
 function getStatusConfig(status: CleaningProjectStatus): {
-  label: string
+  labelKey: string
   border: string
   badge: string
   icon: React.ReactNode
 } {
   const configs: Record<CleaningProjectStatus, ReturnType<typeof getStatusConfig>> = {
     pending: {
-      label: 'Pending',
+      labelKey: 'pendingStatus',
       border: 'border-gray-300',
       badge: 'bg-gray-100 text-gray-700',
       icon: <div className="w-2 h-2 rounded-full bg-gray-400" />,
     },
     assigned: {
-      label: 'Awaiting Response',
+      labelKey: 'awaitingResponse',
       border: 'border-amber-400',
       badge: 'bg-amber-100 text-amber-700',
       icon: <ClockIcon className="w-3.5 h-3.5" />,
     },
     confirmed: {
-      label: 'Confirmed',
+      labelKey: 'confirmedStatus',
       border: 'border-indigo-400',
       badge: 'bg-indigo-100 text-indigo-700',
       icon: <CheckCircleIcon className="w-3.5 h-3.5" />,
     },
     in_progress: {
-      label: 'In Progress',
+      labelKey: 'inProgressStatus',
       border: 'border-purple-400',
       badge: 'bg-purple-100 text-purple-700',
       icon: <PlayCircleIcon className="w-3.5 h-3.5" />,
     },
     completed: {
-      label: 'Completed',
+      labelKey: 'completedStatus',
       border: 'border-green-400',
       badge: 'bg-green-100 text-green-700',
       icon: <CheckCircleIcon className="w-3.5 h-3.5" />,
     },
     cancelled: {
-      label: 'Cancelled',
+      labelKey: 'cancelledStatus',
       border: 'border-gray-300',
       badge: 'bg-gray-100 text-gray-500',
       icon: <XMarkIcon className="w-3.5 h-3.5" />,

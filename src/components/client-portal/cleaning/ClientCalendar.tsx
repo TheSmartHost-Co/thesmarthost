@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import type { ClientPortalProperty, ClientPortalBooking, ClientPortalCleaningProject } from '@/services/types/clientPortal'

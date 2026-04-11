@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Modal from '../../shared/modal'
 import { deleteInvoice } from '@/services/cleanerInvoiceService'
 import type { CleanerInvoice } from '@/services/types/cleanerInvoice'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
@@ -20,6 +21,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
   invoice,
   onDeleted,
 }) => {
+  const { t } = useTranslation('turnover')
   const [isDeleting, setIsDeleting] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -28,15 +30,15 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
     try {
       const res = await deleteInvoice(invoice.id)
       if (res.status === 'success') {
-        showNotification(`Invoice ${invoice.invoiceNumber} deleted`, 'success')
+        showNotification(t('invoiceDeletedNumber', { number: invoice.invoiceNumber }), 'success')
         onDeleted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete invoice', 'error')
+        showNotification(res.message || t('failedToDeleteInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error deleting invoice:', err)
-      showNotification(err instanceof Error ? err.message : 'Error deleting invoice', 'error')
+      showNotification(err instanceof Error ? err.message : t('errorDeletingInvoice'), 'error')
     } finally {
       setIsDeleting(false)
     }
@@ -51,16 +53,16 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
           </div>
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Invoice</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">{t('deleteInvoiceTitle')}</h2>
           <p className="text-sm text-gray-600 mb-1">
-            Are you sure you want to delete <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>?
+            {t('confirmDeleteInvoiceNumber', { number: invoice.invoiceNumber })}
           </p>
           {invoice.cleanerName && (
-            <p className="text-sm text-gray-500 mb-4">Cleaner: {invoice.cleanerName}</p>
+            <p className="text-sm text-gray-500 mb-4">{t('cleaner')}: {invoice.cleanerName}</p>
           )}
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
             <p className="text-sm text-red-800">
-              This will permanently delete the invoice and all its line items. This action cannot be undone.
+              {t('deleteInvoiceWarning')}
             </p>
           </div>
         </div>
@@ -73,7 +75,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
           disabled={isDeleting}
           className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           type="button"
@@ -81,7 +83,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
           disabled={isDeleting}
           className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
         >
-          {isDeleting ? 'Deleting...' : 'Delete Invoice'}
+          {isDeleting ? t('deletingInvoice') : t('deleteInvoiceButton')}
         </button>
       </div>
     </Modal>

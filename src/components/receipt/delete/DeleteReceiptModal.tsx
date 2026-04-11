@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { deleteReceipt } from '@/services/receiptService'
 import type { UploadedReceipt } from '@/services/types/receipt'
@@ -20,6 +21,7 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
   receipt,
   onDeleted,
 }) => {
+  const { t } = useTranslation('expenses')
   const [deleting, setDeleting] = useState(false)
   const showNotification = useNotificationStore((s) => s.showNotification)
 
@@ -28,11 +30,11 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
     try {
       const res = await deleteReceipt(receipt.id)
       if (res.status === 'success') {
-        showNotification('Receipt deleted successfully', 'success')
+        showNotification(t('receiptDeleted'), 'success')
         onDeleted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete receipt', 'error')
+        showNotification(res.message || t('failedToDeleteReceipt'), 'error')
       }
     } catch (err) {
       console.error('Error deleting receipt:', err)
@@ -49,15 +51,15 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
           <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
             <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">Delete Receipt</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('deleteReceipt')}</h3>
         </div>
 
         <p className="text-sm text-gray-600 mb-2">
-          Are you sure you want to delete <span className="font-medium">{receipt.originalName}</span>?
+          {t('confirmDeleteReceipt', { name: receipt.originalName })}
         </p>
         {receipt.status === 'applied' && (
           <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-            This receipt has been applied. Deleting it will also remove the linked expense and any associated supply list.
+            {t('receiptAppliedDeleteWarning')}
           </p>
         )}
 
@@ -67,14 +69,14 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
             disabled={deleting}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={handleDelete}
             disabled={deleting}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {deleting ? 'Deleting...' : 'Delete Receipt'}
+            {deleting ? t('deletingReceipt') : t('deleteReceipt')}
           </button>
         </div>
       </div>

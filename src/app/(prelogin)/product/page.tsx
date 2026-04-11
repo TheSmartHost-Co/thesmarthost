@@ -5,6 +5,7 @@ import Link from "next/link"
 import Footer from '@/components/footer/Footer'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CloudArrowUpIcon,
   CalculatorIcon,
@@ -19,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ProductPage() {
+  const { t } = useTranslation('auth')
   const [activeFeature, setActiveFeature] = useState(0)
 
   const coreFeatures = [
@@ -161,12 +163,12 @@ export default function ProductPage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 mb-6">
               <CubeTransparentIcon className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-700">Platform Overview</span>
+              <span className="text-sm font-medium text-blue-700">{t('productPlatformOverview')}</span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-              The Complete
+              {t('productHeroTitle')}
               <br />
-              <span className="text-blue-600">Property Reporting Platform</span>
+              <span className="text-blue-600">{t('productHeroTitleHighlight')}</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mb-8">
               PMS-agnostic owner reporting that transforms hours of manual work into minutes of automated precision.

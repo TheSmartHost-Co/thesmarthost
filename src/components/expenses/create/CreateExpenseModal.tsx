@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '@/components/shared/modal'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'

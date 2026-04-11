@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Modal from '../../shared/modal'
 import { Cleaner, CleanerProperty } from '@/services/types/cleaner'
 import { assignPropertiesToCleaner } from '@/services/cleanerService'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   EnvelopeIcon,
@@ -37,6 +38,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
   onResendInvite,
   onUpdate,
 }) => {
+  const { t } = useTranslation('turnover')
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [editRateType, setEditRateType] = useState<'flat' | 'hourly' | null>(null)
   const [editRateAmount, setEditRateAmount] = useState<string>('')
@@ -67,21 +69,21 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-            Active
+            {t('active')}
           </span>
         )
       case 'invited':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            Invited
+            {t('invited')}
           </span>
         )
       case 'inactive':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500">
             <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-            Inactive
+            {t('inactive')}
           </span>
         )
     }
@@ -111,7 +113,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
         </span>
       )
     }
-    return <span className="text-xs text-amber-500">Rate not set</span>
+    return <span className="text-xs text-amber-500">{t('rateNotSet')}</span>
   }
 
   const startEditingRate = (property: CleanerProperty) => {
@@ -156,14 +158,14 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
 
       if (res.status === 'success') {
         onUpdate?.(res.data)
-        showNotification('Rate updated', 'success')
+        showNotification(t('rateUpdated'), 'success')
         cancelEditingRate()
       } else {
-        showNotification(res.message || 'Failed to update rate', 'error')
+        showNotification(res.message || t('failedToUpdateRate'), 'error')
       }
     } catch (err) {
       console.error('Error updating rate:', err)
-      showNotification('Error updating rate', 'error')
+      showNotification(t('errorUpdatingRate'), 'error')
     } finally {
       setIsSavingRate(false)
     }
@@ -194,7 +196,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
       {/* Contact Information */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Contact Information
+          {t('contactInformation')}
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
@@ -204,7 +206,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
             <div>
               <p className="text-xs text-gray-500">Email</p>
               <p className="text-sm font-medium text-gray-900">
-                {cleaner.email || <span className="text-gray-400">Not provided</span>}
+                {cleaner.email || <span className="text-gray-400">{t('notProvided')}</span>}
               </p>
             </div>
           </div>
@@ -215,7 +217,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
             <div>
               <p className="text-xs text-gray-500">Phone</p>
               <p className="text-sm font-medium text-gray-900">
-                {cleaner.phone || <span className="text-gray-400">Not provided</span>}
+                {cleaner.phone || <span className="text-gray-400">{t('notProvided')}</span>}
               </p>
             </div>
           </div>
@@ -225,7 +227,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
       {/* Work Details */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Work Details
+          {t('workDetails')}
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
@@ -233,7 +235,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
               <ClockIcon className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Default Turnaround</p>
+              <p className="text-xs text-gray-500">{t('defaultTurnaround')}</p>
               <p className="text-sm font-medium text-gray-900">
                 {formatTurnaroundTime(cleaner.defaultTurnaroundMinutes)}
               </p>
@@ -244,9 +246,9 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
               <CurrencyDollarIcon className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Global Hourly Rate</p>
+              <p className="text-xs text-gray-500">{t('globalHourlyRate')}</p>
               <p className="text-sm font-medium text-gray-900">
-                {cleaner.hourlyRate ? `$${cleaner.hourlyRate.toFixed(2)}/hr` : <span className="text-gray-400">Not set</span>}
+                {cleaner.hourlyRate ? `$${cleaner.hourlyRate.toFixed(2)}/hr` : <span className="text-gray-400">{t('notSet')}</span>}
               </p>
             </div>
           </div>
@@ -256,7 +258,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
       {/* Property Assignments */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-          Property Assignments ({assignedCount})
+          {t('propertyAssignmentsCount', { count: assignedCount })}
         </h3>
         {assignedCount > 0 ? (
           <div className="space-y-2 max-h-52 overflow-y-auto">
@@ -272,7 +274,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {property.propertyName || 'Unknown Property'}
+                        {property.propertyName || t('unknownPropertyLabel')}
                       </p>
                       {property.propertyAddress && (
                         <p className="text-xs text-gray-500 truncate">{property.propertyAddress}</p>
@@ -284,7 +286,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
                     {property.isDefault && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                         <CheckCircleIcon className="h-3 w-3" />
-                        Default
+                        {t('default')}
                       </span>
                     )}
                     {onUpdate && (
@@ -377,13 +379,13 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
         ) : (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <BuildingOfficeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No properties assigned yet</p>
+            <p className="text-sm text-gray-500">{t('noPropertiesAssignedYet')}</p>
             {onAssignProperties && (
               <button
                 onClick={onAssignProperties}
                 className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                Assign properties
+                {t('assignPropertiesLink')}
               </button>
             )}
           </div>
@@ -394,7 +396,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
       {(onAssignProperties || onEditCleaner || onResendInvite) && (
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            Quick Actions
+            {t('quickActions')}
           </h3>
           <div className={`grid gap-3 ${[onAssignProperties, onEditCleaner, (cleaner.email && cleaner.authUserId && onResendInvite)].filter(Boolean).length >= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             {onAssignProperties && (
@@ -405,7 +407,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                   <BuildingOfficeIcon className="h-5 w-5 text-purple-600" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">Manage Properties</span>
+                <span className="text-sm font-medium text-gray-700">{t('manageProperties')}</span>
               </button>
             )}
             {onEditCleaner && (
@@ -416,7 +418,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                   <PencilIcon className="h-5 w-5 text-blue-600" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">Edit Details</span>
+                <span className="text-sm font-medium text-gray-700">{t('editDetails')}</span>
               </button>
             )}
             {cleaner.email && cleaner.authUserId && onResendInvite && (
@@ -427,7 +429,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                   <PaperAirplaneIcon className="h-5 w-5 text-green-600" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">Resend Invite</span>
+                <span className="text-sm font-medium text-gray-700">{t('resendInvite')}</span>
               </button>
             )}
           </div>

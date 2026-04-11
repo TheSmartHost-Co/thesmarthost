@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
@@ -39,6 +40,7 @@ export default function CreateSupplyListModal({
   onScanReceipt,
   defaultPropertyId,
 }: CreateSupplyListModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore(s => s.showNotification)
   const { profile } = useUserStore()
 
@@ -168,7 +170,7 @@ export default function CreateSupplyListModal({
               <ClipboardDocumentListIcon className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">New Supply List</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('createSupplyListTitle')}</h2>
               <p className="text-xs text-gray-500">
                 Create a supply request{onScanReceipt && (
                   <> or <button type="button" onClick={onScanReceipt} className="text-teal-600 hover:text-teal-700 font-medium cursor-pointer">scan a receipt</button> to quick-create</>
@@ -180,7 +182,7 @@ export default function CreateSupplyListModal({
           <div className="space-y-4">
             {/* Property selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Property</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('property')}</label>
               <div className="relative">
                 <BuildingOfficeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <select
@@ -278,14 +280,14 @@ export default function CreateSupplyListModal({
           onClick={onClose}
           className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors cursor-pointer"
         >
-          {submitting ? 'Creating...' : 'Create Supply List'}
+          {submitting ? t('creatingList') : t('createListButton')}
         </button>
       </div>
     </Modal>

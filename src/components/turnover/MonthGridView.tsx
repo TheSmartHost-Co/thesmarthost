@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, useCallback, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
@@ -97,6 +98,7 @@ export default function MonthGridView({
   scrollContainer,
   activatedItem,
 }: MonthGridViewProps) {
+  const { t } = useTranslation('turnover')
   const isMobile = useIsMobile()
   const WEEKDAYS = isMobile ? WEEKDAYS_SHORT : WEEKDAYS_FULL
   const maxEventsPerCell = isMobile ? MAX_EVENTS_PER_CELL_MOBILE : MAX_EVENTS_PER_CELL
@@ -387,7 +389,7 @@ export default function MonthGridView({
                       }}
                     >
                       <span className={`${isMobile ? 'text-[9px]' : 'text-[10px]'} text-blue-600 font-medium`}>
-                        +{totalEvents - maxEventsPerCell} more
+                        {t('more', { count: totalEvents - maxEventsPerCell })}
                       </span>
                     </div>
                   )}
@@ -453,7 +455,7 @@ export default function MonthGridView({
               >
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: borderColor }} />
                 <span className="text-[11px] truncate text-gray-700">
-                  {project.cleanerName || 'Unassigned'}
+                  {project.cleanerName || t('unassigned')}
                 </span>
                 <span className="text-[10px] text-gray-400 ml-auto truncate max-w-[80px] flex-shrink-0">
                   {propertyNameMap.get(project.propertyId) || ''}
@@ -468,7 +470,7 @@ export default function MonthGridView({
               className="w-full text-[10px] text-gray-400 hover:text-gray-600 text-center py-0.5"
               onClick={() => setPopover(null)}
             >
-              Close
+              {t('close')}
             </button>
           </div>
         </div>

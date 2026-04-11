@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { ExclamationTriangleIcon, ArrowLeftIcon, HomeIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
 
 export default function ErrorPage() {
+  const { t } = useTranslation('auth')
   return (
     <div className="min-h-screen bg-white">
       <PreNavbar />
@@ -29,10 +31,10 @@ export default function ErrorPage() {
           </motion.div>
 
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-            Oops! Something went wrong
+            {t('errorTitle')}
           </h1>
           <p className="text-gray-600 mb-8 max-w-sm mx-auto">
-            We encountered an unexpected error. Please try again or contact support if the problem persists.
+            {t('errorDescription')}
           </p>
 
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 mb-8">
@@ -43,7 +45,7 @@ export default function ErrorPage() {
                   className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
                 >
                   <HomeIcon className="h-5 w-5" />
-                  Go to Homepage
+                  {t('goToHomepage')}
                 </Link>
               </motion.div>
 
@@ -53,7 +55,7 @@ export default function ErrorPage() {
                   className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
                 >
                   <ArrowLeftIcon className="h-5 w-5" />
-                  Go Back
+                  {t('goBack')}
                 </button>
               </motion.div>
             </div>
@@ -61,7 +63,7 @@ export default function ErrorPage() {
 
           <div className="space-y-3">
             <p className="text-sm text-gray-500">
-              Need help? Contact us at{' '}
+              {t('needHelp')}{' '}
               <a href="mailto:support@thesmarthost.com" className="text-blue-600 hover:text-blue-500 font-medium">
                 support@thesmarthost.com
               </a>
@@ -69,15 +71,15 @@ export default function ErrorPage() {
 
             <div className="flex items-center justify-center gap-4 text-sm">
               <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
-                Sign In
+                {t('signIn')}
               </Link>
               <span className="text-gray-300">|</span>
               <Link href="/signup" className="text-blue-600 hover:text-blue-500 font-medium">
-                Sign Up
+                {t('signUp')}
               </Link>
               <span className="text-gray-300">|</span>
               <Link href="/contact" className="text-blue-600 hover:text-blue-500 font-medium">
-                Contact
+                {t('contact')}
               </Link>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -57,6 +58,7 @@ function TurnoverCalendarWithDeepLink({
 export default function TurnoverPage() {
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { t } = useTranslation('turnover')
   usePermissionGuard('turnover')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -142,8 +144,8 @@ export default function TurnoverPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Turnover Calendar</h1>
-            <p className="text-gray-500 mt-1">Manage cleaning projects and schedules</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('subtitle')}</p>
           </div>
         </div>
 
@@ -157,7 +159,7 @@ export default function TurnoverPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading data</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingData')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -172,8 +174,8 @@ export default function TurnoverPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Turnover Calendar</h1>
-            <p className="text-gray-500 mt-1">Manage cleaning projects and schedules</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('subtitle')}</p>
           </div>
         </div>
 
@@ -185,7 +187,7 @@ export default function TurnoverPage() {
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
             <CalendarDaysIcon className="w-8 h-8 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-4">No properties yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mt-4">{t('noPropertiesYet')}</h3>
           <p className="text-gray-500 mt-2 max-w-md mx-auto">
             Add properties to your account to start scheduling turnover projects for cleanings.
           </p>
@@ -209,8 +211,8 @@ export default function TurnoverPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Turnover Calendar</h1>
-            <p className="text-gray-500 mt-1">Manage cleaning projects and schedules</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+            <p className="text-gray-500 mt-1">{t('subtitle')}</p>
           </div>
         </div>
 
@@ -222,7 +224,7 @@ export default function TurnoverPage() {
           <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
             <CalendarDaysIcon className="w-8 h-8 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-4">No cleaners yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mt-4">{t('noCleanersYet')}</h3>
           <p className="text-gray-500 mt-2 max-w-md mx-auto">
             Add cleaners to your team to start assigning turnover projects.
           </p>
@@ -244,9 +246,9 @@ export default function TurnoverPage() {
     <div className="space-y-2 sm:space-y-3">
       {/* Header - compact inline */}
       <div className="flex items-baseline gap-2">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Turnover Calendar</h1>
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('title')}</h1>
         <span className="text-sm text-gray-400 hidden sm:inline">—</span>
-        <p className="text-sm text-gray-400 hidden sm:block">Manage cleaning projects and schedules</p>
+        <p className="text-sm text-gray-400 hidden sm:block">{t('subtitle')}</p>
       </div>
 
       {/* Calendar with deep-link support (Suspense required for useSearchParams) */}

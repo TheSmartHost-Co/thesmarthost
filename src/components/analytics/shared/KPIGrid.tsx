@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { KPICard, KPICardSkeleton } from './KPICard'
 import type { PortfolioData } from '@/services/types/analytics'
+import { useTranslation } from 'react-i18next'
 
 interface KPIGridProps {
   data: PortfolioData | null

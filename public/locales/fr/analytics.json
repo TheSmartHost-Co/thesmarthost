@@ -1,1 +1,10 @@
-{}
+{
+  "title": "Analytique",
+  "subtitle": "Suivez les performances et obtenez des informations sur votre portefeuille",
+  "loadingAnalytics": "Chargement de vos analytiques...",
+  "loadingProperties": "Chargement des propriétés...",
+  "noPropertiesFound": "Aucune propriété trouvée",
+  "addPropertiesToSeeAnalytics": "Ajoutez des propriétés pour voir les analytiques",
+  "property_one": "{{count}} Propriété",
+  "property_other": "{{count}} Propriétés"
+}

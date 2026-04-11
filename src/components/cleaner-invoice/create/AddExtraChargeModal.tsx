@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Modal from '@/components/shared/modal'
 import { addInvoiceItem } from '@/services/cleanerInvoiceService'
 import { uploadReceipt, searchReceipts } from '@/services/receiptService'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { UploadedReceipt } from '@/services/types/receipt'
 import {
@@ -35,6 +36,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   onAdded,
   defaultTaxable = false,
 }) => {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((s) => s.showNotification)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -110,11 +112,11 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   const handleFileSelect = useCallback((f: File) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
     if (!allowedTypes.includes(f.type)) {
-      showNotification('Invalid file type. Upload an image or PDF.', 'error')
+      showNotification(t('invalidFileType'), 'error')
       return
     }
     if (f.size > 10 * 1024 * 1024) {
-      showNotification('File too large. Maximum 10MB.', 'error')
+      showNotification(t('fileTooLarge'), 'error')
       return
     }
     setFile(f)
@@ -168,7 +170,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
         if (uploadRes.status === 'success') {
           receiptId = uploadRes.data.receipt.id
         } else {
-          showNotification(uploadRes.message || 'Failed to upload receipt', 'error')
+          showNotification(uploadRes.message || t('failedToUploadReceipt'), 'error')
           setSubmitting(false)
           return
         }
@@ -186,15 +188,15 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
       })
 
       if (res.status === 'success') {
-        showNotification('Extra charge added', 'success')
+        showNotification(t('extraChargeAdded'), 'success')
         onAdded()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to add extra charge', 'error')
+        showNotification(res.message || t('failedToAddExtraCharge'), 'error')
       }
     } catch (err) {
       console.error('Error adding extra charge:', err)
-      showNotification(err instanceof Error ? err.message : 'Error adding extra charge', 'error')
+      showNotification(err instanceof Error ? err.message : t('errorAddingExtraCharge'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -215,26 +217,26 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
           <PlusIcon className="h-4 w-4 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Add Extra Charge</h2>
-          <p className="text-[11px] text-gray-500">Add a charge with optional receipt attachment</p>
+          <h2 className="text-base font-semibold text-gray-900">{t('addExtraChargeTitle')}</h2>
+          <p className="text-[11px] text-gray-500">{t('addExtraChargeDescription')}</p>
         </div>
       </div>
 
       {/* Charge Details */}
       <div className="space-y-3 mb-4">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{t('chargeDescription')} *</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g., Cleaning supplies, Travel expense"
+            placeholder={t('chargeDescriptionPlaceholder')}
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
         <div className="flex gap-3">
           <div className="w-1/3">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Amount *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('chargeAmount')} *</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
               <input
@@ -249,12 +251,12 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
             </div>
           </div>
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('notes')}</label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
+              placeholder={t('notesOptionalPlaceholder')}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
@@ -277,7 +279,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
           }`}>
             {isTaxable && <CheckIcon className="h-2.5 w-2.5 text-white" />}
           </div>
-          Taxable
+          {t('taxable')}
         </button>
       </div>
 
@@ -286,11 +288,11 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
             <PaperClipIcon className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Attach Receipt</span>
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">{t('attachReceipt')}</span>
           </div>
           {hasReceipt && (
             <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              Attached
+              {t('attached')}
             </span>
           )}
         </div>
@@ -307,7 +309,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
             }`}
           >
             <ArrowUpTrayIcon className="h-3.5 w-3.5" />
-            Upload New
+            {t('uploadNew')}
           </button>
           <button
             type="button"
@@ -319,7 +321,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
             }`}
           >
             <ClipboardDocumentListIcon className="h-3.5 w-3.5" />
-            Select Existing
+            {t('selectExisting')}
           </button>
         </div>
 
@@ -364,16 +366,16 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
               >
                 <PhotoIcon className="mx-auto h-8 w-8 text-gray-300 mb-2" />
                 <p className="text-sm text-gray-500">
-                  Drop receipt here or{' '}
+                  {t('dropReceiptHere')}{' '}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
                   >
-                    browse
+                    {t('browse')}
                   </button>
                 </p>
-                <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WebP, PDF — max 10MB</p>
+                <p className="text-[10px] text-gray-400 mt-1">{t('fileTypesDescription')}</p>
               </div>
             )}
             <input
@@ -396,7 +398,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search receipts by name or property..."
+                placeholder={t('searchReceiptsPlaceholder')}
                 className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
@@ -409,7 +411,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
                 </div>
               ) : searchResults.length === 0 ? (
                 <p className="text-xs text-gray-400 text-center py-4">
-                  {searchQuery ? 'No receipts found' : 'No receipts uploaded yet'}
+                  {searchQuery ? t('noReceiptsFound') : t('noReceiptsUploadedYet')}
                 </p>
               ) : (
                 searchResults.map((receipt) => {
@@ -475,7 +477,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
           onClick={onClose}
           className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 cursor-pointer"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           type="button"
@@ -486,12 +488,12 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
           {submitting ? (
             <>
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Adding...
+              {t('addingCharge')}
             </>
           ) : (
             <>
               <PlusIcon className="h-3.5 w-3.5" />
-              Add Charge
+              {t('addCharge')}
             </>
           )}
         </button>

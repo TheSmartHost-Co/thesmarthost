@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { IssueCounts } from '@/services/types/projectIssue'
 
@@ -19,6 +20,7 @@ const IssuesBadge: React.FC<IssuesBadgeProps> = ({
   onClick,
   size = 'sm'
 }) => {
+  const { t } = useTranslation('turnover')
   const openCount = counts.open + counts.acknowledged
 
   if (counts.total === 0) {
@@ -55,9 +57,9 @@ const IssuesBadge: React.FC<IssuesBadgeProps> = ({
     >
       <ExclamationTriangleIcon className={iconSizes[size]} />
       {hasOpenIssues ? (
-        <span>{openCount} open</span>
+        <span>{t('openBadge', { count: openCount })}</span>
       ) : (
-        <span>{counts.resolved} resolved</span>
+        <span>{t('resolvedBadge', { count: counts.resolved })}</span>
       )}
     </span>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { ClockIcon } from '@heroicons/react/24/outline'
 import type { DashboardActivity } from '@/services/types/dashboard'
 import { ActivityItem } from './ActivityItem'

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -20,6 +21,7 @@ import { getUserProfile } from '@/services/profileService'
  * 5. Has profile (returning) → redirect to /cleaner/dashboard
  */
 export default function AuthCallbackPage() {
+  const { t } = useTranslation('auth')
   const router = useRouter()
   const supabase = createClient()
   const setProfile = useUserStore(s => s.setProfile)
@@ -71,7 +73,7 @@ export default function AuthCallbackPage() {
           }
 
           if (hasProfile) {
-            notify("Welcome back!", 'success')
+            notify(t('welcomeBack'), 'success')
             router.push('/cleaner/dashboard')
           } else {
             // First-time user - need to set password and create profile
@@ -89,7 +91,7 @@ export default function AuthCallbackPage() {
                 email: user.email,
               })
 
-              notify("You've successfully signed in!", 'success')
+              notify(t('signInSuccess'), 'success')
               const redirectPath = getRedirectPath()
               router.push(redirectPath)
             } else {
@@ -140,10 +142,10 @@ export default function AuthCallbackPage() {
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Setting up your account...
+              {t('settingUpAccount')}
             </h2>
             <p className="text-gray-600">
-              Please wait while we complete your sign in
+              {t('pleaseWaitSignIn')}
             </p>
           </>
         ) : (
@@ -166,10 +168,10 @@ export default function AuthCallbackPage() {
               </div>
             </div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Authentication Error
+              {t('authenticationError')}
             </h2>
             <p className="text-gray-600 mb-4">{errorMessage}</p>
-            <p className="text-sm text-gray-500">Redirecting to login...</p>
+            <p className="text-sm text-gray-500">{t('redirectingToLogin')}</p>
           </>
         )}
       </div>

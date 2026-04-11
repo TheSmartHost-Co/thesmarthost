@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { createSupplyList } from '@/services/supplyListService'
 import type { SupplyList } from '@/services/types/supplyList'
@@ -34,6 +35,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
   const [items, setItems] = useState<ItemRow[]>([{ name: '', quantity: '1' }])
   const [loading, setLoading] = useState(false)
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Reset form when modal closes
@@ -60,7 +62,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
   const handleSubmit = async () => {
     const validItems = items.filter(item => item.name.trim())
     if (validItems.length === 0) {
-      showNotification('Please add at least one item', 'error')
+      showNotification(t('pleaseAddAtLeastOneItem'), 'error')
       return
     }
 
@@ -75,16 +77,16 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
       })
 
       if (res.status === 'success') {
-        showNotification('Supply list submitted', 'success')
+        showNotification(t('supplyListSubmitted'), 'success')
         onSubmitted(res.data)
         onClose()
       } else {
-        showNotification(res.message || 'Failed to submit supply list', 'error')
+        showNotification(res.message || t('failedToSubmitList'), 'error')
       }
     } catch (err) {
       console.error('Error submitting supply list:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to submit supply list',
+        err instanceof Error ? err.message : t('failedToSubmitList'),
         'error'
       )
     } finally {
@@ -101,8 +103,8 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
             <ClipboardDocumentListIcon className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Request Supplies</h2>
-            <p className="text-sm text-gray-500">Add items needed for this cleaning</p>
+            <h2 className="text-xl font-semibold text-gray-900">{t('submitSupplyListTitle')}</h2>
+            <p className="text-sm text-gray-500">{t('supplyListsSubtitle')}</p>
           </div>
         </div>
 
@@ -114,7 +116,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
                 type="text"
                 value={item.name}
                 onChange={(e) => updateItem(index, 'name', e.target.value)}
-                placeholder="Item name"
+                placeholder={t('itemName')}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               />
               <input
@@ -143,7 +145,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
           className="w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-teal-400 hover:text-teal-600 transition-colors flex items-center justify-center gap-1.5 mb-6"
         >
           <PlusIcon className="w-4 h-4" />
-          Add Item
+          {t('addItem')}
         </button>
 
         {/* Action Buttons */}
@@ -154,7 +156,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
             disabled={loading}
             className="flex-1 py-3 px-4 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -171,12 +173,12 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
             {loading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Submitting...
+                {t('submittingList')}
               </>
             ) : (
               <>
                 <ClipboardDocumentListIcon className="w-5 h-5" />
-                Submit List
+                {t('submitList')}
               </>
             )}
           </button>

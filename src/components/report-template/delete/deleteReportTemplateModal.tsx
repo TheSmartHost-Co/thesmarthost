@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { deleteReportTemplate } from '@/services/reportTemplateService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -21,6 +22,7 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
   template,
   onDeleted,
 }) => {
+  const { t } = useTranslation('reports')
   const [isDeleting, setIsDeleting] = useState(false)
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -33,14 +35,14 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
     try {
       const res = await deleteReportTemplate(template.id, profile.id)
       if (res.status === 'success') {
-        showNotification('Template deleted successfully', 'success')
+        showNotification(t('templateDeleted'), 'success')
         onDeleted()
       } else {
-        showNotification(res.message || 'Failed to delete template', 'error')
+        showNotification(res.message || t('failedToDeleteTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error deleting template:', err)
-      showNotification('Error deleting template', 'error')
+      showNotification(t('errorDeletingTemplate'), 'error')
     } finally {
       setIsDeleting(false)
     }
@@ -55,7 +57,7 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
           <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-gray-900">Delete Template</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('deleteTemplate')}</h2>
           <p className="text-gray-600 mt-2">
             Are you sure you want to delete <strong className="text-gray-900">{template.name}</strong>?
           </p>
@@ -72,7 +74,7 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
           disabled={isDeleting}
           className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           onClick={handleDelete}
@@ -82,7 +84,7 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
           {isDeleting && (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
           )}
-          Delete Template
+          {t('deleteTemplate')}
         </button>
       </div>
     </Modal>

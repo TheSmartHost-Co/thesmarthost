@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import Modal from '../shared/modal'
 import {
@@ -125,6 +126,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
   propertyName,
   onRefreshProperties,
 }) => {
+  const { t } = useTranslation('properties')
   const { showNotification } = useNotificationStore()
 
   // State

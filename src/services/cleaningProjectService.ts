@@ -302,11 +302,17 @@ export function getStatusDisplay(status: CleaningProject['status']): { label: st
 }
 
 /**
- * Returns null if the project can be started, or a string reason why it cannot.
+ * Returns null if the project can be started, or a block reason object with
+ * a translation key and optional interpolation data.
  * Checks status is 'confirmed' AND project date is today (client local date).
  */
-export function getStartBlockReason(project: CleaningProject): string | null {
-  if (project.status !== 'confirmed') return 'Project is not in confirmed status'
+export interface StartBlockReason {
+  key: string
+  data?: Record<string, string>
+}
+
+export function getStartBlockReason(project: CleaningProject): StartBlockReason | null {
+  if (project.status !== 'confirmed') return { key: 'notConfirmedStatus' }
 
   // PM override bypasses all date checks
   if (project.pmOverride) return null
@@ -319,10 +325,10 @@ export function getStartBlockReason(project: CleaningProject): string | null {
     const formatted = new Date(y, m - 1, d).toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric',
     })
-    return `Scheduled for ${formatted} — not available yet`
+    return { key: 'scheduledForFuture', data: { date: formatted } }
   }
   if (projectDateStr < todayStr) {
-    return 'Date has passed — submit a time change request first'
+    return { key: 'datePassedSubmitRequest' }
   }
   return null
 }

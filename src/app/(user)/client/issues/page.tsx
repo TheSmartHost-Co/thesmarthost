@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ExclamationTriangleIcon,
@@ -50,6 +51,7 @@ function formatAge(dateStr: string): string {
 }
 
 export default function ClientIssuesPage() {
+  const { t } = useTranslation('clientPortal')
   const [issues, setIssues] = useState<ClientPortalIssue[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -100,7 +102,7 @@ export default function ClientIssuesPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading issues...</p>
+          <p className="text-sm text-gray-500">{t('loadingIssues')}</p>
         </div>
       </div>
     )
@@ -120,12 +122,12 @@ export default function ClientIssuesPage() {
         )}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {selectedIssue ? 'Issue Details' : 'Issues'}
+            {selectedIssue ? t('issueDetails') : t('issuesTitle')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {selectedIssue
               ? `${selectedIssue.propertyName} \u00B7 ${formatAge(selectedIssue.createdAt)}`
-              : 'Property issues reported during cleaning projects'
+              : t('issuesSubtitle')
             }
           </p>
         </div>

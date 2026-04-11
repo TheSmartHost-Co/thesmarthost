@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import TimeSelect, { roundToNearest15 } from '@/components/shared/TimeSelect'
 import { submitTimeChangeRequest } from '@/services/timeChangeRequestService'
@@ -24,6 +25,7 @@ export default function RequestTimeChangeModal({
   cleanerId,
   onSubmitted,
 }: RequestTimeChangeModalProps) {
+  const { t } = useTranslation('cleanerPortal')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const [projectDate, setProjectDate] = useState('')
@@ -48,7 +50,7 @@ export default function RequestTimeChangeModal({
 
   const handleSubmit = async () => {
     if (!projectDate) {
-      showNotification('Please select a date', 'error')
+      showNotification(t('pleaseSelectDate'), 'error')
       return
     }
 
@@ -56,18 +58,18 @@ export default function RequestTimeChangeModal({
     const errors: string[] = []
 
     if (projectStartTime && projectEndTime && projectStartTime >= projectEndTime) {
-      errors.push('Start time must be before end time')
+      errors.push(t('startBeforeEnd'))
     }
 
     const prevCheckOut = project.previousBookingCheckOut?.split('T')[0]
     const nextCheckIn = project.nextBookingCheckIn?.split('T')[0]
 
     if (prevCheckOut && projectDate < prevCheckOut) {
-      errors.push(`Date cannot be before departing guest checkout (${prevCheckOut})`)
+      errors.push(t('dateBeforeCheckout', { date: prevCheckOut }))
     }
 
     if (nextCheckIn && projectDate > nextCheckIn) {
-      errors.push(`Date cannot be after arriving guest check-in (${nextCheckIn})`)
+      errors.push(t('dateAfterCheckin', { date: nextCheckIn }))
     }
 
     if (errors.length > 0) {
@@ -87,16 +89,16 @@ export default function RequestTimeChangeModal({
       })
 
       if (res.status === 'success') {
-        showNotification('Time change request submitted', 'success')
+        showNotification(t('requestSubmitted'), 'success')
         onSubmitted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to submit request', 'error')
+        showNotification(res.message || t('failedToSubmit'), 'error')
       }
     } catch (err) {
       console.error('Error submitting time change request:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Error submitting request',
+        err instanceof Error ? err.message : t('failedToSubmit'),
         'error'
       )
     } finally {
@@ -113,7 +115,7 @@ export default function RequestTimeChangeModal({
             <ClockIcon className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Request Time Change</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{t('requestTimeChangeTitle')}</h2>
             <p className="text-sm text-gray-500">{project.propertyName}</p>
           </div>
         </div>
@@ -123,7 +125,7 @@ export default function RequestTimeChangeModal({
           {/* Scheduled Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Date
+              {t('date')}
             </label>
             <input
               type="date"
@@ -132,14 +134,14 @@ export default function RequestTimeChangeModal({
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {project.projectDate.split('T')[0]}
+              {t('current')}: {project.projectDate.split('T')[0]}
             </p>
           </div>
 
           {/* Checkout Time */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Start Time
+              {t('startTime')}
             </label>
             <TimeSelect
               value={projectStartTime}
@@ -147,14 +149,14 @@ export default function RequestTimeChangeModal({
               placeholder="Select checkout time"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {formatTime(project.projectStartTime) || 'Not set'}
+              {t('current')}: {formatTime(project.projectStartTime) || t('notSet')}
             </p>
           </div>
 
           {/* Checkin Time */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              End Time
+              {t('endTime')}
             </label>
             <TimeSelect
               value={projectEndTime}
@@ -162,19 +164,19 @@ export default function RequestTimeChangeModal({
               placeholder="Select check-in time"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Current: {formatTime(project.projectEndTime) || 'Not set'}
+              {t('current')}: {formatTime(project.projectEndTime) || t('notSet')}
             </p>
           </div>
 
           {/* Reason */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Reason (optional)
+              {t('reason')}
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Why do you need this change?"
+              placeholder={t('whyNeedChange')}
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
             />
@@ -185,12 +187,12 @@ export default function RequestTimeChangeModal({
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
               <InformationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-medium">Booking window</p>
+                <p className="font-medium">{t('bookingWindow')}</p>
                 {project.previousBookingCheckOut && (
-                  <p>Departing guest checkout: {project.previousBookingCheckOut.split('T')[0]}</p>
+                  <p>{t('departingGuestCheckout', { date: project.previousBookingCheckOut.split('T')[0] })}</p>
                 )}
                 {project.nextBookingCheckIn && (
-                  <p>Arriving guest check-in: {project.nextBookingCheckIn.split('T')[0]}</p>
+                  <p>{t('arrivingGuestCheckin', { date: project.nextBookingCheckIn.split('T')[0] })}</p>
                 )}
               </div>
             </div>
@@ -217,7 +219,7 @@ export default function RequestTimeChangeModal({
             disabled={loading}
             className="flex-1 py-3 px-4 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -234,10 +236,10 @@ export default function RequestTimeChangeModal({
             {loading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Submitting...
+                {t('submittingRequest')}
               </>
             ) : (
-              'Submit Request'
+              t('submitRequest')
             )}
           </button>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { deletePatchNote } from '@/services/patchNoteService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -20,6 +21,7 @@ const DeletePatchNoteModal: React.FC<DeletePatchNoteModalProps> = ({
   onClose,
   onDeleted,
 }) => {
+  const { t } = useTranslation('common')
   const [isDeleting, setIsDeleting] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -55,12 +57,10 @@ const DeletePatchNoteModal: React.FC<DeletePatchNoteModalProps> = ({
         </div>
         <div className="flex-1">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            Delete Patch Note
+            {t('deletePatchNote')}
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            Are you sure you want to delete{' '}
-            <span className="font-medium text-gray-900">{note.title}</span>?
-            This action cannot be undone.
+            {t('confirmDeletePatchNote', { title: note.title })}
           </p>
         </div>
       </div>
@@ -73,7 +73,7 @@ const DeletePatchNoteModal: React.FC<DeletePatchNoteModalProps> = ({
           disabled={isDeleting}
           className="cursor-pointer px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Cancel
+          {t('cancel')}
         </button>
         <button
           type="button"
@@ -81,7 +81,7 @@ const DeletePatchNoteModal: React.FC<DeletePatchNoteModalProps> = ({
           disabled={isDeleting}
           className="cursor-pointer px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isDeleting ? 'Deleting...' : 'Delete'}
+          {isDeleting ? t('deleting') : t('delete')}
         </button>
       </div>
     </Modal>

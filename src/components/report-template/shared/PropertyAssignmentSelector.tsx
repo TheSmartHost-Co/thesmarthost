@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getProperties } from '@/services/propertyService'
 import type { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'

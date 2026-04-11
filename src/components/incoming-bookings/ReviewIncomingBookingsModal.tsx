@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useUserStore } from '@/store/useUserStore'

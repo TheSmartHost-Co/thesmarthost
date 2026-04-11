@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React from 'react'
 import { CheckCircleIcon, CalendarIcon, CurrencyDollarIcon, BuildingOfficeIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'

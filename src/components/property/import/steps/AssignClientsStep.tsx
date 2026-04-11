@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect, useMemo } from 'react'
 import { UserIcon, HomeIcon } from '@heroicons/react/24/outline'
 import { CsvHeader } from '@/services/types/csvMapping'

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 
@@ -12,6 +13,7 @@ interface ScanModalProps {
 }
 
 export default function ScanModal({ isOpen, onClose, onScan, scanning }: ScanModalProps) {
+  const { t } = useTranslation('dashboard')
   const today = new Date().toISOString().substring(0, 10)
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
 
@@ -37,8 +39,8 @@ export default function ScanModal({ isOpen, onClose, onScan, scanning }: ScanMod
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-md">
       <div className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Scan for Checkouts</h2>
-        <p className="text-sm text-gray-500 mb-5">Choose the checkout date range to scan for reservations.</p>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('automations.scanForCheckouts')}</h2>
+        <p className="text-sm text-gray-500 mb-5">{t('automations.scanDescription')}</p>
 
         {/* Quick Presets */}
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -56,7 +58,7 @@ export default function ScanModal({ isOpen, onClose, onScan, scanning }: ScanMod
         {/* Date Inputs */}
         <div className="grid grid-cols-2 gap-3 mb-5">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{t('automations.from')}</label>
             <input
               type="date"
               value={startDate}
@@ -66,7 +68,7 @@ export default function ScanModal({ isOpen, onClose, onScan, scanning }: ScanMod
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{t('automations.to')}</label>
             <input
               type="date"
               value={endDate}
@@ -84,7 +86,7 @@ export default function ScanModal({ isOpen, onClose, onScan, scanning }: ScanMod
           className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
         >
           <ArrowPathIcon className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
-          {scanning ? 'Scanning...' : 'Scan for Checkouts'}
+          {scanning ? t('automations.scanning') : t('automations.scanForCheckouts')}
         </button>
       </div>
     </Modal>

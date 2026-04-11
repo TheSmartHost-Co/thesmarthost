@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ProjectChecklistItem } from '@/services/types/cleaningProject'
 import { groupChecklistItemsByRoom } from '@/services/cleaningProjectService'
 import RoomSection from './RoomSection'
@@ -28,6 +29,7 @@ export default function ChecklistContent({
   togglingItems,
   readOnly,
 }: ChecklistContentProps) {
+  const { t } = useTranslation('cleanerPortal')
   const itemsByRoom = useMemo(() => groupChecklistItemsByRoom(items), [items])
   const roomEntries = useMemo(() => Object.entries(itemsByRoom), [itemsByRoom])
 
@@ -96,7 +98,7 @@ export default function ChecklistContent({
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p>No checklist items found for this property.</p>
+        <p>{t('noChecklistItemsFound')}</p>
       </div>
     )
   }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getReportTemplates, deleteReportTemplate, cloneReportTemplate } from '@/services/reportTemplateService'
@@ -26,6 +27,7 @@ import EditReportTemplateModal from '@/components/report-template/edit/editRepor
 export default function ReportTemplatesPage() {
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { t } = useTranslation('reports')
   usePermissionGuard('report_templates')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -82,17 +84,17 @@ export default function ReportTemplatesPage() {
       })
 
       if (res.status === 'success') {
-        showNotification('Template cloned successfully', 'success')
+        showNotification(t('templateCloned'), 'success')
         await loadTemplates()
         // Open edit modal for the new template
         setSelectedTemplate(res.data)
         setShowEditModal(true)
       } else {
-        showNotification(res.message || 'Failed to clone template', 'error')
+        showNotification(res.message || t('failedToCloneTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error cloning template:', err)
-      showNotification('Failed to clone template', 'error')
+      showNotification(t('failedToCloneTemplate'), 'error')
     } finally {
       setCloningTemplateId(null)
     }
@@ -139,7 +141,7 @@ export default function ReportTemplatesPage() {
           variant: 'default',
         },
         {
-          label: 'Clone',
+          label: t('clone'),
           icon: DocumentDuplicateIcon,
           onClick: () => handleCloneTemplate(template),
           variant: 'default',
@@ -191,7 +193,7 @@ export default function ReportTemplatesPage() {
 
   const statCards = [
     {
-      label: 'Total Templates',
+      label: t('totalTemplates'),
       value: stats.total,
       icon: DocumentTextIcon,
       bgColor: 'bg-blue-50',
@@ -200,7 +202,7 @@ export default function ReportTemplatesPage() {
       borderColor: 'border-blue-100',
     },
     {
-      label: 'System Templates',
+      label: t('systemTemplates'),
       value: stats.system,
       icon: SparklesIcon,
       bgColor: 'bg-purple-50',
@@ -209,7 +211,7 @@ export default function ReportTemplatesPage() {
       borderColor: 'border-purple-100',
     },
     {
-      label: 'Custom Templates',
+      label: t('customTemplates'),
       value: stats.user,
       icon: PencilSquareIcon,
       bgColor: 'bg-green-50',
@@ -224,14 +226,14 @@ export default function ReportTemplatesPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Report Templates</h1>
-            <p className="text-gray-500 mt-1">Create and manage report calculation templates</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('reportTemplates')}</h1>
+            <p className="text-gray-500 mt-1">{t('reportTemplatesSubtitle')}</p>
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading templates...</p>
+            <p className="text-sm text-gray-500">{t('loadingTemplates')}</p>
           </div>
         </div>
       </div>
@@ -243,8 +245,8 @@ export default function ReportTemplatesPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Report Templates</h1>
-            <p className="text-gray-500 mt-1">Create and manage report calculation templates</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('reportTemplates')}</h1>
+            <p className="text-gray-500 mt-1">{t('reportTemplatesSubtitle')}</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -253,7 +255,7 @@ export default function ReportTemplatesPage() {
               <XMarkIcon className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading templates</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingTemplates')}</h3>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -267,8 +269,8 @@ export default function ReportTemplatesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Report Templates</h1>
-          <p className="text-gray-500 mt-1">Create and manage report calculation templates</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('reportTemplates')}</h1>
+          <p className="text-gray-500 mt-1">{t('reportTemplatesSubtitle')}</p>
         </div>
         {canWrite('report_templates') && (
           <motion.button
@@ -322,7 +324,7 @@ export default function ReportTemplatesPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-            placeholder="Search templates..."
+            placeholder={t('searchTemplates')}
           />
         </div>
       </motion.div>
@@ -339,11 +341,11 @@ export default function ReportTemplatesPage() {
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <DocumentTextIcon className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">No templates found</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noTemplatesFound')}</h3>
             <p className="text-gray-500 mb-6 max-w-sm mx-auto">
               {searchTerm
-                ? 'Try adjusting your search criteria.'
-                : 'Get started by creating your first report template.'}
+                ? t('tryAdjustingFilters', { ns: 'common' })
+                : t('getStartedTemplates')}
             </p>
             {!searchTerm && (
               <motion.button

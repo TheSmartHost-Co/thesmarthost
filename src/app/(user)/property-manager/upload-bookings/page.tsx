@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
@@ -14,6 +15,7 @@ import UploadWizard from '@/components/upload-wizard/UploadWizard'
 
 export default function UploadBookingsPage() {
   const router = useRouter()
+  const { t } = useTranslation('bookings')
   usePermissionGuard('upload_bookings', 'read-write')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -28,18 +30,18 @@ export default function UploadBookingsPage() {
   const features = [
     {
       icon: BoltIcon,
-      label: 'Smart Detection',
-      description: 'Auto-detects columns'
+      label: t('smartDetection'),
+      description: t('autoDetectsColumns')
     },
     {
       icon: ShieldCheckIcon,
-      label: 'Validation',
-      description: 'Catches errors early'
+      label: t('validation'),
+      description: t('catchesErrorsEarly')
     },
     {
       icon: SparklesIcon,
-      label: 'Multi-Property',
-      description: 'Batch import support'
+      label: t('multiProperty'),
+      description: t('batchImportSupport')
     }
   ]
 

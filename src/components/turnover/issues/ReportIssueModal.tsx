@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { createIssue, uploadIssuePhotos, getIssueTypeOptions } from '@/services/projectIssueService'
 import type { IssueType, ProjectIssue } from '@/services/types/projectIssue'
@@ -62,6 +63,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'type' | 'details'>('type')
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Reset form when modal closes
@@ -83,13 +85,13 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
       // Validate file type
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
       if (!allowedTypes.includes(file.type)) {
-        showNotification(`Invalid file type: ${file.name}. Only images allowed.`, 'error')
+        showNotification(t('invalidFileTypeImage', { name: file.name }), 'error')
         continue
       }
 
       // Validate file size (5MB)
       if (file.size > 20 * 1024 * 1024) {
-        showNotification(`File too large: ${file.name}. Maximum 20MB.`, 'error')
+        showNotification(t('fileTooLargeNamed', { name: file.name }), 'error')
         continue
       }
 
@@ -125,12 +127,12 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
 
   const handleSubmit = async () => {
     if (!issueType) {
-      showNotification('Please select an issue type', 'error')
+      showNotification(t('pleaseSelectIssueType'), 'error')
       return
     }
 
     if (!description.trim()) {
-      showNotification('Please describe the issue', 'error')
+      showNotification(t('pleaseDescribeIssue'), 'error')
       return
     }
 
@@ -145,7 +147,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
       })
 
       if (createRes.status !== 'success') {
-        showNotification(createRes.message || 'Failed to report issue', 'error')
+        showNotification(createRes.message || t('failedToReportIssue'), 'error')
         setLoading(false)
         return
       }
@@ -161,24 +163,24 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
             onIssueCreated(uploadRes.data)
           } else {
             // Issue created but photos failed
-            showNotification('Issue reported but some photos failed to upload', 'info')
+            showNotification(t('issueReportedPhotosPartial'), 'info')
             onIssueCreated(newIssue)
           }
         } catch (uploadErr) {
           console.error('Photo upload error:', uploadErr)
-          showNotification('Issue reported but photos failed to upload', 'info')
+          showNotification(t('issueReportedPhotosPartial'), 'info')
           onIssueCreated(newIssue)
         }
       } else {
         onIssueCreated(newIssue)
       }
 
-      showNotification('Issue reported successfully', 'success')
+      showNotification(t('issueReported'), 'success')
       onClose()
     } catch (err) {
       console.error('Error reporting issue:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to report issue',
+        err instanceof Error ? err.message : t('failedToReportIssue'),
         'error'
       )
     } finally {
@@ -197,9 +199,9 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
             <ExclamationTriangleIcon className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Report an Issue</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{t('reportIssueTitle')}</h2>
             <p className="text-sm text-gray-500">
-              {step === 'type' ? 'Select the type of issue' : 'Describe the issue and add photos'}
+              {step === 'type' ? t('selectIssueTypeStep') : t('describeIssueStep')}
             </p>
           </div>
         </div>
@@ -250,7 +252,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                   }
                 `}
               >
-                Continue
+                {t('continue')}
               </button>
             </motion.div>
           ) : (
@@ -274,7 +276,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                   >
                     {React.createElement(ISSUE_TYPE_ICONS[issueType!], { className: 'w-4 h-4' })}
                     {selectedTypeInfo.label}
-                    <span className="text-xs opacity-60">(tap to change)</span>
+                    <span className="text-xs opacity-60">({t('tapToChange')})</span>
                   </button>
                 </div>
               )}
@@ -282,12 +284,12 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
               {/* Description */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Description <span className="text-red-500">*</span>
+                  {t('description')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the issue in detail..."
+                  placeholder={t('describeIssue')}
                   rows={4}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
                 />
@@ -296,7 +298,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
               {/* Photo Upload */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Photos (optional, max 5)
+                  {t('addPhotos')} ({t('maxPhotos')})
                 </label>
 
                 {/* Selected Photos Preview */}
@@ -345,9 +347,9 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                         <CloudArrowUpIcon className="w-10 h-10 text-gray-400" />
                       )}
                       <p className="text-sm text-gray-600">
-                        Drag photos here, or{' '}
+                        {t('dragPhotosHere')}{' '}
                         <label className="text-amber-600 font-medium cursor-pointer hover:underline">
-                          browse
+                          {t('browse')}
                           <input
                             type="file"
                             className="hidden"
@@ -358,7 +360,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                         </label>
                       </p>
                       <p className="text-xs text-gray-400">
-                        JPEG, PNG, GIF, WEBP up to 5MB each
+                        {t('supportedFormats')}
                       </p>
                     </div>
                   </div>
@@ -373,7 +375,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                   disabled={loading}
                   className="flex-1 py-3 px-4 rounded-xl font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  Back
+                  {t('back')}
                 </button>
                 <button
                   type="button"
@@ -390,12 +392,12 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
                   {loading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Submitting...
+                      {t('submitting')}
                     </>
                   ) : (
                     <>
                       <PlusIcon className="w-5 h-5" />
-                      Submit Issue
+                      {t('submitIssue')}
                     </>
                   )}
                 </button>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import type { SupplyList } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { formatSupplyListAge } from '@/services/supplyListService'
@@ -34,6 +35,7 @@ export default function SupplyHubListCard({
   canWrite,
   compact = false,
 }: SupplyHubListCardProps) {
+  const { t } = useTranslation('turnover')
   const statusInfo = SUPPLY_LIST_STATUS_INFO[sl.status]
   const purchasedCount = sl.items.filter(i => i.isPurchased).length
   const totalCount = sl.items.length
@@ -133,14 +135,14 @@ export default function SupplyHubListCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onFulfill(sl.id) }}
                 className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center cursor-pointer"
-                title="Fulfill"
+                title={t('fulfillList')}
               >
                 <CheckCircleIcon className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onScanReceipt(sl) }}
                 className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center cursor-pointer"
-                title="Scan receipt"
+                title={t('scanReceipt')}
               >
                 <CameraIcon className="w-3.5 h-3.5" />
               </button>
@@ -150,7 +152,7 @@ export default function SupplyHubListCard({
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(sl.id) }}
               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center cursor-pointer"
-              title="Delete"
+              title={t('deleteList')}
             >
               <TrashIcon className="w-3.5 h-3.5" />
             </button>

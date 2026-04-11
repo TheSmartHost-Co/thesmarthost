@@ -3,12 +3,14 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 export default function PreNavbar() {
+  const { t } = useTranslation('nav')
   const pathname = usePathname()
   const { profile, getRedirectPath } = useUserStore()
   const [isScrolled, setIsScrolled] = useState(false)
@@ -33,9 +35,9 @@ export default function PreNavbar() {
   }, [])
 
   const navLinks = [
-    { href: '/about', label: 'About' },
-    { href: '/product', label: 'Product' },
-    { href: '/contact', label: 'Contact' },
+    { href: '/about', label: t('about') },
+    { href: '/product', label: t('product') },
+    { href: '/contact', label: t('contact') },
   ]
 
   return (
@@ -101,7 +103,7 @@ export default function PreNavbar() {
                     href={getRedirectPath()}
                     className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all"
                   >
-                    Back to Dashboard
+                    {t('backToDashboard')}
                   </Link>
                 </motion.div>
               ) : (
@@ -110,14 +112,14 @@ export default function PreNavbar() {
                     href="/login"
                     className="text-gray-600 hover:text-gray-900 px-4 py-2 text-sm font-medium transition-colors duration-300"
                   >
-                    Sign In
+                    {t('signIn')}
                   </Link>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     <Link
                       href="/signup"
                       className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all"
                     >
-                      Get Started
+                      {t('getStarted')}
                     </Link>
                   </motion.div>
                 </>
@@ -130,7 +132,7 @@ export default function PreNavbar() {
               type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-              aria-label="Toggle menu"
+              aria-label={t('toggleMenu')}
             >
               {isMobileMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -182,7 +184,7 @@ export default function PreNavbar() {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="block bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-semibold text-center shadow-md transition-all"
                   >
-                    Back to Dashboard
+                    {t('backToDashboard')}
                   </Link>
                 ) : (
                   <div className="space-y-2">
@@ -191,14 +193,14 @@ export default function PreNavbar() {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="block text-center text-gray-600 hover:text-gray-900 py-3 text-sm font-medium"
                     >
-                      Sign In
+                      {t('signIn')}
                     </Link>
                     <Link
                       href="/signup"
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="block bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-semibold text-center shadow-md transition-all"
                     >
-                      Get Started Free
+                      {t('getStartedFree')}
                     </Link>
                   </div>
                 )}

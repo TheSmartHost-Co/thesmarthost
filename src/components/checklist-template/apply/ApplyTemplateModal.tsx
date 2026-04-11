@@ -10,6 +10,7 @@ import {
   CheckIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -36,6 +37,7 @@ export default function ApplyTemplateModal({
   onApplied,
   template,
 }: ApplyTemplateModalProps) {
+  const { t } = useTranslation('turnover')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -98,11 +100,11 @@ export default function ApplyTemplateModal({
 
   const handleSubmit = async () => {
     if (selectedPropertyIds.length === 0) {
-      showNotification('Please select at least one property', 'error')
+      showNotification(t('pleaseSelectAtLeastOneProperty'), 'error')
       return
     }
     if (!checklistName.trim()) {
-      showNotification('Please enter a checklist name', 'error')
+      showNotification(t('pleaseEnterChecklistName'), 'error')
       return
     }
     if (!template) return
@@ -119,18 +121,18 @@ export default function ApplyTemplateModal({
 
       if (res.status === 'success') {
         showNotification(
-          `Template applied to ${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'property' : 'properties'}`,
+          t('templateAppliedToCount', { count: selectedPropertyIds.length }),
           'success'
         )
         onApplied()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to apply template', 'error')
+        showNotification(res.message || t('failedToApplyTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error applying template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to apply template',
+        err instanceof Error ? err.message : t('failedToApplyTemplate'),
         'error'
       )
     } finally {
@@ -161,7 +163,7 @@ export default function ApplyTemplateModal({
                 <ArrowRightIcon className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Apply Template to Property</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('applyTemplateTitle')}</h2>
                 <p className="text-sm text-gray-500">
                   Create a property checklist from &ldquo;{template.name}&rdquo;
                 </p>
@@ -316,12 +318,12 @@ export default function ApplyTemplateModal({
               {submitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Applying...
+                  {t('applying')}
                 </>
               ) : (
                 <>
                   <CheckIcon className="w-4 h-4" />
-                  Apply to {selectedPropertyIds.length > 0 ? `${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'Property' : 'Properties'}` : 'Properties'}
+                  {t('applyToCount', { count: selectedPropertyIds.length })}
                 </>
               )}
             </button>

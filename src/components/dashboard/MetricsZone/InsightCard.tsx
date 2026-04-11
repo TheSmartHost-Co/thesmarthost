@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import type { PerformanceInsight } from '@/services/types/dashboard'
 import { TrendIndicator } from '../shared/TrendIndicator'
 import { Sparkline } from '../shared/Sparkline'

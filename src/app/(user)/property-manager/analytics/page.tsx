@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChartBarIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
@@ -12,6 +13,7 @@ import { AnalyticsWidget } from '@/components/analytics/AnalyticsWidget'
 
 export default function AnalyticsPage() {
   const { profile } = useUserStore()
+  const { t } = useTranslation('analytics')
   usePermissionGuard('analytics')
   const { effectiveUserId, canWrite } = usePermissions()
   const [properties, setProperties] = useState<Property[]>([])
@@ -54,7 +56,7 @@ export default function AnalyticsPage() {
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <p className="text-gray-500">Loading your analytics...</p>
+          <p className="text-gray-500">{t('loadingAnalytics')}</p>
         </div>
       </div>
     )
@@ -68,7 +70,7 @@ export default function AnalyticsPage() {
         <div className="flex justify-center items-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-500">Loading properties...</p>
+            <p className="text-sm text-gray-500">{t('loadingProperties')}</p>
           </div>
         </div>
       </div>
@@ -82,8 +84,8 @@ export default function AnalyticsPage() {
         <Header propertyCount={0} />
         <div className="flex flex-col items-center justify-center h-64 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
           <ChartBarIcon className="w-12 h-12 text-gray-300 mb-4" />
-          <p className="text-gray-500 font-medium">No properties found</p>
-          <p className="text-sm text-gray-400 mt-1">Add some properties to see analytics</p>
+          <p className="text-gray-500 font-medium">{t('noPropertiesFound')}</p>
+          <p className="text-sm text-gray-400 mt-1">{t('addPropertiesToSeeAnalytics')}</p>
         </div>
       </div>
     )
@@ -107,6 +109,7 @@ export default function AnalyticsPage() {
 }
 
 function Header({ propertyCount }: { propertyCount: number }) {
+  const { t } = useTranslation('analytics')
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
@@ -114,8 +117,8 @@ function Header({ propertyCount }: { propertyCount: number }) {
       className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
     >
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-        <p className="text-gray-500 mt-1">Track performance and gain insights across your portfolio</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-500 mt-1">{t('subtitle')}</p>
       </div>
       {propertyCount > 0 && (
         <motion.div

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   MagnifyingGlassIcon,
@@ -13,6 +14,7 @@ import type { ClientPortalProperty } from '@/services/types/clientPortal'
 import PreviewClientPropertyModal from '@/components/client-portal/property/PreviewClientPropertyModal'
 
 export default function ClientPropertiesPage() {
+  const { t } = useTranslation('clientPortal')
   const [properties, setProperties] = useState<ClientPortalProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -58,7 +60,7 @@ export default function ClientPropertiesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Properties</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('myPropertiesTitle')}</h1>
           <p className="text-sm text-gray-500 mt-1">
             {properties.length} propert{properties.length === 1 ? 'y' : 'ies'} in your portfolio
           </p>
@@ -67,7 +69,7 @@ export default function ClientPropertiesPage() {
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name or address..."
+            placeholder={t('searchByNameOrAddress')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-gray-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
@@ -81,7 +83,7 @@ export default function ClientPropertiesPage() {
           <div className="rounded-2xl bg-gray-50 p-4 mb-4">
             <BuildingOffice2Icon className="h-8 w-8 text-gray-300" />
           </div>
-          <p className="text-sm font-medium text-gray-500">No properties found</p>
+          <p className="text-sm font-medium text-gray-500">{t('noPropertiesFound')}</p>
           {search && (
             <p className="text-xs text-gray-400 mt-1">Try adjusting your search term</p>
           )}

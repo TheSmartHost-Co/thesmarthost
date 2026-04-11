@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -47,6 +48,7 @@ function getInitialProjectId(): string | null {
 }
 
 export default function CleanerTurnoverCalendar() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const isMobile = useIsMobile()
@@ -382,7 +384,7 @@ export default function CleanerTurnoverCalendar() {
           // fetch cleaner record directly
           const cleanerRes = await getCleanerByAuthUserId(profile.id)
           if (cleanerRes.status !== 'success') {
-            throw new Error(cleanerRes.message || 'Could not find your cleaner profile')
+            throw new Error(cleanerRes.message || t('couldNotFindCleanerProfile'))
           }
           const cleanerData = cleanerRes.data
           setCleaner(cleanerData)
@@ -410,7 +412,7 @@ export default function CleanerTurnoverCalendar() {
 
         initialFetchDone.current = true
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load calendar data'
+        const message = err instanceof Error ? err.message : t('failedToLoadCalendarData')
         setError(message)
       } finally {
         setLoading(false)
@@ -624,8 +626,8 @@ export default function CleanerTurnoverCalendar() {
 
   // Simple view zoom presets (week + month only)
   const simpleZoomPresets = useMemo(() => [
-    { label: 'Week', value: 7 as ZoomLevel, isWeek: true },
-    { label: 'Month', value: 'month' as ZoomLevel },
+    { label: t('week'), value: 7 as ZoomLevel, isWeek: true },
+    { label: t('monthLabel'), value: 'month' as ZoomLevel },
   ], [])
 
   // Simple view day click handler
@@ -653,13 +655,13 @@ export default function CleanerTurnoverCalendar() {
       if (res.status === 'success') {
         updateProjectInCache(projectId, res.data)
         if (selectedProject?.id === projectId) setSelectedProject(res.data)
-        showNotification('Task accepted!', 'success')
+        showNotification(t('taskAccepted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to accept task', 'error')
+        showNotification(res.message || t('failedToAcceptTask'), 'error')
       }
     } catch (err) {
       console.error('Error accepting task:', err)
-      showNotification('Error accepting task', 'error')
+      showNotification(t('errorAcceptingTask'), 'error')
     }
   }
 
@@ -668,13 +670,13 @@ export default function CleanerTurnoverCalendar() {
       const res = await declineProject(projectId)
       if (res.status === 'success') {
         removeProjectFromCache(projectId)
-        showNotification('Task declined', 'info')
+        showNotification(t('taskDeclined'), 'info')
       } else {
-        showNotification(res.message || 'Failed to decline task', 'error')
+        showNotification(res.message || t('failedToDeclineTask'), 'error')
       }
     } catch (err) {
       console.error('Error declining task:', err)
-      showNotification('Error declining task', 'error')
+      showNotification(t('errorDecliningTask'), 'error')
     }
   }
 
@@ -690,13 +692,13 @@ export default function CleanerTurnoverCalendar() {
           setShowChecklistModal(true)
           setProjectIdInUrl(res.data.id)
         }
-        showNotification('Task started! Good luck!', 'success')
+        showNotification(t('taskStarted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to start task', 'error')
+        showNotification(res.message || t('failedToStartTask'), 'error')
       }
     } catch (err) {
       console.error('Error starting task:', err)
-      showNotification('Error starting task', 'error')
+      showNotification(t('errorStartingTask'), 'error')
     }
   }
 
@@ -705,13 +707,13 @@ export default function CleanerTurnoverCalendar() {
       const res = await completeProject(projectId)
       if (res.status === 'success') {
         updateProjectInCache(projectId, res.data)
-        showNotification('Great job! Task completed!', 'success')
+        showNotification(t('taskCompleted'), 'success')
       } else {
-        showNotification(res.message || 'Failed to complete task', 'error')
+        showNotification(res.message || t('failedToCompleteTask'), 'error')
       }
     } catch (err) {
       console.error('Error completing task:', err)
-      showNotification('Error completing task', 'error')
+      showNotification(t('errorCompletingTask'), 'error')
     }
   }
 
@@ -873,7 +875,7 @@ export default function CleanerTurnoverCalendar() {
             <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
             <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <p className="text-sm text-gray-500 font-medium">Loading schedule...</p>
+          <p className="text-sm text-gray-500 font-medium">{t('loadingSchedule')}</p>
         </motion.div>
       </div>
     )
@@ -892,7 +894,7 @@ export default function CleanerTurnoverCalendar() {
             <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-red-800">Error loading schedule</h3>
+            <h3 className="font-semibold text-red-800">{t('errorLoadingSchedule')}</h3>
             <p className="text-red-600 text-sm mt-1">{error}</p>
           </div>
         </div>
@@ -1002,8 +1004,8 @@ export default function CleanerTurnoverCalendar() {
                 <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto">
                   <CalendarDaysIcon className="w-7 h-7 text-gray-300" />
                 </div>
-                <p className="text-sm font-medium text-gray-400 mt-3">No projects scheduled</p>
-                <p className="text-xs text-gray-300 mt-1">Tap another day to check</p>
+                <p className="text-sm font-medium text-gray-400 mt-3">{t('noProjectsForDay')}</p>
+                <p className="text-xs text-gray-300 mt-1">{t('tapAnotherDay')}</p>
               </div>
             )}
           </motion.div>
@@ -1107,8 +1109,8 @@ export default function CleanerTurnoverCalendar() {
                           <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto">
                             <CalendarDaysIcon className="w-7 h-7 text-gray-300" />
                           </div>
-                          <p className="text-sm font-medium text-gray-400 mt-3">No projects scheduled</p>
-                          <p className="text-xs text-gray-300 mt-1">Tap another day to check</p>
+                          <p className="text-sm font-medium text-gray-400 mt-3">{t('noProjectsForDay')}</p>
+                          <p className="text-xs text-gray-300 mt-1">{t('tapAnotherDay')}</p>
                         </div>
                       )}
                     </motion.div>

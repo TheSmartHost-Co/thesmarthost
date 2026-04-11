@@ -1,1 +1,23 @@
-{}
+{
+  "title": "Clients",
+  "subtitle": "Gérez vos relations clients",
+  "loadingClients": "Chargement des clients...",
+  "addClient": "Ajouter un client",
+  "addFirstClient": "Ajouter votre premier client",
+  "searchClients": "Rechercher des clients...",
+  "totalClients": "Total des clients",
+  "activeClients": "Clients actifs",
+  "companies": "Entreprises",
+  "inactiveClients": "Clients inactifs",
+  "noClientsFound": "Aucun client trouvé",
+  "getStartedClients": "Commencez par ajouter votre premier client.",
+  "client": "Client",
+  "company": "Entreprise",
+  "pmsCredentials": "Identifiants PMS",
+  "agreements": "Contrats",
+  "manageStatus": "Gérer le statut",
+  "errorLoadingClients": "Erreur de chargement des clients",
+  "showingCount": "Affichage de {{filtered}} sur {{total}} clients",
+  "noClientsMatchFilters": "Aucun client ne correspond à vos filtres",
+  "addClientsFirst": "Aucun client trouvé. Ajoutez des clients depuis la page Clients."
+}

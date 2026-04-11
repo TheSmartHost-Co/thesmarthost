@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ReceiptPercentIcon,
@@ -22,24 +23,25 @@ import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import DeleteReceiptModal from '@/components/receipt/delete/DeleteReceiptModal'
 
-const STATUS_FILTERS: { value: ReceiptStatus | 'all'; label: string; color: string }[] = [
-  { value: 'all', label: 'All', color: 'gray' },
-  { value: 'pending', label: 'Pending', color: 'amber' },
-  { value: 'matched', label: 'Ready', color: 'blue' },
-  { value: 'applied', label: 'Applied', color: 'green' },
-  { value: 'failed', label: 'Failed', color: 'red' },
-  { value: 'archived', label: 'Archived', color: 'slate' },
+const STATUS_FILTER_KEYS: { value: ReceiptStatus | 'all'; labelKey: string; color: string }[] = [
+  { value: 'all', labelKey: 'allFilter', color: 'gray' },
+  { value: 'pending', labelKey: 'statusPending', color: 'amber' },
+  { value: 'matched', labelKey: 'statusReady', color: 'blue' },
+  { value: 'applied', labelKey: 'statusApplied', color: 'green' },
+  { value: 'failed', labelKey: 'statusFailed', color: 'red' },
+  { value: 'archived', labelKey: 'statusArchived', color: 'slate' },
 ]
 
-const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  pending: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
-  matched: { label: 'Ready', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
-  failed: { label: 'Failed', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-  applied: { label: 'Applied', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-  archived: { label: 'Archived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
+const statusConfigBase: Record<string, { labelKey: string; bg: string; text: string; dot: string }> = {
+  pending: { labelKey: 'statusPending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  matched: { labelKey: 'statusReady', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  failed: { labelKey: 'statusFailed', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  applied: { labelKey: 'statusApplied', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  archived: { labelKey: 'statusArchived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
 }
 
 export default function CleanerReceiptsPage() {
+  const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
@@ -120,7 +122,7 @@ export default function CleanerReceiptsPage() {
   // Upload success → refresh list
   const handleUploadSuccess = () => {
     setShowUploadModal(false)
-    showNotification('Receipt scanned successfully!', 'success')
+    showNotification(t('receiptScannedSuccessfully'), 'success')
     fetchData()
   }
 
@@ -184,7 +186,7 @@ export default function CleanerReceiptsPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading receipts</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingReceipts')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -192,7 +194,7 @@ export default function CleanerReceiptsPage() {
             onClick={fetchData}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -204,16 +206,16 @@ export default function CleanerReceiptsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5 sm:mb-8">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">My Receipts</h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Scanned receipts and expenses</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('myReceipts')}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('receiptsSubtitle')}</p>
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors cursor-pointer active:scale-95"
         >
           <CameraIcon className="w-4 h-4" />
-          <span className="hidden sm:inline">Scan Receipt</span>
-          <span className="sm:hidden">Scan</span>
+          <span className="hidden sm:inline">{t('scanReceipt')}</span>
+          <span className="sm:hidden">{t('scan')}</span>
         </button>
       </div>
 
@@ -224,7 +226,7 @@ export default function CleanerReceiptsPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by vendor or property..."
+          placeholder={t('searchByVendorOrProperty')}
           className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-300 transition-all"
         />
         {searchTerm && (
@@ -239,7 +241,7 @@ export default function CleanerReceiptsPage() {
 
       {/* Status Filter Pills */}
       <div className="flex items-center gap-2 mb-5 sm:mb-6 overflow-x-auto pb-1 -mx-1 px-1">
-        {STATUS_FILTERS.map(({ value, label, color }) => {
+        {STATUS_FILTER_KEYS.map(({ value, labelKey, color }) => {
           const isActive = statusFilter === value
           const count = value === 'all' ? receipts.length : (statusCounts[value] || 0)
           const activeStyles: Record<string, string> = {
@@ -260,7 +262,7 @@ export default function CleanerReceiptsPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {label}
+              {t(labelKey)}
               {count > 0 && (
                 <span className={`text-xs ${isActive ? 'opacity-80' : 'opacity-60'}`}>
                   {count}
@@ -281,23 +283,23 @@ export default function CleanerReceiptsPage() {
           <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center mx-auto">
             <ReceiptPercentIcon className="w-8 h-8 text-teal-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-4">No receipts yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mt-4">{t('noReceiptsYet')}</h3>
           <p className="text-gray-500 mt-2 max-w-md mx-auto">
-            Scan a receipt to track your expenses. Photos are processed with OCR to extract vendor, items, and totals.
+            {t('noReceiptsDescription')}
           </p>
           <button
             onClick={() => setShowUploadModal(true)}
             className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors cursor-pointer"
           >
             <CameraIcon className="w-4 h-4" />
-            Scan Your First Receipt
+            {t('scanFirstReceipt')}
           </button>
         </motion.div>
       ) : (
         <div className="space-y-3">
           <AnimatePresence mode="popLayout">
             {receipts.map((receipt, index) => {
-              const config = statusConfig[receipt.status] || statusConfig.pending
+              const config = statusConfigBase[receipt.status] || statusConfigBase.pending
               return (
                 <motion.div
                   key={receipt.id}
@@ -324,7 +326,7 @@ export default function CleanerReceiptsPage() {
                           </p>
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium flex-shrink-0 ${config.bg} ${config.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                            {config.label}
+                            {t(config.labelKey)}
                           </span>
                         </div>
 

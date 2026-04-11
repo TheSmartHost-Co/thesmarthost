@@ -19,11 +19,13 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
 import { getCleanerByAuthUserId, updateCleaner } from '@/services/cleanerService'
 import type { Cleaner } from '@/services/types/cleaner'
+import { useTranslation } from 'react-i18next'
 import { TAX_RATES } from '@/constants/taxRates'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 
 export default function CleanerSettingsPage() {
+  const { t } = useTranslation('settings')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +62,7 @@ export default function CleanerSettingsPage() {
     // Validate phone number for SMS
     const phone = cleaner?.phone || profile.phoneNumber
     if (field === 'smsNotificationsEnabled' && enabled && !phone) {
-      showNotification('Please add a phone number in your profile before enabling SMS notifications', 'error')
+      showNotification(t('phoneRequiredForSms'), 'error')
       return
     }
 
@@ -80,14 +82,14 @@ export default function CleanerSettingsPage() {
           ...response.data,
           email: profile.email,
         })
-        const label = field === 'smsNotificationsEnabled' ? 'SMS' : 'Email'
-        showNotification(`${label} notifications ${enabled ? 'enabled' : 'disabled'}`, 'success')
+        const label = field === 'smsNotificationsEnabled' ? 'SMS' : t('email')
+        showNotification(t('notificationToggled', { label, state: enabled ? t('enabled') : t('disabled') }), 'success')
       } else {
-        showNotification(response.message || 'Failed to update notification preferences', 'error')
+        showNotification(response.message || t('failedToUpdateNotifications'), 'error')
       }
     } catch (err) {
       console.error('Error updating notification preferences:', err)
-      showNotification('Failed to update notification preferences', 'error')
+      showNotification(t('failedToUpdateNotifications'), 'error')
     } finally {
       setSavingField(null)
     }
@@ -127,7 +129,7 @@ export default function CleanerSettingsPage() {
         }
       } catch (err) {
         console.error('Error fetching cleaner data:', err)
-        setError('Failed to load settings')
+        setError(t('failedToUpdate'))
       } finally {
         setLoading(false)
       }
@@ -141,7 +143,7 @@ export default function CleanerSettingsPage() {
 
     // Validate required fields
     if (!profileData.fullName.trim()) {
-      showNotification('Full name is required', 'error')
+      showNotification(t('fullNameRequired'), 'error')
       return
     }
 
@@ -158,7 +160,7 @@ export default function CleanerSettingsPage() {
       })
 
       if (profileResponse.status !== 'success') {
-        showNotification(profileResponse.message || 'Failed to update profile', 'error')
+        showNotification(profileResponse.message || t('failedToUpdate'), 'error')
         return
       }
 
@@ -181,11 +183,11 @@ export default function CleanerSettingsPage() {
         phoneNumber: profileData.phone || null,
       })
 
-      showNotification('Profile updated successfully', 'success')
+      showNotification(t('profileUpdated'), 'success')
       setShowProfileEdit(false)
     } catch (err) {
       console.error('Error updating profile:', err)
-      showNotification('Failed to update profile', 'error')
+      showNotification(t('failedToUpdate'), 'error')
     } finally {
       setSaving(false)
     }
@@ -207,7 +209,7 @@ export default function CleanerSettingsPage() {
       })
 
       if (profileResponse.status !== 'success') {
-        showNotification(profileResponse.message || 'Failed to update business name', 'error')
+        showNotification(profileResponse.message || t('failedToUpdate'), 'error')
         return
       }
 
@@ -230,11 +232,11 @@ export default function CleanerSettingsPage() {
         companyName: businessName.trim() || null,
       })
 
-      showNotification('Invoice settings saved', 'success')
+      showNotification(t('invoiceSettingsSaved'), 'success')
       setShowInvoiceEdit(false)
     } catch (err) {
       console.error('Error saving invoice settings:', err)
-      showNotification('Failed to save invoice settings', 'error')
+      showNotification(t('failedToSaveInvoiceSettings'), 'error')
     } finally {
       setSavingInvoice(false)
     }
@@ -261,8 +263,8 @@ export default function CleanerSettingsPage() {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-500 mt-1">Manage your account preferences</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-500 mt-1">{t('manageAccountPreferences')}</p>
         </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -274,7 +276,7 @@ export default function CleanerSettingsPage() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-800">Error loading settings</h3>
+              <h3 className="font-semibold text-red-800">{t('errorLoadingSettings')}</h3>
               <p className="text-red-600 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -282,7 +284,7 @@ export default function CleanerSettingsPage() {
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </motion.div>
       </div>
@@ -293,8 +295,8 @@ export default function CleanerSettingsPage() {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-5 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Manage your account preferences</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">{t('manageAccountPreferences')}</p>
       </div>
 
       {/* Language Prompt Banner */}
@@ -316,8 +318,8 @@ export default function CleanerSettingsPage() {
                   <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Profile Settings</h3>
-                  <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Update your personal information</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('profileSettings')}</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">{t('updatePersonalInfo')}</p>
                 </div>
               </div>
               <motion.button
@@ -327,7 +329,7 @@ export default function CleanerSettingsPage() {
                 className="inline-flex items-center min-h-[44px] px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors cursor-pointer flex-shrink-0"
               >
                 <PencilIcon className="h-4 w-4 mr-2" />
-                {showProfileEdit ? 'Cancel' : 'Edit'}
+                {showProfileEdit ? t('cancel') : t('edit')}
               </motion.button>
             </div>
           </div>
@@ -338,33 +340,33 @@ export default function CleanerSettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Name
+                    {t('nameLabel')}
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {cleaner?.name || profile?.fullName || 'Not set'}
+                    {cleaner?.name || profile?.fullName || t('notSet')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Email
+                    {t('email')}
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {cleaner?.email || profile?.email || 'Not set'}
+                    {cleaner?.email || profile?.email || t('notSet')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Phone
+                    {t('phone')}
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {cleaner?.phone || profile?.phoneNumber || 'Not set'}
+                    {cleaner?.phone || profile?.phoneNumber || t('notSet')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Role
+                    {t('roleLabel')}
                   </label>
-                  <p className="text-gray-900 font-medium">Cleaner</p>
+                  <p className="text-gray-900 font-medium">{t('roleCleaner')}</p>
                 </div>
               </div>
             ) : (
@@ -373,7 +375,7 @@ export default function CleanerSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name <span className="text-red-500">*</span>
+                      {t('fullName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -381,27 +383,27 @@ export default function CleanerSettingsPage() {
                       value={profileData.fullName}
                       onChange={(e) => setProfileData(prev => ({ ...prev, fullName: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:bg-white transition-all"
-                      placeholder="Enter full name"
+                      placeholder={t('enterFullName')}
                       required
                     />
                   </div>
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
+                      {t('email')}
                     </label>
                     <input
                       type="email"
                       id="email"
                       value={profileData.email}
                       className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
-                      placeholder="Enter email address"
+                      placeholder={t('enterEmail')}
                       disabled
-                      title="Email cannot be changed"
+                      title={t('emailCannotBeChanged')}
                     />
                   </div>
                   <div className="md:col-span-2">
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone
+                      {t('phone')}
                     </label>
                     <input
                       type="tel"
@@ -409,7 +411,7 @@ export default function CleanerSettingsPage() {
                       value={profileData.phone}
                       onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:bg-white transition-all"
-                      placeholder="Enter phone number"
+                      placeholder={t('enterPhone')}
                     />
                   </div>
                 </div>
@@ -422,7 +424,7 @@ export default function CleanerSettingsPage() {
                     className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors cursor-pointer"
                     disabled={saving}
                   >
-                    Cancel
+                    {t('cancel')}
                   </motion.button>
                   <motion.button
                     onClick={handleProfileSave}
@@ -431,7 +433,7 @@ export default function CleanerSettingsPage() {
                     className="px-5 py-2.5 text-white bg-purple-600 rounded-xl font-medium hover:bg-purple-700 shadow-lg shadow-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? t('savingChanges') : t('saveChanges')}
                   </motion.button>
                 </div>
               </div>
@@ -455,8 +457,8 @@ export default function CleanerSettingsPage() {
                 <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Notifications</h3>
-                <p className="text-xs sm:text-sm text-gray-500">How you receive task and schedule alerts</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('notifications')}</h3>
+                <p className="text-xs sm:text-sm text-gray-500">{t('notificationsDescCleaner')}</p>
               </div>
             </div>
           </div>
@@ -470,8 +472,8 @@ export default function CleanerSettingsPage() {
                     <EnvelopeIcon className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900">Email Notifications</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Receive email alerts for task assignments and updates</p>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('emailNotifications')}</h4>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{t('emailAlertsForTasks')}</p>
                   </div>
                 </div>
                 <button
@@ -499,12 +501,12 @@ export default function CleanerSettingsPage() {
                     <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900">SMS Notifications</h4>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('smsNotifications')}</h4>
                     <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                      Text alerts for task assignments and urgent updates
+                      {t('smsAlertsForTasks')}
                       {!(cleaner?.phone || profile?.phoneNumber) && (
                         <span className="block text-amber-600 text-xs mt-1">
-                          Add a phone number to enable SMS
+                          {t('addPhoneToEnableSms')}
                         </span>
                       )}
                     </p>
@@ -531,7 +533,7 @@ export default function CleanerSettingsPage() {
               {/* Info note */}
               <div className="mt-2 p-3 bg-purple-50 rounded-xl">
                 <p className="text-xs text-purple-700">
-                  These settings control notifications for task assignments, schedule changes, issue reports, and other cleaning project updates.
+                  {t('notificationSettingsInfo')}
                 </p>
               </div>
             </div>
@@ -553,8 +555,8 @@ export default function CleanerSettingsPage() {
                     <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Invoice Settings</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Business name, invoice prefix, and tax defaults</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('invoiceSettings')}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">{t('invoiceSettingsDesc')}</p>
                   </div>
                 </div>
                 <motion.button
@@ -574,7 +576,7 @@ export default function CleanerSettingsPage() {
                   className="inline-flex items-center min-h-[44px] px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors cursor-pointer flex-shrink-0"
                 >
                   <PencilIcon className="h-4 w-4 mr-2" />
-                  {showInvoiceEdit ? 'Cancel' : 'Edit'}
+                  {showInvoiceEdit ? t('cancel') : t('edit')}
                 </motion.button>
               </div>
             </div>
@@ -585,23 +587,23 @@ export default function CleanerSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                   <div className="bg-gray-50 rounded-xl p-4">
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                      Business Name
+                      {t('businessNameLabel')}
                     </label>
                     <p className="text-gray-900 font-medium">
-                      {profile?.companyName || 'Not set'}
+                      {profile?.companyName || t('notSet')}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4">
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                      Invoice Prefix
+                      {t('invoicePrefixLabel')}
                     </label>
                     <p className="text-gray-900 font-medium">
-                      {cleaner.invoicePrefix || 'Auto (from your initials)'}
+                      {cleaner.invoicePrefix || t('autoFromInitials')}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 md:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Default Taxes
+                      {t('defaultTaxes')}
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {([
@@ -619,7 +621,7 @@ export default function CleanerSettingsPage() {
                         >
                           {enabled && <CheckIcon className="h-3 w-3" />}
                           {TAX_RATES[key].label} ({TAX_RATES[key].pct})
-                          {!enabled && ' — off'}
+                          {!enabled && ` — ${t('off')}`}
                         </span>
                       ))}
                     </div>
@@ -631,7 +633,7 @@ export default function CleanerSettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2">
-                        Business Name
+                        {t('businessNameLabel')}
                       </label>
                       <input
                         type="text"
@@ -639,13 +641,13 @@ export default function CleanerSettingsPage() {
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:bg-white transition-all"
-                        placeholder="e.g. Sparkle Clean Co."
+                        placeholder={t('businessNamePlaceholder')}
                       />
-                      <p className="text-xs text-gray-400 mt-1">Shown as &quot;Bill From&quot; on your invoices</p>
+                      <p className="text-xs text-gray-400 mt-1">{t('businessNameHint')}</p>
                     </div>
                     <div>
                       <label htmlFor="invoicePrefix" className="block text-sm font-medium text-gray-700 mb-2">
-                        Invoice Prefix
+                        {t('invoicePrefixLabel')}
                       </label>
                       <input
                         type="text"
@@ -653,20 +655,20 @@ export default function CleanerSettingsPage() {
                         value={invoicePrefix}
                         onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent focus:bg-white transition-all"
-                        placeholder="e.g. JS, SPARKLE"
+                        placeholder={t('invoicePrefixPlaceholder')}
                       />
                       <p className="text-xs text-gray-400 mt-1">
-                        Invoices will be numbered: {invoicePrefix || '(initials)'}-{new Date().getFullYear()}-0001
+                        {t('invoiceNumberPreview', { prefix: invoicePrefix || `(${t('initials')})`, year: new Date().getFullYear() })}
                       </p>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Default Taxes
+                      {t('defaultTaxes')}
                     </label>
                     <p className="text-xs text-gray-400 mb-3">
-                      These will be pre-selected when you generate new invoices
+                      {t('defaultTaxesHint')}
                     </p>
                     <div className="flex flex-wrap gap-3">
                       {([
@@ -704,7 +706,7 @@ export default function CleanerSettingsPage() {
                       className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors cursor-pointer"
                       disabled={savingInvoice}
                     >
-                      Cancel
+                      {t('cancel')}
                     </motion.button>
                     <motion.button
                       onClick={handleInvoiceSettingsSave}
@@ -713,7 +715,7 @@ export default function CleanerSettingsPage() {
                       className="px-5 py-2.5 text-white bg-emerald-600 rounded-xl font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       disabled={savingInvoice}
                     >
-                      {savingInvoice ? 'Saving...' : 'Save Invoice Settings'}
+                      {savingInvoice ? t('savingChanges') : t('saveInvoiceSettings')}
                     </motion.button>
                   </div>
                 </div>
@@ -738,8 +740,8 @@ export default function CleanerSettingsPage() {
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Work Information</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">Managed by your property manager</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('workInformation')}</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">{t('managedByPM')}</p>
                 </div>
               </div>
             </div>
@@ -748,25 +750,25 @@ export default function CleanerSettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Hourly Rate
+                    {t('hourlyRateLabel')}
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {cleaner.hourlyRate ? `$${cleaner.hourlyRate.toFixed(2)}/hr` : 'Not set'}
+                    {cleaner.hourlyRate ? `$${cleaner.hourlyRate.toFixed(2)}/hr` : t('notSet')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Default Turnaround Time
+                    {t('defaultTurnaroundLabel')}
                   </label>
                   <p className="text-gray-900 font-medium">
                     {cleaner.defaultTurnaroundMinutes
                       ? `${Math.floor(cleaner.defaultTurnaroundMinutes / 60)}h ${cleaner.defaultTurnaroundMinutes % 60}m`
-                      : 'Not set'}
+                      : t('notSet')}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Status
+                    {t('statusLabel')}
                   </label>
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
                     cleaner.status === 'active'
@@ -775,20 +777,20 @@ export default function CleanerSettingsPage() {
                         ? 'bg-amber-100 text-amber-700'
                         : 'bg-gray-100 text-gray-500'
                   }`}>
-                    {cleaner.status === 'active' ? 'Active' : cleaner.status === 'invited' ? 'Invited' : 'Inactive'}
+                    {cleaner.status === 'active' ? t('active') : cleaner.status === 'invited' ? t('invited') : t('inactive')}
                   </span>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                    Assigned Properties
+                    {t('assignedPropertiesLabel')}
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {cleaner.assignedProperties?.length || 0} properties
+                    {cleaner.assignedProperties?.length || 0} {t('propertiesUnit')}
                   </p>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-4">
-                Contact your property manager to update these settings
+                {t('contactPMToUpdate')}
               </p>
             </div>
           </motion.div>

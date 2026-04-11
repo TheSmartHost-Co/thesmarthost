@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline'
 
 interface SupplyListBadgeProps {
@@ -14,6 +15,7 @@ const SupplyListBadge: React.FC<SupplyListBadgeProps> = ({
   onClick,
   size = 'sm',
 }) => {
+  const { t } = useTranslation('turnover')
   if (count === 0) return null
 
   const sizeClasses = {
@@ -37,7 +39,7 @@ const SupplyListBadge: React.FC<SupplyListBadgeProps> = ({
       onClick={onClick}
     >
       <ClipboardDocumentListIcon className={iconSizes[size]} />
-      <span>{count} supply</span>
+      <span>{t('supplyBadge', { count })}</span>
     </span>
   )
 }

@@ -1,1 +1,10 @@
-{}
+{
+  "title": "Analíticas",
+  "subtitle": "Rastrea el rendimiento y obtén información sobre tu portafolio",
+  "loadingAnalytics": "Cargando tus analíticas...",
+  "loadingProperties": "Cargando propiedades...",
+  "noPropertiesFound": "No se encontraron propiedades",
+  "addPropertiesToSeeAnalytics": "Agrega propiedades para ver las analíticas",
+  "property_one": "{{count}} Propiedad",
+  "property_other": "{{count}} Propiedades"
+}

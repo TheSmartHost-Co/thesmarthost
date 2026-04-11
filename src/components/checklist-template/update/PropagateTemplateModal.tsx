@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -30,6 +31,7 @@ export default function PropagateTemplateModal({
   templateName,
   saving,
 }: PropagateTemplateModalProps) {
+  const { t } = useTranslation('turnover')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(linkedProperties.map((lp) => lp.checklistId))
   )
@@ -94,7 +96,7 @@ export default function PropagateTemplateModal({
                 <ArrowPathIcon className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Update Linked Properties</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('updateLinkedProperties')}</h2>
                 <p className="text-sm text-gray-500">
                   &ldquo;{templateName}&rdquo; is linked to {linkedProperties.length}{' '}
                   {linkedProperties.length === 1 ? 'property' : 'properties'}
@@ -114,8 +116,7 @@ export default function PropagateTemplateModal({
           <div className="mx-6 mt-4 flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800">
-              Selected property checklists will have <span className="font-semibold">all their tasks replaced</span> with
-              the updated template tasks. Any manual edits to those checklists will be overwritten.
+              {t('tasksReplacedWarning')}
             </p>
           </div>
 
@@ -137,10 +138,10 @@ export default function PropagateTemplateModal({
                 {allSelected && <CheckIcon className="w-3 h-3 text-white" />}
               </div>
               <span className="text-sm font-medium text-gray-700 text-left">
-                {allSelected ? 'Deselect All' : 'Select All'}
+                {allSelected ? t('deselectAll') : t('selectAll')}
               </span>
               <span className="text-xs text-gray-400 ml-auto">
-                {selectedIds.size} of {linkedProperties.length} selected
+                {t('selectedOfTotal', { selected: selectedIds.size, total: linkedProperties.length })}
               </span>
             </button>
 
@@ -198,7 +199,7 @@ export default function PropagateTemplateModal({
               disabled={saving}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <div className="flex items-center gap-2">
               <button
@@ -207,7 +208,7 @@ export default function PropagateTemplateModal({
                 disabled={saving}
                 className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50"
               >
-                Save Template Only
+                {t('saveTemplateOnly')}
               </button>
               <button
                 type="button"
@@ -218,12 +219,12 @@ export default function PropagateTemplateModal({
                 {saving ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Saving...
+                    {t('saving')}
                   </>
                 ) : (
                   <>
                     <ArrowPathIcon className="w-4 h-4" />
-                    Save & Update {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                    {t('saveAndUpdateCount', { count: selectedIds.size })}
                   </>
                 )}
               </button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeftIcon,
@@ -105,6 +106,7 @@ export default function CalendarHeader({
   allowedZoomPresets,
   onOpenPhotoGallery,
 }: CalendarHeaderProps) {
+  const { t } = useTranslation('turnover')
   const isMobile = useIsMobile()
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)

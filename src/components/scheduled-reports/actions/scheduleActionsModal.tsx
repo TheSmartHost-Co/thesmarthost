@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   toggleSchedule,
@@ -64,6 +65,7 @@ const ScheduleActionsModal: React.FC<ScheduleActionsModalProps> = ({
   onViewAllRuns,
   onScheduleUpdated,
 }) => {
+  const { t } = useTranslation('reports')
   const { showNotification } = useNotificationStore()
 
   // Track if component is mounted to prevent state updates after unmount

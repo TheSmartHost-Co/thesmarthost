@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   PlusIcon,
@@ -33,12 +34,13 @@ export function FloatingActionButton({
   onNewClient,
   onNewProperty
 }: FloatingActionButtonProps) {
+  const { t } = useTranslation('common')
   const [isOpen, setIsOpen] = useState(false)
 
   const actions: ActionButton[] = [
     {
       icon: DocumentArrowUpIcon,
-      label: 'Upload CSV',
+      label: t('uploadCsv'),
       onClick: () => {
         onUploadCSV()
         setIsOpen(false)
@@ -49,7 +51,7 @@ export function FloatingActionButton({
     },
     {
       icon: DocumentTextIcon,
-      label: 'Generate Report',
+      label: t('generateReport'),
       onClick: () => {
         onGenerateReport()
         setIsOpen(false)
@@ -60,7 +62,7 @@ export function FloatingActionButton({
     },
     {
       icon: UserPlusIcon,
-      label: 'New Client',
+      label: t('newClient'),
       onClick: () => {
         onNewClient()
         setIsOpen(false)
@@ -71,7 +73,7 @@ export function FloatingActionButton({
     },
     {
       icon: HomeModernIcon,
-      label: 'New Property',
+      label: t('newProperty'),
       onClick: () => {
         onNewProperty()
         setIsOpen(false)

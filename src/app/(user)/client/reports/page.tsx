@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   MagnifyingGlassIcon,
@@ -16,6 +17,7 @@ import ViewClientReportModal from '@/components/client-portal/report/ViewClientR
 import type { ClientPortalReport } from '@/services/types/clientPortal'
 
 export default function ClientReportsPage() {
+  const { t } = useTranslation('clientPortal')
   const [reports, setReports] = useState<ClientPortalReport[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -145,8 +147,8 @@ export default function ClientReportsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-        <p className="text-sm text-gray-500 mt-1">Financial reports shared by your property manager</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('reportsTitle')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('reportsSubtitle')}</p>
       </motion.div>
 
       {/* Stats Cards */}

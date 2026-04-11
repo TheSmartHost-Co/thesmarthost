@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -24,6 +25,7 @@ export default function DeleteChecklistModal({
   onDeleted,
   checklist,
 }: DeleteChecklistModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const [deleting, setDeleting] = useState(false)
 
@@ -71,7 +73,7 @@ export default function DeleteChecklistModal({
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Delete Checklist</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('deleteChecklistTitle')}</h2>
             </div>
             <button
               onClick={onClose}
@@ -84,11 +86,11 @@ export default function DeleteChecklistModal({
           {/* Content */}
           <div className="p-6">
             <p className="text-gray-700">
-              Are you sure you want to delete <strong>&ldquo;{checklist.name}&rdquo;</strong>?
+              {t('confirmDeleteChecklist')} <strong>&ldquo;{checklist.name}&rdquo;</strong>?
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              This will permanently remove the checklist and its {checklist.itemCount || 0} tasks
-              {checklist.propertyName ? ` from ${checklist.propertyName}` : ''}.
+              {t('willPermanentlyRemove', { count: checklist.itemCount || 0 })}
+              {checklist.propertyName ? ` ${t('fromProperty', { property: checklist.propertyName })}` : ''}.
             </p>
           </div>
 
@@ -100,7 +102,7 @@ export default function DeleteChecklistModal({
               disabled={deleting}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               type="button"
@@ -111,12 +113,12 @@ export default function DeleteChecklistModal({
               {deleting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Deleting...
+                  {t('deletingChecklist')}
                 </>
               ) : (
                 <>
                   <TrashIcon className="w-4 h-4" />
-                  Delete Checklist
+                  {t('deleteChecklistButton')}
                 </>
               )}
             </button>

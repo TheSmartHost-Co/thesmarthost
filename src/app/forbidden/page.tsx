@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   HomeIcon,
@@ -13,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ForbiddenPage() {
+  const { t } = useTranslation('errors')
   const router = useRouter()
   const [countdown, setCountdown] = useState(10)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -135,11 +137,10 @@ export default function ForbiddenPage() {
           className="space-y-4 mb-10"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Access Forbidden
+            {t('accessForbidden')}
           </h2>
           <p className="text-lg text-slate-400 max-w-md mx-auto">
-            You don&apos;t have permission to access this page.
-            Please sign in with an authorized account or contact support.
+            {t('accessForbiddenDescription')}
           </p>
         </motion.div>
 
@@ -156,9 +157,9 @@ export default function ForbiddenPage() {
                 <LockClosedIcon className="w-5 h-5 text-rose-400" />
               </div>
               <div className="text-left">
-                <h4 className="font-semibold text-rose-300 mb-1">Why am I seeing this?</h4>
+                <h4 className="font-semibold text-rose-300 mb-1">{t('whyAmISeeingThis')}</h4>
                 <p className="text-sm text-rose-200/70">
-                  This page requires special permissions. If you believe you should have access, please log in again or contact your administrator.
+                  {t('forbiddenExplanation')}
                 </p>
               </div>
             </div>
@@ -203,7 +204,7 @@ export default function ForbiddenPage() {
               </span>
             </div>
             <span className="text-slate-400 text-sm">
-              {isRedirecting ? 'Redirecting...' : 'Redirecting to login in'}
+              {isRedirecting ? t('redirecting') : t('redirectingToLoginIn')}
             </span>
           </div>
         </motion.div>
@@ -222,7 +223,7 @@ export default function ForbiddenPage() {
             className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5" />
-            Go Back
+            {t('goBack')}
           </motion.button>
           <Link href="/login">
             <motion.span
@@ -231,7 +232,7 @@ export default function ForbiddenPage() {
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white font-semibold rounded-xl shadow-lg shadow-rose-500/25 hover:shadow-xl hover:shadow-rose-500/30 transition-all cursor-pointer"
             >
               <ArrowRightOnRectangleIcon className="w-5 h-5" />
-              Sign In
+              {t('signIn')}
             </motion.span>
           </Link>
           <Link href="/">
@@ -241,7 +242,7 @@ export default function ForbiddenPage() {
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-colors cursor-pointer"
             >
               <HomeIcon className="w-5 h-5" />
-              Home
+              {t('home')}
             </motion.span>
           </Link>
         </motion.div>

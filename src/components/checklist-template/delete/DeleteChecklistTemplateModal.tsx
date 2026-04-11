@@ -7,6 +7,7 @@ import {
   ExclamationTriangleIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { deleteChecklistTemplate } from '@/services/checklistTemplateService'
 import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
@@ -24,6 +25,7 @@ export default function DeleteChecklistTemplateModal({
   onDeleted,
   template,
 }: DeleteChecklistTemplateModalProps) {
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const [deleting, setDeleting] = useState(false)
 
@@ -35,16 +37,16 @@ export default function DeleteChecklistTemplateModal({
       const res = await deleteChecklistTemplate(template.id)
 
       if (res.status === 'success') {
-        showNotification(`Template "${template.name}" deleted`, 'success')
+        showNotification(t('templateDeletedName', { name: template.name }), 'success')
         onDeleted()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete template', 'error')
+        showNotification(res.message || t('failedToDeleteTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error deleting template:', err)
       showNotification(
-        err instanceof Error ? err.message : 'Failed to delete template',
+        err instanceof Error ? err.message : t('failedToDeleteTemplate'),
         'error'
       )
     } finally {
@@ -71,7 +73,7 @@ export default function DeleteChecklistTemplateModal({
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Delete Template</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('deleteTemplateTitle')}</h2>
             </div>
             <button
               onClick={onClose}
@@ -84,11 +86,10 @@ export default function DeleteChecklistTemplateModal({
           {/* Content */}
           <div className="p-6">
             <p className="text-gray-700">
-              Are you sure you want to delete <strong>&ldquo;{template.name}&rdquo;</strong>?
+              {t('confirmDeleteTemplateNamed', { name: template.name })}
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              This will permanently remove the template and its {template.itemCount || 0} tasks.
-              Property checklists created from this template will not be affected.
+              {t('deleteTemplateWarning', { count: template.itemCount || 0 })}
             </p>
           </div>
 
@@ -100,7 +101,7 @@ export default function DeleteChecklistTemplateModal({
               disabled={deleting}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               type="button"
@@ -111,12 +112,12 @@ export default function DeleteChecklistTemplateModal({
               {deleting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Deleting...
+                  {t('deletingTemplate')}
                 </>
               ) : (
                 <>
                   <TrashIcon className="w-4 h-4" />
-                  Delete Template
+                  {t('deleteTemplateButton')}
                 </>
               )}
             </button>

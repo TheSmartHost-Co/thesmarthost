@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getAllIncomingBookings, getIncomingBookingsByStatus, updateIncomingBookingStatus, sendToTurnover } from '@/services/incomingBookingService'
@@ -100,6 +101,7 @@ export default function IncomingBookingsPage() {
   const [properties, setProperties] = useState<Property[]>([])
 
   const { profile } = useUserStore()
+  const { t } = useTranslation('bookings')
   usePermissionGuard('incoming_bookings')
   const { effectiveUserId, canWrite } = usePermissions()
   const { showNotification } = useNotificationStore()

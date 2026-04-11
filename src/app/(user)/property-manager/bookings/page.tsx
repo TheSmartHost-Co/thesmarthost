@@ -28,6 +28,7 @@ import { Booking } from '@/services/types/booking'
 import { HostawayConnection } from '@/services/types/hostawayConnection'
 import { Property } from '@/services/types/property'
 import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -151,6 +152,7 @@ export default function BookingsPage() {
   const [properties, setProperties] = useState<Property[]>([])
 
   const { profile } = useUserStore()
+  const { t } = useTranslation('bookings')
   usePermissionGuard('bookings')
   const { effectiveUserId, canWrite } = usePermissions()
 

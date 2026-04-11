@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   CameraIcon,
@@ -33,6 +34,7 @@ export default function WalkthroughTemplateList({
   onDelete,
   onCreateNew,
 }: WalkthroughTemplateListProps) {
+  const { t } = useTranslation('turnover')
   const [expandedAssignmentIds, setExpandedAssignmentIds] = useState<Set<string>>(new Set())
 
   const toggleAssignments = (id: string) => {
@@ -77,9 +79,9 @@ export default function WalkthroughTemplateList({
         <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <CameraIcon className="w-8 h-8 text-gray-400" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">No walkthrough templates yet</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noWalkthroughTemplatesYet')}</h3>
         <p className="text-gray-500 max-w-sm mx-auto text-sm">
-          Create a walkthrough template to define the photos cleaners should take during a turnover.
+          {t('createWalkthroughTemplateDescription')}
         </p>
         {canWrite && (
           <button
@@ -87,7 +89,7 @@ export default function WalkthroughTemplateList({
             className="mt-4 inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/25 transition-colors"
           >
             <PlusIcon className="h-4 w-4 mr-1.5" />
-            Create Template
+            {t('createTemplate')}
           </button>
         )}
       </div>
@@ -144,19 +146,19 @@ export default function WalkthroughTemplateList({
             <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
               <span>
                 <span className="font-semibold text-gray-700">{groupCount}</span>{' '}
-                group{groupCount !== 1 ? 's' : ''}
+                {groupCount !== 1 ? t('groupsLabel') : t('groupLabel')}
               </span>
               <span className="text-gray-300">·</span>
               <span>
                 <span className="font-semibold text-gray-700">{totalItems}</span>{' '}
-                item{totalItems !== 1 ? 's' : ''}
+                {totalItems !== 1 ? t('itemsLabel') : t('itemLabel')}
               </span>
               {template.requiresCompletion && (
                 <>
                   <span className="text-gray-300">·</span>
                   <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
                     <ShieldCheckIcon className="w-3.5 h-3.5" />
-                    Required
+                    {t('requiredLabel')}
                   </span>
                 </>
               )}
@@ -167,8 +169,8 @@ export default function WalkthroughTemplateList({
               {assignments.length === 0 ? (
                 <p className="text-[11px] text-gray-400">
                   {template.isDefault
-                    ? 'Applied to all properties without a specific assignment'
-                    : 'Not assigned to any properties'}
+                    ? t('appliedToAllDefault')
+                    : t('notAssignedToAnyProperties')}
                 </p>
               ) : (
                 <button
@@ -182,8 +184,7 @@ export default function WalkthroughTemplateList({
                     <ChevronRightIcon className="w-3 h-3" />
                   )}
                   <BuildingOfficeIcon className="w-3 h-3" />
-                  Assigned to {assignments.length}{' '}
-                  {assignments.length === 1 ? 'property' : 'properties'}
+                  {t('assignedToPropertiesCount', { count: assignments.length })}
                 </button>
               )}
               {isExpanded && assignments.length > 0 && (

@@ -5,6 +5,7 @@ import Link from "next/link"
 import Footer from '@/components/footer/Footer'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   EnvelopeIcon,
   ClockIcon,
@@ -15,6 +16,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ContactPage() {
+  const { t } = useTranslation('auth')
   const [formState, setFormState] = useState({
     name: '',
     email: '',
@@ -44,18 +46,18 @@ export default function ContactPage() {
   const contactInfo = [
     {
       icon: EnvelopeIcon,
-      title: "Email Us",
+      title: t('contactEmailUs'),
       lines: ["support@thesmarthost.com", "sales@thesmarthost.com"],
     },
     {
       icon: ClockIcon,
-      title: "Response Time",
-      lines: ["Demo requests within 24 hours", "Support same business day"],
+      title: t('contactResponseTime'),
+      lines: [t('contactResponseDemo'), t('contactResponseSupport')],
     },
     {
       icon: MapPinIcon,
-      title: "Location",
-      lines: ["San Francisco, CA", "Remote-first team"],
+      title: t('contactLocation'),
+      lines: [t('contactLocationCity'), t('contactLocationRemote')],
     },
   ]
 
@@ -130,9 +132,9 @@ export default function ContactPage() {
                     <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
                       <CheckCircleIcon className="w-10 h-10 text-green-600" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Message Sent!</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3">{t('contactMessageSent')}</h3>
                     <p className="text-gray-600 mb-6">
-                      Thank you for reaching out. We'll get back to you within 24 hours.
+                      {t('contactThankYou')}
                     </p>
                     <button
                       onClick={() => {
@@ -147,12 +149,12 @@ export default function ContactPage() {
                       }}
                       className="text-blue-600 font-medium hover:text-blue-700"
                     >
-                      Send another message
+                      {t('contactSendAnother')}
                     </button>
                   </motion.div>
                 ) : (
                   <>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a message</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('contactSendMessage')}</h2>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div className="grid md:grid-cols-2 gap-6">
                         <div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRightIcon } from '@heroicons/react/24/outline'
 import { SidebarGroup } from './sidebarItems'
@@ -33,6 +34,7 @@ export default function SidebarGroupSection({
   colors,
   onLinkClick,
 }: SidebarGroupSectionProps) {
+  const { t } = useTranslation('nav')
   const pathname = usePathname()
   const groupActive = isGroupActive(pathname, group)
   const [showFlyout, setShowFlyout] = useState(false)
@@ -76,7 +78,7 @@ export default function SidebarGroupSection({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <SidebarTooltip label={group.label}>
+        <SidebarTooltip label={t(group.label)}>
           <button
             onClick={() => {
               setCollapsed(false)
@@ -104,7 +106,7 @@ export default function SidebarGroupSection({
               onMouseLeave={handleMouseLeave}
             >
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {group.label}
+                {t(group.label)}
               </div>
               {group.items.map((item) => {
                 const isActive = isRouteActive(pathname, item.href)
@@ -121,7 +123,7 @@ export default function SidebarGroupSection({
                     `}
                   >
                     <Icon className="w-4 h-4 mr-2.5 flex-shrink-0" />
-                    {item.name}
+                    {t(item.name)}
                     {isSupplyLists && pendingSupplyCount > 0 && (
                       <span className="ml-auto min-w-[16px] h-[16px] text-[9px] bg-amber-500 text-white rounded-full flex items-center justify-center font-semibold px-1 tabular-nums">
                         {pendingSupplyCount}
@@ -150,7 +152,7 @@ export default function SidebarGroupSection({
       >
         <GroupIcon className="w-5 h-5 mr-3 flex-shrink-0" />
         <span className="text-[11px] font-semibold uppercase tracking-wider flex-1 text-left">
-          {group.label}
+          {t(group.label)}
         </span>
         <ChevronRightIcon
           className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
@@ -183,7 +185,7 @@ export default function SidebarGroupSection({
                     `}
                   >
                     <Icon className="w-4 h-4 mr-2.5 flex-shrink-0" />
-                    {item.name}
+                    {t(item.name)}
                     {isSupplyLists && pendingSupplyCount > 0 && (
                       <span className="ml-auto min-w-[16px] h-[16px] text-[9px] bg-amber-500 text-white rounded-full flex items-center justify-center font-semibold px-1 tabular-nums">
                         {pendingSupplyCount}

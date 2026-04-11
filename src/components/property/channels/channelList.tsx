@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState } from 'react'
 import { PropertyChannel, LocalPropertyChannel } from '@/services/types/propertyChannel'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'

@@ -9,10 +9,12 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
+import { useTranslation } from 'react-i18next'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 
 export default function ClientSettingsPage() {
+  const { t } = useTranslation('settings')
   const profile = useUserStore((s) => s.profile)
   const setProfile = useUserStore((s) => s.setProfile)
   const showNotification = useNotificationStore((s) => s.showNotification)
@@ -51,9 +53,9 @@ export default function ClientSettingsPage() {
           smsNotificationsEnabled: res.data.smsNotificationsEnabled,
           emailNotificationsEnabled: res.data.emailNotificationsEnabled,
         })
-        showNotification('Settings updated', 'success')
+        showNotification(t('settingsUpdated'), 'success')
       } else {
-        showNotification(res.message || 'Failed to update settings', 'error')
+        showNotification(res.message || t('failedToUpdate'), 'error')
       }
     } catch (err) {
       console.error('Failed to save settings:', err)
@@ -78,8 +80,8 @@ export default function ClientSettingsPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your profile and notification preferences</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('manageProfileAndNotifications')}</p>
       </div>
 
       {/* Language Prompt Banner */}
@@ -93,12 +95,12 @@ export default function ClientSettingsPage() {
       >
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
           <UserCircleIcon className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-base font-semibold text-gray-900">Profile</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('profile')}</h2>
         </div>
         <div className="p-5 space-y-4">
           {/* Full Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('fullName')}</label>
             <input
               type="text"
               value={fullName}
@@ -109,7 +111,7 @@ export default function ClientSettingsPage() {
 
           {/* Email (read-only) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')}</label>
             <input
               type="email"
               value={profile.email || ''}
@@ -120,7 +122,7 @@ export default function ClientSettingsPage() {
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('phone')}</label>
             <input
               type="tel"
               value={phone}
@@ -144,14 +146,14 @@ export default function ClientSettingsPage() {
       >
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
           <BellIcon className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-base font-semibold text-gray-900">Notifications</h2>
+          <h2 className="text-base font-semibold text-gray-900">{t('notifications')}</h2>
         </div>
         <div className="p-5 space-y-4">
           {/* SMS Toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">SMS Notifications</p>
-              <p className="text-xs text-gray-500 mt-0.5">Receive text messages for booking and cleaning updates</p>
+              <p className="text-sm font-medium text-gray-900">{t('smsNotifications')}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t('smsDescriptionClient')}</p>
             </div>
             <button
               type="button"
@@ -167,8 +169,8 @@ export default function ClientSettingsPage() {
           {/* Email Toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Email Notifications</p>
-              <p className="text-xs text-gray-500 mt-0.5">Receive email updates for bookings, reports, and cleaning</p>
+              <p className="text-sm font-medium text-gray-900">{t('emailNotifications')}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t('emailDescriptionClient')}</p>
             </div>
             <button
               type="button"
@@ -201,7 +203,7 @@ export default function ClientSettingsPage() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
           )}
-          Save Changes
+          {t('saveChanges')}
         </button>
       </motion.div>
     </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect, useRef } from 'react'
 import { CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon, DocumentCheckIcon } from '@heroicons/react/24/outline'
 import { uploadCsvFile } from '@/services/csvUploadService'

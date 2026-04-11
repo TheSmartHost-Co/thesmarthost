@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useTranslation } from 'react-i18next'
 import {
   CogIcon,
   Bars3Icon,
@@ -22,6 +23,7 @@ export default function UserNavbar({
   onToggleSidebar,
   basePath = '/property-manager'
 }: UserNavbarProps) {
+  const { t } = useTranslation(['nav', 'common'])
   const [showUploadModal, setShowUploadModal] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
   const isCleaner = basePath === '/cleaner'
@@ -36,7 +38,7 @@ export default function UserNavbar({
             <button
               onClick={onToggleSidebar}
               className="md:hidden p-2 -ml-2 mr-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-              aria-label="Toggle sidebar menu"
+              aria-label={t('nav:toggleSidebarMenu')}
             >
               <Bars3Icon className="h-6 w-6" />
             </button>
@@ -64,7 +66,7 @@ export default function UserNavbar({
             <button
               onClick={() => setShowUploadModal(true)}
               className="p-2 rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
-              aria-label="Scan receipt"
+              aria-label={t('nav:scanReceipt')}
             >
               <CameraIcon className="w-5 h-5" />
             </button>
@@ -79,7 +81,7 @@ export default function UserNavbar({
             className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
           >
             <CogIcon className="w-5 h-5 md:mr-2" />
-            <span className="hidden md:inline">Settings</span>
+            <span className="hidden md:inline">{t('nav:settings')}</span>
           </Link>
 
           {/* Logout Modal */}
@@ -94,7 +96,7 @@ export default function UserNavbar({
           onClose={() => setShowUploadModal(false)}
           onUploaded={() => {
             setShowUploadModal(false)
-            showNotification('Receipt uploaded successfully!', 'success')
+            showNotification(t('common:receiptUploadedSuccessfully'), 'success')
           }}
         />
       )}

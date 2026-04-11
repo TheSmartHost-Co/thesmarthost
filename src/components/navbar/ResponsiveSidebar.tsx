@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SidebarItem, SidebarNavConfig, ADMIN_USER_IDS } from './sidebarItems'
 import { MegaphoneIcon } from '@heroicons/react/24/outline'
@@ -31,6 +32,7 @@ export default function ResponsiveSidebar({
   items,
   navConfig,
 }: ResponsiveSidebarProps) {
+  const { t } = useTranslation('nav')
   const pathname = usePathname()
   const prevPathnameRef = useRef(pathname)
   const isCollapsed = useSidebarStore((s) => s.isCollapsed)
@@ -94,7 +96,7 @@ export default function ResponsiveSidebar({
 
     if (collapsed) {
       return (
-        <SidebarTooltip key={item.href} label={item.name}>
+        <SidebarTooltip key={item.href} label={t(item.name)}>
           <button
             onClick={() => setCollapsed(false)}
             className={`
@@ -119,7 +121,7 @@ export default function ResponsiveSidebar({
           `}
         >
           <Icon className="w-5 h-5 flex-shrink-0 mr-3" />
-          {item.name}
+          {t(item.name)}
         </Link>
       </div>
     )
@@ -149,7 +151,7 @@ export default function ResponsiveSidebar({
       <div className="border-t border-gray-200 px-2 py-2 space-y-1">
         {navConfig!.bottom.map((item) => renderNavLink(item, collapsed, closeOnClick))}
         {isAdminUser && variant === 'manager' && renderNavLink(
-          { name: 'Patch Notes', href: '/property-manager/patch-notes', icon: MegaphoneIcon },
+          { name: 'patchNotes', href: '/property-manager/patch-notes', icon: MegaphoneIcon },
           collapsed,
           closeOnClick
         )}
@@ -162,8 +164,8 @@ export default function ResponsiveSidebar({
 
   // Render flat nav content (when no navConfig, e.g., cleaner sidebar)
   const renderFlatNav = (collapsed: boolean, closeOnClick?: boolean) => {
-    const mainItems = items.filter((item) => item.name !== 'Settings')
-    const settingsItem = items.find((item) => item.name === 'Settings')
+    const mainItems = items.filter((item) => item.name !== 'settings')
+    const settingsItem = items.find((item) => item.name === 'settings')
 
     return (
       <div className="flex flex-col h-full">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ClipboardDocumentListIcon,
@@ -25,6 +26,7 @@ interface ExpandedChecklist extends ClientPortalChecklist {
 }
 
 export default function ClientChecklistsPage() {
+  const { t } = useTranslation('clientPortal')
   const [checklists, setChecklists] = useState<ExpandedChecklist[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -135,7 +137,7 @@ export default function ClientChecklistsPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('checklistsTitle')}</h1>
         <p className="text-sm text-gray-500 mt-1">
           {checklists.length} checklist{checklists.length !== 1 ? 's' : ''} across your properties
         </p>
@@ -147,9 +149,9 @@ export default function ClientChecklistsPage() {
           <div className="inline-flex items-center justify-center rounded-full bg-gray-100 p-4 mb-4">
             <ClipboardDocumentIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-900">No checklists found</h3>
+          <h3 className="text-sm font-semibold text-gray-900">{t('noChecklistsFound')}</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Checklists for your properties will appear here.
+            {t('checklistsWillAppear')}
           </p>
         </div>
       ) : (

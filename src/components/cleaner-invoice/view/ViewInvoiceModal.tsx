@@ -22,6 +22,7 @@ import AddExtraChargeModal from '../create/AddExtraChargeModal'
 import DeleteInvoiceModal from '../delete/DeleteInvoiceModal'
 import type { InvoiceFile } from '@/services/types/cleanerInvoice'
 import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
+import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type {
   CleanerInvoice,
@@ -55,13 +56,13 @@ interface ViewInvoiceModalProps {
   role?: 'cleaner' | 'pm'
 }
 
-const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }> = {
-  draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
-  pending: { label: 'Pending Review', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
-  approved: { label: 'Approved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
-  rejected: { label: 'Rejected', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-  paid: { label: 'Paid', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-  archived: { label: 'Archived', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
+const statusStyles: Record<InvoiceStatus, { bg: string; text: string; dot: string }> = {
+  draft: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+  pending: { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  approved: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  rejected: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  paid: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+  archived: { bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
 }
 
 const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
@@ -97,7 +98,20 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   // Tax toggle saving
   const [savingTax, setSavingTax] = useState(false)
 
+  const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
+
+  const statusLabels: Record<InvoiceStatus, string> = {
+    draft: t('statusDraft'),
+    pending: t('statusPendingReview'),
+    approved: t('statusApproved'),
+    rejected: t('statusRejected'),
+    paid: t('statusPaid'),
+    archived: t('statusArchived'),
+  }
+  const statusConfig = Object.fromEntries(
+    (Object.keys(statusStyles) as InvoiceStatus[]).map(k => [k, { label: statusLabels[k], ...statusStyles[k] }])
+  ) as Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }>
 
   const modalStyle = role === 'pm'
     ? 'p-6 max-w-5xl !w-11/12 !max-h-[85vh]'
@@ -160,13 +174,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await updateInvoice(invoice.id, { invoiceNumber: invoiceNumberDraft.trim() })
       if (res.status === 'success') {
-        showNotification('Invoice number updated', 'success')
+        showNotification(t('invoiceNumberUpdated'), 'success')
         setEditingInvoiceNumber(false)
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to update', 'error')
+        showNotification(res.message || t('failedToUpdate'), 'error')
       }
-    } catch { showNotification('Error updating invoice number', 'error') }
+    } catch { showNotification(t('errorUpdatingInvoiceNumber'), 'error') }
   }
 
   // Save bill-from name edit
@@ -175,13 +189,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await updateInvoice(invoice.id, { billFromName: billFromDraft.trim() || null })
       if (res.status === 'success') {
-        showNotification('Bill From updated', 'success')
+        showNotification(t('billFromUpdated'), 'success')
         setEditingBillFrom(false)
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to update', 'error')
+        showNotification(res.message || t('failedToUpdate'), 'error')
       }
-    } catch { showNotification('Error updating Bill From', 'error') }
+    } catch { showNotification(t('errorUpdatingBillFrom'), 'error') }
   }
 
   // Toggle a tax flag
@@ -197,9 +211,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success') {
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to update tax', 'error')
+        showNotification(res.message || t('failedToUpdateTax'), 'error')
       }
-    } catch { showNotification('Error updating tax', 'error') }
+    } catch { showNotification(t('errorUpdatingTax'), 'error') }
     finally { setSavingTax(false) }
   }
 
@@ -209,13 +223,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await changeInvoiceStatus(invoice.id, newStatus)
       if (res.status === 'success') {
-        showNotification(`Status changed to ${INVOICE_STATUS_INFO[newStatus].label}`, 'success')
+        showNotification(t('statusChangedTo', { status: INVOICE_STATUS_INFO[newStatus].label }), 'success')
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to change status', 'error')
+        showNotification(res.message || t('failedToChangeStatus'), 'error')
       }
     } catch {
-      showNotification('Error changing status', 'error')
+      showNotification(t('errorChangingStatus'), 'error')
     } finally {
       setPmActionLoading(false)
     }
@@ -238,18 +252,18 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       const res = await generateInvoicePDF(invoice.id)
       if (res.status === 'success' && res.data?.signedUrl) {
         window.open(res.data.signedUrl, '_blank')
-        showNotification('PDF generated', 'success')
+        showNotification(t('pdfGeneratedSuccess'), 'success')
         // Refresh file list
         const filesRes = await getInvoiceFiles(invoice.id)
         if (filesRes.status === 'success') {
           setCurrentFile(filesRes.data.find(f => f.isCurrent) || null)
         }
       } else {
-        showNotification(res.message || 'Failed to generate PDF', 'error')
+        showNotification(res.message || t('failedToGeneratePdfInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error generating PDF:', err)
-      showNotification('Error generating PDF', 'error')
+      showNotification(t('errorGeneratingPdf'), 'error')
     } finally {
       setGeneratingPDF(false)
     }
@@ -262,10 +276,10 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success' && res.data?.signedUrl) {
         window.open(res.data.signedUrl, '_blank')
       } else {
-        showNotification('Failed to get preview URL', 'error')
+        showNotification(t('failedToGetPreviewUrl'), 'error')
       }
     } catch {
-      showNotification('Error previewing PDF', 'error')
+      showNotification(t('errorPreviewingPdf'), 'error')
     }
   }
 
@@ -283,10 +297,10 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         a.click()
         URL.revokeObjectURL(url)
       } else {
-        showNotification('Failed to download', 'error')
+        showNotification(t('failedToDownload'), 'error')
       }
     } catch {
-      showNotification('Error downloading PDF', 'error')
+      showNotification(t('errorDownloadingPdf'), 'error')
     }
   }
 
@@ -337,15 +351,15 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
       const res = await updateInvoiceItem(invoice.id, editingItemId, payload)
       if (res.status === 'success') {
-        showNotification('Item updated', 'success')
+        showNotification(t('itemUpdated'), 'success')
         setEditingItemId(null)
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to update item', 'error')
+        showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
     } catch (err) {
       console.error('Error updating item:', err)
-      showNotification('Error updating item', 'error')
+      showNotification(t('errorUpdatingItem'), 'error')
     }
   }
 
@@ -355,14 +369,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await deleteInvoiceItem(invoice.id, itemId)
       if (res.status === 'success') {
-        showNotification('Item removed', 'success')
+        showNotification(t('itemRemoved'), 'success')
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to remove item', 'error')
+        showNotification(res.message || t('failedToRemoveItem'), 'error')
       }
     } catch (err) {
       console.error('Error deleting item:', err)
-      showNotification('Error removing item', 'error')
+      showNotification(t('errorRemovingItem'), 'error')
     }
   }
 
@@ -376,14 +390,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await updateInvoice(invoice.id, { cleanerNotes })
       if (res.status === 'success') {
-        showNotification('Notes saved', 'success')
+        showNotification(t('notesSaved'), 'success')
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to save notes', 'error')
+        showNotification(res.message || t('failedToSaveNotes'), 'error')
       }
     } catch (err) {
       console.error('Error saving notes:', err)
-      showNotification('Error saving notes', 'error')
+      showNotification(t('errorSavingNotes'), 'error')
     } finally {
       setSavingNotes(false)
     }
@@ -395,33 +409,33 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     try {
       const res = await submitInvoice(invoice.id)
       if (res.status === 'success') {
-        showNotification('Invoice submitted to property manager', 'success')
+        showNotification(t('invoiceSubmittedToPm'), 'success')
         await refreshInvoice()
       } else {
-        showNotification(res.message || 'Failed to submit invoice', 'error')
+        showNotification(res.message || t('failedToSubmitInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error submitting invoice:', err)
-      showNotification('Error submitting invoice', 'error')
+      showNotification(t('errorSubmittingInvoice'), 'error')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!invoice || !confirm(`Delete invoice ${invoice.invoiceNumber}? This cannot be undone.`)) return
+    if (!invoice || !confirm(t('confirmDeleteInvoicePrompt', { number: invoice.invoiceNumber }))) return
     try {
       const res = await deleteInvoice(invoice.id)
       if (res.status === 'success') {
-        showNotification('Invoice deleted', 'success')
+        showNotification(t('invoiceDeletedSuccess'), 'success')
         onUpdated()
         onClose()
       } else {
-        showNotification(res.message || 'Failed to delete invoice', 'error')
+        showNotification(res.message || t('failedToDeleteInvoice'), 'error')
       }
     } catch (err) {
       console.error('Error deleting invoice:', err)
-      showNotification('Error deleting invoice', 'error')
+      showNotification(t('errorDeletingInvoice'), 'error')
     }
   }
 
@@ -441,7 +455,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   const formatRate = (item: CleanerInvoiceItem) => {
     if (!item.rateType || item.rateAmount == null) return '—'
-    return `$${item.rateAmount.toFixed(2)}/${item.rateType === 'flat' ? 'flat' : 'hr'}`
+    return `$${item.rateAmount.toFixed(2)}/${item.rateType === 'flat' ? t('flatRateShort') : t('hourlyRateShort')}`
   }
 
   if (loading || !invoice) {
@@ -490,7 +504,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   <button
                     onClick={() => { setInvoiceNumberDraft(invoice.invoiceNumber); setEditingInvoiceNumber(true) }}
                     className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-all"
-                    title="Edit invoice number"
+                    title={t('editInvoiceNumber')}
                   >
                     <PencilIcon className="h-3.5 w-3.5 text-gray-400" />
                   </button>
@@ -516,14 +530,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           </div>
           {/* Bill From */}
           <div className="flex items-center gap-1.5 mt-1.5 group">
-            <span className="text-xs text-gray-400 uppercase tracking-wider">From:</span>
+            <span className="text-xs text-gray-400 uppercase tracking-wider">{t('fromLabel')}:</span>
             {editingBillFrom ? (
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   value={billFromDraft}
                   onChange={(e) => setBillFromDraft(e.target.value)}
-                  placeholder={invoice.cleanerBusinessName || invoice.cleanerName || 'Business name'}
+                  placeholder={invoice.cleanerBusinessName || invoice.cleanerName || t('businessNamePlaceholder')}
                   className="text-sm text-gray-700 border border-emerald-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-56"
                   autoFocus
                   onKeyDown={(e) => {
@@ -547,7 +561,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   <button
                     onClick={() => { setBillFromDraft(invoice.billFromName || invoice.cleanerBusinessName || invoice.cleanerName || ''); setEditingBillFrom(true) }}
                     className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-all"
-                    title="Edit Bill From name"
+                    title={t('editBillFromName')}
                   >
                     <PencilIcon className="h-3 w-3 text-gray-400" />
                   </button>
@@ -556,13 +570,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             )}
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Period: {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
+            {t('periodLabel')}: {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">Created {formatDate(invoice.createdAt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{t('createdLabel')} {formatDate(invoice.createdAt)}</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-gray-900">${invoice.total.toFixed(2)}</p>
-          <p className="text-xs text-gray-400">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-gray-400">{t('itemCount', { count: items.length })}</p>
         </div>
       </div>
 
@@ -575,20 +589,20 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
             >
               <EyeIcon className="h-3.5 w-3.5" />
-              Preview PDF
+              {t('previewPdf')}
             </button>
             <button
               onClick={handleDownloadPDF}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              Download
+              {t('downloadPdf')}
             </button>
             <button
               onClick={handleGeneratePDF}
               disabled={generatingPDF}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
-              {generatingPDF ? 'Regenerating...' : 'Regenerate'}
+              {generatingPDF ? t('regenerating') : t('regenerate')}
             </button>
             <span className="text-[10px] text-gray-400">v{currentFile.fileVersion}</span>
           </>
@@ -601,9 +615,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             {generatingPDF ? (
               <>
                 <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                Generating PDF...
+                {t('generatingPdf')}
               </>
-            ) : 'Generate PDF'}
+            ) : t('generatePdf')}
           </button>
         )}
       </div>
@@ -613,7 +627,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
           <ExclamationTriangleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-red-800">Rejected by property manager</p>
+            <p className="text-sm font-medium text-red-800">{t('rejectedByPm')}</p>
             <p className="text-sm text-red-600 mt-0.5">{invoice.pmNotes}</p>
           </div>
         </div>
@@ -623,7 +637,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       {invoice.status === 'paid' && invoice.paidAt && (
         <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl mb-4">
           <CheckCircleIcon className="h-5 w-5 text-green-500" />
-          <p className="text-sm text-green-800">Paid on {formatDate(invoice.paidAt)}</p>
+          <p className="text-sm text-green-800">{t('paidOn', { date: formatDate(invoice.paidAt) })}</p>
         </div>
       )}
 
@@ -631,7 +645,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       {invoice.status === 'pending' && (
         <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
           <ClockIcon className="h-5 w-5 text-amber-500" />
-          <p className="text-sm text-amber-800">Waiting for property manager review</p>
+          <p className="text-sm text-amber-800">{t('waitingForPmReview')}</p>
         </div>
       )}
 
@@ -639,13 +653,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       {invoice.status === 'archived' && (
         <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4">
           <ArchiveBoxIcon className="h-5 w-5 text-slate-500" />
-          <p className="text-sm text-slate-700">This invoice is archived</p>
+          <p className="text-sm text-slate-700">{t('invoiceIsArchived')}</p>
         </div>
       )}
 
       {/* Line Items */}
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Line Items</h3>
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('lineItems')}</h3>
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
           {items.map((item, index) => (
             <div key={item.id} className="bg-gray-50 rounded-lg p-3">
@@ -662,7 +676,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     <p className="text-sm font-medium text-gray-900 truncate">{item.description}</p>
                     {item.expenseId && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-700">
-                        Reimbursement
+                        {t('reimbursement')}
                       </span>
                     )}
                   </div>
@@ -676,14 +690,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     )}
                     {item.isManualOverride && item.originalAmount != null && item.originalAmount !== item.amount ? (
                       <span className="text-xs text-amber-500">
-                        was ${item.originalAmount.toFixed(2)}
+                        {t('wasAmount', { amount: item.originalAmount.toFixed(2) })}
                       </span>
                     ) : item.isManualOverride ? (
-                      <span className="text-xs text-amber-500">edited</span>
+                      <span className="text-xs text-amber-500">{t('edited')}</span>
                     ) : null}
                     {item.originalDurationMinutes != null && item.durationMinutes != null && item.originalDurationMinutes !== item.durationMinutes && (
                       <span className="text-xs text-blue-500">
-                        was {formatDuration(item.originalDurationMinutes)}
+                        {t('wasDuration', { duration: formatDuration(item.originalDurationMinutes) })}
                       </span>
                     )}
                   </div>
@@ -694,10 +708,10 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     <button
                       onClick={() => window.open(item.receiptSignedUrl!, '_blank')}
                       className="inline-flex items-center gap-1 mt-1 ml-6 text-[10px] text-blue-600 hover:text-blue-800 transition-colors"
-                      title={`Receipt: ${item.receiptOriginalName || 'View receipt'}`}
+                      title={`${t('receiptLabel')}: ${item.receiptOriginalName || t('viewReceipt')}`}
                     >
                       <DocumentTextIcon className="h-3 w-3" />
-                      <span>{item.receiptOriginalName || 'View Receipt'}</span>
+                      <span>{item.receiptOriginalName || t('viewReceipt')}</span>
                     </button>
                   )}
                 </div>
@@ -711,8 +725,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                         try {
                           const res = await updateInvoiceItem(invoice.id, item.id, { isTaxable: !item.isTaxable })
                           if (res.status === 'success') await refreshInvoice()
-                          else showNotification(res.message || 'Failed', 'error')
-                        } catch { showNotification('Error toggling tax', 'error') }
+                          else showNotification(res.message || t('failedToUpdate'), 'error')
+                        } catch { showNotification(t('errorUpdatingTax'), 'error') }
                       }}
                       disabled={!isEditable}
                       className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${
@@ -720,9 +734,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                           ? 'bg-blue-100 text-blue-600'
                           : 'bg-gray-100 text-gray-400 line-through'
                       } ${isEditable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
-                      title={isEditable ? (item.isTaxable ? 'Click to remove tax' : 'Click to add tax') : (item.isTaxable ? 'Taxable' : 'Non-taxable')}
+                      title={isEditable ? (item.isTaxable ? t('clickToRemoveTax') : t('clickToAddTax')) : (item.isTaxable ? t('taxable') : t('nonTaxable'))}
                     >
-                      TAX
+                      {t('taxShort')}
                     </button>
                   )}
                   <span className="text-sm font-semibold text-gray-900">${item.amount.toFixed(2)}</span>
@@ -752,7 +766,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     type="text"
                     value={editForm.description}
                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    placeholder="Description"
+                    placeholder={t('description')}
                     className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   <div className="flex items-center gap-2 flex-wrap">
@@ -770,7 +784,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                                   : 'bg-white text-gray-500 hover:bg-gray-50'
                               } ${type === 'hourly' ? 'border-l border-gray-200' : ''}`}
                             >
-                              {type === 'flat' ? 'Flat' : 'Hourly'}
+                              {type === 'flat' ? t('flat') : t('hourly')}
                             </button>
                           ))}
                         </div>
@@ -783,7 +797,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                             min="0"
                             value={editForm.rateAmount}
                             onChange={(e) => setEditForm({ ...editForm, rateAmount: e.target.value })}
-                            placeholder="Rate"
+                            placeholder={t('ratePlaceholder')}
                             className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           />
                         </div>
@@ -795,7 +809,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                               min="0"
                               value={editForm.durationMinutes}
                               onChange={(e) => setEditForm({ ...editForm, durationMinutes: e.target.value })}
-                              placeholder="Minutes"
+                              placeholder={t('minutesPlaceholder')}
                               className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             />
                             <span className="text-xs text-gray-400">min</span>
@@ -805,14 +819,14 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     )}
                     {/* Direct Amount Override / Total */}
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500">Total $</span>
+                      <span className="text-xs text-gray-500">{t('total')} $</span>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         value={editForm.amount}
                         onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                        placeholder="Amount"
+                        placeholder={t('amountPlaceholder')}
                         className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
@@ -821,7 +835,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     type="text"
                     value={editForm.notes}
                     onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                    placeholder="Notes (optional)"
+                    placeholder={t('notesOptionalPlaceholder')}
                     className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   <div className="flex items-center justify-between">
@@ -839,7 +853,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                       }`}>
                         {editForm.isTaxable && <CheckIcon className="h-2 w-2 text-white" />}
                       </div>
-                      Taxable
+                      {t('taxable')}
                     </button>
                     <div className="flex gap-2">
                       <button onClick={cancelEditing} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -864,7 +878,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
           >
             <PlusIcon className="h-3.5 w-3.5" />
-            Add Extra Charge
+            {t('addExtraCharge')}
           </button>
         )}
 
@@ -914,29 +928,29 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         <div className="flex justify-end">
           <div className="text-right">
             <div className="flex justify-between gap-8 text-sm">
-              <span className="text-gray-500">Subtotal</span>
+              <span className="text-gray-500">{t('subtotal')}</span>
               <span className="font-medium text-gray-900">${invoice.subtotal.toFixed(2)}</span>
             </div>
             {invoice.taxHstEnabled && invoice.taxHst > 0 && (
               <div className="flex justify-between gap-8 text-sm mt-0.5">
-                <span className="text-gray-400">HST (13%)</span>
+                <span className="text-gray-400">{TAX_RATES.hst.label} ({TAX_RATES.hst.pct})</span>
                 <span className="text-gray-700">${invoice.taxHst.toFixed(2)}</span>
               </div>
             )}
             {invoice.taxGstEnabled && invoice.taxGst > 0 && (
               <div className="flex justify-between gap-8 text-sm mt-0.5">
-                <span className="text-gray-400">GST (5%)</span>
+                <span className="text-gray-400">{TAX_RATES.gst.label} ({TAX_RATES.gst.pct})</span>
                 <span className="text-gray-700">${invoice.taxGst.toFixed(2)}</span>
               </div>
             )}
             {invoice.taxQstEnabled && invoice.taxQst > 0 && (
               <div className="flex justify-between gap-8 text-sm mt-0.5">
-                <span className="text-gray-400">QST (9.975%)</span>
+                <span className="text-gray-400">{TAX_RATES.qst.label} ({TAX_RATES.qst.pct})</span>
                 <span className="text-gray-700">${invoice.taxQst.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between gap-8 text-lg mt-1">
-              <span className="font-semibold text-gray-700">Total</span>
+              <span className="font-semibold text-gray-700">{t('total')}</span>
               <span className="font-bold text-gray-900">${invoice.total.toFixed(2)}</span>
             </div>
           </div>
@@ -945,13 +959,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
       {/* Notes */}
       <div className="mb-5">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Notes</h3>
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('notes')}</h3>
         {isEditable ? (
           <div className="space-y-2">
             <textarea
               value={cleanerNotes}
               onChange={(e) => setCleanerNotes(e.target.value)}
-              placeholder="Add notes for the property manager..."
+              placeholder={t('addNotesForPm')}
               rows={2}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
             />
@@ -961,17 +975,17 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                 disabled={savingNotes}
                 className="text-xs text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
               >
-                {savingNotes ? 'Saving...' : 'Save Notes'}
+                {savingNotes ? t('saving') : t('saveNotes')}
               </button>
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-600">{invoice.cleanerNotes || 'No notes'}</p>
+          <p className="text-sm text-gray-600">{invoice.cleanerNotes || t('noNotes')}</p>
         )}
 
         {invoice.pmNotes && invoice.status !== 'rejected' && (
           <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-600 font-medium">PM Notes:</p>
+            <p className="text-xs text-blue-600 font-medium">{t('pmNotes')}:</p>
             <p className="text-sm text-blue-800">{invoice.pmNotes}</p>
           </div>
         )}
@@ -984,29 +998,29 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             type="text"
             value={pmRejectNotes}
             onChange={(e) => setPmRejectNotes(e.target.value)}
-            placeholder="Reason for rejection (required)..."
+            placeholder={t('rejectionReasonPlaceholder')}
             className="flex-1 px-3 py-2 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500"
             autoFocus
           />
           <button
             onClick={async () => {
-              if (!pmRejectNotes.trim()) { showNotification('Please provide a reason', 'error'); return }
+              if (!pmRejectNotes.trim()) { showNotification(t('pleaseProvideReason'), 'error'); return }
               setPmActionLoading(true)
               try {
                 const res = await rejectInvoice(invoice.id, pmRejectNotes)
                 if (res.status === 'success') {
-                  showNotification('Invoice rejected', 'success')
+                  showNotification(t('invoiceRejected'), 'success')
                   setShowRejectInput(false)
                   setPmRejectNotes('')
                   await refreshInvoice()
-                } else { showNotification(res.message || 'Failed', 'error') }
-              } catch { showNotification('Error rejecting invoice', 'error') }
+                } else { showNotification(res.message || t('failedToUpdate'), 'error') }
+              } catch { showNotification(t('errorRejectingInvoice'), 'error') }
               finally { setPmActionLoading(false) }
             }}
             disabled={pmActionLoading}
             className="px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50"
           >
-            {pmActionLoading ? '...' : 'Reject'}
+            {pmActionLoading ? '...' : t('reject')}
           </button>
           <button
             onClick={() => { setShowRejectInput(false); setPmRejectNotes('') }}
@@ -1025,7 +1039,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               onClick={handleDelete}
               className="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
             >
-              Delete Invoice
+              {t('deleteInvoice')}
             </button>
           )}
           {role === 'pm' && (
@@ -1033,7 +1047,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               onClick={() => setShowDeleteConfirm(true)}
               className="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
             >
-              Delete Invoice
+              {t('deleteInvoice')}
             </button>
           )}
         </div>
@@ -1042,7 +1056,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           >
-            Close
+            {t('close')}
           </button>
 
           {/* Cleaner actions */}
@@ -1053,7 +1067,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
             >
               <PaperAirplaneIcon className="h-4 w-4" />
-              {submitting ? 'Submitting...' : invoice.status === 'rejected' ? 'Resubmit' : 'Submit to PM'}
+              {submitting ? t('submitting') : invoice.status === 'rejected' ? t('resubmit') : t('submitToPm')}
             </button>
           )}
 
@@ -1065,7 +1079,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                 disabled={pmActionLoading}
                 className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
               >
-                Reject
+                {t('reject')}
               </button>
               <button
                 onClick={async () => {
@@ -1073,17 +1087,17 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   try {
                     const res = await approveInvoice(invoice.id)
                     if (res.status === 'success') {
-                      showNotification(`Invoice ${invoice.invoiceNumber} approved`, 'success')
+                      showNotification(t('invoiceApproved', { number: invoice.invoiceNumber }), 'success')
                       await refreshInvoice()
-                    } else { showNotification(res.message || 'Failed', 'error') }
-                  } catch { showNotification('Error approving', 'error') }
+                    } else { showNotification(res.message || t('failedToUpdate'), 'error') }
+                  } catch { showNotification(t('errorApproving'), 'error') }
                   finally { setPmActionLoading(false) }
                 }}
                 disabled={pmActionLoading}
                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 <CheckIcon className="h-4 w-4" />
-                {pmActionLoading ? 'Approving...' : 'Approve'}
+                {pmActionLoading ? t('approving') : t('approve')}
               </button>
             </>
           )}
@@ -1094,17 +1108,17 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                 try {
                   const res = await markInvoicePaid(invoice.id)
                   if (res.status === 'success') {
-                    showNotification(`Invoice ${invoice.invoiceNumber} marked as paid`, 'success')
+                    showNotification(t('invoiceMarkedPaid', { number: invoice.invoiceNumber }), 'success')
                     await refreshInvoice()
-                  } else { showNotification(res.message || 'Failed', 'error') }
-                } catch { showNotification('Error marking paid', 'error') }
+                  } else { showNotification(res.message || t('failedToUpdate'), 'error') }
+                } catch { showNotification(t('errorMarkingPaid'), 'error') }
                 finally { setPmActionLoading(false) }
               }}
               disabled={pmActionLoading}
               className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
             >
               <CurrencyDollarIcon className="h-4 w-4" />
-              {pmActionLoading ? 'Processing...' : 'Mark as Paid'}
+              {pmActionLoading ? t('processing') : t('markAsPaid')}
             </button>
           )}
         </div>

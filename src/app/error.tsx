@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   HomeIcon,
@@ -17,6 +18,7 @@ interface ErrorProps {
 }
 
 export default function Error({ error, reset }: ErrorProps) {
+  const { t } = useTranslation('errors')
   const router = useRouter()
 
   useEffect(() => {
@@ -101,10 +103,10 @@ export default function Error({ error, reset }: ErrorProps) {
           className="space-y-4 mb-10"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Something Went Wrong
+            {t('somethingWentWrong')}
           </h2>
           <p className="text-lg text-slate-400 max-w-md mx-auto">
-            We encountered an unexpected error. Don&apos;t worry, our team has been notified.
+            {t('unexpectedErrorDescription')}
           </p>
         </motion.div>
 
@@ -118,7 +120,7 @@ export default function Error({ error, reset }: ErrorProps) {
           >
             <details className="bg-slate-800/50 border border-slate-700 backdrop-blur-sm rounded-xl overflow-hidden">
               <summary className="px-5 py-3 cursor-pointer text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors">
-                View error details
+                {t('viewErrorDetails')}
               </summary>
               <div className="px-5 py-4 border-t border-slate-700 bg-slate-900/50">
                 <code className="text-xs text-amber-400 font-mono break-all">
@@ -126,7 +128,7 @@ export default function Error({ error, reset }: ErrorProps) {
                 </code>
                 {error.digest && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Error ID: {error.digest}
+                    {t('errorId', { id: error.digest })}
                   </p>
                 )}
               </div>
@@ -148,7 +150,7 @@ export default function Error({ error, reset }: ErrorProps) {
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all"
           >
             <ArrowPathIcon className="w-5 h-5" />
-            Try Again
+            {t('tryAgain')}
           </motion.button>
           <motion.button
             onClick={() => router.back()}
@@ -156,7 +158,7 @@ export default function Error({ error, reset }: ErrorProps) {
             whileTap={{ scale: 0.98 }}
             className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-colors"
           >
-            Go Back
+            {t('goBack')}
           </motion.button>
           <Link href="/">
             <motion.span
@@ -165,7 +167,7 @@ export default function Error({ error, reset }: ErrorProps) {
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition-colors cursor-pointer"
             >
               <HomeIcon className="w-5 h-5" />
-              Home
+              {t('home')}
             </motion.span>
           </Link>
         </motion.div>
@@ -177,9 +179,9 @@ export default function Error({ error, reset }: ErrorProps) {
           transition={{ delay: 0.5 }}
           className="text-sm text-slate-500"
         >
-          If this keeps happening, please{' '}
+          {t('keepHappeningPrefix')}{' '}
           <Link href="/contact" className="text-amber-400 hover:text-amber-300 underline underline-offset-2">
-            contact support
+            {t('contactSupport')}
           </Link>
         </motion.p>
 

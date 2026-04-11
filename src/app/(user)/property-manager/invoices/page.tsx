@@ -17,6 +17,7 @@ import {
   ArchiveBoxIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
+import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -83,6 +84,7 @@ export default function PMInvoicesPage() {
 }
 
 function PMInvoicesContent() {
+  const { t } = useTranslation('turnover')
   usePermissionGuard('invoices')
   const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -304,11 +306,11 @@ function PMInvoicesContent() {
   if (error) {
     return (
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Cleaner Invoices</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('invoicesTitle')}</h1>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-center gap-4">
           <ExclamationCircleIcon className="w-8 h-8 text-red-500 flex-shrink-0" />
           <div>
-            <p className="font-semibold text-red-800">Error loading invoices</p>
+            <p className="font-semibold text-red-800">{t('errorLoadingInvoices')}</p>
             <p className="text-sm text-red-600">{error}</p>
           </div>
         </div>
@@ -321,8 +323,8 @@ function PMInvoicesContent() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cleaner Invoices</h1>
-          <p className="text-sm text-gray-500 mt-1">Review and manage invoices from your cleaners</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('invoicesTitle')}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t('invoicesSubtitle')}</p>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useEffect, useLayoutEffect, useCallback, useState, useRef, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
@@ -93,6 +94,7 @@ export default function PropertyRowView({
   disableDnd = false,
   sizeConfig = NORMAL_SIZE_CONFIG,
 }: PropertyRowViewProps) {
+  const { t } = useTranslation('turnover')
   const isMobile = useIsMobile()
   const sidebarWidth = getSidebarWidth(isMobile)
 
@@ -407,7 +409,7 @@ export default function PropertyRowView({
             {isMobile ? (
               <HomeModernIcon className="w-4 h-4 text-gray-400" />
             ) : (
-              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{t('propertiesHeader')}</span>
             )}
           </div>
           {properties.map(property => {
@@ -669,7 +671,7 @@ export default function PropertyRowView({
               {isMobile ? (
                 <HomeModernIcon className="w-4 h-4 text-gray-400" />
               ) : (
-                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Properties</span>
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{t('propertiesHeader')}</span>
               )}
             </div>
             <div className="flex-1 overflow-hidden">

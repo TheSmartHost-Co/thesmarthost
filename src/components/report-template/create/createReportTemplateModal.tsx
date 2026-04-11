@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { createReportTemplate, getReportTemplates, cloneReportTemplate } from '@/services/reportTemplateService'
 import type { FullReportTemplate } from '@/services/types/reportTemplate'
@@ -19,6 +20,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { t } = useTranslation('reports')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [cloneFromId, setCloneFromId] = useState<string>('')
@@ -67,12 +69,12 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
     const trimmedDescription = description.trim()
 
     if (!trimmedName) {
-      showNotification('Template name is required', 'error')
+      showNotification(t('templateNameRequired'), 'error')
       return
     }
 
     if (!profile?.id) {
-      showNotification('User profile not found', 'error')
+      showNotification(t('userProfileNotFound'), 'error')
       return
     }
 
@@ -98,16 +100,16 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
 
       if (res.status === 'success') {
         showNotification(
-          cloneFromId ? 'Template cloned successfully' : 'Template created successfully',
+          cloneFromId ? t('templateCloned') : t('templateCreated'),
           'success'
         )
         onCreated(res.data)
       } else {
-        showNotification(res.message || 'Failed to create template', 'error')
+        showNotification(res.message || t('failedToCreateTemplate'), 'error')
       }
     } catch (err) {
       console.error('Error creating template:', err)
-      showNotification('Error creating template', 'error')
+      showNotification(t('errorCreatingTemplate'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -115,12 +117,12 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-lg w-11/12 max-h-[80vh]">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Create Report Template</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900">{t('createReportTemplate')}</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Template Name <span className="text-red-500">*</span>
+            {t('templateName')} <span className="text-red-500">*</span>
           </label>
           <input
             required
@@ -133,7 +135,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
 
         {/* Description field */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('description')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -201,7 +203,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
             disabled={isSubmitting}
             className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
@@ -211,7 +213,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
             {isSubmitting && (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             )}
-            {cloneFromId ? 'Clone Template' : 'Create Template'}
+            {cloneFromId ? t('cloneTemplate') : t('createTemplate')}
           </button>
         </div>
       </form>

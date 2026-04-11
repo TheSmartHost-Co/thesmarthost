@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import {
   ArrowPathIcon,

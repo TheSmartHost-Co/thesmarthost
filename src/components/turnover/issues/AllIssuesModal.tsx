@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import IssueDetailPanel from './IssueDetailPanel'
 import {
@@ -51,6 +52,7 @@ export default function AllIssuesModal({
   loading = false,
   onIssuesChanged,
 }: AllIssuesModalProps) {
+  const { t } = useTranslation('turnover')
   const [localIssues, setLocalIssues] = useState<ProjectIssue[]>(propIssues)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
@@ -146,12 +148,12 @@ export default function AllIssuesModal({
             )}
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {selectedIssue ? 'Issue Details' : 'All Issues'}
+                {selectedIssue ? t('issueDescription') : t('allIssues')}
               </h2>
               <p className="text-sm text-gray-500">
                 {selectedIssue
-                  ? `${selectedIssue.propertyName || 'Unknown'} · ${formatIssueAge(selectedIssue.createdAt)}`
-                  : `${statusCounts.open + statusCounts.acknowledged} open across ${groupedByProperty.length} ${groupedByProperty.length === 1 ? 'property' : 'properties'}`
+                  ? `${selectedIssue.propertyName || t('unknownProperty')} · ${formatIssueAge(selectedIssue.createdAt)}`
+                  : t('openAcrossProperties', { count: statusCounts.open + statusCounts.acknowledged, properties: groupedByProperty.length })
                 }
               </p>
             </div>
@@ -198,7 +200,7 @@ export default function AllIssuesModal({
                       }
                     `}
                   >
-                    {status === 'all' ? 'All' : getIssueStatusDisplay(status).label}
+                    {status === 'all' ? t('all') : getIssueStatusDisplay(status).label}
                     <span className="ml-1.5 text-xs opacity-60">
                       ({statusCounts[status]})
                     </span>
@@ -215,7 +217,7 @@ export default function AllIssuesModal({
                 <div className="text-center py-12">
                   <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">
-                    {filterStatus === 'all' ? 'No issues found' : `No ${filterStatus} issues`}
+                    {t('noIssuesFound')}
                   </p>
                 </div>
               ) : (
@@ -282,7 +284,7 @@ export default function AllIssuesModal({
                                       <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-400">
                                         <span>{formatIssueAge(issue.createdAt)}</span>
                                         {issue.reporterName && (
-                                          <span>by {issue.reporterName}</span>
+                                          <span>{t('byReporter', { name: issue.reporterName })}</span>
                                         )}
                                         {issue.photoUrls.length > 0 && (
                                           <span className="flex items-center gap-1">

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { updatePatchNote, uploadPatchNoteImage } from '@/services/patchNoteService'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -41,6 +42,7 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
   const [submitting, setSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { t } = useTranslation('common')
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   useEffect(() => {
@@ -163,7 +165,7 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="max-w-lg w-11/12 p-6">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        Edit Patch Note
+        {t('editPatchNote')}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-5 text-black">
@@ -300,14 +302,14 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
             disabled={submitting}
             className="cursor-pointer px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="cursor-pointer px-4 py-2 text-white rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Saving...' : 'Save Changes'}
+            {submitting ? t('saving') : t('saveChanges')}
           </button>
         </div>
       </form>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { CleaningProject, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import type { ZoomLevel } from './TurnoverCalendar'
 import { formatDuration, toLocalDateStr } from './utils/calendarDateUtils'
@@ -88,6 +89,7 @@ export default function ProjectEvent({
   isImplicit = false,
   nextCheckinDate = null,
 }: ProjectEventProps) {
+  const { t } = useTranslation('turnover')
   const isUnassigned = !project.cleanerId
   const isAwaiting = project.status === 'assigned'
   const overdue = isProjectOverdue(project)
@@ -109,9 +111,9 @@ export default function ProjectEvent({
 
   const isMonth = zoomLevel === 'month'
 
-  const cleanerName = project.cleanerName || 'Unassigned'
+  const cleanerName = project.cleanerName || t('unassigned')
   const displayName = showProperty
-    ? (project.propertyName || 'Unknown Property')
+    ? (project.propertyName || t('unknownProperty'))
     : cleanerName
 
   const timeStart = formatShortTime(project.projectStartTime)
@@ -143,7 +145,7 @@ export default function ProjectEvent({
     const diffDays = Math.round((checkinDay.getTime() - projectDay.getTime()) / 86400000)
     if (diffDays <= 0) return null
 
-    return `Next Guest: ${diffDays} day${diffDays !== 1 ? 's' : ''}`
+    return diffDays === 1 ? t('nextGuestSingular') : t('nextGuest', { days: diffDays })
   })()
 
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
@@ -204,34 +206,34 @@ export default function ProjectEvent({
               <div className="font-semibold">{displayName}</div>
               <div className="border-t border-gray-700 my-1" />
               {showProperty && project.cleanerName && (
-                <div className="text-gray-300 mt-0.5">Cleaner: {project.cleanerName}</div>
+                <div className="text-gray-300 mt-0.5">{t('cleanerLabel')}: {project.cleanerName}</div>
               )}
               {!showProperty && project.propertyName && (
                 <div className="text-gray-300 mt-0.5">{project.propertyName}</div>
               )}
               {timeLong && <div className="text-gray-300 mt-0.5">{timeLong}</div>}
               <div className="text-gray-300 mt-0.5 capitalize">
-                Status: {isAwaiting ? 'Awaiting Response' : project.status.replace('_', ' ')}
+                {t('status')}: {isAwaiting ? t('awaitingResponse') : project.status.replace('_', ' ')}
               </div>
               {overdue && overdueLabel && <div className="text-red-400 mt-0.5 font-semibold">{overdueLabel}</div>}
               {project.estimatedDurationMinutes && (
-                <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
+                <div className="text-gray-300 mt-0.5">{t('estimatedDuration')}: {formatDuration(project.estimatedDurationMinutes)}</div>
               )}
               {project.previousBookingGuestName && (
                 <div className="text-gray-300 mt-0.5">
-                  Guest: {project.previousBookingGuestName}
+                  {t('previousGuest')}: {project.previousBookingGuestName}
                 </div>
               )}
               {project.pmNotes && (
-                <div className="text-gray-300 mt-0.5 truncate">PM: {truncateText(project.pmNotes, 60)}</div>
+                <div className="text-gray-300 mt-0.5 truncate">{t('pmNotes')}: {truncateText(project.pmNotes, 60)}</div>
               )}
               {project.cleanerNotes && (
-                <div className="text-gray-300 mt-0.5 truncate">Cleaner: {truncateText(project.cleanerNotes, 60)}</div>
+                <div className="text-gray-300 mt-0.5 truncate">{t('cleanerNotes')}: {truncateText(project.cleanerNotes, 60)}</div>
               )}
-              {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
-              {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} supply list{pendingSupplyListCount !== 1 ? 's' : ''}</div>}
+              {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} {openIssueCount !== 1 ? t('issues') : t('issues')}</div>}
+              {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} {t('supplyListsLabel')}</div>}
               {nextGuestCountdown && <div className="text-blue-400 mt-0.5">{nextGuestCountdown}</div>}
-              {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">Same Day Turnover</div>}
+              {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">{t('sameDayTurnover')}</div>}
             </div>
           </div>,
           document.body
@@ -306,22 +308,22 @@ export default function ProjectEvent({
         <div className="font-semibold">{displayName}</div>
         <div className="border-t border-gray-700 my-1" />
         {showProperty && project.cleanerName && (
-          <div className="text-gray-300 mt-0.5">Cleaner: {project.cleanerName}</div>
+          <div className="text-gray-300 mt-0.5">{t('cleanerLabel')}: {project.cleanerName}</div>
         )}
         {!showProperty && project.propertyName && (
           <div className="text-gray-300 mt-0.5">{project.propertyName}</div>
         )}
         {timeLong && <div className="text-gray-300 mt-0.5">{timeLong}</div>}
         <div className="text-gray-300 mt-0.5 capitalize">
-          Status: {isAwaiting ? 'Awaiting Response' : project.status.replace('_', ' ')}
+          {t('status')}: {isAwaiting ? t('awaitingResponse') : project.status.replace('_', ' ')}
         </div>
         {overdue && overdueLabel && <div className="text-red-400 mt-0.5 font-semibold">{overdueLabel}</div>}
         {project.estimatedDurationMinutes && (
-          <div className="text-gray-300 mt-0.5">Est. {formatDuration(project.estimatedDurationMinutes)}</div>
+          <div className="text-gray-300 mt-0.5">{t('estimatedDuration')}: {formatDuration(project.estimatedDurationMinutes)}</div>
         )}
         {project.previousBookingGuestName && (
           <div className="text-gray-300 mt-0.5">
-            Guest: {project.previousBookingGuestName}
+            {t('previousGuest')}: {project.previousBookingGuestName}
           </div>
         )}
         {(project.propertyNumBedrooms || project.propertyNumBathrooms) && (
@@ -332,15 +334,15 @@ export default function ProjectEvent({
           </div>
         )}
         {project.pmNotes && (
-          <div className="text-gray-300 mt-0.5 truncate">PM: {truncateText(project.pmNotes, 60)}</div>
+          <div className="text-gray-300 mt-0.5 truncate">{t('pmNotes')}: {truncateText(project.pmNotes, 60)}</div>
         )}
         {project.cleanerNotes && (
-          <div className="text-gray-300 mt-0.5 truncate">Cleaner: {truncateText(project.cleanerNotes, 60)}</div>
+          <div className="text-gray-300 mt-0.5 truncate">{t('cleanerNotes')}: {truncateText(project.cleanerNotes, 60)}</div>
         )}
-        {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} issue{openIssueCount !== 1 ? 's' : ''}</div>}
-        {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} supply list{pendingSupplyListCount !== 1 ? 's' : ''}</div>}
+        {hasIssues && <div className="text-red-400 mt-0.5">{openIssueCount} {t('issues')}</div>}
+        {hasSupplies && <div className="text-teal-400 mt-0.5">{pendingSupplyListCount} {t('supplyListsLabel')}</div>}
         {nextGuestCountdown && <div className="text-blue-400 mt-0.5">{nextGuestCountdown}</div>}
-        {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">Same Day Turnover</div>}
+        {project.isSameDayTurnover && <div className="text-amber-400 mt-0.5">{t('sameDayTurnover')}</div>}
       </div>
     </div>,
     document.body

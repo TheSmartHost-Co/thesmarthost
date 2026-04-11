@@ -6,12 +6,14 @@ import Link from 'next/link'
 import { ArrowLeftIcon, KeyIcon, EnvelopeIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation('auth')
   const supabase = createClient()
   const notify = useNotificationStore(s => s.showNotification)
 
@@ -21,7 +23,7 @@ export default function ForgotPasswordPage() {
 
   async function sendResetEmail() {
     if (!email) {
-      notify("Please enter your email address", "error")
+      notify(t('pleaseEnterEmail'), "error")
       return
     }
 
@@ -37,7 +39,7 @@ export default function ForgotPasswordPage() {
       notify(error.message, "error")
     } else {
       setEmailSent(true)
-      notify("Password reset email sent!", "success")
+      notify(t('resetEmailSent'), "success")
     }
   }
 
@@ -62,9 +64,9 @@ export default function ForgotPasswordPage() {
               >
                 <CheckCircleIcon className="h-10 w-10 text-white" />
               </motion.div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Check your email</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('checkYourEmail')}</h2>
               <p className="mt-2 text-gray-600">
-                We&apos;ve sent a password reset link to
+                {t('sentResetLink')}
               </p>
               <p className="mt-1 font-semibold text-blue-600">{email}</p>
             </div>
@@ -72,14 +74,14 @@ export default function ForgotPasswordPage() {
             <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-100">
               <div className="text-center space-y-5">
                 <p className="text-gray-700">
-                  Click the link in your email to reset your password. The link will expire in 1 hour.
+                  {t('clickResetLink')}
                 </p>
 
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <p className="text-sm text-amber-800">
-                    <strong>Can&apos;t find the email?</strong>
+                    <strong>{t('cantFindEmail')}</strong>
                     <br />
-                    Check your spam folder or try sending another reset email.
+                    {t('checkSpamOrResend')}
                   </p>
                 </div>
 
@@ -94,7 +96,7 @@ export default function ForgotPasswordPage() {
                   className="inline-flex items-center px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-sm"
                 >
                   <ArrowPathIcon className="h-4 w-4 mr-2" />
-                  Send another email
+                  {t('sendAnotherEmail')}
                 </motion.button>
               </div>
             </div>
@@ -105,7 +107,7 @@ export default function ForgotPasswordPage() {
                 className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
               >
                 <ArrowLeftIcon className="h-4 w-4 mr-1" />
-                Back to sign in
+                {t('backToSignIn')}
               </Link>
             </div>
           </motion.div>
@@ -135,9 +137,9 @@ export default function ForgotPasswordPage() {
             >
               <KeyIcon className="h-10 w-10 text-white" />
             </motion.div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Forgot your password?</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('forgotPasswordTitle')}</h2>
             <p className="mt-2 text-gray-600 max-w-sm mx-auto">
-              No worries! Enter your email and we&apos;ll send you a link to reset your password.
+              {t('forgotPasswordDesc')}
             </p>
           </div>
 
@@ -145,7 +147,7 @@ export default function ForgotPasswordPage() {
             <form className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email address
+                  {t('emailAddress')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -157,7 +159,7 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full text-gray-900 pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                    placeholder="Enter your email"
+                    placeholder={t('enterEmail')}
                     required
                   />
                 </div>
@@ -177,10 +179,10 @@ export default function ForgotPasswordPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Sending...
+                    {t('sending')}
                   </span>
                 ) : (
-                  'Send reset email'
+                  t('sendResetEmail')
                 )}
               </motion.button>
             </form>

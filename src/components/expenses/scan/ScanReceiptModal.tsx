@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import React, { useState, useCallback } from 'react'
 import Modal from '@/components/shared/modal'
 import { scanReceipt, createExpense, formatCurrency } from '@/services/expenseService'
