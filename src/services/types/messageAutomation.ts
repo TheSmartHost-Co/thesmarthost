@@ -23,25 +23,29 @@ export interface ScheduleDay {
 export interface MessageAutomationSettings {
   autoReplyMessages: boolean
   autoReplyInquiries: boolean
-  autoSendWhenConfident: boolean
+  autoSendMessages: boolean
+  autoSendInquiries: boolean
   schedule: ScheduleDay[]
   timezone: string
   alertEmail: boolean
   alertSms: boolean
   customSystemPrompt: string | null
-  confidenceThreshold: ConfidenceThreshold
+  confidenceThresholdMessages: ConfidenceThreshold
+  confidenceThresholdInquiries: ConfidenceThreshold
 }
 
 export interface UpdateMessageAutomationSettingsPayload {
   autoReplyMessages?: boolean
   autoReplyInquiries?: boolean
-  autoSendWhenConfident?: boolean
+  autoSendMessages?: boolean
+  autoSendInquiries?: boolean
   schedule?: ScheduleDay[]
   timezone?: string
   alertEmail?: boolean
   alertSms?: boolean
   customSystemPrompt?: string | null
-  confidenceThreshold?: ConfidenceThreshold
+  confidenceThresholdMessages?: ConfidenceThreshold
+  confidenceThresholdInquiries?: ConfidenceThreshold
 }
 
 export interface MessageLogEntry {

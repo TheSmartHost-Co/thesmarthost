@@ -44,13 +44,15 @@ export default function MessageAutomationSettingsPanel({ isOpen, onClose }: Mess
   // Form fields as individual local state (all held locally until Save)
   const [autoReplyMessages, setAutoReplyMessages] = useState(false)
   const [autoReplyInquiries, setAutoReplyInquiries] = useState(false)
-  const [autoSendWhenConfident, setAutoSendWhenConfident] = useState(false)
+  const [autoSendMessages, setAutoSendMessages] = useState(false)
+  const [autoSendInquiries, setAutoSendInquiries] = useState(false)
   const [schedule, setSchedule] = useState<ScheduleDay[]>(defaultSchedule)
   const [timezone, setTimezone] = useState('America/Toronto')
   const [alertEmail, setAlertEmail] = useState(true)
   const [alertSms, setAlertSms] = useState(true)
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
-  const [confidenceThreshold, setConfidenceThreshold] = useState<ConfidenceThreshold>('medium')
+  const [confidenceThresholdMessages, setConfidenceThresholdMessages] = useState<ConfidenceThreshold>('medium')
+  const [confidenceThresholdInquiries, setConfidenceThresholdInquiries] = useState<ConfidenceThreshold>('low')
 
   // Load settings every time the panel opens
   useEffect(() => {
@@ -62,13 +64,15 @@ export default function MessageAutomationSettingsPanel({ isOpen, onClose }: Mess
           const s: MessageAutomationSettings = res.data
           setAutoReplyMessages(s.autoReplyMessages)
           setAutoReplyInquiries(s.autoReplyInquiries)
-          setAutoSendWhenConfident(s.autoSendWhenConfident)
+          setAutoSendMessages(s.autoSendMessages)
+          setAutoSendInquiries(s.autoSendInquiries)
           setSchedule(s.schedule.length > 0 ? s.schedule : defaultSchedule)
           setTimezone(s.timezone)
           setAlertEmail(s.alertEmail)
           setAlertSms(s.alertSms)
           setCustomSystemPrompt(s.customSystemPrompt ?? '')
-          setConfidenceThreshold(s.confidenceThreshold)
+          setConfidenceThresholdMessages(s.confidenceThresholdMessages)
+          setConfidenceThresholdInquiries(s.confidenceThresholdInquiries)
         }
       })
       .catch(() => showNotification('Failed to load message automation settings', 'error'))
@@ -81,13 +85,15 @@ export default function MessageAutomationSettingsPanel({ isOpen, onClose }: Mess
       const res = await updateMessageAutomationSettings({
         autoReplyMessages,
         autoReplyInquiries,
-        autoSendWhenConfident,
+        autoSendMessages,
+        autoSendInquiries,
         schedule,
         timezone,
         alertEmail,
         alertSms,
         customSystemPrompt: customSystemPrompt || null,
-        confidenceThreshold,
+        confidenceThresholdMessages,
+        confidenceThresholdInquiries,
       })
       if (res.status === 'success') {
         showNotification('Settings saved', 'success')
@@ -169,62 +175,89 @@ export default function MessageAutomationSettingsPanel({ isOpen, onClose }: Mess
               Hostaway listings are up to date for the best AI responses.
             </div>
 
-            {/* 2. Master toggles */}
+            {/* 2. Message Handling */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Reply Automation</h3>
-              <div className="space-y-3">
-                <Toggle
-                  label="Auto-reply to Guest Messages"
-                  description="AI will generate and queue replies for incoming guest messages."
-                  checked={autoReplyMessages}
-                  onChange={setAutoReplyMessages}
-                />
-                <Toggle
-                  label="Auto-reply to Inquiries"
-                  description="AI will generate replies to booking inquiries from guests."
-                  checked={autoReplyInquiries}
-                  onChange={setAutoReplyInquiries}
-                />
-              </div>
-            </div>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Message Handling</h3>
+              <div className="space-y-4">
 
-            {/* 3. Send behavior */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Send Behavior</h3>
-              <div className="space-y-3">
-                <Toggle
-                  label="Auto-send when confident"
-                  description="Skip your review and send automatically when the AI is confident in its response."
-                  checked={autoSendWhenConfident}
-                  onChange={setAutoSendWhenConfident}
-                />
-                {autoSendWhenConfident && (
-                  <p className="ml-14 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
-                    Messages will be sent automatically to guests without your review when the AI is confident.
-                  </p>
-                )}
-
-                {/* Confidence threshold */}
-                <div className="flex items-start gap-3">
-                  <div className="w-11 flex-shrink-0" /> {/* spacer to align with toggles */}
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
-                      Confidence Threshold
-                    </label>
-                    <p className="text-xs text-gray-500 mb-2">
-                      Minimum confidence level required for auto-send to trigger.
-                    </p>
-                    <select
-                      value={confidenceThreshold}
-                      onChange={(e) => setConfidenceThreshold(e.target.value as ConfidenceThreshold)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="high">Conservative (only high confidence)</option>
-                      <option value="medium">Balanced (medium or higher)</option>
-                      <option value="low">Permissive (anything above low)</option>
-                    </select>
-                  </div>
+                {/* Guest Messages */}
+                <div>
+                  <Toggle
+                    label="Process Guest Messages"
+                    description="AI reads incoming guest messages and drafts replies for your review."
+                    checked={autoReplyMessages}
+                    onChange={setAutoReplyMessages}
+                  />
+                  {autoReplyMessages && (
+                    <div className="mt-3 ml-12 pl-2 border-l-2 border-gray-200 space-y-3">
+                      <Toggle
+                        label="Auto-send confident replies"
+                        description="Send AI replies directly to guests without your review when confidence is high enough."
+                        checked={autoSendMessages}
+                        onChange={setAutoSendMessages}
+                      />
+                      {autoSendMessages && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                          Confident replies will be sent to guests automatically without your approval.
+                        </p>
+                      )}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Confidence threshold
+                        </label>
+                        <select
+                          value={confidenceThresholdMessages}
+                          onChange={(e) => setConfidenceThresholdMessages(e.target.value as ConfidenceThreshold)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                          <option value="high">Conservative (only high confidence)</option>
+                          <option value="medium">Balanced (medium or higher)</option>
+                          <option value="low">Permissive (anything above low)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Inquiries */}
+                <div>
+                  <Toggle
+                    label="Process Booking Inquiries"
+                    description="AI reads incoming inquiries and drafts replies for your review."
+                    checked={autoReplyInquiries}
+                    onChange={setAutoReplyInquiries}
+                  />
+                  {autoReplyInquiries && (
+                    <div className="mt-3 ml-12 pl-2 border-l-2 border-gray-200 space-y-3">
+                      <Toggle
+                        label="Auto-send confident replies"
+                        description="Send AI replies to inquiries directly without your review."
+                        checked={autoSendInquiries}
+                        onChange={setAutoSendInquiries}
+                      />
+                      {autoSendInquiries && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                          Confident replies will be sent to guests automatically without your approval.
+                        </p>
+                      )}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Confidence threshold
+                        </label>
+                        <select
+                          value={confidenceThresholdInquiries}
+                          onChange={(e) => setConfidenceThresholdInquiries(e.target.value as ConfidenceThreshold)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                          <option value="high">Conservative (only high confidence)</option>
+                          <option value="medium">Balanced (medium or higher)</option>
+                          <option value="low">Permissive (anything above low)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
 
