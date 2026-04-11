@@ -338,7 +338,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
 
       {/* Dashboard: Automation Type Cards */}
       {isDashboard && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <AutomationTypeCard
             title="Review Nudge"
             description="Send personalized messages encouraging guests to leave reviews"
@@ -352,6 +352,13 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
             icon={StarIcon}
             href="/property-manager/ai-automations/guest-review"
             color="violet"
+          />
+          <AutomationTypeCard
+            title="Message Automation"
+            description="AI-powered guest messaging during configured hours"
+            icon={ChatBubbleLeftRightIcon}
+            href="/property-manager/ai-automations/message-automation"
+            color="blue"
           />
         </div>
       )}
@@ -491,15 +498,17 @@ function AutomationTypeCard({ title, description, icon: Icon, href, color }: {
   description: string
   icon: React.ComponentType<{ className?: string }>
   href: string
-  color: 'amber' | 'violet'
+  color: 'amber' | 'violet' | 'blue'
 }) {
   const colors = {
     amber: 'border-amber-200 hover:border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50',
     violet: 'border-violet-200 hover:border-violet-300 bg-gradient-to-br from-violet-50 to-purple-50',
+    blue: 'border-blue-200 hover:border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50',
   }
   const iconColors = {
     amber: 'bg-amber-100 text-amber-600',
     violet: 'bg-violet-100 text-violet-600',
+    blue: 'bg-blue-100 text-blue-600',
   }
 
   return (

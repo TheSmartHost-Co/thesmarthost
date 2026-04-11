@@ -141,6 +141,7 @@ export const managerNavConfig: SidebarNavConfig = {
           { name: 'automationDashboard', href: '/property-manager/ai-automations/dashboard', icon: Squares2X2Icon },
           { name: 'reviewNudge', href: '/property-manager/ai-automations/review-nudge', icon: ChatBubbleLeftRightIcon },
           { name: 'guestReview', href: '/property-manager/ai-automations/guest-review', icon: StarIcon },
+          { name: 'messageAutomation', href: '/property-manager/ai-automations/message-automation', icon: ChatBubbleLeftRightIcon },
         ],
       },
     },
@@ -186,6 +187,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'automationDashboard', href: '/property-manager/ai-automations/dashboard', icon: Squares2X2Icon },
   { name: 'reviewNudge', href: '/property-manager/ai-automations/review-nudge', icon: ChatBubbleLeftRightIcon },
   { name: 'guestReview', href: '/property-manager/ai-automations/guest-review', icon: StarIcon },
+  { name: 'messageAutomation', href: '/property-manager/ai-automations/message-automation', icon: ChatBubbleLeftRightIcon },
   { name: 'whatsNew', href: '/property-manager/whats-new', icon: SparklesIcon },
   { name: 'settings', href: '/property-manager/settings', icon: CogIcon },
 ]
