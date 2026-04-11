@@ -20,6 +20,8 @@ import { updateUserProfile } from '@/services/profileService'
 import { getCleanerByAuthUserId, updateCleaner } from '@/services/cleanerService'
 import type { Cleaner } from '@/services/types/cleaner'
 import { TAX_RATES } from '@/constants/taxRates'
+import LanguageSelector from '@/components/shared/LanguageSelector'
+import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 
 export default function CleanerSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -295,6 +297,9 @@ export default function CleanerSettingsPage() {
         <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1">Manage your account preferences</p>
       </div>
 
+      {/* Language Prompt Banner */}
+      <LanguagePromptBanner />
+
       {/* Settings Sections */}
       <div className="space-y-6">
         {/* Profile Settings Section */}
@@ -433,6 +438,9 @@ export default function CleanerSettingsPage() {
             )}
           </div>
         </motion.div>
+
+        {/* Language Preference */}
+        <LanguageSelector delay={0.15} />
 
         {/* Notification Preferences Section */}
         <motion.div

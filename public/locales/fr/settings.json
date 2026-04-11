@@ -1,0 +1,19 @@
+{
+  "title": "Paramètres",
+  "subtitle": "Gérez les paramètres et préférences de votre compte",
+  "profile": "Profil",
+  "notifications": "Notifications",
+  "language": "Langue",
+  "languageSubtitle": "Choisissez votre langue préférée",
+  "fullName": "Nom complet",
+  "email": "Courriel",
+  "phone": "Téléphone",
+  "company": "Entreprise",
+  "smsNotifications": "Notifications SMS",
+  "smsDescription": "Recevoir les notifications par SMS",
+  "emailNotifications": "Notifications par courriel",
+  "emailDescription": "Recevoir les notifications par courriel",
+  "saveChanges": "Enregistrer les modifications",
+  "settingsUpdated": "Paramètres mis à jour avec succès",
+  "languageUpdated": "Langue mise à jour avec succès"
+}

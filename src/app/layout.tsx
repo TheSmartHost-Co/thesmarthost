@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Manrope } from "next/font/google";
 import "./globals.css";
+import I18nProvider from "@/i18n/I18nProvider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -39,7 +40,9 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} ${manrope.variable} antialiased`}
       >
-        {children}
+        <I18nProvider>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import { SessionWarningModal } from '@/components/session/SessionWarningModal'
 import { SessionExpiredModal } from '@/components/session/SessionExpiredModal'
 import PatchNotesModal from '@/components/patch-notes/PatchNotesModal'
 import { usePatchNotesPopup } from '@/hooks/usePatchNotesPopup'
+import { useLanguageSync } from '@/hooks/useLanguageSync'
 
 export default function UserLayout({
   children,
@@ -19,6 +20,9 @@ export default function UserLayout({
   const isCleanerRoute = pathname?.startsWith('/cleaner')
   const isClientRoute = pathname?.startsWith('/client')
   
+  // Sync i18next language with user's profile preference
+  useLanguageSync()
+
   // Session monitoring for all authenticated pages
   const {
     sessionStatus,

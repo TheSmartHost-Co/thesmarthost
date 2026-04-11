@@ -1,0 +1,19 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage your account settings and preferences",
+  "profile": "Profile",
+  "notifications": "Notifications",
+  "language": "Language",
+  "languageSubtitle": "Choose your preferred language",
+  "fullName": "Full Name",
+  "email": "Email",
+  "phone": "Phone",
+  "company": "Company",
+  "smsNotifications": "SMS Notifications",
+  "smsDescription": "Receive notifications via SMS",
+  "emailNotifications": "Email Notifications",
+  "emailDescription": "Receive notifications via email",
+  "saveChanges": "Save Changes",
+  "settingsUpdated": "Settings updated successfully",
+  "languageUpdated": "Language updated successfully"
+}

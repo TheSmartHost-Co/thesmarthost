@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowPathIcon, ClipboardDocumentIcon, CheckIcon, XMarkIcon, PlayIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -29,6 +29,17 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
   const [processing, setProcessing] = useState(false)
+
+  // Reset all internal state when switching between tasks
+  useEffect(() => {
+    setEditedContent('')
+    setCopied(false)
+    setApproving(false)
+    setRejecting(false)
+    setRegenerating(false)
+    setSending(false)
+    setProcessing(false)
+  }, [task?.id])
 
   const content = task?.editedContent || task?.generatedContent || ''
 
@@ -157,6 +168,14 @@ export default function ApproveTaskModal({ isOpen, task, onClose, onTaskUpdated,
             {task.departureDate && ` — Checkout ${new Date(task.departureDate).toLocaleDateString()}`}
           </p>
         </div>
+
+        {/* Externally completed banner */}
+        {task.status === 'sent' && task.errorMessage && (task.errorMessage.includes('detected') || task.errorMessage.includes('externally')) && (
+          <div className="mb-5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+            <span className="text-emerald-500 text-lg">&#10003;</span>
+            <p className="text-sm text-emerald-700">{task.errorMessage}</p>
+          </div>
+        )}
 
         {/* AI-Generated Content */}
         {task.status === 'pending' ? (

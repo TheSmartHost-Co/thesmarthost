@@ -47,6 +47,8 @@ export interface AutomationSettings {
   autoSendNudge: boolean
   notifyEmail: boolean
   notifySms: boolean
+  customReviewPrompt: string | null
+  customNudgePrompt: string | null
 }
 
 export interface UpdateSettingsPayload {
@@ -56,6 +58,8 @@ export interface UpdateSettingsPayload {
   autoSendNudge?: boolean
   notifyEmail?: boolean
   notifySms?: boolean
+  customReviewPrompt?: string | null
+  customNudgePrompt?: string | null
 }
 
 export interface ApproveTaskPayload {

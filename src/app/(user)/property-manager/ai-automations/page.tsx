@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon, ChatBubbleLeftRightIcon, StarIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon, ChatBubbleLeftRightIcon, StarIcon, ArrowLeftIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getAutomationTasks,
@@ -15,6 +15,7 @@ import {
   bulkApproveTasks,
   bulkRejectTasks,
   bulkDeleteTasks,
+  triggerReviewSync,
 } from '@/services/automationService'
 import type { AutomationTask, AutomationTaskCounts, AutomationType } from '@/services/types/automation'
 import AutomationTaskCard from '@/components/automations/AutomationTaskCard'
@@ -57,6 +58,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
   const [processingAll, setProcessingAll] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [syncing, setSyncing] = useState(false)
 
   const typeFilter = fixedType || null
   const isDashboard = !typeFilter
@@ -216,6 +218,19 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
     setProcessingAll(false)
   }
 
+  const handleReviewSync = async () => {
+    setSyncing(true)
+    try {
+      const res = await triggerReviewSync()
+      showNotification(res.message || 'Review sync complete', res.status === 'success' ? 'success' : 'error')
+      fetchData()
+    } catch {
+      showNotification('Review sync failed', 'error')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const handleRunScan = async (startDate: string, endDate: string) => {
     setScanning(true)
     try {
@@ -297,6 +312,19 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
               {processingAll ? 'Processing...' : 'Process All'}
             </button>
           )}
+          <div className="relative group">
+            <button
+              onClick={handleReviewSync}
+              disabled={syncing}
+              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors disabled:opacity-50 border border-emerald-200"
+            >
+              <ArrowsRightLeftIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Sync reviews from Hostaway
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+            </div>
+          </div>
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"

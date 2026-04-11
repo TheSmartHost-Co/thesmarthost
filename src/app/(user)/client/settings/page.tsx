@@ -9,6 +9,8 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
+import LanguageSelector from '@/components/shared/LanguageSelector'
+import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 
 export default function ClientSettingsPage() {
   const profile = useUserStore((s) => s.profile)
@@ -80,6 +82,9 @@ export default function ClientSettingsPage() {
         <p className="text-sm text-gray-500 mt-1">Manage your profile and notification preferences</p>
       </div>
 
+      {/* Language Prompt Banner */}
+      <LanguagePromptBanner />
+
       {/* Profile Section */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -126,6 +131,9 @@ export default function ClientSettingsPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Language Preference */}
+      <LanguageSelector delay={0.05} />
 
       {/* Notification Preferences */}
       <motion.div

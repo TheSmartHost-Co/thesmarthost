@@ -13,6 +13,7 @@
     smsNotificationsEnabled?: boolean
     emailNotificationsEnabled?: boolean
     autoImport?: boolean | null
+    preferredLanguage?: 'en' | 'fr' | 'es' | null
     pmUserId?: string | null       // PM's userId (for team members, used in API calls)
     permissions?: Permissions | null // Page-level permissions (for team members)
   }

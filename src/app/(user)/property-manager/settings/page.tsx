@@ -28,6 +28,8 @@ import HostawayConnectionModal from '@/components/connection/hostaway/HostawayCo
 import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnectionModal'
 import HospitableConnectionModal from '@/components/connection/hospitable/HospitableConnectionModal'
 import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscriptionsSection'
+import LanguageSelector from '@/components/shared/LanguageSelector'
+import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 import { getProperties } from '@/services/propertyService'
 import type { HostawayConnection } from '@/services/types/hostawayConnection'
 import type { GuestyConnection } from '@/services/types/guestyConnection'
@@ -436,6 +438,9 @@ export default function PropertyManagerSettingsPage() {
         </div>
       </div>
 
+      {/* Language Prompt Banner */}
+      <LanguagePromptBanner />
+
       {/* Settings Sections */}
       <div className="space-y-6">
         {/* Profile Settings Section */}
@@ -575,6 +580,9 @@ export default function PropertyManagerSettingsPage() {
             )}
           </div>
         </motion.div>
+
+        {/* Language Preference */}
+        <LanguageSelector delay={0.15} />
 
         {/* Notification Preferences Section */}
         <motion.div

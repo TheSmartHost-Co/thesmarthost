@@ -11,6 +11,7 @@ export interface UserProfile {
   additionalNotificationEmails?: string[];
   additionalNotificationPhones?: string[];
   autoImport?: boolean | null;
+  preferredLanguage?: 'en' | 'fr' | 'es' | null;
   createdAt: string;
   // Team member fields (returned by getOrCreateTeamMemberProfile)
   pmUserId?: string | null;
@@ -27,6 +28,7 @@ export interface UpdateProfilePayload {
   additionalNotificationEmails?: string[];
   additionalNotificationPhones?: string[];
   autoImport?: boolean;
+  preferredLanguage?: 'en' | 'fr' | 'es';
 }
 
 export interface ProfileResponse {

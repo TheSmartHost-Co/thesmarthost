@@ -82,7 +82,9 @@ export default function AutomationTaskCard({ task, onReview, onRetry, onProcess,
             )}
             {task.status === 'sent' && task.sentAt && (
               <span className="text-[10px] text-gray-400">
-                Sent {formatDate(task.sentAt)}
+                {task.errorMessage?.includes('externally') || task.errorMessage?.includes('detected')
+                  ? task.errorMessage
+                  : `Sent ${formatDate(task.sentAt)}`}
               </span>
             )}
             {task.status === 'failed' && task.errorMessage && (

@@ -6,6 +6,16 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAutomationSettings, updateAutomationSettings } from '@/services/automationService'
 import type { AutomationSettings } from '@/services/types/automation'
 
+const TEMPLATE_VARS = [
+  { key: '{{guest_name}}', description: 'Full guest name (e.g. John Smith)' },
+  { key: '{{guest_first_name}}', description: 'Guest first name (e.g. John)' },
+  { key: '{{property_name}}', description: 'Listing name from Hostaway' },
+  { key: '{{check_in}}', description: 'Check-in date' },
+  { key: '{{check_out}}', description: 'Check-out date' },
+  { key: '{{platform}}', description: 'Booking platform (airbnb, vrbo, booking)' },
+  { key: '{{conversation}}', description: 'Full message thread between host and guest' },
+]
+
 interface AutomationSettingsPanelProps {
   isOpen: boolean
   onClose: () => void
@@ -20,6 +30,8 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
     autoSendNudge: false,
     notifyEmail: true,
     notifySms: true,
+    customReviewPrompt: null,
+    customNudgePrompt: null,
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -130,6 +142,30 @@ export default function AutomationSettingsPanel({ isOpen, onClose }: AutomationS
               </div>
             )}
 
+            {/* Custom Prompts */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">Custom AI Prompts</h3>
+              <p className="text-xs text-gray-500 mb-3">Customize the AI instructions. Leave blank to use the default. Click variables to insert them.</p>
+
+              {settings.guestReviewEnabled && (
+                <PromptEditor
+                  label="Guest Review Prompt"
+                  value={settings.customReviewPrompt || ''}
+                  onChange={(v) => setSettings(s => ({ ...s, customReviewPrompt: v || null }))}
+                  placeholder="Leave blank for default. Example: Write a warm 3-sentence review for {{guest_name}} who stayed at our place..."
+                />
+              )}
+
+              {settings.reviewNudgeEnabled && (
+                <PromptEditor
+                  label="Review Nudge Prompt"
+                  value={settings.customNudgePrompt || ''}
+                  onChange={(v) => setSettings(s => ({ ...s, customNudgePrompt: v || null }))}
+                  placeholder="Leave blank for default. Example: Write a friendly message to {{guest_first_name}} encouraging them to leave a review..."
+                />
+              )}
+            </div>
+
             {/* Notification Preferences */}
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-3">Approval Notifications</h3>
@@ -187,5 +223,58 @@ function Toggle({ label, description, checked, onChange }: {
         <div className="text-xs text-gray-500">{description}</div>
       </div>
     </label>
+  )
+}
+
+function PromptEditor({ label, value, onChange, placeholder }: {
+  label: string
+  value: string
+  onChange: (val: string) => void
+  placeholder: string
+}) {
+  const textareaId = `prompt-${label.replace(/\s/g, '-').toLowerCase()}`
+
+  const insertVar = (varKey: string) => {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null
+    if (!textarea) {
+      onChange(value + varKey)
+      return
+    }
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const newValue = value.substring(0, start) + varKey + value.substring(end)
+    onChange(newValue)
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const pos = start + varKey.length
+      textarea.setSelectionRange(pos, pos)
+    })
+  }
+
+  return (
+    <div className="mb-4">
+      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+      <textarea
+        id={textareaId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y"
+      />
+      <div className="flex flex-wrap gap-1 mt-1.5">
+        {TEMPLATE_VARS.map(v => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => insertVar(v.key)}
+            title={v.description}
+            className="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-mono rounded border border-amber-200 transition-colors"
+          >
+            + {v.key.replace(/\{\{|\}\}/g, '')}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

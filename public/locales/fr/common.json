@@ -1,0 +1,18 @@
+{
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "confirm": "Confirmer",
+  "close": "Fermer",
+  "loading": "Chargement...",
+  "search": "Rechercher",
+  "edit": "Modifier",
+  "create": "Créer",
+  "back": "Retour",
+  "next": "Suivant",
+  "yes": "Oui",
+  "no": "Non",
+  "error": "Erreur",
+  "success": "Succès",
+  "noResults": "Aucun résultat"
+}
