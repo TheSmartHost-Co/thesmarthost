@@ -65,6 +65,7 @@ export interface MessageLogEntry {
   aiSuggestedAction: string | null
   aiTopic: string | null
   aiPromptUsed: string | null
+  conversationHistory: string | null
   status: MessageLogStatus
   editedContent: string | null
   sentAt: string | null

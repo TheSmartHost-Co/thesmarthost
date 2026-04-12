@@ -167,6 +167,18 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
           </div>
         </div>
 
+        {/* Conversation History */}
+        {log.conversationHistory && (
+          <div className="mb-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">
+              Conversation History
+            </p>
+            <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+              {log.conversationHistory}
+            </div>
+          </div>
+        )}
+
         {/* AI Confidence section */}
         {log.aiConfidence && (
           <div className="mb-5 space-y-2">
