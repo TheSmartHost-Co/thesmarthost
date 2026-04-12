@@ -7,6 +7,8 @@ import type { MessageLogEntry } from '@/services/types/messageAutomation'
 interface MessageLogCardProps {
   log: MessageLogEntry
   onReview: (log: MessageLogEntry) => void
+  selected?: boolean
+  onSelect?: (logId: string, checked: boolean) => void
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ function PlatformBadge({ platform }: { platform: string | null }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MessageLogCard({ log, onReview }: MessageLogCardProps) {
+export default function MessageLogCard({ log, onReview, selected, onSelect }: MessageLogCardProps) {
   const timeLabel   = useRelativeTime(log.incomingMessageAt)
   const status      = statusConfig[log.status] ?? statusConfig.pending
   const preview     = log.incomingMessage.length > 120
@@ -105,8 +107,22 @@ export default function MessageLogCard({ log, onReview }: MessageLogCardProps) {
   return (
     <div
       onClick={() => onReview(log)}
-      className={`bg-white border rounded-xl p-4 transition-shadow hover:shadow-md cursor-pointer ${borderColor(log.status)}`}
+      className={`bg-white border rounded-xl p-4 transition-shadow hover:shadow-md cursor-pointer ${
+        selected ? 'border-blue-400 bg-blue-50/30' : borderColor(log.status)
+      }`}
     >
+      {/* Checkbox for bulk selection */}
+      {onSelect && (
+        <div className="float-left mr-3 mt-0.5">
+          <input
+            type="checkbox"
+            checked={selected || false}
+            onChange={(e) => { e.stopPropagation(); onSelect(log.id, e.target.checked) }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer"
+          />
+        </div>
+      )}
       {/* ── Row 1: guest · property · platform ── */}
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-2 min-w-0">

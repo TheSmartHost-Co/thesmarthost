@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -64,11 +64,50 @@ function getPlatformBadge(platform: string | null) {
   )
 }
 
+/**
+ * Parses the raw "[Guest - 2026-04-12 19:41:00]: message text" format
+ * into structured message objects for rendering as chat bubbles.
+ */
+function parseConversationHistory(raw: string): { sender: string; isGuest: boolean; time: string; body: string }[] {
+  const lines = raw.split('\n')
+  const messages: { sender: string; isGuest: boolean; time: string; body: string }[] = []
+  const lineRegex = /^\[(Guest|Host)\s*[-–—]\s*(.+?)\]:\s*(.*)$/
+
+  let current: { sender: string; isGuest: boolean; time: string; body: string } | null = null
+
+  for (const line of lines) {
+    const match = line.match(lineRegex)
+    if (match) {
+      // Save previous message
+      if (current) messages.push(current)
+      const sender = match[1]
+      const rawTime = match[2].trim()
+      // Format the timestamp nicely
+      let time = rawTime
+      try {
+        const d = new Date(rawTime)
+        if (!isNaN(d.getTime())) {
+          time = d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        }
+      } catch { /* keep raw */ }
+
+      current = { sender, isGuest: sender === 'Guest', time, body: match[3].trim() }
+    } else if (current && line.trim()) {
+      // Continuation line — append to current message body
+      current.body += '\n' + line.trim()
+    }
+  }
+  if (current) messages.push(current)
+
+  return messages
+}
+
 export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: MessageDetailModalProps) {
   const { showNotification } = useNotificationStore()
   const [editedContent, setEditedContent] = useState('')
   const [approving, setApproving] = useState(false)
   const [dismissing, setDismissing] = useState(false)
+  const convoRef = useRef<HTMLDivElement>(null)
 
   // Reset state when switching between logs
   useEffect(() => {
@@ -76,6 +115,13 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
     setApproving(false)
     setDismissing(false)
   }, [log?.id])
+
+  // Auto-scroll conversation history to bottom (most recent messages)
+  useEffect(() => {
+    if (convoRef.current) {
+      convoRef.current.scrollTop = convoRef.current.scrollHeight
+    }
+  }, [log?.id, log?.conversationHistory])
 
   const handleApproveAndSend = async () => {
     if (!log) return
@@ -167,14 +213,27 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
           </div>
         </div>
 
-        {/* Conversation History */}
+        {/* Conversation History — chat bubbles */}
         {log.conversationHistory && (
           <div className="mb-5">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">
               Conversation History
             </p>
-            <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
-              {log.conversationHistory}
+            <div ref={convoRef} className="px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl max-h-64 overflow-y-auto space-y-2">
+              {parseConversationHistory(log.conversationHistory).reverse().map((msg, i) => (
+                <div key={i} className={`flex ${msg.isGuest ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                    msg.isGuest
+                      ? 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+                      : 'bg-blue-500 text-white rounded-br-sm'
+                  }`}>
+                    <p className="whitespace-pre-wrap">{msg.body}</p>
+                    <p className={`text-[10px] mt-1 ${msg.isGuest ? 'text-gray-400' : 'text-blue-200'}`}>
+                      {msg.sender} · {msg.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

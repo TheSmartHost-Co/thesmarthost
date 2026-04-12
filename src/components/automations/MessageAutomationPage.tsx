@@ -11,12 +11,19 @@ import {
   ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getMessageLog, getMessageLogCounts } from '@/services/messageAutomationService'
+import {
+  getMessageLog,
+  getMessageLogCounts,
+  bulkApproveMessageLogs,
+  bulkDismissMessageLogs,
+  bulkDeleteMessageLogs,
+} from '@/services/messageAutomationService'
 import type { MessageLogEntry, MessageLogCounts } from '@/services/types/messageAutomation'
 import MessageLogCard from '@/components/automations/MessageLogCard'
 import MessageDetailModal from '@/components/automations/MessageDetailModal'
 import MessageAutomationSettingsPanel from '@/components/automations/MessageAutomationSettingsPanel'
 import AIConversationLogs from '@/components/automations/AIConversationLogs'
+import BulkActionBar from '@/components/automations/BulkActionBar'
 
 type StatusFilter = 'all' | 'queued' | 'escalated' | 'auto_sent' | 'failed'
 
@@ -51,6 +58,7 @@ function MessageAutomationContent() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAILogs, setShowAILogs] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -102,6 +110,44 @@ function MessageAutomationContent() {
   }
 
   const handleLogUpdated = () => {
+    fetchData()
+  }
+
+  const handleSelect = (logId: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(logId)
+      else next.delete(logId)
+      return next
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(new Set(logs.map(l => l.id)))
+    else setSelectedIds(new Set())
+  }
+
+  const handleBulkApprove = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkApproveMessageLogs(ids)
+    showNotification(res.message || 'Messages approved', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
+    fetchData()
+  }
+
+  const handleBulkDismiss = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkDismissMessageLogs(ids)
+    showNotification(res.message || 'Messages dismissed', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
+    fetchData()
+  }
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds)
+    const res = await bulkDeleteMessageLogs(ids)
+    showNotification(res.message || 'Messages deleted', res.status === 'success' ? 'success' : 'error')
+    setSelectedIds(new Set())
     fetchData()
   }
 
@@ -212,6 +258,21 @@ function MessageAutomationContent() {
         ))}
       </div>
 
+      {/* Select All */}
+      {!showAILogs && logs.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            checked={selectedIds.size === logs.length && logs.length > 0}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer"
+          />
+          <span className="text-xs text-gray-500">
+            {selectedIds.size > 0 ? `${selectedIds.size} of ${logs.length} selected` : 'Select all'}
+          </span>
+        </div>
+      )}
+
       {/* Main Content Area */}
       {showAILogs ? (
         <AIConversationLogs />
@@ -236,7 +297,13 @@ function MessageAutomationContent() {
       ) : (
         <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           {logs.map(log => (
-            <MessageLogCard key={log.id} log={log} onReview={handleSelectLog} />
+            <MessageLogCard
+              key={log.id}
+              log={log}
+              onReview={handleSelectLog}
+              selected={selectedIds.has(log.id)}
+              onSelect={handleSelect}
+            />
           ))}
         </div>
       )}
@@ -255,6 +322,15 @@ function MessageAutomationContent() {
       <MessageAutomationSettingsPanel
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        hasAwaitingApproval={logs.some(l => selectedIds.has(l.id) && (l.status === 'queued' || l.status === 'escalated'))}
+        onApprove={handleBulkApprove}
+        onReject={handleBulkDismiss}
+        onDelete={handleBulkDelete}
+        onClear={() => setSelectedIds(new Set())}
       />
     </div>
   )

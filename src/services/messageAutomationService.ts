@@ -60,3 +60,16 @@ export function dismissMessageLog(
     method: 'PATCH',
   })
 }
+
+// Bulk actions
+export function bulkApproveMessageLogs(logIds: string[]): Promise<{ status: string; message: string; data?: { approved: number } }> {
+  return apiClient('/message-automation/log/bulk/approve', { method: 'POST', body: { logIds } })
+}
+
+export function bulkDismissMessageLogs(logIds: string[]): Promise<{ status: string; message: string; data?: { dismissed: number } }> {
+  return apiClient('/message-automation/log/bulk/dismiss', { method: 'POST', body: { logIds } })
+}
+
+export function bulkDeleteMessageLogs(logIds: string[]): Promise<{ status: string; message: string; data?: { deleted: number } }> {
+  return apiClient('/message-automation/log/bulk/delete', { method: 'POST', body: { logIds } })
+}
