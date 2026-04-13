@@ -130,12 +130,10 @@ export default function CleanerCreateSupplyListModal({
       }))
       const res = selectedProjectId
         ? await createSupplyList(selectedProjectId, {
-            submittedBy: cleanerId,
             items: itemsPayload,
           })
         : await createStandaloneSupplyList({
             propertyId: selectedPropertyId,
-            submittedBy: cleanerId,
             items: itemsPayload,
           })
 

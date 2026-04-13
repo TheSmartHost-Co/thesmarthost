@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
+import NoteInput from '@/components/shared/NoteInput'
 import {
   getSupplyListsByProject,
   getSupplyListById,
@@ -243,12 +244,16 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  // Update PM notes for an item
-  const handleUpdatePmNotes = async (item: SupplyListItem, pmNotes: string) => {
+  // Save PM notes for an item via send button
+  const handleUpdatePmNotes = async (item: SupplyListItem, note: string) => {
     if (!selectedList) return
-    const trimmed = pmNotes.trim()
+    const trimmed = note.trim()
     if (trimmed === (item.pmNotes || '')) return
-    // Optimistic update already done via onChange, just save silently
+    // Optimistic update
+    setSelectedList(prev => prev ? {
+      ...prev,
+      items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: trimmed } : i),
+    } : null)
     try {
       await updateSupplyList(selectedList.id, {
         items: [{ id: item.id, pmNotes: trimmed }],
@@ -292,12 +297,13 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  // Update list-level notes on blur (silent background save)
-  const handleUpdateListNotes = async () => {
+  // Save list-level notes via send button
+  const handleSendListNote = async (note: string) => {
     if (!selectedList) return
-    const trimmed = listNotes.trim()
+    const trimmed = note.trim()
     if (trimmed === (selectedList.notes || '')) return
     // Optimistic update
+    setListNotes(trimmed)
     setSelectedList(prev => prev ? { ...prev, notes: trimmed } : null)
     setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: trimmed } : sl))
     try {
@@ -556,13 +562,11 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               </div>
 
               {/* List-level Notes */}
-              <textarea
+              <NoteInput
                 value={listNotes}
-                onChange={(e) => setListNotes(e.target.value)}
-                onBlur={handleUpdateListNotes}
+                onSend={handleSendListNote}
                 placeholder={t('addNotesForSupplyList')}
-                rows={2}
-                className="w-full text-sm px-3 py-2 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded-lg focus:ring-1 focus:ring-teal-300 bg-gray-50 focus:bg-white resize-none transition-colors"
+                multiline
               />
 
               {/* Progress Bar (detail view) */}
@@ -716,21 +720,15 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               </span>
                             )}
                           </div>
-                          {/* PM Notes inline edit */}
-                          <input
-                            type="text"
-                            value={item.pmNotes || ''}
-                            onChange={(e) => {
-                              // Optimistic update
-                              setSelectedList(prev => prev ? {
-                                ...prev,
-                                items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: e.target.value } : i),
-                              } : null)
-                            }}
-                            onBlur={(e) => handleUpdatePmNotes(item, e.target.value)}
-                            placeholder={t('addANote')}
-                            className="mt-1 w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 rounded focus:ring-1 focus:ring-teal-300 bg-transparent focus:bg-white"
-                          />
+                          {/* PM Notes */}
+                          <div className="mt-1">
+                            <NoteInput
+                              value={item.pmNotes || ''}
+                              onSend={(note) => handleUpdatePmNotes(item, note)}
+                              placeholder={t('addANote')}
+                              compact
+                            />
+                          </div>
                         </div>
                         {isEditable && (
                           <button

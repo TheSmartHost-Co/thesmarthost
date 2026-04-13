@@ -1,5 +1,7 @@
 // Standalone receipt types for the receipts management page
 
+import type { SupplyList } from './supplyList'
+
 export type ReceiptStatus = 'pending' | 'matched' | 'failed' | 'applied' | 'archived'
 export type PaidByType = 'PROPERTY-MANAGER' | 'CLEANER' | 'TEAM_MEMBER'
 
@@ -159,7 +161,7 @@ export interface AutoApplyReceiptResponse {
     lineItems: ReceiptLineItem[]
     signedUrl: string
     expense: Record<string, unknown>
-    supplyList: Record<string, unknown> | null
+    supplyList: SupplyList | null
   }
   message?: string
 }
@@ -181,7 +183,7 @@ export interface ApplyReceiptResponse {
   data: {
     receipt: ReceiptDetail
     expense: Record<string, unknown>
-    supplyList: Record<string, unknown> | null
+    supplyList: SupplyList | null
   }
   message?: string
 }

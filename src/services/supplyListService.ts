@@ -153,7 +153,7 @@ export function assignProjectToSupplyList(
  * Create a standalone supply list (not linked to a project)
  */
 export function createStandaloneSupplyList(
-  data: { propertyId: string; projectId?: string; submittedBy?: string; notes?: string; items: { name: string; quantity?: number }[] }
+  data: { propertyId: string; projectId?: string; notes?: string; items: { name: string; quantity?: number }[] }
 ): Promise<SupplyListResponse> {
   return apiClient<SupplyListResponse, typeof data>(
     `/supply-lists`,

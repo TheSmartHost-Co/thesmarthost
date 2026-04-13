@@ -35,7 +35,6 @@ export interface SupplyList {
 }
 
 export interface CreateSupplyListPayload {
-  submittedBy?: string | null
   items: { name: string; quantity?: number }[]
   notes?: string
 }

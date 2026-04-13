@@ -167,8 +167,12 @@ export interface AddInvoiceItemPayload {
   description: string
   amount: number
   notes?: string | null
-  receiptId?: string | null
   isTaxable?: boolean
+}
+
+// Add expense as invoice line item
+export interface AddInvoiceExpensePayload {
+  expenseId: string
 }
 
 // API Responses

@@ -11,26 +11,21 @@ import {
   CameraIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
-import { useNotificationStore } from '@/store/useNotificationStore'
 import { getCleanerSchedule } from '@/services/cleanerService'
 import { getSupplyListsByProject, getAllSupplyLists, formatSupplyListAge } from '@/services/supplyListService'
-import type { SupplyList, SupplyListStatus } from '@/services/types/supplyList'
+import type { SupplyList } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import type { Cleaner } from '@/services/types/cleaner'
 import {
   CleanerCreateSupplyListModal,
   CleanerSupplyListModal,
 } from '@/components/cleaner-portal/supply-lists'
-import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
-import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
-import type { UploadReceiptResponse } from '@/services/types/receipt'
-import type { Property } from '@/services/types/property'
+import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
+import Modal from '@/components/shared/modal'
 
 export default function CleanerSuppliesPage() {
   const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
-  const { showNotification } = useNotificationStore()
-
   // State
   const [cleaner, setCleaner] = useState<Cleaner | null>(null)
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
@@ -39,9 +34,9 @@ export default function CleanerSuppliesPage() {
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showUploadReceiptModal, setShowUploadReceiptModal] = useState(false)
-  const [showReceiptDetailModal, setShowReceiptDetailModal] = useState(false)
-  const [activeReceiptId, setActiveReceiptId] = useState('')
+  const [showPropertyPicker, setShowPropertyPicker] = useState(false)
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [scanPropertyId, setScanPropertyId] = useState('')
   const [showUnifiedModal, setShowUnifiedModal] = useState(false)
   const [selectedSupplyList, setSelectedSupplyList] = useState<SupplyList | null>(null)
 
@@ -175,7 +170,7 @@ export default function CleanerSuppliesPage() {
         {cleaner && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowUploadReceiptModal(true)}
+              onClick={() => setShowPropertyPicker(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-teal-700 border border-teal-200 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors cursor-pointer"
             >
               <CameraIcon className="w-4 h-4" />
@@ -273,26 +268,47 @@ export default function CleanerSuppliesPage() {
         />
       )}
 
-      <UploadReceiptModal
-        isOpen={showUploadReceiptModal}
-        onClose={() => setShowUploadReceiptModal(false)}
-        onUploaded={(data: UploadReceiptResponse['data']) => {
-          setShowUploadReceiptModal(false)
-          setActiveReceiptId(data.receipt.id)
-          setShowReceiptDetailModal(true)
-        }}
-      />
+      {/* Property picker for scan receipt */}
+      <Modal isOpen={showPropertyPicker} onClose={() => setShowPropertyPicker(false)} style="max-w-sm w-full mx-4">
+        <div className="p-5">
+          <h3 className="text-base font-semibold text-gray-900 mb-1">{t('selectProperty')}</h3>
+          <p className="text-sm text-gray-500 mb-4">{t('whichPropertyReceipt')}</p>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {(cleaner?.assignedProperties || []).map(p => (
+              <button
+                key={p.propertyId}
+                onClick={() => {
+                  setScanPropertyId(p.propertyId)
+                  setShowPropertyPicker(false)
+                  setShowScanModal(true)
+                }}
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50 text-sm font-medium text-gray-800 transition-colors cursor-pointer"
+              >
+                {p.propertyName || p.propertyId}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Modal>
 
-      {activeReceiptId && (
-        <ReceiptDetailModal
-          isOpen={showReceiptDetailModal}
-          onClose={() => { setShowReceiptDetailModal(false); setActiveReceiptId('') }}
-          receiptId={activeReceiptId}
-          properties={(cleaner?.assignedProperties || []).map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId } as Property))}
-          onUpdated={fetchData}
-          onDeleted={() => { setShowReceiptDetailModal(false); setActiveReceiptId(''); fetchData() }}
-          defaultPaidByType="CLEANER"
-          defaultPaidById={profile?.id || null}
+      {/* Scan receipt with auto-apply */}
+      {scanPropertyId && (
+        <ScanSupplyReceiptModal
+          isOpen={showScanModal}
+          onClose={() => { setShowScanModal(false); setScanPropertyId('') }}
+          autoApply
+          defaultPropertyId={scanPropertyId}
+          paidByType="CLEANER"
+          paidById={profile?.id || null}
+          onReceiptApplied={(supplyList) => {
+            setShowScanModal(false)
+            setScanPropertyId('')
+            if (supplyList) {
+              setSelectedSupplyList(supplyList)
+              setShowUnifiedModal(true)
+            }
+            fetchData()
+          }}
         />
       )}
 

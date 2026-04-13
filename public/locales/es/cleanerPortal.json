@@ -122,6 +122,8 @@
   "mySupplies": "Mis suministros",
   "trackSupplyRequests": "Rastrea tus solicitudes de suministros",
   "receipt": "Recibo",
+  "selectProperty": "Seleccionar propiedad",
+  "whichPropertyReceipt": "¿Para qué propiedad es este recibo?",
   "newRequest": "Nueva solicitud",
   "errorLoadingSupplies": "Error al cargar los suministros",
   "inProgress": "En progreso",

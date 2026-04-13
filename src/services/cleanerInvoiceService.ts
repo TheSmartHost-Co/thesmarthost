@@ -11,6 +11,7 @@ import type {
   UpdateInvoicePayload,
   UpdateInvoiceItemPayload,
   AddInvoiceItemPayload,
+  AddInvoiceExpensePayload,
   InvoicePDFResponse,
   InvoiceFilesResponse,
   InvoiceFileDownloadResponse,
@@ -130,6 +131,32 @@ export function deleteInvoiceItem(
   return apiClient<DeleteInvoiceResponse>(`/cleaner-invoices/${invoiceId}/items/${itemId}`, {
     method: 'DELETE',
   })
+}
+
+// Add expense as invoice line item
+export function addInvoiceExpense(
+  invoiceId: string,
+  expenseId: string
+): Promise<InvoiceItemResponse> {
+  return apiClient<InvoiceItemResponse, AddInvoiceExpensePayload>(
+    `/cleaner-invoices/${invoiceId}/expenses`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { expenseId },
+    }
+  )
+}
+
+// Remove expense line item (expense returns to available pool)
+export function removeInvoiceExpense(
+  invoiceId: string,
+  expenseId: string
+): Promise<DeleteInvoiceResponse> {
+  return apiClient<DeleteInvoiceResponse>(
+    `/cleaner-invoices/${invoiceId}/expenses/${expenseId}`,
+    { method: 'DELETE' }
+  )
 }
 
 // Submit invoice to PM (cash out)

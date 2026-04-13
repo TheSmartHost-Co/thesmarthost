@@ -7,6 +7,7 @@ import {
   updateInvoice,
   updateInvoiceItem,
   deleteInvoiceItem,
+  removeInvoiceExpense,
   submitInvoice,
   deleteInvoice,
   approveInvoice,
@@ -19,6 +20,7 @@ import {
 } from '@/services/cleanerInvoiceService'
 // addInvoiceItem is now handled by AddExtraChargeModal
 import AddExtraChargeModal from '../create/AddExtraChargeModal'
+import AddReceiptToInvoiceModal from '../create/AddReceiptToInvoiceModal'
 import DeleteInvoiceModal from '../delete/DeleteInvoiceModal'
 import type { InvoiceFile } from '@/services/types/cleanerInvoice'
 import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
@@ -77,6 +79,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '', isTaxable: false })
   const [showAddExtraModal, setShowAddExtraModal] = useState(false)
+  const [showAddReceiptModal, setShowAddReceiptModal] = useState(false)
   const [cleanerNotes, setCleanerNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -149,6 +152,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     if (!isOpen) {
       setEditingItemId(null)
       setShowAddExtraModal(false)
+      setShowAddReceiptModal(false)
     }
   }, [isOpen])
 
@@ -353,7 +357,18 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success') {
         showNotification(t('itemUpdated'), 'success')
         setEditingItemId(null)
-        await refreshInvoice()
+        // Optimistically update the item in place
+        setInvoice({
+          ...invoice,
+          items: (invoice.items || []).map(i => i.id === editingItemId ? res.data : i),
+        })
+        // Background refresh for totals
+        const refreshRes = await getInvoiceById(invoiceId)
+        if (refreshRes.status === 'success') {
+          setInvoice(refreshRes.data)
+          setCleanerNotes(refreshRes.data.cleanerNotes || '')
+        }
+        onUpdated()
       } else {
         showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
@@ -365,23 +380,59 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   const handleDeleteItem = async (itemId: string) => {
     if (!invoice) return
+    const item = invoice.items?.find(i => i.id === itemId)
+
+    // Optimistically remove the item
+    setInvoice({
+      ...invoice,
+      items: (invoice.items || []).filter(i => i.id !== itemId),
+    })
 
     try {
-      const res = await deleteInvoiceItem(invoice.id, itemId)
+      let res
+      if (item?.expenseId) {
+        res = await removeInvoiceExpense(invoice.id, item.expenseId)
+      } else {
+        res = await deleteInvoiceItem(invoice.id, itemId)
+      }
       if (res.status === 'success') {
         showNotification(t('itemRemoved'), 'success')
-        await refreshInvoice()
+        // Background refresh for accurate totals
+        const refreshRes = await getInvoiceById(invoiceId)
+        if (refreshRes.status === 'success') {
+          setInvoice(refreshRes.data)
+          setCleanerNotes(refreshRes.data.cleanerNotes || '')
+        }
+        onUpdated()
       } else {
         showNotification(res.message || t('failedToRemoveItem'), 'error')
+        // Revert — re-fetch the real state
+        await refreshInvoice()
       }
     } catch (err) {
       console.error('Error deleting item:', err)
       showNotification(t('errorRemovingItem'), 'error')
+      await refreshInvoice()
     }
   }
 
-  const handleExtraChargeAdded = async () => {
-    await refreshInvoice()
+  const handleItemAdded = async (newItem: CleanerInvoiceItem) => {
+    // Optimistically append the new item to avoid a full re-render flash
+    if (invoice) {
+      setInvoice({
+        ...invoice,
+        items: [...(invoice.items || []), newItem],
+      })
+    }
+    // Background refresh to get accurate totals from the server
+    try {
+      const res = await getInvoiceById(invoiceId)
+      if (res.status === 'success') {
+        setInvoice(res.data)
+        setCleanerNotes(res.data.cleanerNotes || '')
+      }
+    } catch { /* silent — optimistic update already in place */ }
+    onUpdated()
   }
 
   const handleSaveNotes = async () => {
@@ -723,9 +774,24 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                         e.stopPropagation()
                         if (!isEditable) return
                         try {
+                          // Optimistically toggle the taxable flag
+                          setInvoice({
+                            ...invoice,
+                            items: (invoice.items || []).map(i => i.id === item.id ? { ...i, isTaxable: !i.isTaxable } : i),
+                          })
                           const res = await updateInvoiceItem(invoice.id, item.id, { isTaxable: !item.isTaxable })
-                          if (res.status === 'success') await refreshInvoice()
-                          else showNotification(res.message || t('failedToUpdate'), 'error')
+                          if (res.status === 'success') {
+                            // Background refresh for totals
+                            const refreshRes = await getInvoiceById(invoiceId)
+                            if (refreshRes.status === 'success') {
+                              setInvoice(refreshRes.data)
+                              setCleanerNotes(refreshRes.data.cleanerNotes || '')
+                            }
+                            onUpdated()
+                          } else {
+                            showNotification(res.message || t('failedToUpdate'), 'error')
+                            await refreshInvoice()
+                          }
                         } catch { showNotification(t('errorUpdatingTax'), 'error') }
                       }}
                       disabled={!isEditable}
@@ -871,15 +937,24 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
         </div>
 
-        {/* Add Extra Charge Button */}
+        {/* Add Extra Charge / Add Receipt Buttons */}
         {isEditable && (
-          <button
-            onClick={() => setShowAddExtraModal(true)}
-            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
-          >
-            <PlusIcon className="h-3.5 w-3.5" />
-            {t('addExtraCharge')}
-          </button>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={() => setShowAddExtraModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              {t('addExtraCharge')}
+            </button>
+            <button
+              onClick={() => setShowAddReceiptModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              <DocumentTextIcon className="h-3.5 w-3.5" />
+              {t('addReceiptToInvoice')}
+            </button>
+          </div>
         )}
 
         {/* Add Extra Charge Modal */}
@@ -887,8 +962,17 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           isOpen={showAddExtraModal}
           onClose={() => setShowAddExtraModal(false)}
           invoiceId={invoiceId}
-          onAdded={handleExtraChargeAdded}
+          onAdded={handleItemAdded}
           defaultTaxable={invoice.taxHstEnabled || invoice.taxGstEnabled || invoice.taxQstEnabled}
+        />
+
+        {/* Add Receipt to Invoice Modal */}
+        <AddReceiptToInvoiceModal
+          isOpen={showAddReceiptModal}
+          onClose={() => setShowAddReceiptModal(false)}
+          invoiceId={invoiceId}
+          cleanerId={invoice.cleanerId}
+          onAdded={handleItemAdded}
         />
       </div>
 

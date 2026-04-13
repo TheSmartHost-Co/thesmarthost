@@ -122,6 +122,8 @@
   "mySupplies": "My Supplies",
   "trackSupplyRequests": "Track your supply requests",
   "receipt": "Receipt",
+  "selectProperty": "Select Property",
+  "whichPropertyReceipt": "Which property is this receipt for?",
   "newRequest": "New Request",
   "errorLoadingSupplies": "Error loading supplies",
   "inProgress": "In Progress",

@@ -129,12 +129,10 @@ export default function CreateSupplyListModal({
       const itemsPayload = validItems.map(i => ({ name: i.name.trim(), quantity: i.quantity }))
       const res = selectedProjectId
         ? await createSupplyList(selectedProjectId, {
-            submittedBy: profile?.id || null,
             items: itemsPayload,
           })
         : await createStandaloneSupplyList({
             propertyId: selectedPropertyId,
-            submittedBy: profile?.id || undefined,
             items: itemsPayload,
           })
       if (res.status === 'success') {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
+import NoteInput from '@/components/shared/NoteInput'
 import CleanerCreateSupplyListModal from './CleanerCreateSupplyListModal'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
 import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
@@ -176,13 +177,14 @@ export default function CleanerSupplyListModal({
     }
 
     if (initialSupplyList) {
-      // Direct open to detail
-      itemOrderRef.current = initialSupplyList.items.map(i => i.id)
-      setSelectedList(initialSupplyList)
+      // Direct open to detail (items may be missing from auto-apply response)
+      const items = initialSupplyList.items || []
+      itemOrderRef.current = items.map(i => i.id)
+      setSelectedList({ ...initialSupplyList, items })
       setListNotes(initialSupplyList.notes || '')
       // Initialize local item notes
       const notes: Record<string, string> = {}
-      initialSupplyList.items.forEach(i => { notes[i.id] = i.pmNotes || '' })
+      items.forEach(i => { notes[i.id] = i.pmNotes || '' })
       setLocalItemNotes(notes)
       // Refresh from server
       getSupplyListById(initialSupplyList.id).then(res => {
@@ -376,12 +378,13 @@ export default function CleanerSupplyListModal({
     }
   }
 
-  // Save per-item note on blur
-  const handleUpdateItemNotes = async (item: SupplyListItem, value: string) => {
+  // Save per-item note via send button
+  const handleUpdateItemNotes = async (item: SupplyListItem, note: string) => {
     if (!selectedList) return
-    const trimmed = value.trim()
+    const trimmed = note.trim()
     if (trimmed === (item.pmNotes || '')) return
-    // Optimistic: update local state only, save silently in background
+    // Optimistic: update local state
+    setLocalItemNotes(prev => ({ ...prev, [item.id]: trimmed }))
     setSelectedList(prev => prev ? {
       ...prev,
       items: prev.items.map(i => i.id === item.id ? { ...i, pmNotes: trimmed } : i),
@@ -400,12 +403,13 @@ export default function CleanerSupplyListModal({
     }
   }
 
-  // Save supply list-level notes on blur (silent background save)
-  const handleUpdateListNotes = async () => {
+  // Save supply list-level notes via send button
+  const handleSendListNote = async (note: string) => {
     if (!selectedList) return
-    const trimmed = listNotes.trim()
+    const trimmed = note.trim()
     if (trimmed === (selectedList.notes || '')) return
-    // Optimistic: update local state only
+    // Optimistic update
+    setListNotes(trimmed)
     setSelectedList(prev => prev ? { ...prev, notes: trimmed } : null)
     setSupplyLists(prev => prev.map(sl => sl.id === selectedList.id ? { ...sl, notes: trimmed } : sl))
     try {
@@ -796,13 +800,11 @@ export default function CleanerSupplyListModal({
                               {/* Inline per-item notes */}
                               {!isEditing && (
                                 <div className="ml-8 mt-1">
-                                  <input
-                                    type="text"
+                                  <NoteInput
                                     value={localItemNotes[item.id] ?? (item.pmNotes || '')}
-                                    onChange={(e) => setLocalItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                    onBlur={(e) => handleUpdateItemNotes(item, e.target.value)}
+                                    onSend={(note) => handleUpdateItemNotes(item, note)}
                                     placeholder={t('addNotesPlaceholder')}
-                                    className="w-full text-xs px-2 py-1 border border-transparent hover:border-gray-200 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded bg-transparent transition-colors"
+                                    compact
                                   />
                                 </div>
                               )}
@@ -817,15 +819,12 @@ export default function CleanerSupplyListModal({
                 {detailTab === 'notes' && (
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-gray-500">{t('listNotes')}</label>
-                    <textarea
+                    <NoteInput
                       value={listNotes}
-                      onChange={(e) => setListNotes(e.target.value)}
-                      onBlur={handleUpdateListNotes}
+                      onSend={handleSendListNote}
                       placeholder={t('addNotesPlaceholder')}
-                      rows={5}
-                      className="w-full text-sm px-3 py-2 border border-gray-200 hover:border-gray-300 focus:border-teal-300 focus:ring-1 focus:ring-teal-300 rounded-lg bg-gray-50 focus:bg-white resize-none transition-colors"
+                      multiline
                     />
-                    <p className="text-[10px] text-gray-400">{t('notesSavedAutomatically')}</p>
                   </div>
                 )}
 

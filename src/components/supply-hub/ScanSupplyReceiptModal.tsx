@@ -43,7 +43,7 @@ interface ScanSupplyReceiptModalProps {
   supplyListId?: string
   supplyList?: SupplyList | null
   properties?: { id: string; listingName: string }[]
-  onReceiptApplied: () => void
+  onReceiptApplied: (createdSupplyList?: SupplyList | null) => void
   defaultPropertyId?: string
   defaultProjectId?: string
   receiptId?: string // When provided, skip upload and go straight to review
@@ -85,9 +85,9 @@ export default function ScanSupplyReceiptModal({
   const context: ModalContext = useMemo(() => {
     if (receiptIdProp) return 'review-existing'
     if (autoApplyProp && supplyListId) return 'auto-apply-existing'
-    if (autoApplyProp && defaultProjectId && defaultPropertyId) return 'auto-apply-new'
+    if (autoApplyProp && defaultPropertyId) return 'auto-apply-new'
     return 'manual'
-  }, [receiptIdProp, autoApplyProp, supplyListId, defaultProjectId, defaultPropertyId])
+  }, [receiptIdProp, autoApplyProp, supplyListId, defaultPropertyId])
 
   const isAutoApply = context === 'auto-apply-existing' || context === 'auto-apply-new'
 
@@ -132,6 +132,7 @@ export default function ScanSupplyReceiptModal({
 
   // Success step data (autoApply only)
   const [successData, setSuccessData] = useState<{ total: number; itemCount: number; vendor: string } | null>(null)
+  const [createdSupplyList, setCreatedSupplyList] = useState<SupplyList | null>(null)
 
   // Supply list mode for apply step (manual context)
   const [supplyListMode, setSupplyListMode] = useState<'none' | 'new' | 'existing'>('none')
@@ -169,6 +170,7 @@ export default function ScanSupplyReceiptModal({
       setManualGrandTotal(false)
       setIsTaxDeductible(false)
       setSuccessData(null)
+      setCreatedSupplyList(null)
       setSupplyListMode('none')
       setApplySupplyListId('')
       setSavingItemId(null)
@@ -356,7 +358,7 @@ export default function ScanSupplyReceiptModal({
           ...(paidById ? { paidById } : {}),
           supplyList: context === 'auto-apply-existing'
             ? { mode: 'existing', supplyListId: supplyListId! }
-            : { mode: 'new', projectId: defaultProjectId },
+            : { mode: 'new', projectId: defaultProjectId ?? null },
         }
 
         const res = await uploadReceipt(
@@ -368,6 +370,7 @@ export default function ScanSupplyReceiptModal({
 
         if (res.status === 'success' && res.data) {
           const receipt = res.data.receipt
+          setCreatedSupplyList('supplyList' in res.data ? res.data.supplyList ?? null : null)
           setSuccessData({
             total: receipt.total ?? 0,
             itemCount: res.data.lineItems?.length ?? 0,
@@ -726,7 +729,7 @@ export default function ScanSupplyReceiptModal({
                 </div>
               </div>
               <button
-                onClick={() => { onReceiptApplied(); onClose() }}
+                onClick={() => { onReceiptApplied(createdSupplyList); onClose() }}
                 className="cursor-pointer mt-6 px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
               >
                 Done

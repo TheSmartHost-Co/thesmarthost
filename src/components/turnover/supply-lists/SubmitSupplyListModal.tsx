@@ -69,7 +69,6 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
     setLoading(true)
     try {
       const res = await createSupplyList(projectId, {
-        submittedBy: cleanerId || undefined,
         items: validItems.map(item => ({
           name: item.name.trim(),
           quantity: parseInt(item.quantity, 10) || 1,

@@ -31,7 +31,9 @@
       "Bash(node -e \"console.log\\(require\\('tailwindcss/package.json'\\).version\\)\")",
       "Bash(npx tsc:*)",
       "Bash(echo \"exit=$?\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT: $?\")"
     ],
     "deny": []
   }
