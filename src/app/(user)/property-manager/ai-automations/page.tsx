@@ -24,6 +24,7 @@ import ApproveTaskModal from '@/components/automations/ApproveTaskModal'
 import BulkActionBar from '@/components/automations/BulkActionBar'
 import AutomationSettingsPanel from '@/components/automations/AutomationSettingsPanel'
 import ScanModal from '@/components/automations/ScanModal'
+import ReviewQueue from '@/components/automations/ReviewQueue'
 
 type StatusFilter = 'all' | 'awaiting_approval' | 'completed' | 'failed'
 
@@ -60,6 +61,7 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
   const [processingAll, setProcessingAll] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [syncing, setSyncing] = useState(false)
+  const [showReviewQueue, setShowReviewQueue] = useState(false)
 
   const typeFilter = fixedType || null
   const isDashboard = !typeFilter
@@ -371,6 +373,50 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         <SummaryCard label="Failed" count={counts.failed} color="red" />
       </div>
 
+      {/* Review Queue CTA — shows on guest review page when reviews are waiting */}
+      {typeFilter === 'guest_review' && counts.awaitingApproval > 0 && (
+        <button
+          onClick={() => setShowReviewQueue(true)}
+          className="w-full mb-6 p-4 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl text-white flex items-center justify-between hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-200 group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <StarIcon className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">{counts.awaitingApproval} review{counts.awaitingApproval !== 1 ? 's' : ''} ready to post</div>
+              <div className="text-xs text-white/70">Copy all reviews to clipboard one by one — fast batch flow</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-sm font-medium bg-white/20 px-4 py-2 rounded-lg group-hover:bg-white/30 transition-colors">
+            Start Review Queue
+            <ArrowPathIcon className="w-4 h-4" />
+          </div>
+        </button>
+      )}
+
+      {/* Review Queue CTA — shows on dashboard when reviews are waiting */}
+      {isDashboard && counts.awaitingApproval > 0 && (
+        <button
+          onClick={() => setShowReviewQueue(true)}
+          className="w-full mb-6 p-4 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl text-white flex items-center justify-between hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-200 group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <StarIcon className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-semibold">Guest reviews ready to post</div>
+              <div className="text-xs text-white/70">Batch copy & paste reviews to Airbnb in seconds</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-sm font-medium bg-white/20 px-4 py-2 rounded-lg group-hover:bg-white/30 transition-colors">
+            Open Review Queue
+            <ArrowPathIcon className="w-4 h-4" />
+          </div>
+        </button>
+      )}
+
       {/* Filter Tabs */}
       <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
         {filterTabs.map(tab => (
@@ -479,6 +525,12 @@ function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
         onClose={() => setShowScanModal(false)}
         onScan={(startDate, endDate) => handleRunScan(startDate, endDate)}
         scanning={scanning}
+      />
+
+      <ReviewQueue
+        isOpen={showReviewQueue}
+        onClose={() => setShowReviewQueue(false)}
+        onComplete={() => fetchData()}
       />
 
       <BulkActionBar
