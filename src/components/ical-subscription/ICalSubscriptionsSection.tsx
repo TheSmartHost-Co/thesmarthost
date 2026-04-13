@@ -186,11 +186,12 @@ export default function ICalSubscriptionsSection({
     const form = getAddForm(propertyId)
 
     // Validate URL
-    if (!form.url.trim()) {
+    const trimmedUrl = form.url.trim()
+    if (!trimmedUrl) {
       setAddFormError(prev => ({ ...prev, [propertyId]: 'URL is required' }))
       return
     }
-    if (!form.url.startsWith('http://') && !form.url.startsWith('https://')) {
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       setAddFormError(prev => ({ ...prev, [propertyId]: 'URL must start with http:// or https://' }))
       return
     }
@@ -201,7 +202,7 @@ export default function ICalSubscriptionsSection({
     try {
       const payload: CreateICalSubscriptionPayload = {
         propertyId,
-        icalUrl: form.url.trim(),
+        icalUrl: trimmedUrl,
         platform: form.platform,
       }
       if (form.name.trim()) {
@@ -322,18 +323,19 @@ export default function ICalSubscriptionsSection({
     if (!form) return
 
     // Validate URL
-    if (!form.url.trim()) {
+    const trimmedUrl = form.url.trim()
+    if (!trimmedUrl) {
       setEditFormError(prev => ({ ...prev, [sub.id]: 'URL is required' }))
       return
     }
-    if (!form.url.startsWith('http://') && !form.url.startsWith('https://')) {
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       setEditFormError(prev => ({ ...prev, [sub.id]: 'URL must start with http:// or https://' }))
       return
     }
 
     // Build payload with only changed fields
     const payload: UpdateICalSubscriptionPayload = {}
-    if (form.url.trim() !== sub.icalUrl) payload.icalUrl = form.url.trim()
+    if (trimmedUrl !== sub.icalUrl) payload.icalUrl = trimmedUrl
     if (form.platform !== sub.platform) payload.platform = form.platform
     const newName = form.name.trim() || null
     if (newName !== (sub.name || null)) payload.name = newName

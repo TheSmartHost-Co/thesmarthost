@@ -183,11 +183,12 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
   }, [isOpen, fetchSubscriptions])
 
   const handleAddFeed = async () => {
-    if (!addForm.url.trim()) {
+    const trimmedUrl = addForm.url.trim()
+    if (!trimmedUrl) {
       setAddFormError('URL is required')
       return
     }
-    if (!addForm.url.startsWith('http://') && !addForm.url.startsWith('https://')) {
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       setAddFormError('URL must start with http:// or https://')
       return
     }
@@ -291,17 +292,18 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
   }
 
   const handleUpdate = async (sub: ICalSubscription) => {
-    if (!editForm.url.trim()) {
+    const trimmedUrl = editForm.url.trim()
+    if (!trimmedUrl) {
       setEditFormError('URL is required')
       return
     }
-    if (!editForm.url.startsWith('http://') && !editForm.url.startsWith('https://')) {
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       setEditFormError('URL must start with http:// or https://')
       return
     }
 
     const payload: UpdateICalSubscriptionPayload = {}
-    if (editForm.url.trim() !== sub.icalUrl) payload.icalUrl = editForm.url.trim()
+    if (trimmedUrl !== sub.icalUrl) payload.icalUrl = trimmedUrl
     if (editForm.platform !== sub.platform) payload.platform = editForm.platform
     const newName = editForm.name.trim() || null
     if (newName !== (sub.name || null)) payload.name = newName
