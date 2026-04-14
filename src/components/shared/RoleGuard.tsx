@@ -45,10 +45,18 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
     // Wait until profile is loaded
     if (!profile) return
 
-    // Allow access when PM is impersonating and the target role matches this portal
+    // Allow access when PM or team member is impersonating and the target role matches this portal
     if (isImpersonating && target && allowedRoles.includes(target.role)) {
       setBlocked(false)
       return
+    }
+    // Team members impersonating: their role is TEAM_MEMBER but they should access client/cleaner portals
+    if (isImpersonating && target && userRole === 'TEAM_MEMBER') {
+      const portalForTarget = target.role === 'CLIENT' ? '/client' : target.role === 'CLEANER' ? '/cleaner' : null
+      if (portalForTarget === portal) {
+        setBlocked(false)
+        return
+      }
     }
 
     if (!userRole || !allowedRoles.includes(userRole)) {
