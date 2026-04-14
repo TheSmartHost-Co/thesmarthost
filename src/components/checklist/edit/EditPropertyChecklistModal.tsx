@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence, Reorder } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
   ClipboardDocumentListIcon,
   PlusIcon,
-  TrashIcon,
-  Bars3Icon,
   CameraIcon,
   CheckIcon,
   PencilSquareIcon,
 } from '@heroicons/react/24/outline'
+import GroupedItemsEditor from '@/components/shared/GroupedItemsEditor'
+import type { EditableItem } from '@/components/shared/GroupedItemsEditor'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -30,16 +30,6 @@ interface EditPropertyChecklistModalProps {
   onClose: () => void
   onUpdated: () => void
   checklistId: string | null
-}
-
-interface EditableItem {
-  id: string
-  roomName: string
-  taskDescription: string
-  requiresPhoto: boolean
-  sortOrder: number
-  isNew: boolean
-  isDirty: boolean
 }
 
 export default function EditPropertyChecklistModal({
@@ -153,20 +143,6 @@ export default function EditPropertyChecklistModal({
       setDeletedItemIds([...deletedItemIds, id])
     }
     setItems(items.filter((i) => i.id !== id))
-  }
-
-  const togglePhotoRequirement = (id: string) => {
-    setItems(
-      items.map((item) =>
-        item.id === id
-          ? { ...item, requiresPhoto: !item.requiresPhoto, isDirty: !item.isNew }
-          : item
-      )
-    )
-  }
-
-  const handleReorder = (newOrder: EditableItem[]) => {
-    setItems(newOrder.map((item, index) => ({ ...item, sortOrder: index })))
   }
 
   // Room suggestions
@@ -443,70 +419,19 @@ export default function EditPropertyChecklistModal({
                   </div>
                 </div>
 
-                {/* Editable Items List */}
+                {/* Editable Items List — Grouped by Room */}
                 {items.length === 0 ? (
                   <div className="text-center py-6 text-gray-500">
                     <ClipboardDocumentListIcon className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                     <p className="text-sm">No tasks</p>
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-gray-700">
-                        {items.length} task{items.length !== 1 && 's'}
-                      </span>
-                      <span className="text-gray-500 text-xs">Drag to reorder</span>
-                    </div>
-                    <Reorder.Group
-                      axis="y"
-                      values={items}
-                      onReorder={handleReorder}
-                      className="space-y-2"
-                    >
-                      {items.map((item) => (
-                        <Reorder.Item
-                          key={item.id}
-                          value={item}
-                          className={`bg-white border rounded-xl p-3 flex items-center gap-3 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow ${
-                            item.isNew ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200'
-                          }`}
-                        >
-                          <Bars3Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">
-                              {item.taskDescription}
-                            </div>
-                            {item.roomName && (
-                              <div className="text-xs text-gray-500">{item.roomName}</div>
-                            )}
-                          </div>
-                          {item.isNew && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
-                              NEW
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => togglePhotoRequirement(item.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              item.requiresPhoto
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'text-gray-300 hover:text-gray-500'
-                            }`}
-                          >
-                            <CameraIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </Reorder.Item>
-                      ))}
-                    </Reorder.Group>
-                  </>
+                  <GroupedItemsEditor
+                    items={items}
+                    onItemsChange={setItems}
+                    onDeleteItem={handleRemoveItem}
+                    accentColor="blue"
+                  />
                 )}
               </>
             ) : (
