@@ -8,15 +8,16 @@ import type { MessageLogEntry } from '@/services/types/messageAutomation'
 // ─── Status config (matches MessageLogCard) ───────────────────────────────────
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  queued:         { label: 'Queued',        color: 'bg-amber-100 text-amber-700' },
-  escalated:      { label: 'Escalated',     color: 'bg-red-100 text-red-700' },
-  auto_sent:      { label: 'Auto-sent',     color: 'bg-green-100 text-green-700' },
-  pm_approved:    { label: 'Approved',      color: 'bg-blue-100 text-blue-700' },
-  pm_edited_sent: { label: 'Sent (edited)', color: 'bg-blue-100 text-blue-700' },
-  dismissed:      { label: 'Dismissed',     color: 'bg-gray-100 text-gray-500' },
-  skipped:        { label: 'Skipped',       color: 'bg-gray-100 text-gray-500' },
-  failed:         { label: 'Failed',        color: 'bg-red-100 text-red-700' },
-  pending:        { label: 'Processing…',   color: 'bg-yellow-100 text-yellow-700' },
+  queued:         { label: 'Queued',         color: 'bg-amber-100 text-amber-700' },
+  escalated:      { label: 'Escalated',      color: 'bg-red-100 text-red-700' },
+  auto_sent:      { label: 'Auto-sent',      color: 'bg-green-100 text-green-700' },
+  pm_approved:    { label: 'Approved',       color: 'bg-blue-100 text-blue-700' },
+  pm_edited_sent: { label: 'Sent (edited)',  color: 'bg-blue-100 text-blue-700' },
+  dismissed:      { label: 'Dismissed',      color: 'bg-gray-100 text-gray-500' },
+  skipped:        { label: 'Skipped',        color: 'bg-gray-100 text-gray-500' },
+  failed:         { label: 'Failed',         color: 'bg-red-100 text-red-700' },
+  pending:        { label: 'Processing…',    color: 'bg-yellow-100 text-yellow-700' },
+  host_responded: { label: 'Host Responded', color: 'bg-emerald-100 text-emerald-700' },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -301,13 +302,14 @@ export default function AIConversationLogs() {
       if (statusFilter === 'all') return true
       // Map display label back to raw status values
       const statusMap: Record<string, string[]> = {
-        'auto-sent':  ['auto_sent'],
-        queued:       ['queued'],
-        escalated:    ['escalated'],
-        approved:     ['pm_approved', 'pm_edited_sent'],
-        failed:       ['failed'],
-        dismissed:    ['dismissed'],
-        skipped:      ['skipped'],
+        'auto-sent':      ['auto_sent'],
+        queued:           ['queued'],
+        escalated:        ['escalated'],
+        approved:         ['pm_approved', 'pm_edited_sent'],
+        failed:           ['failed'],
+        dismissed:        ['dismissed'],
+        skipped:          ['skipped'],
+        'host-responded': ['host_responded'],
       }
       const allowed = statusMap[statusFilter] ?? [statusFilter]
       return allowed.includes(log.status)
@@ -389,6 +391,7 @@ export default function AIConversationLogs() {
             <option value="failed">Failed</option>
             <option value="dismissed">Dismissed</option>
             <option value="skipped">Skipped</option>
+            <option value="host-responded">Host Responded</option>
           </select>
         </div>
 

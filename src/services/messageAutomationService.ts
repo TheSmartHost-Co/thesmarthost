@@ -73,3 +73,8 @@ export function bulkDismissMessageLogs(logIds: string[]): Promise<{ status: stri
 export function bulkDeleteMessageLogs(logIds: string[]): Promise<{ status: string; message: string; data?: { deleted: number } }> {
   return apiClient('/message-automation/log/bulk/delete', { method: 'POST', body: { logIds } })
 }
+
+// Refresh/sync conversation
+export function refreshConversationHistory(logId: string): Promise<MessageLogEntryResponse & { hostResponded?: boolean }> {
+  return apiClient(`/message-automation/log/${logId}/refresh`, { method: 'POST' })
+}

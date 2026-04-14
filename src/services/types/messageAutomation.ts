@@ -6,6 +6,7 @@ export type MessageLogStatus =
   | 'pm_edited_sent'
   | 'escalated'
   | 'dismissed'
+  | 'host_responded'
   | 'skipped'
   | 'failed'
 
@@ -80,6 +81,7 @@ export interface MessageLogCounts {
   escalated: number
   autoSent: number
   failed: number
+  hostResponded: number
 }
 
 export interface MessageAutomationSettingsResponse {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BoltIcon, ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline'
+import { BoltIcon, ChatBubbleLeftEllipsisIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import type { MessageLogEntry } from '@/services/types/messageAutomation'
 
 interface MessageLogCardProps {
@@ -9,6 +9,8 @@ interface MessageLogCardProps {
   onReview: (log: MessageLogEntry) => void
   selected?: boolean
   onSelect?: (logId: string, checked: boolean) => void
+  onSync?: (log: MessageLogEntry) => void
+  syncing?: string | null
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -23,16 +25,18 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   skipped:         { label: 'Skipped',         color: 'bg-gray-100 text-gray-500' },
   failed:          { label: 'Failed',          color: 'bg-red-100 text-red-700' },
   pending:         { label: 'Processing...',   color: 'bg-yellow-100 text-yellow-700' },
+  host_responded:  { label: 'Host Responded',  color: 'bg-emerald-100 text-emerald-700' },
 }
 
 // ─── Border color by status ───────────────────────────────────────────────────
 
 function borderColor(status: string): string {
   switch (status) {
-    case 'queued':    return 'border-amber-200'
-    case 'escalated': return 'border-red-200'
-    case 'auto_sent': return 'border-green-200'
-    default:          return 'border-gray-200'
+    case 'queued':         return 'border-amber-200'
+    case 'escalated':      return 'border-red-200'
+    case 'auto_sent':      return 'border-green-200'
+    case 'host_responded': return 'border-emerald-200'
+    default:               return 'border-gray-200'
   }
 }
 
@@ -97,7 +101,7 @@ function PlatformBadge({ platform }: { platform: string | null }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MessageLogCard({ log, onReview, selected, onSelect }: MessageLogCardProps) {
+export default function MessageLogCard({ log, onReview, selected, onSelect, onSync, syncing }: MessageLogCardProps) {
   const timeLabel   = useRelativeTime(log.incomingMessageAt)
   const status      = statusConfig[log.status] ?? statusConfig.pending
   const preview     = log.incomingMessage.length > 120
@@ -181,6 +185,17 @@ export default function MessageLogCard({ log, onReview, selected, onSelect }: Me
             >
               <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5" />
               Respond
+            </button>
+          )}
+
+          {onSync && (log.status === 'queued' || log.status === 'escalated') && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSync(log) }}
+              disabled={syncing === log.id}
+              className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              title="Sync conversation"
+            >
+              <ArrowPathIcon className={`w-3.5 h-3.5 ${syncing === log.id ? 'animate-spin' : ''}`} />
             </button>
           )}
         </div>

@@ -17,6 +17,7 @@ import {
   bulkApproveMessageLogs,
   bulkDismissMessageLogs,
   bulkDeleteMessageLogs,
+  refreshConversationHistory,
 } from '@/services/messageAutomationService'
 import type { MessageLogEntry, MessageLogCounts } from '@/services/types/messageAutomation'
 import MessageLogCard from '@/components/automations/MessageLogCard'
@@ -25,7 +26,7 @@ import MessageAutomationSettingsPanel from '@/components/automations/MessageAuto
 import AIConversationLogs from '@/components/automations/AIConversationLogs'
 import BulkActionBar from '@/components/automations/BulkActionBar'
 
-type StatusFilter = 'all' | 'queued' | 'escalated' | 'auto_sent' | 'failed'
+type StatusFilter = 'all' | 'queued' | 'escalated' | 'auto_sent' | 'failed' | 'host_responded'
 
 export default function MessageAutomationPage() {
   return (
@@ -51,6 +52,7 @@ function MessageAutomationContent() {
     escalated: 0,
     autoSent: 0,
     failed: 0,
+    hostResponded: 0,
   })
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -59,6 +61,7 @@ function MessageAutomationContent() {
   const [showSettings, setShowSettings] = useState(false)
   const [showAILogs, setShowAILogs] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [syncingId, setSyncingId] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -68,6 +71,7 @@ function MessageAutomationContent() {
       else if (statusFilter === 'escalated') statusParam = 'escalated'
       else if (statusFilter === 'auto_sent') statusParam = 'auto_sent'
       else if (statusFilter === 'failed') statusParam = 'failed'
+      else if (statusFilter === 'host_responded') statusParam = 'host_responded'
 
       const [logsRes, countsRes] = await Promise.all([
         getMessageLog({ status: statusParam, limit: 50 }),
@@ -113,6 +117,23 @@ function MessageAutomationContent() {
     fetchData()
   }
 
+  const handleSync = async (log: MessageLogEntry) => {
+    setSyncingId(log.id)
+    try {
+      const res = await refreshConversationHistory(log.id)
+      if (res.status === 'success' && (res as any).hostResponded) {
+        showNotification(`Host already responded to ${log.guestName || 'guest'}`, 'success')
+      } else {
+        showNotification('Conversation synced', 'info')
+      }
+      fetchData()
+    } catch {
+      showNotification('Failed to sync', 'error')
+    } finally {
+      setSyncingId(null)
+    }
+  }
+
   const handleSelect = (logId: string, checked: boolean) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -152,7 +173,7 @@ function MessageAutomationContent() {
   }
 
   const totalCount =
-    counts.queued + counts.escalated + counts.autoSent + counts.failed
+    counts.queued + counts.escalated + counts.autoSent + counts.failed + (counts.hostResponded ?? 0)
 
   const filterTabs: { key: StatusFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalCount },
@@ -160,6 +181,7 @@ function MessageAutomationContent() {
     { key: 'escalated', label: 'Escalated', count: counts.escalated },
     { key: 'auto_sent', label: 'Auto-Sent', count: counts.autoSent },
     { key: 'failed', label: 'Failed', count: counts.failed },
+    { key: 'host_responded', label: 'Host Responded', count: counts.hostResponded ?? 0 },
   ]
 
   const emptyStateMessage =
@@ -223,11 +245,12 @@ function MessageAutomationContent() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         <SummaryCard label="Queued for Review" count={counts.queued} color="amber" />
         <SummaryCard label="Escalated" count={counts.escalated} color="red" />
         <SummaryCard label="Auto-Sent" count={counts.autoSent} color="green" />
         <SummaryCard label="Failed" count={counts.failed} color="rose" />
+        <SummaryCard label="Host Responded" count={counts.hostResponded ?? 0} color="emerald" />
       </div>
 
       {/* Filter Tabs */}
@@ -303,6 +326,8 @@ function MessageAutomationContent() {
               onReview={handleSelectLog}
               selected={selectedIds.has(log.id)}
               onSelect={handleSelect}
+              onSync={handleSync}
+              syncing={syncingId}
             />
           ))}
         </div>
@@ -346,12 +371,13 @@ function SummaryCard({
   color: string
 }) {
   const colorClasses: Record<string, string> = {
-    amber: 'bg-amber-50 border-amber-200 text-amber-700',
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
-    green: 'bg-green-50 border-green-200 text-green-700',
-    red: 'bg-red-50 border-red-200 text-red-700',
-    rose: 'bg-rose-50 border-rose-200 text-rose-700',
-    violet: 'bg-violet-50 border-violet-200 text-violet-700',
+    amber:   'bg-amber-50 border-amber-200 text-amber-700',
+    blue:    'bg-blue-50 border-blue-200 text-blue-700',
+    green:   'bg-green-50 border-green-200 text-green-700',
+    red:     'bg-red-50 border-red-200 text-red-700',
+    rose:    'bg-rose-50 border-rose-200 text-rose-700',
+    violet:  'bg-violet-50 border-violet-200 text-violet-700',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
   }
 
   return (

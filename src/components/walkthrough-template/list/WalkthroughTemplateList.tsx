@@ -110,7 +110,8 @@ export default function WalkthroughTemplateList({
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * index }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow group flex flex-col"
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col"
+            onClick={() => onEdit(template)}
           >
             {/* Header */}
             <div className="flex items-start justify-between">
@@ -120,7 +121,7 @@ export default function WalkthroughTemplateList({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-purple-700 transition-colors">{template.name}</h3>
                     {template.isDefault && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 flex-shrink-0">
                         DEFAULT
@@ -175,7 +176,7 @@ export default function WalkthroughTemplateList({
               ) : (
                 <button
                   type="button"
-                  onClick={() => toggleAssignments(template.id)}
+                  onClick={(e) => { e.stopPropagation(); toggleAssignments(template.id) }}
                   className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-medium hover:text-blue-800 cursor-pointer"
                 >
                   {isExpanded ? (

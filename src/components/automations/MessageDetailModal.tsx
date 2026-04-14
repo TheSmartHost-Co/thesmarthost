@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { CheckIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { approveMessageLog, dismissMessageLog } from '@/services/messageAutomationService'
+import { approveMessageLog, dismissMessageLog, refreshConversationHistory } from '@/services/messageAutomationService'
 import type { MessageLogEntry } from '@/services/types/messageAutomation'
 
 interface MessageDetailModalProps {
@@ -16,15 +16,16 @@ interface MessageDetailModalProps {
 
 function getStatusBadge(status: MessageLogEntry['status']) {
   const map: Record<MessageLogEntry['status'], { label: string; className: string }> = {
-    queued:         { label: 'Queued',        className: 'bg-amber-100 text-amber-700' },
-    escalated:      { label: 'Escalated',     className: 'bg-red-100 text-red-700' },
-    auto_sent:      { label: 'Auto Sent',     className: 'bg-emerald-100 text-emerald-700' },
-    pm_approved:    { label: 'PM Approved',   className: 'bg-blue-100 text-blue-700' },
-    pm_edited_sent: { label: 'PM Edited',     className: 'bg-blue-100 text-blue-700' },
-    dismissed:      { label: 'Dismissed',     className: 'bg-gray-100 text-gray-500' },
-    skipped:        { label: 'Skipped',       className: 'bg-gray-100 text-gray-500' },
-    failed:         { label: 'Failed',        className: 'bg-red-100 text-red-600' },
-    pending:        { label: 'Pending',       className: 'bg-yellow-100 text-yellow-700' },
+    queued:         { label: 'Queued',          className: 'bg-amber-100 text-amber-700' },
+    escalated:      { label: 'Escalated',       className: 'bg-red-100 text-red-700' },
+    auto_sent:      { label: 'Auto Sent',       className: 'bg-emerald-100 text-emerald-700' },
+    pm_approved:    { label: 'PM Approved',     className: 'bg-blue-100 text-blue-700' },
+    pm_edited_sent: { label: 'PM Edited',       className: 'bg-blue-100 text-blue-700' },
+    dismissed:      { label: 'Dismissed',       className: 'bg-gray-100 text-gray-500' },
+    skipped:        { label: 'Skipped',         className: 'bg-gray-100 text-gray-500' },
+    failed:         { label: 'Failed',          className: 'bg-red-100 text-red-600' },
+    pending:        { label: 'Pending',         className: 'bg-yellow-100 text-yellow-700' },
+    host_responded: { label: 'Host Responded',  className: 'bg-emerald-100 text-emerald-700' },
   }
   const { label, className } = map[status] ?? { label: status, className: 'bg-gray-100 text-gray-500' }
   return (
@@ -107,6 +108,9 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
   const [editedContent, setEditedContent] = useState('')
   const [approving, setApproving] = useState(false)
   const [dismissing, setDismissing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [localConversationHistory, setLocalConversationHistory] = useState<string | null>(null)
+  const [isHostResponded, setIsHostResponded] = useState(false)
   const convoRef = useRef<HTMLDivElement>(null)
 
   // Reset state when switching between logs
@@ -114,6 +118,9 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
     setEditedContent('')
     setApproving(false)
     setDismissing(false)
+    setRefreshing(false)
+    setLocalConversationHistory(null)
+    setIsHostResponded(log?.status === 'host_responded' || false)
   }, [log?.id])
 
   // Auto-scroll conversation history to bottom (most recent messages)
@@ -162,6 +169,30 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
     }
   }
 
+  const handleRefresh = async () => {
+    if (!log) return
+    setRefreshing(true)
+    try {
+      const res = await refreshConversationHistory(log.id)
+      if (res.status === 'success') {
+        if (res.data?.conversationHistory) {
+          setLocalConversationHistory(res.data.conversationHistory)
+        }
+        if ((res as any).hostResponded) {
+          setIsHostResponded(true)
+          showNotification('Host has already responded to this conversation', 'success')
+          onUpdated()
+        } else {
+          showNotification('Conversation updated', 'info')
+        }
+      }
+    } catch {
+      showNotification('Failed to refresh conversation', 'error')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   if (!log) return null
 
   const isQueued = log.status === 'queued'
@@ -172,7 +203,7 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
   const replyText = log.aiResponse || log.aiSuggestedAction || ''
 
   // Statuses where we show a read-only view of what was sent
-  const isReadOnly = ['auto_sent', 'pm_approved', 'pm_edited_sent', 'failed', 'skipped', 'dismissed'].includes(log.status)
+  const isReadOnly = ['auto_sent', 'pm_approved', 'pm_edited_sent', 'failed', 'skipped', 'dismissed', 'host_responded'].includes(log.status)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="w-full max-w-2xl">
@@ -203,6 +234,14 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
           </p>
         </div>
 
+        {/* Host Responded banner */}
+        {(isHostResponded || log.status === 'host_responded') && (
+          <div className="mb-5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+            <span className="text-emerald-500 text-lg">&#10003;</span>
+            <p className="text-sm text-emerald-700 font-medium">Host has already responded to this conversation</p>
+          </div>
+        )}
+
         {/* Incoming guest message */}
         <div className="mb-5">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">
@@ -214,13 +253,23 @@ export default function MessageDetailModal({ isOpen, log, onClose, onUpdated }: 
         </div>
 
         {/* Conversation History — chat bubbles */}
-        {log.conversationHistory && (
+        {(localConversationHistory || log.conversationHistory) && (
           <div className="mb-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">
-              Conversation History
-            </p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Conversation History
+              </p>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+              >
+                <ArrowPathIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Syncing...' : 'Sync'}
+              </button>
+            </div>
             <div ref={convoRef} className="px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl max-h-64 overflow-y-auto space-y-2">
-              {parseConversationHistory(log.conversationHistory).reverse().map((msg, i) => (
+              {parseConversationHistory(localConversationHistory || log.conversationHistory!).reverse().map((msg, i) => (
                 <div key={i} className={`flex ${msg.isGuest ? 'justify-start' : 'justify-end'}`}>
                   <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                     msg.isGuest
