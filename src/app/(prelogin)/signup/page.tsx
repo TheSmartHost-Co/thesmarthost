@@ -1,14 +1,16 @@
 "use client"
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import Link from 'next/link'
 import { EyeIcon, EyeSlashIcon, UserPlusIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
 import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
+import { getUserProfile } from '@/services/profileService'
 import Notification from '@/components/shared/notification'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Footer from '@/components/footer/Footer'
@@ -26,6 +28,34 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
+  const getRedirectPath = useUserStore(s => s.getRedirectPath)
+  const setProfile = useUserStore(s => s.setProfile)
+
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        let redirectPath = getRedirectPath()
+        if (redirectPath === '/login') {
+          try {
+            const profileResponse = await getUserProfile(session.user.id)
+            if (profileResponse.status === 'success' && profileResponse.data) {
+              setProfile({ ...profileResponse.data, id: session.user.id, email: session.user.email })
+              redirectPath = getRedirectPath()
+            }
+          } catch {
+            setIsCheckingSession(false)
+            return
+          }
+        }
+        router.replace(redirectPath)
+      } else {
+        setIsCheckingSession(false)
+      }
+    }
+    checkExistingSession()
+  }, [])
 
   async function signUp() {
     if (!fullName.trim()) {
@@ -86,6 +116,22 @@ export default function SignUpPage() {
     t('benefitCalculations'),
     t('benefitReports'),
   ]
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen bg-white">
+        <PreNavbar />
+        <div className="pt-20 min-h-screen flex items-center justify-center">
+          <div className="flex items-center gap-2 text-gray-600">
+            <svg className="animate-spin h-5 w-5 text-blue-600" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white">
