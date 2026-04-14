@@ -8,7 +8,7 @@ import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { CreateClientPayload } from '@/services/types/client'
 import { ClientStatusCode } from '@/services/types/clientCode'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface CreateClientModalProps {
   isOpen: boolean
@@ -31,15 +31,15 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('active') // Default to 'active'
   const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>(undefined)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Fetch status codes when modal opens
   useEffect(() => {
     const fetchStatusCodes = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         try {
-          const response = await getStatusCodesByUserId(profile.id)
+          const response = await getStatusCodesByUserId(effectiveUserId!)
           if (response.status === 'success') {
             setStatusCodes(response.data)
             // Set default status to the default status code if available
@@ -62,7 +62,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
     }
 
     fetchStatusCodes()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Reset form fields whenever the modal opens
   useEffect(() => {
@@ -91,7 +91,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -109,7 +109,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
     try {
       const payload: CreateClientPayload = {
-        parentId: profile.id,
+        parentId: effectiveUserId!,
         name: trimmedName,
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,

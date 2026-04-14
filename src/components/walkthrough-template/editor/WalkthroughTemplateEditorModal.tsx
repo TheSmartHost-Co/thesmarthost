@@ -13,7 +13,7 @@ import {
   CameraIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { upsertWalkthroughTemplate } from '@/services/walkthroughTemplateService'
 import type {
@@ -59,7 +59,7 @@ export default function WalkthroughTemplateEditorModal({
   template,
 }: WalkthroughTemplateEditorModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore(state => state.showNotification)
 
   const [name, setName] = useState('')
@@ -202,7 +202,7 @@ export default function WalkthroughTemplateEditorModal({
   }
 
   const handleSave = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     const trimmedName = name.trim()
     if (!trimmedName) {
       showNotification(t('templateNameIsRequired'), 'error')
@@ -225,7 +225,7 @@ export default function WalkthroughTemplateEditorModal({
     setSaving(true)
     try {
       const payload: UpsertWalkthroughTemplatePayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         id: template?.id,
         name: trimmedName,
         description: description.trim() || null,

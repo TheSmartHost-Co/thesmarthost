@@ -10,7 +10,7 @@ import { getClientsByParentId } from '@/services/clientService'
 import type { Property, PropertyOwner, UpdatePropertyOwner } from '@/services/types/property'
 import type { Client } from '@/services/types/client'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   PlusIcon,
   TrashIcon,
@@ -43,7 +43,7 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
   const [hasChanges, setHasChanges] = useState(false)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   useEffect(() => {
@@ -57,11 +57,11 @@ const PropertyOwnersModal: React.FC<PropertyOwnersModalProps> = ({
   }, [isOpen, property])
 
   const fetchClients = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     try {
-      const response = await getClientsByParentId(profile.id)
+      const response = await getClientsByParentId(effectiveUserId!)
       if (response.status === 'success') {
         // Filter to only active clients
         setAvailableClients(response.data.filter(c => c.isActive))

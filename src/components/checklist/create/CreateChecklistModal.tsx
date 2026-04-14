@@ -15,8 +15,8 @@ import {
   RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   createChecklist,
   addChecklistItem,
@@ -56,7 +56,7 @@ export default function CreateChecklistModal({
   initialPropertyId,
 }: CreateChecklistModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Form state
@@ -104,8 +104,8 @@ export default function CreateChecklistModal({
 
   // Fetch templates when modal opens
   useEffect(() => {
-    if (isOpen && profile?.id) {
-      getChecklistTemplates(profile.id)
+    if (isOpen && effectiveUserId) {
+      getChecklistTemplates(effectiveUserId)
         .then((res) => {
           if (res.status === 'success') {
             setAvailableTemplates(res.data || [])
@@ -113,7 +113,7 @@ export default function CreateChecklistModal({
         })
         .catch(() => {})
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // When a template is selected, load its items and pre-fill
   useEffect(() => {
@@ -226,7 +226,7 @@ export default function CreateChecklistModal({
   )
 
   const handleSubmit = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('Please log in', 'error')
       return
     }

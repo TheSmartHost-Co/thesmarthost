@@ -20,7 +20,7 @@ import { CsvData } from '@/services/types/csvMapping'
 import { Client, CreateClientPayload } from '@/services/types/client'
 import { ClientStatusCode } from '@/services/types/clientCode'
 import { bulkImportClients } from '@/services/clientService'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
 
 type Step = 'upload' | 'map' | 'preview'
@@ -54,7 +54,7 @@ const BulkImportClientModal: React.FC<BulkImportClientModalProps> = ({
   const [validatedRows, setValidatedRows] = useState<PreviewRow[]>([])
   const [isImporting, setIsImporting] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const { showNotification } = useNotificationStore()
 
   // Reset state when modal opens
@@ -117,7 +117,7 @@ const BulkImportClientModal: React.FC<BulkImportClientModalProps> = ({
   }
 
   const handleImport = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User not found', 'error')
       return
     }
@@ -133,7 +133,7 @@ const BulkImportClientModal: React.FC<BulkImportClientModalProps> = ({
     try {
       // Build the payload
       const clients: CreateClientPayload[] = validRows.map(row => ({
-        parentId: profile.id,
+        parentId: effectiveUserId!,
         name: row.data.name || '',
         email: row.data.email,
         phone: row.data.phone,
@@ -144,7 +144,7 @@ const BulkImportClientModal: React.FC<BulkImportClientModalProps> = ({
       }))
 
       const response = await bulkImportClients({
-        parentId: profile.id,
+        parentId: effectiveUserId!,
         clients,
         skipDuplicates: true
       })

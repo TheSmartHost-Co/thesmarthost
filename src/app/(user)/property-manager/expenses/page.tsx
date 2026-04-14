@@ -282,8 +282,8 @@ export default function ExpensesPage() {
       icon: TrashIcon,
       onClick: async () => {
         if (!confirm('Are you sure you want to delete this expense?')) return
-        if (!profile?.id) return
-        const res = await deleteExpense(expense.id, profile.id)
+        if (!effectiveUserId) return
+        const res = await deleteExpense(expense.id, effectiveUserId)
         if (res.status === 'success') {
           showNotification('Expense deleted', 'success')
           handleExpenseDeleted(expense.id)

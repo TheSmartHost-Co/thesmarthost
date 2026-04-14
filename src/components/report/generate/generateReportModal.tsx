@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   getLogos,
   uploadLogo,
@@ -175,7 +175,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   templates: prefetchedTemplates
 }) => {
   const { showNotification } = useNotificationStore()
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   // ─── Step state ───
   const [step, setStep] = useState<ModalStep>('form')
@@ -607,9 +607,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   }
 
   const handleEditBooking = async (bookingId: string) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     try {
-      const res = await getBookingById(bookingId, profile.id)
+      const res = await getBookingById(bookingId, effectiveUserId!)
       if (res.status === 'success') {
         setEditingBooking(res.data)
       } else {

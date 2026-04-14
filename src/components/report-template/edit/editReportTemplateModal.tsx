@@ -22,7 +22,7 @@ import type {
   HeaderVariableCategory,
 } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import SectionList from '../shared/SectionList'
 import FieldList from '../shared/FieldList'
 import TableColumnList from '../shared/TableColumnList'
@@ -108,7 +108,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   const [headerVariablesLoading, setHeaderVariablesLoading] = useState(false)
   const [headerVariablesError, setHeaderVariablesError] = useState<string | null>(null)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Check if there are unsaved changes
@@ -406,12 +406,12 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
 
   // Save all changes via batch API
   const handleSave = async () => {
-    if (!profile?.id || !localTemplate) return
+    if (!effectiveUserId || !localTemplate) return
 
     setSaving(true)
     try {
       const payload: BatchSaveTemplatePayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         id: localTemplate.id,
         name: localTemplate.name,
         description: localTemplate.description || undefined,

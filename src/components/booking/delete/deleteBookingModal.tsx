@@ -6,7 +6,7 @@ import Modal from '../../shared/modal'
 import { deleteBooking, formatCurrency, formatPlatformName } from '@/services/bookingService'
 import { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
@@ -25,7 +25,7 @@ const DeleteBookingModal: React.FC<DeleteBookingModalProps> = ({
   onDeleted,
 }) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const formatDate = (dateString: string) => {
@@ -37,7 +37,7 @@ const DeleteBookingModal: React.FC<DeleteBookingModalProps> = ({
   }
 
   const handleDelete = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -45,7 +45,7 @@ const DeleteBookingModal: React.FC<DeleteBookingModalProps> = ({
     setIsDeleting(true)
 
     try {
-      const res = await deleteBooking(booking.id, profile.id)
+      const res = await deleteBooking(booking.id, effectiveUserId!)
 
       if (res.status === 'success') {
         onDeleted(booking.id)

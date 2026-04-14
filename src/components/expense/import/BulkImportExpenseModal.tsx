@@ -22,7 +22,7 @@ import { Property } from '@/services/types/property'
 import { Expense, BulkExpensePayload } from '@/services/types/expense'
 import { bulkImportExpenses } from '@/services/expenseService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 type Step = 'upload' | 'map' | 'assign' | 'preview'
 
@@ -57,7 +57,7 @@ const BulkImportExpenseModal: React.FC<BulkImportExpenseModalProps> = ({
   const [isImporting, setIsImporting] = useState(false)
 
   const { showNotification } = useNotificationStore()
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   // Reset state when modal opens
   useEffect(() => {
@@ -125,7 +125,7 @@ const BulkImportExpenseModal: React.FC<BulkImportExpenseModalProps> = ({
   }
 
   const handleImport = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User not authenticated', 'error')
       return
     }
@@ -142,7 +142,7 @@ const BulkImportExpenseModal: React.FC<BulkImportExpenseModalProps> = ({
       // Build the payload
       const expenses: BulkExpensePayload[] = validRows.map(row => row.data)
 
-      const response = await bulkImportExpenses(profile.id, expenses)
+      const response = await bulkImportExpenses(effectiveUserId!, expenses)
 
       if (response.status === 'success' && response.data) {
         const { summary, imported } = response.data

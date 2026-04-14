@@ -6,7 +6,7 @@ import Modal from '../../shared/modal'
 import { createReportTemplate, getReportTemplates, cloneReportTemplate } from '@/services/reportTemplateService'
 import type { FullReportTemplate } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { DocumentDuplicateIcon } from '@heroicons/react/24/outline'
 
 interface CreateReportTemplateModalProps {
@@ -28,16 +28,16 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Load available templates for cloning when modal opens
   useEffect(() => {
     const loadTemplates = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         setLoadingTemplates(true)
         try {
-          const res = await getReportTemplates(profile.id)
+          const res = await getReportTemplates(effectiveUserId!)
           if (res.status === 'success') {
             setAvailableTemplates(res.data || [])
           }
@@ -50,7 +50,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
     }
 
     loadTemplates()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Reset form when modal opens
   useEffect(() => {
@@ -73,7 +73,7 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification(t('userProfileNotFound'), 'error')
       return
     }
@@ -86,13 +86,13 @@ const CreateReportTemplateModal: React.FC<CreateReportTemplateModalProps> = ({
       if (cloneFromId) {
         // Clone existing template
         res = await cloneReportTemplate(cloneFromId, {
-          userId: profile.id,
+          userId: effectiveUserId!,
           name: trimmedName,
         })
       } else {
         // Create new template
         res = await createReportTemplate({
-          userId: profile.id,
+          userId: effectiveUserId!,
           name: trimmedName,
           description: trimmedDescription || undefined,
         })

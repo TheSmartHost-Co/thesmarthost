@@ -14,8 +14,8 @@ import {
   TagIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { createChecklistTemplate } from '@/services/checklistTemplateService'
 import { COMMON_ROOM_NAMES } from '@/services/checklistService'
 import type { ChecklistTemplate } from '@/services/types/checklistTemplate'
@@ -41,7 +41,7 @@ export default function CreateChecklistTemplateModal({
   onAdd,
 }: CreateChecklistTemplateModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Form state
@@ -148,7 +148,7 @@ export default function CreateChecklistTemplateModal({
   }, [items])
 
   const handleSubmit = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('Please log in', 'error')
       return
     }
@@ -162,7 +162,7 @@ export default function CreateChecklistTemplateModal({
 
     try {
       const res = await createChecklistTemplate({
-        userId: profile.id,
+        userId: effectiveUserId!,
         name: name.trim(),
         description: description.trim() || null,
         tags,

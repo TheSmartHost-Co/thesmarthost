@@ -13,8 +13,8 @@ import {
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   getChecklists,
   getChecklistById,
@@ -38,7 +38,7 @@ export default function DuplicateChecklistModal({
   properties,
 }: DuplicateChecklistModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Checklist list state
@@ -60,9 +60,9 @@ export default function DuplicateChecklistModal({
 
   // Fetch all checklists when modal opens
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && effectiveUserId) {
       setLoadingChecklists(true)
-      getChecklists({ userId: profile.id })
+      getChecklists({ userId: effectiveUserId })
         .then((res) => {
           if (res.status === 'success') {
             setChecklists(res.data)
@@ -73,7 +73,7 @@ export default function DuplicateChecklistModal({
         })
         .finally(() => setLoadingChecklists(false))
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Reset state when modal opens
   useEffect(() => {

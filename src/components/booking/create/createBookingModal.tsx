@@ -10,7 +10,7 @@ import { CreateBookingPayload, Platform } from '@/services/types/booking'
 import { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface CreateBookingModalProps {
   isOpen: boolean
@@ -57,7 +57,7 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Platform options
@@ -85,10 +85,10 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   // Fetch properties when modal opens
   useEffect(() => {
     const fetchProperties = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         try {
           setLoadingProperties(true)
-          const response = await getProperties(profile.id)
+          const response = await getProperties(effectiveUserId!)
           if (response.status === 'success') {
             setProperties(response.data.filter(p => p.isActive))
           } else {
@@ -104,7 +104,7 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
     }
 
     fetchProperties()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Auto-calculate number of nights when dates change
   useEffect(() => {
@@ -203,7 +203,7 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -218,7 +218,7 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
 
     try {
       const payload: CreateBookingPayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         propertyId: propertyId,
         reservationCode: trimmedReservationCode,
         guestName: trimmedGuestName,

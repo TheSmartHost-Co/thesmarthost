@@ -8,7 +8,7 @@ import { getStatusCodesByUserId } from '@/services/clientCodeService'
 import { UpdateClientPayload } from '@/services/types/client'
 import { ClientStatusCode } from '@/services/types/clientCode'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { Client } from '@/services/types/client'
 
 interface UpdateClientModalProps {
@@ -34,15 +34,15 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('active')
   const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>(undefined)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Fetch status codes when modal opens
   useEffect(() => {
     const fetchStatusCodes = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         try {
-          const response = await getStatusCodesByUserId(profile.id)
+          const response = await getStatusCodesByUserId(effectiveUserId!)
           if (response.status === 'success') {
             setStatusCodes(response.data)
           }
@@ -54,7 +54,7 @@ const UpdateClientModal: React.FC<UpdateClientModalProps> = ({
     }
 
     fetchStatusCodes()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Populate form fields when modal opens or client changes
   useEffect(() => {

@@ -3,7 +3,6 @@
 import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -64,9 +63,8 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   const [currentBooking, setCurrentBooking] = useState<IncomingBooking | null>(booking)
   const [webhookDataSearch, setWebhookDataSearch] = useState('')
   
-  const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
-  const { canWrite } = usePermissions()
+  const { canWrite, effectiveUserId } = usePermissions()
   const hasWrite = canWrite('incoming_bookings')
 
   // Convert properties to SearchableSelect options
@@ -98,7 +96,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'; // Prevent background scrolling when modal is open
-      if (profile?.id) {
+      if (effectiveUserId) {
         fetchPropertiesAndClients()
       }
     } else {
@@ -108,7 +106,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
     return () => {
       document.body.style.overflow = 'auto';   // Clean up on unmount
     };
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   useEffect(() => {
     if (booking) {
@@ -150,12 +148,12 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   }, [selectedPropertyId, currentBooking?.platform])
 
   const fetchPropertiesAndClients = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
       const [propertiesRes, clientsRes] = await Promise.all([
-        getProperties(profile.id),
-        getClientsByParentId(profile.id)
+        getProperties(effectiveUserId),
+        getClientsByParentId(effectiveUserId)
       ])
 
       if (propertiesRes.status === 'success') {
@@ -316,7 +314,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
   }
   
   const handleSaveFinancialEdits = async () => {
-    if (!currentBooking?.id || !profile?.id) return
+    if (!currentBooking?.id || !effectiveUserId) return
     
     try {
       setLoading(true)
@@ -344,7 +342,7 @@ const ReviewIncomingBookingsModal: React.FC<ReviewIncomingBookingsModalProps> = 
       }
       
       const response = await updateIncomingBookingFinancials(currentBooking.id, {
-        userId: profile.id,
+        userId: effectiveUserId,
         financialData: editedFinancials,
         fieldChanges
       })

@@ -6,7 +6,7 @@ import Modal from '../shared/modal'
 import { getStatusCodesByUserId, createStatusCode, updateStatusCode, deleteStatusCode } from '@/services/clientCodeService'
 import { ClientStatusCode, CreateStatusCodePayload, UpdateStatusCodePayload } from '@/services/types/clientCode'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 interface StatusCodeManagementModalProps {
@@ -31,21 +31,21 @@ const StatusCodeManagementModal: React.FC<StatusCodeManagementModalProps> = ({
   const [colorHex, setColorHex] = useState('#6B7280')
   const [isDefault, setIsDefault] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && effectiveUserId) {
       fetchStatusCodes()
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   const fetchStatusCodes = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     try {
-      const response = await getStatusCodesByUserId(profile.id)
+      const response = await getStatusCodesByUserId(effectiveUserId!)
       if (response.status === 'success') {
         setStatusCodes(response.data)
       } else {
@@ -93,7 +93,7 @@ const StatusCodeManagementModal: React.FC<StatusCodeManagementModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -120,7 +120,7 @@ const StatusCodeManagementModal: React.FC<StatusCodeManagementModalProps> = ({
       } else {
         // Create new status
         const createData: CreateStatusCodePayload = {
-          userId: profile.id,
+          userId: effectiveUserId!,
           code: trimmedCode,
           label: trimmedLabel,
           colorHex,

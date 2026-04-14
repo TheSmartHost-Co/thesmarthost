@@ -16,7 +16,7 @@ import type {
 } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 interface ExpenseCategoriesModalProps {
@@ -42,21 +42,21 @@ const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
   const [colorHex, setColorHex] = useState('#6B7280')
   const [isDefault, setIsDefault] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && effectiveUserId) {
       fetchCategories()
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   const fetchCategories = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     try {
-      const response = await getCategoriesByUserId(profile.id)
+      const response = await getCategoriesByUserId(effectiveUserId)
       if (response.status === 'success') {
         setCategories(response.data)
       } else {
@@ -106,7 +106,7 @@ const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -134,7 +134,7 @@ const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
       } else {
         // Create new category
         const createData: CreateExpenseCategoryPayload = {
-          userId: profile.id,
+          userId: effectiveUserId!,
           code: trimmedCode,
           label: trimmedLabel,
           description: description.trim() || undefined,

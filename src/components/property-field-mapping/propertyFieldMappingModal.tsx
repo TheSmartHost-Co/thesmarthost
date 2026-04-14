@@ -17,7 +17,7 @@ import type {
 } from '@/services/types/propertyFieldMapping'
 import type { Platform } from '@/services/types/csvMapping'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { 
   PlusIcon, 
   TrashIcon, 
@@ -66,7 +66,7 @@ const PropertyFieldMappingModal: React.FC<PropertyFieldMappingModalProps> = ({
   })
   const [showEditor, setShowEditor] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Load templates when modal opens
@@ -147,7 +147,7 @@ const PropertyFieldMappingModal: React.FC<PropertyFieldMappingModalProps> = ({
   }
 
   const handleSave = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -164,7 +164,7 @@ const PropertyFieldMappingModal: React.FC<PropertyFieldMappingModalProps> = ({
         // Create new template
         const payload: CreatePropertyFieldMappingPayload = {
           propertyId,
-          userId: profile.id,
+          userId: effectiveUserId!,
           mappingName: editingTemplateName.trim(),
           fieldMappings: editingFieldMappings,
           isDefault: templates.length === 0 // Set as default if it's the first template

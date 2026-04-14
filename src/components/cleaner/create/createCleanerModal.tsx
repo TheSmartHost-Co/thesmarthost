@@ -6,7 +6,7 @@ import { createCleaner } from '@/services/cleanerService'
 import { CreateCleanerPayload, Cleaner } from '@/services/types/cleaner'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface CreateCleanerModalProps {
   isOpen: boolean
@@ -36,7 +36,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Reset form fields whenever the modal opens
@@ -67,7 +67,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification(t('userProfileNotFound'), 'error')
       return
     }
@@ -90,7 +90,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
 
     try {
       const payload: CreateCleanerPayload = {
-        userId: profile.id,
+        userId: effectiveUserId,
         name: trimmedName,
         email: trimmedEmail,
         phone: trimmedPhone || undefined,

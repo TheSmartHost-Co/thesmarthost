@@ -6,8 +6,8 @@ import { CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, ArrowPathI
 import { parseCsvFile } from '@/utils/csvParser'
 import { CsvData } from '@/services/types/csvMapping'
 import { CreateBookingPayload } from '@/services/types/booking'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import EditFieldModal from '@/components/field-value-changed/EditFieldModal'
 import { PreviewFieldEdit } from '@/services/types/fieldValueChanged'
 import { isFinancialField, formatFieldName } from '@/services/fieldValuesChangedService'
@@ -147,7 +147,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     })
   )
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Track formula errors to show user notification
@@ -919,7 +919,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
   // Generate booking payloads from preview data (moved from ProcessStep)
   const generateBookingPayloads = (): CreateBookingPayload[] => {
-    if (!bookingPreviews || !profile) {
+    if (!bookingPreviews || !effectiveUserId) {
       throw new Error('Missing required data for booking generation')
     }
 
@@ -931,7 +931,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return bookingPreviews.map((preview, index) => {
       // Convert preview booking to CreateBookingPayload format
       const payload: CreateBookingPayload = {
-        userId: profile.id,
+        userId: effectiveUserId,
         propertyId: 'TEMP', // Will be updated in ProcessStep with correct property ID
         csvUploadId: '', // Will be set by ProcessStep when CSV upload record is created
         reservationCode: preview.reservation_code || preview.reservationId || `AUTO-${Date.now()}-${index}`,

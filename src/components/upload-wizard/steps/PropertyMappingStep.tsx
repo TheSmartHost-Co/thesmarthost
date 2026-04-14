@@ -14,8 +14,8 @@ import { Client } from '@/services/types/client'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import { getProperties } from '@/services/propertyService'
 import { getClientsByParentId, createClient } from '@/services/clientService'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface PropertyMappingStepProps {
   onNext?: () => void
@@ -60,7 +60,7 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
   const prevUniqueListingsRef = useRef<string | undefined>(undefined)
   const hasInitializedRef = useRef(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const { showNotification } = useNotificationStore()
 
   // Convert properties to SearchableSelect options
@@ -137,11 +137,11 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
   // Load user's existing properties
   useEffect(() => {
     const loadProperties = async () => {
-      if (!profile?.id) return
+      if (!effectiveUserId) return
 
       try {
         setLoadingProperties(true)
-        const response = await getProperties(profile.id)
+        const response = await getProperties(effectiveUserId)
         if (response.status === 'success') {
           setProperties(response.data)
         } else {
@@ -156,7 +156,7 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
     }
 
     loadProperties()
-  }, [profile?.id, showNotification])
+  }, [effectiveUserId, showNotification])
 
   // Update parent component when mappings change
   useEffect(() => {
@@ -198,10 +198,10 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
     setShowNewPropertyForms(prev => ({ ...prev, [listingName]: true }))
     
     // Load clients when creating new property
-    if (clients.length === 0 && profile?.id) {
+    if (clients.length === 0 && effectiveUserId) {
       try {
         setLoadingClients(true)
-        const response = await getClientsByParentId(profile.id)
+        const response = await getClientsByParentId(effectiveUserId)
         if (response.status === 'success') {
           setClients(response.data.filter(c => c.isActive))
         } else {
@@ -309,7 +309,7 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -317,7 +317,7 @@ const PropertyMappingStep: React.FC<PropertyMappingStepProps> = ({
     try {
       // Create the client immediately
       const clientResult = await createClient({
-        parentId: profile.id,
+        parentId: effectiveUserId,
         name: newClientData.name,
         email: newClientData.email
       })

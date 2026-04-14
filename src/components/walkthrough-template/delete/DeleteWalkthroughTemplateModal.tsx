@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { deleteWalkthroughTemplate } from '@/services/walkthroughTemplateService'
 import type { WalkthroughTemplate } from '@/services/types/walkthroughTemplate'
@@ -24,17 +24,17 @@ export default function DeleteWalkthroughTemplateModal({
   template,
 }: Props) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore(state => state.showNotification)
   const [deleting, setDeleting] = useState(false)
 
   if (!isOpen || !template) return null
 
   const handleDelete = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     setDeleting(true)
     try {
-      const res = await deleteWalkthroughTemplate(template.id, profile.id)
+      const res = await deleteWalkthroughTemplate(template.id, effectiveUserId!)
       if (res.status === 'success') {
         showNotification(t('templateDeleted'), 'success')
         onDeleted()

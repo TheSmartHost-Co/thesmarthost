@@ -7,7 +7,7 @@ import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { createClient } from '@/services/clientService'
 import { CreateClientPayload, Client } from '@/services/types/client'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface QuickCreateClientModalProps {
   onCancel: () => void
@@ -24,7 +24,7 @@ const QuickCreateClientModal: React.FC<QuickCreateClientModalProps> = ({
   const [showExtras, setShowExtras] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Reset form when component mounts
@@ -58,7 +58,7 @@ const QuickCreateClientModal: React.FC<QuickCreateClientModalProps> = ({
       return
     }
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -78,7 +78,7 @@ const QuickCreateClientModal: React.FC<QuickCreateClientModalProps> = ({
 
     try {
       const payload: CreateClientPayload = {
-        parentId: profile.id,
+        parentId: effectiveUserId!,
         name: trimmedName,
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,

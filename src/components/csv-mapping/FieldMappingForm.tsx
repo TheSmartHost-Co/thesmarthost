@@ -18,6 +18,7 @@ import { getTemplateRulesByName } from '@/services/calculationRuleService'
 import CalculationRuleModal from '@/components/calculation-rules/calculationRuleModal'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface FieldMappingFormProps {
   csvData: CsvData
@@ -106,6 +107,7 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
 
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const { effectiveUserId } = usePermissions()
   
   // Platform override state
   const [platformOverride, setPlatformOverride] = useState<string>('')
@@ -433,13 +435,13 @@ const FieldMappingForm: React.FC<FieldMappingFormProps> = ({
 
   // Load rules from a specific template (called from CalculationRuleModal)
   const handleLoadTemplateRules = async (templateName: string) => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User not found', 'error')
       return
     }
 
     try {
-      const response = await getTemplateRulesByName(profile.id, templateName)
+      const response = await getTemplateRulesByName(effectiveUserId, templateName)
       if (response.status === 'success') {
         setLoadedCalculationRules(response.data)
         showNotification(`Loaded ${response.data.length} rules from template "${templateName}"`, 'success')

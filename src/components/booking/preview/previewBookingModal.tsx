@@ -9,7 +9,7 @@ import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon
 import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 
@@ -32,18 +32,18 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
 }) => {
   const [fieldChanges, setFieldChanges] = useState<FieldValueChanged[]>([])
   const [loadingFieldChanges, setLoadingFieldChanges] = useState(false)
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   // Load field changes when modal opens
   useEffect(() => {
     const fetchFieldChanges = async () => {
-      if (!isOpen || !booking.id || !profile?.id) return
+      if (!isOpen || !booking.id || !effectiveUserId) return
 
       try {
         setLoadingFieldChanges(true)
         const response = await getFieldChangesByBooking({
           bookingId: booking.id,
-          userId: profile.id
+          userId: effectiveUserId!
         })
         if (response.status === 'success') {
           setFieldChanges(response.data)
@@ -59,7 +59,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
     }
 
     fetchFieldChanges()
-  }, [isOpen, booking.id, profile?.id])
+  }, [isOpen, booking.id, effectiveUserId])
   const formatDate = (dateString: string) => {
     return parseLocalDate(dateString).toLocaleDateString('en-CA', {
       weekday: 'long',

@@ -11,8 +11,8 @@ import {
   ArrowRightIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   applyChecklistTemplateBatch,
   getLinkedProperties,
@@ -38,7 +38,7 @@ export default function ApplyTemplateModal({
   template,
 }: ApplyTemplateModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const [properties, setProperties] = useState<Property[]>([])
@@ -52,12 +52,12 @@ export default function ApplyTemplateModal({
 
   // Fetch properties and linked properties when modal opens
   useEffect(() => {
-    if (isOpen && profile?.id && template) {
+    if (isOpen && effectiveUserId && template) {
       setLoadingProperties(true)
       setLoadingLinked(true)
 
       Promise.all([
-        getProperties(profile.id),
+        getProperties(effectiveUserId),
         getLinkedProperties(template.id),
       ])
         .then(([propRes, linkedRes]) => {
@@ -70,7 +70,7 @@ export default function ApplyTemplateModal({
           setLoadingLinked(false)
         })
     }
-  }, [isOpen, profile?.id, template])
+  }, [isOpen, effectiveUserId, template])
 
   // Reset state when modal opens
   useEffect(() => {

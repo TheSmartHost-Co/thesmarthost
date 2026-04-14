@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getProperties } from '@/services/propertyService'
 import type { Property } from '@/services/types/property'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   BuildingOfficeIcon,
   XMarkIcon,
@@ -40,15 +40,15 @@ const PropertyAssignmentSelector: React.FC<PropertyAssignmentSelectorProps> = ({
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   // Load properties lazily - only when dropdown is opened for the first time
   const loadPropertiesIfNeeded = async () => {
-    if (propertiesLoaded || loading || !profile?.id) return
+    if (propertiesLoaded || loading || !effectiveUserId) return
 
     setLoading(true)
     try {
-      const res = await getProperties(profile.id)
+      const res = await getProperties(effectiveUserId!)
       if (res.status === 'success') {
         setProperties(res.data || [])
         setPropertiesLoaded(true)

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { cloneWalkthroughTemplate } from '@/services/walkthroughTemplateService'
 import type { WalkthroughTemplate } from '@/services/types/walkthroughTemplate'
@@ -24,7 +24,7 @@ export default function CloneWalkthroughTemplateModal({
   source,
 }: Props) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore(state => state.showNotification)
   const [name, setName] = useState('')
   const [cloning, setCloning] = useState(false)
@@ -39,7 +39,7 @@ export default function CloneWalkthroughTemplateModal({
   if (!isOpen || !source) return null
 
   const handleClone = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     const trimmed = name.trim()
     if (!trimmed) {
       showNotification(t('nameIsRequired'), 'error')
@@ -48,7 +48,7 @@ export default function CloneWalkthroughTemplateModal({
     setCloning(true)
     try {
       const res = await cloneWalkthroughTemplate(source.id, {
-        userId: profile.id,
+        userId: effectiveUserId!,
         name: trimmed,
       })
       if (res.status === 'success') {

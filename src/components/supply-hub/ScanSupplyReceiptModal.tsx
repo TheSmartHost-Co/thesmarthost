@@ -20,7 +20,7 @@ import type {
   PaidByType,
 } from '@/services/types/receipt'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import { parseLocalDate } from '@/utils/dateUtils'
@@ -78,7 +78,7 @@ export default function ScanSupplyReceiptModal({
   paidById,
 }: ScanSupplyReceiptModalProps) {
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore(s => s.showNotification)
 
   // Determine context from props
@@ -223,7 +223,7 @@ export default function ScanSupplyReceiptModal({
 
   // Fetch active projects when property changes (manual context only)
   useEffect(() => {
-    if (context !== 'manual' || !selectedPropertyId || !profile?.id) {
+    if (context !== 'manual' || !selectedPropertyId || !effectiveUserId) {
       setProjects([])
       setSelectedProjectId('')
       return
@@ -236,7 +236,7 @@ export default function ScanSupplyReceiptModal({
     endDate.setDate(endDate.getDate() + 30)
     const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-    getCleaningProjects({ userId: profile.id, startDate: fmt(startDate), endDate: fmt(endDate) })
+    getCleaningProjects({ userId: effectiveUserId, startDate: fmt(startDate), endDate: fmt(endDate) })
       .then(res => {
         if (cancelled) return
         if (res.status === 'success') {
@@ -250,7 +250,7 @@ export default function ScanSupplyReceiptModal({
       .catch(() => { /* ignore */ })
 
     return () => { cancelled = true }
-  }, [context, selectedPropertyId, profile?.id])
+  }, [context, selectedPropertyId, effectiveUserId])
 
   // Populate form fields from a ReceiptDetail
   const populateFromReceipt = (receipt: ReceiptDetail, items: ReceiptLineItem[]) => {
@@ -463,7 +463,7 @@ export default function ScanSupplyReceiptModal({
   }
 
   const handleApply = async () => {
-    if (!profile?.id || !receiptDetail) return
+    if (!effectiveUserId || !receiptDetail) return
     setSubmitting(true)
 
     const propertyId = selectedPropertyId || receiptDetail.propertyId || ''

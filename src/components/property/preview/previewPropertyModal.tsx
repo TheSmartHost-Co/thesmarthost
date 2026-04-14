@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Modal from '../../shared/modal'
 import { Property } from '@/services/types/property'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { getBookings } from '@/services/bookingService'
 import { getReports } from '@/services/reportService'
@@ -60,8 +60,8 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   onManageOwners,
   onManageICal,
 }) => {
-  // Zustand store
-  const { profile } = useUserStore()
+  // Permissions hook
+  const { effectiveUserId } = usePermissions()
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('details')
@@ -114,12 +114,12 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
 
   // Lazy load bookings when tab is clicked
   useEffect(() => {
-    console.log('Bookings useEffect triggered:', { activeTab, bookingsLoaded, profileId: profile?.id, propertyId: property.id })
-    if (activeTab === 'bookings' && !bookingsLoaded && profile?.id) {
+    console.log('Bookings useEffect triggered:', { activeTab, bookingsLoaded, effectiveUserId, propertyId: property.id })
+    if (activeTab === 'bookings' && !bookingsLoaded && effectiveUserId) {
       console.log('Fetching bookings...')
       fetchBookings()
     }
-  }, [activeTab, bookingsLoaded, profile?.id, property.id])
+  }, [activeTab, bookingsLoaded, effectiveUserId, property.id])
 
   // Lazy load reports when tab is clicked
   useEffect(() => {
@@ -130,18 +130,18 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
 
   // Lazy load issues when tab is clicked
   useEffect(() => {
-    if (activeTab === 'issues' && !issuesLoaded && profile?.id) {
+    if (activeTab === 'issues' && !issuesLoaded && effectiveUserId) {
       fetchIssues()
     }
-  }, [activeTab, issuesLoaded, profile?.id, property.id])
+  }, [activeTab, issuesLoaded, effectiveUserId, property.id])
 
   const fetchBookings = async () => {
-    console.log('fetchBookings called, profile:', profile?.id)
-    if (!profile?.id) return
+    console.log('fetchBookings called, effectiveUserId:', effectiveUserId)
+    if (!effectiveUserId) return
     setLoadingBookings(true)
     try {
-      console.log('Calling getBookings API with:', { userId: profile.id, propertyId: property.id })
-      const res = await getBookings({ userId: profile.id, propertyId: property.id })
+      console.log('Calling getBookings API with:', { userId: effectiveUserId, propertyId: property.id })
+      const res = await getBookings({ userId: effectiveUserId!, propertyId: property.id })
       console.log('getBookings response:', res)
       if (res.status === 'success') {
         setBookings(res.data)
@@ -170,10 +170,10 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   }
 
   const fetchIssues = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
     setLoadingIssues(true)
     try {
-      const res = await getIssuesByProperty(property.id, profile.id)
+      const res = await getIssuesByProperty(property.id, effectiveUserId!)
       if (res.status === 'success') {
         setIssues(res.data)
         setIssuesLoaded(true)

@@ -29,6 +29,7 @@ import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import type { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import {
@@ -128,6 +129,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
 }) => {
   const showNotification = useNotificationStore((s) => s.showNotification)
   const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   const [receiptId, setReceiptId] = useState(initialReceiptId)
   const [receipt, setReceipt] = useState<ReceiptDetail | null>(null)
@@ -247,8 +249,8 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         setApplyProjectId('')
         setApplySupplyListId('')
       }
-      if (profile?.id && categories.length === 0) {
-        getCategoriesByUserId(profile.id).then((res) => {
+      if (effectiveUserId && categories.length === 0) {
+        getCategoriesByUserId(effectiveUserId).then((res) => {
           if (res.status === 'success') setCategories(res.data)
         }).catch(() => {})
       }
@@ -259,29 +261,21 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         }).catch(() => {})
       }
       // Fetch projects for "new" mode
-      if (profile?.id && availableProjects.length === 0) {
+      if (effectiveUserId && availableProjects.length === 0) {
         const today = new Date()
         const start = new Date(today); start.setDate(start.getDate() - 7)
         const end = new Date(today); end.setDate(end.getDate() + 30)
         const fmt = (d: Date) => d.toISOString().split('T')[0]
-        getCleaningProjects({ userId: profile.id, startDate: fmt(start), endDate: fmt(end) }).then((res) => {
+        getCleaningProjects({ userId: effectiveUserId, startDate: fmt(start), endDate: fmt(end) }).then((res) => {
           if (res.status === 'success') setAvailableProjects(res.data.filter(p => ['assigned', 'confirmed', 'in_progress'].includes(p.status)))
         }).catch(() => {})
       }
       // Fetch people for "Paid By" picker
-      if (profile?.id && peopleOptions.length === 0) {
+      if (effectiveUserId && profile?.id && peopleOptions.length === 0) {
         const roleLabel = (r: string) => r === 'CLEANER' ? 'Cleaner' : r === 'TEAM_MEMBER' ? 'Team Member' : 'PM'
         const roleType = (r: string): PaidByType => r === 'CLEANER' ? 'CLEANER' : r === 'TEAM_MEMBER' ? 'TEAM_MEMBER' : 'PROPERTY-MANAGER'
 
-        // Resolve PM userId — for cleaners without pmUserId in session, look it up from cleaner record
-        let pmUserId = profile.pmUserId || null
-        if (!pmUserId && profile.role === 'CLEANER') {
-          try {
-            const clMe = await getCleanerByAuthUserId(profile.id)
-            if (clMe.status === 'success' && clMe.data) pmUserId = clMe.data.userId
-          } catch { /* non-critical */ }
-        }
-        const effectiveUserId = pmUserId || profile.id
+        const pmUserId = profile.pmUserId || null
 
         const opts: SearchableSelectOption<string>[] = []
         const typeMap: Record<string, PaidByType> = {}

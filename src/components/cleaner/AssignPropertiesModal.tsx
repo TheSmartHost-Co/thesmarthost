@@ -8,7 +8,7 @@ import { Cleaner, AssignPropertiesPayload } from '@/services/types/cleaner'
 import { Property } from '@/services/types/property'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   BuildingOfficeIcon,
   CheckIcon,
@@ -47,17 +47,17 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { t } = useTranslation('turnover')
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Fetch properties and initialize assignments when modal opens
   useEffect(() => {
     const fetchProperties = async () => {
-      if (!isOpen || !profile?.id) return
+      if (!isOpen || !effectiveUserId) return
 
       setLoading(true)
       try {
-        const response = await getProperties(profile.id)
+        const response = await getProperties(effectiveUserId)
         if (response.status === 'success') {
           setProperties(response.data)
 
@@ -88,7 +88,7 @@ const AssignPropertiesModal: React.FC<AssignPropertiesModalProps> = ({
     }
 
     fetchProperties()
-  }, [isOpen, profile?.id, cleaner.assignedProperties, showNotification])
+  }, [isOpen, effectiveUserId, cleaner.assignedProperties, showNotification])
 
   // Reset search when modal closes
   useEffect(() => {

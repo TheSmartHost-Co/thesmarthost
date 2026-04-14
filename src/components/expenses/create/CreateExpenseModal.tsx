@@ -15,7 +15,7 @@ import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -86,7 +86,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Convert properties to SearchableSelect options
@@ -109,30 +109,30 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
   // Load data on mount
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && effectiveUserId) {
       loadData()
       resetForm()
     }
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Load bookings when property changes
   useEffect(() => {
-    if (propertyId && profile?.id) {
+    if (propertyId && effectiveUserId) {
       loadBookingsForProperty(propertyId)
     } else {
       setBookings([])
       setBookingId('')
     }
-  }, [propertyId, profile?.id])
+  }, [propertyId, effectiveUserId])
 
   const loadData = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     setLoading(true)
     try {
       const [propertiesRes, categoriesRes] = await Promise.all([
-        getProperties(profile.id),
-        getCategoriesByUserId(profile.id),
+        getProperties(effectiveUserId),
+        getCategoriesByUserId(effectiveUserId),
       ])
 
       if (propertiesRes.status === 'success') {
@@ -164,10 +164,10 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   }
 
   const loadBookingsForProperty = async (propId: string) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
-      const res = await getBookings({ userId: profile.id, propertyId: propId })
+      const res = await getBookings({ userId: effectiveUserId, propertyId: propId })
       if (res.status === 'success') {
         setBookings(res.data || [])
       }
@@ -243,7 +243,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User not authenticated', 'error')
       return
     }
@@ -271,7 +271,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       const taxTotal = gst + pst + hst
 
       const payload: CreateExpensePayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         propertyId: propertyId || undefined,
         bookingId: bookingId || undefined,
         expenseDate,

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
 import { deleteReportTemplate } from '@/services/reportTemplateService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { ReportTemplate } from '@/services/types/reportTemplate'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
@@ -24,16 +24,16 @@ const DeleteReportTemplateModal: React.FC<DeleteReportTemplateModalProps> = ({
 }) => {
   const { t } = useTranslation('reports')
   const [isDeleting, setIsDeleting] = useState(false)
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const handleDelete = async () => {
-    if (!template || !profile?.id) return
+    if (!template || !effectiveUserId) return
 
     setIsDeleting(true)
 
     try {
-      const res = await deleteReportTemplate(template.id, profile.id)
+      const res = await deleteReportTemplate(template.id, effectiveUserId!)
       if (res.status === 'success') {
         showNotification(t('templateDeleted'), 'success')
         onDeleted()

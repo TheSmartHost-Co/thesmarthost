@@ -18,7 +18,7 @@ import type {
 } from '@/services/types/propertyFieldMapping'
 import type { Platform } from '@/services/types/csvMapping'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   PlusIcon,
   TrashIcon,
@@ -71,12 +71,12 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
   const [copyingTemplate, setCopyingTemplate] = useState<GlobalFieldMappingTemplate | null>(null)
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Load templates when modal opens
   useEffect(() => {
-    if (isOpen && profile?.id) {
+    if (isOpen && effectiveUserId) {
       loadTemplates()
 
       // Set initial template if provided
@@ -84,7 +84,7 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
         setSelectedTemplate(initialTemplate)
       }
     }
-  }, [isOpen, profile?.id, initialTemplate])
+  }, [isOpen, effectiveUserId, initialTemplate])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -100,11 +100,11 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
   }, [isOpen])
 
   const loadTemplates = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
       setLoading(true)
-      const response = await getGlobalFieldMappings(profile.id)
+      const response = await getGlobalFieldMappings(effectiveUserId)
       if (response.status === 'success') {
         setTemplates(response.data)
       } else {
@@ -157,7 +157,7 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
   }
 
   const handleSave = async () => {
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -173,7 +173,7 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
       if (isCreating) {
         // Create new template
         const payload: CreateGlobalFieldMappingPayload = {
-          userId: profile.id,
+          userId: effectiveUserId,
           mappingName: editingTemplateName.trim(),
           fieldMappings: editingFieldMappings,
           isDefault: templates.length === 0 // Set as default if it's the first template
@@ -311,7 +311,7 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
   }
 
   const handleCopyToProperties = async () => {
-    if (!copyingTemplate || !profile?.id || selectedPropertyIds.length === 0) return
+    if (!copyingTemplate || !effectiveUserId || selectedPropertyIds.length === 0) return
 
     const confirmMessage = `Copy "${copyingTemplate.mappingName}" to ${selectedPropertyIds.length} ${selectedPropertyIds.length === 1 ? 'property' : 'properties'}?`
     if (!confirm(confirmMessage)) return
@@ -323,7 +323,7 @@ const GlobalFieldMappingModal: React.FC<GlobalFieldMappingModalProps> = ({
 
       for (const propertyId of selectedPropertyIds) {
         try {
-          const response = await copyGlobalTemplateToProperty(copyingTemplate.id, propertyId, profile.id)
+          const response = await copyGlobalTemplateToProperty(copyingTemplate.id, propertyId, effectiveUserId)
           if (response.status === 'success') {
             successCount++
           } else {

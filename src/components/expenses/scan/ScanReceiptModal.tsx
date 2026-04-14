@@ -11,7 +11,7 @@ import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -72,17 +72,17 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
   const [isReimbursable, setIsReimbursable] = useState(false)
   const [isTaxDeductible, setIsTaxDeductible] = useState(true)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Load reference data when modal opens
   const loadReferenceData = useCallback(async () => {
-    if (!profile?.id || loadedReferenceData) return
+    if (!effectiveUserId || loadedReferenceData) return
 
     try {
       const [categoriesRes, propertiesRes] = await Promise.all([
-        getCategoriesByUserId(profile.id),
-        getProperties(profile.id)
+        getCategoriesByUserId(effectiveUserId),
+        getProperties(effectiveUserId)
       ])
 
       if (categoriesRes.status === 'success') {
@@ -100,7 +100,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
     } catch (err) {
       console.error('Error loading reference data:', err)
     }
-  }, [profile?.id, loadedReferenceData])
+  }, [effectiveUserId, loadedReferenceData])
 
   React.useEffect(() => {
     if (isOpen) {
@@ -213,7 +213,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
   }
 
   const handleCreateExpense = async () => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     const parsedAmount = parseFloat(amount)
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -232,7 +232,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
 
     try {
       const payload: CreateExpensePayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         propertyId: propertyId || undefined,
         expenseDate,
         amount: parsedAmount,

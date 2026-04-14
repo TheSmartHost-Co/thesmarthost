@@ -10,7 +10,7 @@ import { Booking, UpdateBookingPayload, Platform } from '@/services/types/bookin
 import { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { parseLocalDate } from '@/utils/dateUtils'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { isValidationError } from '@/services/validationError'
 import { CalendarDaysIcon } from '@heroicons/react/24/outline'
 
@@ -59,7 +59,7 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
   const [loadingProperties, setLoadingProperties] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Convert properties to SearchableSelect options
@@ -112,10 +112,10 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
   // Fetch properties for dropdown
   useEffect(() => {
     const fetchProperties = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         try {
           setLoadingProperties(true)
-          const response = await getProperties(profile.id)
+          const response = await getProperties(effectiveUserId!)
           setProperties(response.data.filter((p) => p.isActive))
         } catch (err) {
           console.error('Error fetching properties:', err)
@@ -127,13 +127,13 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
     }
 
     fetchProperties()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!profile?.id) {
+    if (!effectiveUserId) {
       showNotification('User profile not found', 'error')
       return
     }
@@ -175,7 +175,7 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
       }
 
       const payload: UpdateBookingPayload = {
-        userId: profile.id,
+        userId: effectiveUserId!,
         propertyId: propertyId,
         reservationCode: trimmedReservationCode,
         guestName: trimmedGuestName,

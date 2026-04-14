@@ -28,7 +28,7 @@ import type {
   PaymentStatus
 } from '@/services/types/expense'
 import type { PaidByType } from '@/services/types/receipt'
-import { getCleaners, getCleanerByAuthUserId } from '@/services/cleanerService'
+import { getCleaners } from '@/services/cleanerService'
 import { getTeamMembers } from '@/services/teamMemberService'
 import { getUserProfile } from '@/services/profileService'
 import SearchableSelect from '@/components/shared/SearchableSelect'
@@ -151,31 +151,31 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
-  const { canWrite } = usePermissions()
+  const { canWrite, effectiveUserId } = usePermissions()
   const hasWrite = canWrite('expenses')
 
   useEffect(() => {
-    if (isOpen && expenseId && profile?.id) {
+    if (isOpen && expenseId && effectiveUserId) {
       setMode('view')
       setReceiptUrl(null)
       fetchExpense()
       loadReferenceData()
     }
-  }, [isOpen, expenseId, profile?.id])
+  }, [isOpen, expenseId, effectiveUserId])
 
   // Load bookings when property changes in edit mode
   useEffect(() => {
-    if (mode === 'edit' && propertyId && profile?.id) {
+    if (mode === 'edit' && propertyId && effectiveUserId) {
       loadBookingsForProperty(propertyId)
     }
-  }, [propertyId, mode, profile?.id])
+  }, [propertyId, mode, effectiveUserId])
 
   const fetchExpense = async () => {
-    if (!profile?.id || !expenseId) return
+    if (!effectiveUserId || !expenseId) return
 
     setLoading(true)
     try {
-      const response = await getExpenseById(expenseId, profile.id)
+      const response = await getExpenseById(expenseId, effectiveUserId)
       if (response.status === 'success') {
         setExpense(response.data)
         initializeEditForm(response.data)
@@ -205,17 +205,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const loadReferenceData = async () => {
-    if (!profile?.id) return
-
-    // Resolve PM userId — for cleaners without pmUserId in session, look it up from cleaner record
-    let pmUserId = profile.pmUserId || null
-    if (!pmUserId && profile.role === 'CLEANER') {
-      try {
-        const clMe = await getCleanerByAuthUserId(profile.id)
-        if (clMe.status === 'success' && clMe.data) pmUserId = clMe.data.userId
-      } catch { /* non-critical */ }
-    }
-    const effectiveUserId = pmUserId || profile.id
+    if (!effectiveUserId || !profile?.id) return
 
     try {
       const [propertiesRes, categoriesRes, tmRes, clRes] = await Promise.all([
@@ -241,6 +231,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       opts.push({ value: profile.id, label: `${profile.fullName} (You)`, secondaryLabel: roleLabel(profile.role) })
       typeMap[profile.id] = roleType(profile.role)
       // Add PM if current user is not the PM
+      const pmUserId = effectiveUserId !== profile.id ? effectiveUserId : null
       if (pmUserId) {
         try {
           const pmRes = await getUserProfile(pmUserId)
@@ -270,10 +261,10 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const loadBookingsForProperty = async (propId: string) => {
-    if (!profile?.id) return
+    if (!effectiveUserId) return
 
     try {
-      const res = await getBookings({ userId: profile.id, propertyId: propId })
+      const res = await getBookings({ userId: effectiveUserId, propertyId: propId })
       if (res.status === 'success') {
         setBookings(res.data || [])
       }
@@ -307,7 +298,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setShowTaxBreakdown(!!(exp.subtotal || exp.taxGst || exp.taxPst || exp.taxHst || exp.taxTotal))
 
     // Load bookings for property if exists
-    if (exp.propertyId && profile?.id) {
+    if (exp.propertyId && effectiveUserId) {
       loadBookingsForProperty(exp.propertyId)
     }
   }
@@ -320,11 +311,11 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const loadReceiptPreview = async () => {
-    if (!profile?.id || !expenseId) return
+    if (!effectiveUserId || !expenseId) return
 
     setLoadingReceipt(true)
     try {
-      const url = await getReceiptPreviewUrl(expenseId, profile.id)
+      const url = await getReceiptPreviewUrl(expenseId, effectiveUserId)
       setReceiptUrl(url)
     } catch (error) {
       console.error('Error loading receipt:', error)
@@ -337,7 +328,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!profile?.id || !expense) return
+    if (!effectiveUserId || !expense) return
 
     const parsedAmount = parseFloat(amount)
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -355,7 +346,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       const calculatedTaxTotal = (parsedTaxGst || 0) + (parsedTaxPst || 0) + (parsedTaxHst || 0)
 
       const payload: UpdateExpensePayload = {
-        userId: profile.id,
+        userId: effectiveUserId,
         propertyId: propertyId || null,
         bookingId: bookingId || null,
         expenseDate,
@@ -395,14 +386,14 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const handleDelete = async () => {
-    if (!profile?.id || !expense) return
+    if (!effectiveUserId || !expense) return
 
     if (!confirm('Are you sure you want to delete this expense? This action cannot be undone.')) {
       return
     }
 
     try {
-      const response = await deleteExpense(expense.id, profile.id)
+      const response = await deleteExpense(expense.id, effectiveUserId)
       if (response.status === 'success') {
         showNotification('Expense deleted successfully', 'success')
         onExpenseDeleted?.(expense.id)
@@ -417,10 +408,10 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const handleDownloadReceipt = async () => {
-    if (!profile?.id || !expense) return
+    if (!effectiveUserId || !expense) return
 
     try {
-      await downloadReceipt(expense.id, profile.id)
+      await downloadReceipt(expense.id, effectiveUserId)
       showNotification('Download started', 'success')
     } catch (error) {
       console.error('Error downloading receipt:', error)
@@ -451,17 +442,17 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const handleUploadReceipt = async () => {
-    if (!profile?.id || !expense || !selectedFile) return
+    if (!effectiveUserId || !expense || !selectedFile) return
 
     setUploadingReceipt(true)
     try {
-      const response = await uploadReceipt(expense.id, profile.id, selectedFile)
+      const response = await uploadReceipt(expense.id, effectiveUserId, selectedFile)
       if (response.status === 'success' && response.data) {
         showNotification('Receipt uploaded successfully', 'success')
         setExpense(response.data)
         setSelectedFile(null)
         // Reload preview
-        const url = await getReceiptPreviewUrl(expense.id, profile.id)
+        const url = await getReceiptPreviewUrl(expense.id, effectiveUserId)
         setReceiptUrl(url)
         onExpenseUpdated?.()
       } else {
@@ -476,12 +467,12 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const handleDeleteReceipt = async () => {
-    if (!profile?.id || !expense) return
+    if (!effectiveUserId || !expense) return
 
     if (!confirm('Remove the receipt from this expense?')) return
 
     try {
-      const response = await deleteReceipt(expense.id, profile.id)
+      const response = await deleteReceipt(expense.id, effectiveUserId)
       if (response.status === 'success') {
         showNotification('Receipt removed successfully', 'success')
         setExpense(prev => prev ? { ...prev, receiptPath: undefined, receiptOriginalName: undefined, receiptMimeType: undefined } : null)

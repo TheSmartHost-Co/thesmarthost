@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getCleaningProjects } from '@/services/cleaningProjectService'
 import { createSupplyList, createStandaloneSupplyList } from '@/services/supplyListService'
 import type { Property } from '@/services/types/property'
@@ -42,7 +42,7 @@ export default function CreateSupplyListModal({
 }: CreateSupplyListModalProps) {
   const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore(s => s.showNotification)
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
 
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState('')
@@ -71,7 +71,7 @@ export default function CreateSupplyListModal({
 
   // Load projects when property changes
   useEffect(() => {
-    if (!selectedPropertyId || !profile?.id) {
+    if (!selectedPropertyId || !effectiveUserId) {
       setProjects([])
       setSelectedProjectId('')
       return
@@ -80,7 +80,7 @@ export default function CreateSupplyListModal({
     const loadProjects = async () => {
       setLoadingProjects(true)
       try {
-        const res = await getCleaningProjects({ userId: profile.id })
+        const res = await getCleaningProjects({ userId: effectiveUserId })
         if (res.status === 'success') {
           // Filter to active projects for this property
           const filtered = (res.data || []).filter(
@@ -98,7 +98,7 @@ export default function CreateSupplyListModal({
       }
     }
     loadProjects()
-  }, [selectedPropertyId, profile?.id])
+  }, [selectedPropertyId, effectiveUserId])
 
   const addItem = () => {
     setItems(prev => [...prev, { name: '', quantity: 1 }])

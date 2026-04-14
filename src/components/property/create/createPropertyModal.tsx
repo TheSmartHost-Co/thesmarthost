@@ -11,7 +11,7 @@ import { getClientsByParentId } from '@/services/clientService'
 import { CreatePropertyPayload } from '@/services/types/property'
 import { Client } from '@/services/types/client'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { useUserStore } from '@/store/useUserStore'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface CreatePropertyModalProps {
   isOpen: boolean
@@ -58,7 +58,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     return normalizedProvince === 'quebec' || normalizedProvince === 'qc' || normalizedProvince === 'québec'
   }
 
-  const { profile } = useUserStore()
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Convert clients to SearchableSelect options
@@ -73,10 +73,10 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   // Fetch clients when modal opens
   useEffect(() => {
     const fetchClients = async () => {
-      if (isOpen && profile?.id) {
+      if (isOpen && effectiveUserId) {
         try {
           setLoadingClients(true)
-          const response = await getClientsByParentId(profile.id)
+          const response = await getClientsByParentId(effectiveUserId!)
           setClients(response.data.filter(c => c.isActive))
         } catch (err) {
           console.error('Error fetching clients:', err)
@@ -88,7 +88,7 @@ const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     }
 
     fetchClients()
-  }, [isOpen, profile?.id])
+  }, [isOpen, effectiveUserId])
 
   // Reset form fields whenever the modal opens
   useEffect(() => {
