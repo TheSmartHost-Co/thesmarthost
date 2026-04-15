@@ -6,10 +6,18 @@ import {
   CloudArrowUpIcon,
   HomeModernIcon,
   UserCircleIcon,
+  WrenchScrewdriverIcon,
+  CheckBadgeIcon,
+  DocumentCurrencyDollarIcon,
+  PaperAirplaneIcon,
+  BanknotesIcon,
+  ClipboardDocumentListIcon,
+  ClipboardDocumentCheckIcon,
+  ReceiptPercentIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import type { DashboardActivity } from '@/services/types/dashboard'
 import { TimeAgo } from '../shared/TimeAgo'
-import { useTranslation } from 'react-i18next'
 
 interface ActivityItemProps {
   activity: DashboardActivity
@@ -17,128 +25,107 @@ interface ActivityItemProps {
   onViewReport?: (reportId: string) => void
 }
 
+const getIconConfig = (type: DashboardActivity['type']) => {
+  switch (type) {
+    case 'report_generated':
+      return { icon: DocumentTextIcon, dotBg: 'bg-gray-100', iconColor: 'text-slate-400' }
+    case 'csv_uploaded':
+      return { icon: CloudArrowUpIcon, dotBg: 'bg-gray-100', iconColor: 'text-slate-400' }
+    case 'property_created':
+    case 'property_updated':
+      return { icon: HomeModernIcon, dotBg: 'bg-gray-100', iconColor: 'text-slate-400' }
+    case 'client_created':
+    case 'client_updated':
+      return { icon: UserCircleIcon, dotBg: 'bg-gray-100', iconColor: 'text-slate-400' }
+    case 'cleaning_project_created':
+      return { icon: WrenchScrewdriverIcon, dotBg: 'bg-teal-50', iconColor: 'text-teal-600' }
+    case 'cleaning_project_completed':
+      return { icon: CheckBadgeIcon, dotBg: 'bg-teal-50', iconColor: 'text-teal-600' }
+    case 'invoice_created':
+      return { icon: DocumentCurrencyDollarIcon, dotBg: 'bg-blue-50', iconColor: 'text-blue-500' }
+    case 'invoice_sent':
+      return { icon: PaperAirplaneIcon, dotBg: 'bg-blue-50', iconColor: 'text-blue-500' }
+    case 'invoice_paid':
+      return { icon: BanknotesIcon, dotBg: 'bg-green-50', iconColor: 'text-green-600' }
+    case 'supply_list_submitted':
+      return { icon: ClipboardDocumentListIcon, dotBg: 'bg-amber-50', iconColor: 'text-amber-600' }
+    case 'supply_list_fulfilled':
+      return { icon: ClipboardDocumentCheckIcon, dotBg: 'bg-green-50', iconColor: 'text-green-600' }
+    case 'receipt_uploaded':
+      return { icon: ReceiptPercentIcon, dotBg: 'bg-purple-50', iconColor: 'text-purple-500' }
+    case 'expense_added':
+      return { icon: CurrencyDollarIcon, dotBg: 'bg-red-50', iconColor: 'text-red-500' }
+    default:
+      return null
+  }
+}
+
 export const ActivityItem: React.FC<ActivityItemProps> = ({ activity, showConnector, onViewReport }) => {
   const router = useRouter()
 
-  const getIcon = () => {
-    switch (activity.type) {
-      case 'report_generated':
-        return <DocumentTextIcon className="w-3.5 h-3.5" />
-      case 'csv_uploaded':
-        return <CloudArrowUpIcon className="w-3.5 h-3.5" />
-      case 'property_created':
-      case 'property_updated':
-        return <HomeModernIcon className="w-3.5 h-3.5" />
-      case 'client_created':
-      case 'client_updated':
-        return <UserCircleIcon className="w-3.5 h-3.5" />
-      default:
-        return null
-    }
-  }
+  const iconConfig = getIconConfig(activity.type)
 
-  const getIconColor = () => {
-    switch (activity.type) {
-      case 'report_generated':
-        return 'bg-blue-100 text-blue-600'
-      case 'csv_uploaded':
-        return 'bg-green-100 text-green-600'
-      case 'property_created':
-      case 'property_updated':
-        return 'bg-purple-100 text-purple-600'
-      case 'client_created':
-      case 'client_updated':
-        return 'bg-orange-100 text-orange-600'
-      default:
-        return 'bg-gray-100 text-gray-600'
-    }
-  }
-
-  const getQuickActions = () => {
-    const actions: React.ReactNode[] = []
-
+  const getViewAction = () => {
     if (activity.type === 'report_generated' && activity.metadata.reportId) {
-      actions.push(
-        <button
-          key="view-report"
-          onClick={() => onViewReport?.(activity.metadata.reportId!)}
-          className="px-2 py-1 text-xs text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
-        >
-          View
-        </button>
-      )
+      return () => onViewReport?.(activity.metadata.reportId!)
     }
-
     if (activity.type === 'csv_uploaded' && activity.metadata.propertyId) {
-      actions.push(
-        <button
-          key="view-bookings"
-          onClick={() => router.push(`/property-manager/bookings?propertyId=${activity.metadata.propertyId}`)}
-          className="px-2 py-1 text-xs text-green-700 bg-green-100 rounded hover:bg-green-200 transition-colors"
-        >
-          View
-        </button>
-      )
+      return () => router.push(`/property-manager/bookings?propertyId=${activity.metadata.propertyId}`)
     }
-
     if ((activity.type === 'property_created' || activity.type === 'property_updated') && activity.metadata.propertyId) {
-      actions.push(
-        <button
-          key="view-property"
-          onClick={() => router.push(`/property-manager/properties`)}
-          className="px-2 py-1 text-xs text-purple-700 bg-purple-100 rounded hover:bg-purple-200 transition-colors"
-        >
-          View
-        </button>
-      )
+      return () => router.push('/property-manager/properties')
     }
-
     if ((activity.type === 'client_created' || activity.type === 'client_updated') && activity.metadata.clientId) {
-      actions.push(
-        <button
-          key="view-client"
-          onClick={() => router.push(`/property-manager/clients`)}
-          className="px-2 py-1 text-xs text-orange-700 bg-orange-100 rounded hover:bg-orange-200 transition-colors"
-        >
-          View
-        </button>
-      )
+      return () => router.push('/property-manager/clients')
     }
-
-    return actions
+    if (activity.type === 'cleaning_project_created' || activity.type === 'cleaning_project_completed') {
+      return () => router.push('/property-manager/turnover')
+    }
+    if (activity.type === 'invoice_created' || activity.type === 'invoice_sent' || activity.type === 'invoice_paid') {
+      return () => router.push('/property-manager/invoices')
+    }
+    if (activity.type === 'supply_list_submitted' || activity.type === 'supply_list_fulfilled') {
+      return () => router.push('/property-manager/supply-lists')
+    }
+    if (activity.type === 'receipt_uploaded') {
+      return () => router.push('/property-manager/receipts')
+    }
+    if (activity.type === 'expense_added') {
+      return () => router.push('/property-manager/expenses')
+    }
+    return null
   }
+
+  const viewAction = getViewAction()
+  const IconComponent = iconConfig?.icon
 
   return (
-    <div className="relative flex gap-3 group">
+    <div className="relative flex gap-2.5 group">
       {/* Timeline connector */}
       {showConnector && (
-        <div className="absolute left-2.5 top-7 bottom-0 w-0.5 bg-gray-200" />
+        <div className="absolute left-[7px] top-5 bottom-0 w-px bg-gray-150" style={{ backgroundColor: '#e8e8e8' }} />
       )}
 
-      {/* Icon */}
-      <div className={`relative z-10 flex-shrink-0 w-5 h-5 rounded-full ${getIconColor()} flex items-center justify-center`}>
-        {getIcon()}
+      {/* Dot */}
+      <div className={`relative z-10 flex-shrink-0 w-[15px] h-[15px] rounded-full ${iconConfig?.dotBg ?? 'bg-gray-100'} ${iconConfig?.iconColor ?? 'text-slate-400'} flex items-center justify-center mt-0.5`}>
+        {IconComponent && <IconComponent className="w-3 h-3" />}
       </div>
 
       {/* Content */}
-      <div className="flex-1 pb-3">
-        <div className="bg-white border border-gray-200 rounded p-2.5 hover:shadow-sm transition-shadow duration-200">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">
-                {activity.description}
-              </p>
-              <TimeAgo
-                timestamp={activity.timestamp}
-                className="text-xs text-gray-500"
-              />
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {getQuickActions()}
-            </div>
+      <div className="flex-1 pb-3 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm text-slate-700 leading-snug">{activity.description}</p>
+            <TimeAgo timestamp={activity.timestamp} className="text-xs text-slate-400" />
           </div>
+          {viewAction && (
+            <button
+              onClick={viewAction}
+              className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-pointer"
+            >
+              View
+            </button>
+          )}
         </div>
       </div>
     </div>

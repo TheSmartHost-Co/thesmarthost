@@ -1,7 +1,7 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTranslation } from 'react-i18next'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { MissingBookingAlert, MissingReportAlert } from '@/services/types/dashboard'
 import { AlertCard } from './AlertCard'
@@ -14,6 +14,44 @@ interface AlertsZoneProps {
   onGenerateReport?: (propertyId: string) => void
 }
 
+const AlertSection: React.FC<{
+  title: string
+  count: number
+  children: React.ReactNode
+  totalCount: number
+  onViewAll?: () => void
+}> = ({ title, count, children, totalCount, onViewAll }) => {
+  const [expanded, setExpanded] = useState(false)
+  const visibleCount = expanded ? totalCount : Math.min(3, totalCount)
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <h3 className="text-sm font-medium text-slate-700">{title}</h3>
+          <span className="text-xs font-medium text-slate-400 bg-gray-100 px-1.5 py-0.5 rounded">
+            {count}
+          </span>
+        </div>
+      </div>
+      <div className="py-1">
+        {children}
+      </div>
+      {totalCount > 3 && (
+        <div className="px-4 pb-2.5">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors cursor-pointer"
+          >
+            {expanded ? 'Show less' : `Show ${totalCount - 3} more`}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const AlertsZone: React.FC<AlertsZoneProps> = ({
   missingBookings,
   missingReports,
@@ -21,61 +59,41 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
   onGenerateReport,
 }) => {
   const router = useRouter()
+  const [bookingsExpanded, setBookingsExpanded] = useState(false)
+  const [reportsExpanded, setReportsExpanded] = useState(false)
 
   const hasAlerts = missingBookings.length > 0 || missingReports.length > 0
 
   if (!hasAlerts) {
-    return (
-      <div className="mt-6">
-        <AllClearState lastChecked={new Date().toISOString()} />
-      </div>
-    )
+    return <AllClearState lastChecked={new Date().toISOString()} />
   }
 
   const handleUploadClick = () => {
     router.push('/property-manager/upload-bookings')
   }
 
-  const handlePropertyClick = (propertyId: string) => {
-    router.push(`/property-manager/properties`)
+  const handlePropertyClick = () => {
+    router.push('/property-manager/properties')
   }
 
-  // Show top 5 of each alert type
-  const visibleMissingBookings = missingBookings.slice(0, 5)
-  const visibleMissingReports = missingReports.slice(0, 5)
+  const visibleBookings = bookingsExpanded ? missingBookings : missingBookings.slice(0, 3)
+  const visibleReports = reportsExpanded ? missingReports : missingReports.slice(0, 3)
 
   return (
-    <div className="mt-6 space-y-4">
-      {/* Missing Bookings */}
+    <div className="space-y-3">
       {missingBookings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Properties Without Bookings
-                </h3>
-                <p className="text-xs text-gray-600">Current month missing data</p>
-              </div>
-              <span className="ml-2 px-2.5 py-1 bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <h3 className="text-sm font-medium text-slate-700">Missing Bookings</h3>
+              <span className="text-xs font-medium text-slate-400 bg-gray-100 px-1.5 py-0.5 rounded">
                 {missingBookings.length}
               </span>
             </div>
-            {missingBookings.length > 5 && (
-              <button
-                onClick={() => router.push('/property-manager/properties')}
-                className="text-sm text-amber-700 hover:text-amber-800 font-semibold transition-colors"
-              >
-                View All
-              </button>
-            )}
           </div>
-
-          <div className="space-y-2">
-            {visibleMissingBookings.map((alert) => (
+          <div className="py-1">
+            {visibleBookings.map((alert) => (
               <AlertCard
                 key={alert.propertyId}
                 propertyName={alert.propertyName}
@@ -83,44 +101,37 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
                 daysSinceLastUpload={alert.daysSinceLastUpload}
                 monthMissing={alert.monthMissing}
                 onUploadClick={handleUploadClick}
-                onPropertyClick={() => handlePropertyClick(alert.propertyId)}
+                onPropertyClick={() => handlePropertyClick()}
                 showQuickActions={showQuickActions}
               />
             ))}
           </div>
+          {missingBookings.length > 3 && (
+            <div className="px-4 pb-2.5">
+              <button
+                onClick={() => setBookingsExpanded(!bookingsExpanded)}
+                className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors cursor-pointer"
+              >
+                {bookingsExpanded ? 'Show less' : `Show ${missingBookings.length - 3} more`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Missing Reports */}
       {missingReports.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Properties Without Reports
-                </h3>
-                <p className="text-xs text-gray-600">Current month missing reports</p>
-              </div>
-              <span className="ml-2 px-2.5 py-1 bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <h3 className="text-sm font-medium text-slate-700">Missing Reports</h3>
+              <span className="text-xs font-medium text-slate-400 bg-gray-100 px-1.5 py-0.5 rounded">
                 {missingReports.length}
               </span>
             </div>
-            {missingReports.length > 5 && (
-              <button
-                onClick={() => router.push('/property-manager/reports')}
-                className="text-sm text-amber-700 hover:text-amber-800 font-semibold transition-colors"
-              >
-                View All
-              </button>
-            )}
           </div>
-
-          <div className="space-y-2">
-            {visibleMissingReports.map((alert) => (
+          <div className="py-1">
+            {visibleReports.map((alert) => (
               <AlertCard
                 key={alert.propertyId}
                 propertyName={alert.propertyName}
@@ -128,13 +139,23 @@ export const AlertsZone: React.FC<AlertsZoneProps> = ({
                 daysSinceLastUpload={null}
                 monthMissing={alert.monthMissing}
                 onUploadClick={() => onGenerateReport?.(alert.propertyId)}
-                onPropertyClick={() => handlePropertyClick(alert.propertyId)}
+                onPropertyClick={() => handlePropertyClick()}
                 showQuickActions={showQuickActions}
                 actionButtonText="Generate Report"
                 alertType="report"
               />
             ))}
           </div>
+          {missingReports.length > 3 && (
+            <div className="px-4 pb-2.5">
+              <button
+                onClick={() => setReportsExpanded(!reportsExpanded)}
+                className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors cursor-pointer"
+              >
+                {reportsExpanded ? 'Show less' : `Show ${missingReports.length - 3} more`}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,5 @@
 'use client'
 
-import { useTranslation } from 'react-i18next'
 import { CheckCircleIcon } from '@heroicons/react/24/outline'
 
 interface AllClearStateProps {
@@ -9,16 +8,9 @@ interface AllClearStateProps {
 
 export const AllClearState: React.FC<AllClearStateProps> = ({ lastChecked }) => {
   return (
-    <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <CheckCircleIcon className="w-6 h-6 text-green-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-green-900">All properties up to date</p>
-          <p className="text-sm text-green-700">Last checked: {new Date(lastChecked).toLocaleString()}</p>
-        </div>
-      </div>
+    <div className="flex items-center gap-2.5 py-3 px-4 bg-white border border-gray-200 rounded-lg">
+      <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+      <p className="text-sm text-slate-600">All properties up to date</p>
     </div>
   )
 }

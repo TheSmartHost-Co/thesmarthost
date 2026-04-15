@@ -63,7 +63,7 @@ import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChange
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, CleaningProjectStatus } from '@/services/types/cleaningProject'
-import WalkthroughAccordion, { type WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
+import WalkthroughAccordion, { type WalkthroughUploadTarget, type OptimisticPhoto, targetKey } from '@/components/walkthrough/WalkthroughAccordion'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -156,7 +156,7 @@ export default function ProjectDetailModal({
 
   // Walkthrough state
   const [walkthrough, setWalkthrough] = useState<ProjectWalkthrough | null>(null)
-  const [walkthroughUploadingKey, setWalkthroughUploadingKey] = useState<string | null>(null)
+  const [pmOptimisticPhotos, setPmOptimisticPhotos] = useState<OptimisticPhoto[]>([])
   const [walkthroughExpandedGroups, setWalkthroughExpandedGroups] = useState<Set<string>>(new Set())
 
   // Time change request state
@@ -377,13 +377,17 @@ export default function ProjectDetailModal({
 
   const handlePmWalkthroughUpload = async (target: WalkthroughUploadTarget, files: File[]) => {
     if (files.length === 0) return
-    const key =
-      target.kind === 'freeform'
-        ? 'freeform'
-        : target.kind === 'item'
-          ? `item:${target.itemId}`
-          : `group:${target.groupId}`
-    setWalkthroughUploadingKey(key)
+    const key = targetKey(target)
+
+    // Create optimistic photos with blob URLs — shown instantly
+    const newOptimistic: OptimisticPhoto[] = files.map(file => ({
+      _optimistic: true as const,
+      tempId: crypto.randomUUID(),
+      blobUrl: URL.createObjectURL(file),
+      targetKey: key,
+    }))
+    setPmOptimisticPhotos(prev => [...prev, ...newOptimistic])
+
     try {
       const opts =
         target.kind === 'freeform'
@@ -405,7 +409,12 @@ export default function ProjectDetailModal({
         'error'
       )
     } finally {
-      setWalkthroughUploadingKey(null)
+      // Remove this batch's optimistic photos and revoke blob URLs
+      setPmOptimisticPhotos(prev => {
+        const tempIds = new Set(newOptimistic.map(n => n.tempId))
+        return prev.filter(p => !tempIds.has(p.tempId))
+      })
+      newOptimistic.forEach(p => URL.revokeObjectURL(p.blobUrl))
     }
   }
 
@@ -1161,9 +1170,10 @@ export default function ProjectDetailModal({
               <WalkthroughAccordion
                 walkthrough={walkthrough}
                 canEdit
-                uploadingKey={walkthroughUploadingKey}
+                uploadingKey={null}
                 onUpload={handlePmWalkthroughUpload}
                 onDelete={handlePmWalkthroughDelete}
+                optimisticPhotos={pmOptimisticPhotos}
                 onViewPhoto={(url) => {
                   // Find the photo in the walkthrough payload to surface metadata + download
                   const allPhotos = [

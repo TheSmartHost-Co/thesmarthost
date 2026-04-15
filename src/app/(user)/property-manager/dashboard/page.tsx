@@ -1,17 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useCleanerEarningsStore } from '@/store/useCleanerEarningsStore'
 import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
+import { motion } from 'framer-motion'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { getProperties } from '@/services/propertyService'
+import { getCleaners } from '@/services/cleanerService'
+import type { Cleaner } from '@/services/types/cleaner'
 import {
   getDashboardAlerts,
   getDashboardMetrics,
   getDashboardActivity,
+  clearDashboardCache,
 } from '@/services/dashboardService'
 import type { Property } from '@/services/types/property'
 import type {
@@ -24,69 +30,84 @@ import type {
 import { AlertsZone } from '@/components/dashboard/AlertsZone/AlertsZone'
 import { MetricsGrid } from '@/components/dashboard/MetricsZone/MetricsGrid'
 import { ActivityFeed } from '@/components/dashboard/MetricsZone/ActivityFeed'
+import RadialActionWheel, {
+  getDefaultDashboardActions,
+} from '@/components/dashboard/RadialActionWheel/RadialActionWheel'
+
+// Timeline Charts
+import { ExpenseTimelineChart } from '@/components/analytics/expense-timeline'
+import { CleanerAnalyticsWidget } from '@/components/analytics/cleaner-timeline'
 import { AnalyticsWidgetCompact } from '@/components/analytics/AnalyticsWidget'
-import { FloatingActionButton } from '@/components/shared/FloatingActionButton'
 
 // Modals
 import GenerateReportModal from '@/components/report/generate/generateReportModal'
 import ViewReportModal from '@/components/report/view/viewReportModal'
 import CreateClientModal from '@/components/client/create/createClientModal'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
+import CreateCleanerModal from '@/components/cleaner/create/createCleanerModal'
+import CreateTeamMemberModal from '@/components/team-member/create/CreateTeamMemberModal'
+import CreateProjectModal from '@/components/turnover/create/CreateProjectModal'
+import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 
 export default function DashboardPage() {
   const router = useRouter()
   const { t } = useTranslation('dashboard')
   const { profile } = useUserStore()
   const { showNotification } = useNotificationStore()
+  const cleanerEarningsStore = useCleanerEarningsStore()
   usePermissionGuard('dashboard')
   const { effectiveUserId, canWrite } = usePermissions()
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
+  const [cleaners, setCleaners] = useState<Cleaner[]>([])
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [activities, setActivities] = useState<DashboardActivity[]>([])
 
   // Loading states
-  const [loadingProperties, setLoadingProperties] = useState(false)
-  const [loadingAlerts, setLoadingAlerts] = useState(false)
-  const [loadingMetrics, setLoadingMetrics] = useState(false)
-  const [loadingActivities, setLoadingActivities] = useState(false)
+  const [loadingProperties, setLoadingProperties] = useState(true)
+  const [loadingAlerts, setLoadingAlerts] = useState(true)
+  const [loadingMetrics, setLoadingMetrics] = useState(true)
+  const [loadingActivities, setLoadingActivities] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
 
-  // UI state
+  // Modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [showViewReportModal, setShowViewReportModal] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState('')
   const [showCreateClientModal, setShowCreateClientModal] = useState(false)
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false)
-  const [showQuickActions, setShowQuickActions] = useState(false)
+  const [showCreateCleanerModal, setShowCreateCleanerModal] = useState(false)
+  const [showCreateTeamMemberModal, setShowCreateTeamMemberModal] = useState(false)
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
+  const [showScanReceiptModal, setShowScanReceiptModal] = useState(false)
   const [preSelectedPropertyId, setPreSelectedPropertyId] = useState<string | null>(null)
 
-  // Load all dashboard data
+  // ── Data Loading ──
+
   useEffect(() => {
-    if (effectiveUserId) {
-      loadAllData()
-    }
+    if (effectiveUserId) loadAllData()
   }, [profile, effectiveUserId])
 
   const loadAllData = async () => {
     await Promise.all([
       loadProperties(),
+      loadCleaners(),
       loadAlerts(),
       loadMetrics(),
       loadActivities(),
     ])
+    setLastRefreshed(new Date())
   }
 
   const loadProperties = async () => {
     try {
       setLoadingProperties(true)
       const res = await getProperties(effectiveUserId!)
-      if (res.status === 'success') {
-        setProperties(res.data || [])
-      } else {
-        showNotification(res.message || 'Failed to load properties', 'error')
-      }
+      if (res.status === 'success') setProperties(res.data || [])
+      else showNotification(res.message || t('failedToLoadProperties'), 'error')
     } catch (err) {
       console.error('Error loading properties:', err)
     } finally {
@@ -94,15 +115,21 @@ export default function DashboardPage() {
     }
   }
 
+  const loadCleaners = async () => {
+    try {
+      const res = await getCleaners(effectiveUserId!)
+      if (res.status === 'success') setCleaners(res.data || [])
+    } catch (err) {
+      console.error('Error loading cleaners:', err)
+    }
+  }
+
   const loadAlerts = async () => {
     try {
       setLoadingAlerts(true)
       const res = await getDashboardAlerts()
-      if (res.status === 'success') {
-        setAlerts(res.data)
-      } else {
-        showNotification(res.message || 'Failed to load alerts', 'error')
-      }
+      if (res.status === 'success') setAlerts(res.data)
+      else showNotification(res.message || t('failedToLoadAlerts'), 'error')
     } catch (err) {
       console.error('Error loading alerts:', err)
     } finally {
@@ -114,11 +141,8 @@ export default function DashboardPage() {
     try {
       setLoadingMetrics(true)
       const res = await getDashboardMetrics()
-      if (res.status === 'success') {
-        setMetrics(res.data)
-      } else {
-        showNotification(res.message || 'Failed to load metrics', 'error')
-      }
+      if (res.status === 'success') setMetrics(res.data)
+      else showNotification(res.message || t('failedToLoadMetrics'), 'error')
     } catch (err) {
       console.error('Error loading metrics:', err)
     } finally {
@@ -130,17 +154,31 @@ export default function DashboardPage() {
     try {
       setLoadingActivities(true)
       const res = await getDashboardActivity(20)
-      if (res.status === 'success') {
-        setActivities(res.data.activities || [])
-      } else {
-        showNotification(res.message || 'Failed to load activities', 'error')
-      }
+      if (res.status === 'success') setActivities(res.data.activities || [])
+      else showNotification(res.message || t('failedToLoadActivities'), 'error')
     } catch (err) {
       console.error('Error loading activities:', err)
     } finally {
       setLoadingActivities(false)
     }
   }
+
+  // ── Handlers ──
+
+  const handleRefreshAll = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await clearDashboardCache()
+      cleanerEarningsStore.reset()
+      await loadAllData()
+      showNotification(t('refreshed'), 'success')
+    } catch (err) {
+      console.error('Error refreshing dashboard:', err)
+      showNotification(t('failedToRefresh'), 'error')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [effectiveUserId])
 
   const handleReportGenerated = async () => {
     await loadActivities()
@@ -172,75 +210,173 @@ export default function DashboardPage() {
     setShowGenerateModal(true)
   }
 
-  const isLoading = loadingProperties || loadingAlerts || loadingMetrics || loadingActivities
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
-            <p className="text-gray-500 mt-1">{t('welcomeBack', { name: profile?.fullName })}</p>
-          </div>
-        </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">{t('loadingDashboard')}</p>
-          </div>
-        </div>
-      </div>
-    )
+  const formatLastRefreshed = () => {
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - lastRefreshed.getTime()) / 60000)
+    if (diff < 1) return 'Just now'
+    if (diff === 1) return '1 min ago'
+    return `${diff} min ago`
   }
 
+  const SectionSkeleton = ({ height = 'h-48' }: { height?: string }) => (
+    <div className={`${height} animate-pulse rounded-xl bg-gray-100`} />
+  )
+
+  // Analytics tab state
+  const [analyticsTab, setAnalyticsTab] = useState<'both' | 'expenses' | 'cleaners'>('both')
+
+  // Map cleaners to CleanerOption shape for CleanerAnalyticsWidget
+  const cleanerOptions = cleaners.map(c => ({ id: c.id, name: c.name }))
+
+  // Radial wheel actions
+  const wheelActions = canWrite('dashboard')
+    ? getDefaultDashboardActions({
+        onAddClient: () => setShowCreateClientModal(true),
+        onAddProperty: () => setShowCreatePropertyModal(true),
+        onAddCleaner: () => setShowCreateCleanerModal(true),
+        onAddTeamMember: () => setShowCreateTeamMemberModal(true),
+        onGenerateReport: () => setShowGenerateModal(true),
+        onCreateProject: () => setShowCreateProjectModal(true),
+        onUploadCSV: () => router.push('/property-manager/upload-bookings'),
+        onScanReceipt: () => setShowScanReceiptModal(true),
+      })
+    : []
+
   return (
-    <div className="space-y-4 pb-24">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 pb-8 sm:space-y-6">
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, {profile?.fullName}</p>
+          <h1 className="text-xl font-semibold text-slate-800">{t('title')}</h1>
+          <p className="mt-0.5 text-sm text-slate-400">
+            {t('welcomeBack', { name: profile?.fullName })}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400">Updated {formatLastRefreshed()}</span>
+          <button
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <ArrowPathIcon className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {t('refresh')}
+          </button>
         </div>
       </div>
 
-      {/* Zone 1: Health Metrics */}
-      {metrics && <MetricsGrid metrics={metrics} />}
+      {/* ── Metrics Grid (full width) ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {loadingMetrics ? (
+          <SectionSkeleton height="h-20" />
+        ) : (
+          metrics && <MetricsGrid metrics={metrics} />
+        )}
+      </motion.div>
 
-      {/* Zone 2: Property Analytics */}
-      {properties.length > 0 && (
-        <AnalyticsWidgetCompact properties={properties} />
-      )}
+      {/* ── Two-Column: Main + Sidebar ── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Main Content — tabbed analytics + booking chart */}
+        <div className="space-y-6">
+          {/* Analytics tab strip */}
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+            {([
+              { key: 'both', label: 'All Analytics' },
+              { key: 'expenses', label: 'Expenses' },
+              { key: 'cleaners', label: 'Cleaners' },
+            ] as const).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setAnalyticsTab(tab.key)}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  analyticsTab === tab.key
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Zone 3: Needs Attention */}
-      {alerts && (
-        <AlertsZone
-          missingBookings={alerts.missingBookings}
-          missingReports={alerts.missingReports}
-          showQuickActions={showQuickActions}
-          onGenerateReport={handleGenerateReportForProperty}
-        />
-      )}
+          {/* Cleaner Analytics (shown in 'both' and 'cleaners') */}
+          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'cleaners') && (
+            <motion.div
+              key={`cleaner-${analyticsTab}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              <CleanerAnalyticsWidget
+                userId={effectiveUserId}
+                properties={properties}
+                cleaners={cleanerOptions}
+                height={320}
+              />
+            </motion.div>
+          )}
 
-      {/* Zone 4: Activity */}
-      <div className="space-y-4">
-        {/* Recent Activity Feed */}
-        <ActivityFeed
-          activities={activities}
-          onViewReport={handleViewReport}
-        />
+          {/* Expense Timeline (shown in 'both' and 'expenses') */}
+          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'expenses') && (
+            <motion.div
+              key={`expense-${analyticsTab}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: analyticsTab === 'both' ? 0.2 : 0.1 }}
+            >
+              <ExpenseTimelineChart
+                userId={effectiveUserId}
+                properties={properties}
+                height={320}
+              />
+            </motion.div>
+          )}
+
+          {/* Booking Analytics (Compact) */}
+          {!loadingProperties && properties.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+            >
+              <AnalyticsWidgetCompact properties={properties} />
+            </motion.div>
+          )}
+
+          {loadingProperties && <SectionSkeleton height="h-64" />}
+        </div>
+
+        {/* Sidebar — Alerts + Activity (sticky) */}
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          {loadingAlerts ? (
+            <SectionSkeleton height="h-32" />
+          ) : (
+            alerts && (
+              <AlertsZone
+                missingBookings={alerts.missingBookings}
+                missingReports={alerts.missingReports}
+                showQuickActions={false}
+                onGenerateReport={handleGenerateReportForProperty}
+              />
+            )
+          )}
+
+          {loadingActivities ? (
+            <SectionSkeleton height="h-48" />
+          ) : (
+            <ActivityFeed activities={activities} onViewReport={handleViewReport} />
+          )}
+        </div>
       </div>
 
-      {/* Floating Action Button */}
-      {canWrite('dashboard') && (
-        <FloatingActionButton
-          onUploadCSV={() => router.push('/property-manager/upload-bookings')}
-          onGenerateReport={() => setShowGenerateModal(true)}
-          onNewClient={() => setShowCreateClientModal(true)}
-          onNewProperty={() => setShowCreatePropertyModal(true)}
-        />
-      )}
+      {/* ── Radial Action Wheel (FAB) ── */}
+      {canWrite('dashboard') && <RadialActionWheel actions={wheelActions} />}
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       <GenerateReportModal
         isOpen={showGenerateModal}
         onClose={() => {
@@ -274,6 +410,32 @@ export default function DashboardPage() {
         isOpen={showCreatePropertyModal}
         onClose={() => setShowCreatePropertyModal(false)}
         onAdd={handlePropertyAdded}
+      />
+
+      <CreateCleanerModal
+        isOpen={showCreateCleanerModal}
+        onClose={() => setShowCreateCleanerModal(false)}
+        onAdd={() => setShowCreateCleanerModal(false)}
+      />
+
+      <CreateTeamMemberModal
+        isOpen={showCreateTeamMemberModal}
+        onClose={() => setShowCreateTeamMemberModal(false)}
+        onAdd={() => setShowCreateTeamMemberModal(false)}
+      />
+
+      <CreateProjectModal
+        isOpen={showCreateProjectModal}
+        onClose={() => setShowCreateProjectModal(false)}
+        onAdd={() => setShowCreateProjectModal(false)}
+        properties={properties}
+        cleaners={cleaners}
+      />
+
+      <ScanReceiptModal
+        isOpen={showScanReceiptModal}
+        onClose={() => setShowScanReceiptModal(false)}
+        onExpenseCreated={() => setShowScanReceiptModal(false)}
       />
     </div>
   )

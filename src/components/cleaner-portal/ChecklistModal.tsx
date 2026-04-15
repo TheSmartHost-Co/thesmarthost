@@ -23,7 +23,7 @@ import {
 } from '@/services/cleaningProjectService'
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough } from '@/services/types/cleaningProject'
 import type { WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
-import { targetKey } from '@/components/walkthrough/WalkthroughAccordion'
+import { targetKey, type OptimisticPhoto } from '@/components/walkthrough/WalkthroughAccordion'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
 import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
@@ -91,7 +91,7 @@ export default function ChecklistModal({
   // Walkthrough state
   const [walkthrough, setWalkthrough] = useState<ProjectWalkthrough | null>(null)
   const [walkthroughLoading, setWalkthroughLoading] = useState(false)
-  const [walkthroughUploadingKey, setWalkthroughUploadingKey] = useState<string | null>(null)
+  const [optimisticPhotos, setOptimisticPhotos] = useState<OptimisticPhoto[]>([])
   const [missingGroupIds, setMissingGroupIds] = useState<Set<string>>(new Set())
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set())
   const hasSeededExpansion = useRef(false)
@@ -178,9 +178,9 @@ export default function ChecklistModal({
     }
   }, [project.id])
 
-  const fetchWalkthrough = useCallback(async () => {
+  const fetchWalkthrough = useCallback(async (silent = false) => {
     if (!project.id) return
-    setWalkthroughLoading(true)
+    if (!silent) setWalkthroughLoading(true)
     try {
       const res = await getProjectWalkthrough(project.id)
       if (res.status === 'success') {
@@ -204,7 +204,7 @@ export default function ChecklistModal({
     } catch (err) {
       console.error('Error fetching walkthrough:', err)
     } finally {
-      setWalkthroughLoading(false)
+      if (!silent) setWalkthroughLoading(false)
     }
   }, [project.id])
 
@@ -329,7 +329,17 @@ export default function ChecklistModal({
   const handleWalkthroughUpload = async (target: WalkthroughUploadTarget, files: File[]) => {
     if (files.length === 0) return
     const key = targetKey(target)
-    setWalkthroughUploadingKey(key)
+
+    // Create optimistic photos with blob URLs — shown instantly
+    const newOptimistic: OptimisticPhoto[] = files.map(file => ({
+      _optimistic: true as const,
+      tempId: crypto.randomUUID(),
+      blobUrl: URL.createObjectURL(file),
+      targetKey: key,
+    }))
+    setOptimisticPhotos(prev => [...prev, ...newOptimistic])
+
+    // Upload in background — button stays enabled for back-to-back captures
     try {
       const opts =
         target.kind === 'freeform'
@@ -343,7 +353,7 @@ export default function ChecklistModal({
           t('photosUploadedCount', { count: files.length }),
           'success'
         )
-        await fetchWalkthrough()
+        await fetchWalkthrough(true)
         // Clear any missing-group highlight for this group now that it has a photo
         if (target.kind !== 'freeform' && target.groupId) {
           setMissingGroupIds(prev => {
@@ -363,7 +373,12 @@ export default function ChecklistModal({
         'error'
       )
     } finally {
-      setWalkthroughUploadingKey(null)
+      // Remove this batch's optimistic photos and revoke blob URLs
+      setOptimisticPhotos(prev => {
+        const tempIds = new Set(newOptimistic.map(n => n.tempId))
+        return prev.filter(p => !tempIds.has(p.tempId))
+      })
+      newOptimistic.forEach(p => URL.revokeObjectURL(p.blobUrl))
     }
   }
 
@@ -372,7 +387,7 @@ export default function ChecklistModal({
       const res = await deleteWalkthroughPhoto(project.id, photoId)
       if (res.status === 'success') {
         showNotification(t('photoDeleted'), 'success')
-        await fetchWalkthrough()
+        await fetchWalkthrough(true)
       } else {
         showNotification(res.message || t('failedToDeletePhoto'), 'error')
       }
@@ -511,13 +526,14 @@ export default function ChecklistModal({
             walkthrough={walkthrough}
             loading={walkthroughLoading}
             canEdit={!readOnly}
-            uploadingKey={walkthroughUploadingKey}
+            uploadingKey={null}
             onUpload={handleWalkthroughUpload}
             onDelete={handleWalkthroughDeletePhoto}
             onViewPhoto={setViewingImage}
             missingGroupIds={missingGroupIds}
             expandedGroupIds={expandedGroupIds}
             onToggleGroup={handleToggleWalkthroughGroup}
+            optimisticPhotos={optimisticPhotos}
           />
         ) : (
           <InfoContent

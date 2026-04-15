@@ -34,6 +34,14 @@ export function targetKey(target: WalkthroughUploadTarget): string {
   return `group:${target.groupId}`
 }
 
+/** A photo shown instantly via blob URL while the real upload is in progress. */
+export interface OptimisticPhoto {
+  _optimistic: true
+  tempId: string       // crypto.randomUUID()
+  blobUrl: string      // URL.createObjectURL(file)
+  targetKey: string    // matches targetKey() encoding
+}
+
 export interface WalkthroughAccordionProps {
   walkthrough: ProjectWalkthrough
   canEdit: boolean
@@ -44,6 +52,7 @@ export interface WalkthroughAccordionProps {
   missingGroupIds?: Set<string>
   expandedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
+  optimisticPhotos?: OptimisticPhoto[]
 }
 
 /**
@@ -65,6 +74,7 @@ export default function WalkthroughAccordion({
   missingGroupIds,
   expandedGroupIds,
   onToggleGroup,
+  optimisticPhotos = [],
 }: WalkthroughAccordionProps) {
   const { t } = useTranslation('turnover')
   const { effectiveTemplate, orphanedGroups, freeformPhotos } = walkthrough
@@ -106,6 +116,7 @@ export default function WalkthroughAccordion({
             onUpload={onUpload}
             onDelete={onDelete}
             onViewPhoto={onViewPhoto}
+            optimisticPhotos={optimisticPhotos}
           />
         )
       })}
@@ -136,6 +147,7 @@ export default function WalkthroughAccordion({
         onUpload={onUpload}
         onDelete={onDelete}
         onViewPhoto={onViewPhoto}
+        optimisticPhotos={optimisticPhotos.filter(p => p.targetKey === 'freeform')}
       />
     </div>
   )
@@ -155,6 +167,7 @@ interface GroupCardProps {
   onUpload: (target: WalkthroughUploadTarget, files: File[]) => void
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
+  optimisticPhotos: OptimisticPhoto[]
 }
 
 function GroupCard({
@@ -167,8 +180,11 @@ function GroupCard({
   onUpload,
   onDelete,
   onViewPhoto,
+  optimisticPhotos,
 }: GroupCardProps) {
   const items = [...group.items].sort((a, b) => a.sortOrder - b.sortOrder)
+  const groupUploadTarget = `group:${group.id}`
+  const groupOptimistic = optimisticPhotos.filter(p => p.targetKey === groupUploadTarget)
   const groupPhotoCount = group.photos.length
   const itemPhotoCount = items.reduce((acc, it) => acc + it.photos.length, 0)
   const { t } = useTranslation('turnover')
@@ -234,13 +250,14 @@ function GroupCard({
       {isExpanded && (
         <div className="p-3 space-y-3">
           {/* Group-level photos (no specific item) */}
-          {group.photos.length > 0 && (
+          {(group.photos.length > 0 || groupOptimistic.length > 0) && (
             <div>
               <div className="text-[10px] font-semibold uppercase text-gray-400 mb-1.5 tracking-wide">
                 {t('groupPhotos')}
               </div>
               <PhotoGrid
                 photos={group.photos}
+                optimisticPhotos={groupOptimistic}
                 canEdit={canEdit}
                 onDelete={onDelete}
                 onViewPhoto={onViewPhoto}
@@ -261,10 +278,11 @@ function GroupCard({
                 onUpload={onUpload}
                 onDelete={onDelete}
                 onViewPhoto={onViewPhoto}
+                optimisticPhotos={optimisticPhotos}
               />
             ))
           ) : (
-            group.photos.length === 0 && (
+            group.photos.length === 0 && groupOptimistic.length === 0 && (
               <p className="text-xs text-gray-400 italic text-center py-2">
                 {t('noPhotosYet')}{canEdit ? ` ${t('tapAddAbove')}` : ''}
               </p>
@@ -288,6 +306,7 @@ interface ItemRowProps {
   onUpload: (target: WalkthroughUploadTarget, files: File[]) => void
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
+  optimisticPhotos: OptimisticPhoto[]
 }
 
 function ItemRow({
@@ -298,9 +317,12 @@ function ItemRow({
   onUpload,
   onDelete,
   onViewPhoto,
+  optimisticPhotos,
 }: ItemRowProps) {
-  const hasPhotos = item.photos.length > 0
   const itemUploadKey = `item:${item.id}`
+  const itemOptimistic = optimisticPhotos.filter(p => p.targetKey === itemUploadKey)
+  const hasPhotos = item.photos.length > 0
+  const hasAnyPhotos = hasPhotos || itemOptimistic.length > 0
 
   return (
     <div className="border border-gray-100 rounded-lg p-2.5 bg-gray-50/50">
@@ -327,9 +349,10 @@ function ItemRow({
           />
         )}
       </div>
-      {hasPhotos && (
+      {hasAnyPhotos && (
         <PhotoGrid
           photos={item.photos}
+          optimisticPhotos={itemOptimistic}
           canEdit={canEdit}
           onDelete={onDelete}
           onViewPhoto={onViewPhoto}
@@ -387,6 +410,7 @@ interface FreeformSectionProps {
   onUpload: (target: WalkthroughUploadTarget, files: File[]) => void
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
+  optimisticPhotos: OptimisticPhoto[]
 }
 
 function FreeformSection({
@@ -396,6 +420,7 @@ function FreeformSection({
   onUpload,
   onDelete,
   onViewPhoto,
+  optimisticPhotos,
 }: FreeformSectionProps) {
   const { t } = useTranslation('turnover')
   if (!canEdit && photos.length === 0) return null
@@ -417,10 +442,11 @@ function FreeformSection({
           />
         )}
       </div>
-      {photos.length > 0 && (
+      {(photos.length > 0 || optimisticPhotos.length > 0) && (
         <div className="p-3">
           <PhotoGrid
             photos={photos}
+            optimisticPhotos={optimisticPhotos}
             canEdit={canEdit}
             onDelete={onDelete}
             onViewPhoto={onViewPhoto}
@@ -438,14 +464,15 @@ function FreeformSection({
 
 interface PhotoGridProps {
   photos: WalkthroughPhoto[]
+  optimisticPhotos?: OptimisticPhoto[]
   canEdit: boolean
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
   altPrefix: string
 }
 
-function PhotoGrid({ photos, canEdit, onDelete, onViewPhoto, altPrefix }: PhotoGridProps) {
-  if (photos.length === 0) return null
+function PhotoGrid({ photos, optimisticPhotos = [], canEdit, onDelete, onViewPhoto, altPrefix }: PhotoGridProps) {
+  if (photos.length === 0 && optimisticPhotos.length === 0) return null
   return (
     <div className="grid grid-cols-3 gap-2">
       {photos.map(photo => (
@@ -471,6 +498,18 @@ function PhotoGrid({ photos, canEdit, onDelete, onViewPhoto, altPrefix }: PhotoG
               <TrashIcon className="w-3 h-3" />
             </button>
           )}
+        </div>
+      ))}
+      {optimisticPhotos.map(op => (
+        <div key={op.tempId} className="relative">
+          <img
+            src={op.blobUrl}
+            alt={`${altPrefix} uploading`}
+            className="aspect-square rounded-lg object-cover border border-purple-200 w-full opacity-60"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
         </div>
       ))}
     </div>

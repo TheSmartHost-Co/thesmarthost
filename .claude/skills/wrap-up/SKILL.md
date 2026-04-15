@@ -55,21 +55,19 @@ Format the output clearly so the user can copy-paste:
 
 ## Step 3: Output Patch Notes
 
-Output a user-facing patch note title and pasteable markdown description:
+Output a user-facing patch note title and pasteable markdown description.
 
 - **Title**: Short, user-friendly (not developer jargon). e.g. "Cleaner Portal Improvements" not "feat: cleaner portal simplification"
-- **Body**: Pasteable markdown with `##` heading, `###` subsections for each user-visible change. Written for end users (property managers, cleaners, clients), not developers. Explain what they can now do, not how it was implemented.
+- **Body**: Pasteable markdown using `###` subsections for each user-visible change. Written for end users (property managers, cleaners, clients), not developers. Explain what they can now do, not how it was implemented.
 
-Format:
+**IMPORTANT**: Always output the description as a standalone pasteable markdown block with `###` headings — no `##` wrapper title. The user will add their own title. Format exactly like this:
 
 ```markdown
-## [Title]
-
 ### [Feature/Change 1]
 [1-2 sentences explaining the user benefit]
 
 ### [Feature/Change 2]
-...
+[1-2 sentences explaining the user benefit]
 ```
 
 ---

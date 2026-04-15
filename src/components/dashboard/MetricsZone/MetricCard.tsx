@@ -1,32 +1,19 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { useTranslation } from 'react-i18next'
-
 interface MetricCardProps {
   title: string
   value: number
   subtitle: string
-  bgColor: string
-  iconBg: string
-  iconColor: string
-  borderColor: string
-  icon: React.ElementType
   isCurrency?: boolean
-  index?: number
+  secondaryLine?: string
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
   title,
   value,
   subtitle,
-  bgColor,
-  iconBg,
-  iconColor,
-  borderColor,
-  icon: Icon,
   isCurrency = false,
-  index = 0,
+  secondaryLine,
 }) => {
   const formatValue = () => {
     if (isCurrency) {
@@ -36,22 +23,13 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={`${bgColor} border ${borderColor} rounded-lg p-3 hover:shadow-md transition-shadow`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-gray-600">{title}</p>
-          <p className="text-xl font-bold text-gray-900 mt-0.5">{formatValue()}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-        </div>
-        <div className={`w-9 h-9 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`h-5 w-5 ${iconColor}`} />
-        </div>
-      </div>
-    </motion.div>
+    <div className="min-w-0 px-2.5 py-2 sm:px-4 sm:py-3 border-b border-r border-gray-100 sm:border-b-0 sm:border-r last:border-r-0 [&:nth-child(odd):last-child]:col-span-2">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{title}</p>
+      <p className="text-lg sm:text-xl font-semibold text-slate-800 mt-0.5">{formatValue()}</p>
+      {secondaryLine && (
+        <p className="text-xs font-medium text-amber-600 mt-0.5">{secondaryLine}</p>
+      )}
+      <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">{subtitle}</p>
+    </div>
   )
 }

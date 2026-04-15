@@ -5,6 +5,7 @@ import type {
   InsightsResponse,
   ActivityResponse,
 } from './types/dashboard'
+import type { ClearCacheResponse } from './types/cleanerEarnings'
 
 /**
  * Get dashboard alerts (missing bookings and reports)
@@ -34,4 +35,11 @@ export async function getDashboardInsights(limit: number = 5): Promise<InsightsR
  */
 export async function getDashboardActivity(limit: number = 20): Promise<ActivityResponse> {
   return apiClient<ActivityResponse>(`/dashboard/activity?limit=${limit}`)
+}
+
+/**
+ * Clear dashboard cache (all sections or a specific one)
+ */
+export async function clearDashboardCache(): Promise<ClearCacheResponse> {
+  return apiClient<ClearCacheResponse>('/dashboard/cache', { method: 'DELETE' })
 }

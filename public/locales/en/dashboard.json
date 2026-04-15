@@ -6,6 +6,53 @@
   "failedToLoadAlerts": "Failed to load alerts",
   "failedToLoadMetrics": "Failed to load metrics",
   "failedToLoadActivities": "Failed to load activities",
+  "refresh": "Refresh",
+  "refreshed": "Dashboard refreshed",
+  "failedToRefresh": "Failed to refresh dashboard",
+
+  "tabs": {
+    "overview": "Overview",
+    "cleanerEarnings": "Cleaner Earnings",
+    "analytics": "Analytics"
+  },
+
+  "quickActions": {
+    "addClient": "Add Client",
+    "addProperty": "Add Property",
+    "addCleaner": "Add Cleaner",
+    "addTeamMember": "Team Member",
+    "importBookings": "Import Bookings",
+    "generateReport": "Generate Report",
+    "createProject": "Create Project",
+    "viewAnalytics": "View Analytics"
+  },
+
+  "cleanerEarnings": {
+    "title": "Cleaner Earnings",
+    "completedEarnings": "Completed",
+    "expectedEarnings": "Expected",
+    "unassignedCost": "Unassigned",
+    "totalProjects": "Total Projects",
+    "hours": "Hours",
+    "monthlyTrend": "Monthly Trend",
+    "cleanerBreakdown": "Cleaner Breakdown",
+    "cleaner": "Cleaner",
+    "projects": "Projects",
+    "projectsPerWeek": "Projects/Wk",
+    "noData": "No cleaner earnings data yet",
+    "noDataDesc": "Create cleaning projects to start tracking cleaner earnings",
+    "createProject": "Create Cleaning Project",
+    "thisMonth": "This Month",
+    "thisAndNextMonth": "This + Next Month",
+    "last3Months": "Last 3 Months",
+    "thisQuarter": "This Quarter",
+    "custom": "Custom",
+    "apply": "Apply",
+    "allCleaners": "All Cleaners",
+    "filterToCleaner": "Filter dashboard to {{name}}",
+    "failedToLoad": "Failed to load cleaner earnings",
+    "retry": "Try again"
+  },
 
   "automations": {
     "guestReview": "Guest Review",

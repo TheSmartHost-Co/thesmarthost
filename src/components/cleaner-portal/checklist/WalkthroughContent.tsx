@@ -5,6 +5,7 @@ import { CameraIcon } from '@heroicons/react/24/outline'
 import type { ProjectWalkthrough } from '@/services/types/cleaningProject'
 import WalkthroughAccordion, {
   type WalkthroughUploadTarget,
+  type OptimisticPhoto,
 } from '@/components/walkthrough/WalkthroughAccordion'
 
 interface WalkthroughContentProps {
@@ -18,6 +19,7 @@ interface WalkthroughContentProps {
   missingGroupIds: Set<string>
   expandedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
+  optimisticPhotos?: OptimisticPhoto[]
 }
 
 /**
@@ -35,6 +37,7 @@ export default function WalkthroughContent({
   missingGroupIds,
   expandedGroupIds,
   onToggleGroup,
+  optimisticPhotos,
 }: WalkthroughContentProps) {
   const { t } = useTranslation('cleanerPortal')
 
@@ -66,6 +69,7 @@ export default function WalkthroughContent({
       missingGroupIds={missingGroupIds}
       expandedGroupIds={expandedGroupIds}
       onToggleGroup={onToggleGroup}
+      optimisticPhotos={optimisticPhotos}
     />
   )
 }

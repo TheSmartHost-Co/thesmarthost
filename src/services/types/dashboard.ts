@@ -62,6 +62,28 @@ export interface DashboardMetrics {
     change: number
     changePercent: number
   }
+  cleaningProjects: {
+    thisMonth: number
+    lastMonth: number
+    change: number
+    changePercent: number
+  }
+  invoices: {
+    thisMonthTotal: number
+    lastMonthTotal: number
+    outstanding: number
+    change: number
+    changePercent: number
+  }
+  expenses: {
+    thisMonth: number
+    lastMonth: number
+    change: number
+    changePercent: number
+  }
+  activeCleaners: {
+    count: number
+  }
 }
 
 export interface MetricsResponse {
@@ -122,11 +144,31 @@ export interface ActivityMetadata {
   address?: string
   propertyType?: string
   changes?: Record<string, any>
+  projectId?: string
+  projectDate?: string
+  cleanerName?: string
+  status?: string
+  durationMinutes?: number
+  invoiceId?: string
+  invoiceNumber?: string
+  total?: number
+  supplyListId?: string
+  itemCount?: number
+  receiptId?: string
+  vendorName?: string
+  expenseId?: string
+  amount?: number
+  category?: string
+  expenseDate?: string
 }
 
 export interface DashboardActivity {
   id: string
   type: 'report_generated' | 'csv_uploaded' | 'property_created' | 'property_updated' | 'client_created' | 'client_updated'
+    | 'cleaning_project_created' | 'cleaning_project_completed'
+    | 'invoice_created' | 'invoice_sent' | 'invoice_paid'
+    | 'supply_list_submitted' | 'supply_list_fulfilled'
+    | 'receipt_uploaded' | 'expense_added'
   timestamp: string
   description: string
   metadata: ActivityMetadata

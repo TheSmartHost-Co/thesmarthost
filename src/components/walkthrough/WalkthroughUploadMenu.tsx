@@ -91,7 +91,12 @@ export default function WalkthroughUploadMenu({
 
   const handleOptionSelect = (inputRef: React.RefObject<HTMLInputElement | null>) => {
     setIsDropdownOpen(false)
-    setTimeout(() => inputRef.current?.click(), 50)
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.value = '' // force reset before click — iOS caches stale refs
+        inputRef.current.click()
+      }
+    }, 100)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,7 +199,6 @@ export default function WalkthroughUploadMenu({
         type="file"
         accept="image/*"
         capture="environment"
-        multiple
         onChange={handleFileChange}
         className="hidden"
       />
