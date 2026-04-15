@@ -8,6 +8,7 @@ import {
   CogIcon,
   ChatBubbleLeftRightIcon,
   ArrowLeftIcon,
+  ArrowPathIcon,
   ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -18,6 +19,7 @@ import {
   bulkDismissMessageLogs,
   bulkDeleteMessageLogs,
   refreshConversationHistory,
+  syncAllConversations,
 } from '@/services/messageAutomationService'
 import type { MessageLogEntry, MessageLogCounts } from '@/services/types/messageAutomation'
 import MessageLogCard from '@/components/automations/MessageLogCard'
@@ -62,6 +64,7 @@ function MessageAutomationContent() {
   const [showAILogs, setShowAILogs] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncingAll, setSyncingAll] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -131,6 +134,23 @@ function MessageAutomationContent() {
       showNotification('Failed to sync', 'error')
     } finally {
       setSyncingId(null)
+    }
+  }
+
+  const handleSyncAll = async () => {
+    setSyncingAll(true)
+    try {
+      const res = await syncAllConversations()
+      if (res.status === 'success') {
+        showNotification(res.message || 'All conversations synced', 'success')
+        fetchData()
+      } else {
+        showNotification(res.message || 'Sync failed', 'error')
+      }
+    } catch {
+      showNotification('Failed to sync conversations', 'error')
+    } finally {
+      setSyncingAll(false)
     }
   }
 
@@ -220,6 +240,16 @@ function MessageAutomationContent() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Sync All */}
+          <button
+            onClick={handleSyncAll}
+            disabled={syncingAll}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${syncingAll ? 'animate-spin' : ''}`} />
+            {syncingAll ? 'Syncing...' : 'Sync All'}
+          </button>
+
           {/* AI Logs toggle */}
           <button
             onClick={() => setShowAILogs(prev => !prev)}
