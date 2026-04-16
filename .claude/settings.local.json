@@ -33,7 +33,8 @@
       "Bash(echo \"exit=$?\")",
       "Read(//tmp/**)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(node:*)"
     ],
     "deny": []
   }

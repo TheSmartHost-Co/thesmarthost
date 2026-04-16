@@ -11,6 +11,7 @@ import { useUserStore } from '@/store/useUserStore'
 import type { UploadedReceipt, ReceiptDetail, AutoApplyReceiptResponse, ApplyReceiptPayload } from '@/services/types/receipt'
 import type { AvailableExpense, CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
 import type { Property } from '@/services/types/property'
+import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
 import {
   ArrowUpTrayIcon,
   ClipboardDocumentListIcon,
@@ -579,19 +580,20 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
                             : 'hover:bg-gray-50 border border-transparent'
                         }`}
                       >
-                        {receipt.signedUrl && receipt.mimeType.startsWith('image/') ? (
-                          <img
-                            src={receipt.signedUrl}
-                            alt=""
-                            className="w-8 h-8 rounded object-cover flex-shrink-0 border border-gray-200"
+                        <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200 ${
+                          isSelected ? 'bg-emerald-100' : 'bg-gray-100'
+                        }`}>
+                          <ReceiptThumbnail
+                            signedUrl={receipt.signedUrl}
+                            mimeType={receipt.mimeType}
+                            originalName={receipt.originalName}
+                            imgClassName="w-full h-full object-cover"
+                            pdfRenderWidth={120}
+                            fallback={
+                              <DocumentTextIcon className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
+                            }
                           />
-                        ) : (
-                          <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? 'bg-emerald-100' : 'bg-gray-100'
-                          }`}>
-                            <DocumentTextIcon className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
-                          </div>
-                        )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-xs font-medium truncate ${isSelected ? 'text-emerald-900' : 'text-gray-900'}`}>
                             {receipt.vendorName || receipt.originalName}

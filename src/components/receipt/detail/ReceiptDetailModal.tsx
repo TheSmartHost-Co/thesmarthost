@@ -48,6 +48,11 @@ import {
   PencilIcon,
   EyeIcon,
 } from '@heroicons/react/24/outline'
+import TabBar from '@/components/shared/TabBar'
+import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
+import PropertyChip from '@/components/receipt/PropertyChip'
+import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
+import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 
 interface ReceiptDetailModalProps {
   isOpen: boolean
@@ -65,7 +70,7 @@ interface ReceiptDetailModalProps {
   readOnly?: boolean
 }
 
-type Tab = 'view' | 'edit' | 'apply'
+type Tab = 'view' | 'edit' | 'apply' | 'related'
 
 interface EditLineItem {
   id?: string
@@ -163,6 +168,10 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const [availableProjects, setAvailableProjects] = useState<CleaningProject[]>([])
   const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
   const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
+
+  // Stacked modal state for related entities
+  const [stackedExpenseId, setStackedExpenseId] = useState<string | null>(null)
+  const [stackedSupplyListId, setStackedSupplyListId] = useState<string | null>(null)
 
   const reuploadRef = useRef<HTMLInputElement>(null)
 
@@ -671,7 +680,13 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           </div>
           <div>
             <span className="text-xs font-medium text-gray-500">Property</span>
-            <p className="text-sm text-gray-900 mt-0.5">{receipt?.propertyName || '—'}</p>
+            <div className="mt-0.5">
+              {receipt ? (
+                <PropertyChip receipt={receipt} linkedExpense={receipt.expense} size="md" />
+              ) : (
+                <p className="text-sm text-gray-900">—</p>
+              )}
+            </div>
           </div>
           <div>
             <span className="text-xs font-medium text-gray-500">Uploaded By</span>
@@ -1028,12 +1043,106 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       ) : (
         <div className="relative h-[80vh] flex flex-col md:flex-row">
           {renderImagePanel()}
-          <div className="w-full md:w-3/5 overflow-y-auto min-h-0">
-            {tab === 'view' && renderViewTab()}
-            {tab === 'edit' && renderEditTab()}
-            {tab === 'apply' && renderApplyTab()}
+          <div className="w-full md:w-3/5 flex flex-col min-h-0">
+            {/* Tab Bar */}
+            <TabBar
+              tabs={[
+                { key: 'view', label: 'View' },
+                { key: 'edit', label: 'Edit' },
+                ...(receipt?.status === 'matched' || receipt?.status === 'pending' ? [{ key: 'apply', label: 'Apply' }] : []),
+                {
+                  key: 'related',
+                  label: 'Related',
+                  badge: (receipt?.supplyList ? 1 : 0) + (receipt?.expense ? 1 : 0) || undefined,
+                  badgeColor: 'bg-purple-500',
+                },
+              ]}
+              activeTab={tab}
+              onTabChange={(key) => handleTabSwitch(key as Tab)}
+            />
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {tab === 'view' && renderViewTab()}
+              {tab === 'edit' && renderEditTab()}
+              {tab === 'apply' && renderApplyTab()}
+              {tab === 'related' && (
+                <div className="p-5 space-y-4">
+                  <h3 className="text-base font-semibold text-gray-900">Related Entities</h3>
+
+                  {/* Property */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Property</p>
+                    {receipt ? (
+                      <PropertyChip receipt={receipt} linkedExpense={receipt.expense} size="md" />
+                    ) : (
+                      <p className="text-sm text-gray-400">—</p>
+                    )}
+                  </div>
+
+                  {/* Linked Expense */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Expense</p>
+                    {receipt?.expense ? (
+                      <RelatedEntityCard
+                        entityType="expense"
+                        title={receipt.expense.category || 'Expense'}
+                        subtitle={receipt.expense.expenseDate ? new Date(receipt.expense.expenseDate + 'T00:00:00').toLocaleDateString() : undefined}
+                        amount={receipt.expense.amount}
+                        status={receipt.expense.paymentStatus}
+                        onClick={() => setStackedExpenseId(receipt.expense!.id)}
+                      />
+                    ) : (
+                      <RelatedEntityCard
+                        entityType="expense"
+                        title=""
+                        emptyText="No linked expense"
+                        onClick={() => {}}
+                      />
+                    )}
+                  </div>
+
+                  {/* Linked Supply List */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Supply List</p>
+                    {receipt?.supplyList ? (
+                      <RelatedEntityCard
+                        entityType="supply-list"
+                        title={`Supply List (${receipt.supplyList.itemCount} items)`}
+                        status={receipt.supplyList.status}
+                        onClick={() => setStackedSupplyListId(receipt.supplyList!.id)}
+                      />
+                    ) : (
+                      <RelatedEntityCard
+                        entityType="supply-list"
+                        title=""
+                        emptyText="No linked supply list"
+                        onClick={() => {}}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Stacked modals for related entities */}
+      {stackedExpenseId && (
+        <ExpenseViewerModal
+          isOpen={!!stackedExpenseId}
+          onClose={() => setStackedExpenseId(null)}
+          expenseId={stackedExpenseId}
+          onExpenseUpdated={() => fetchReceipt()}
+          hideSupplyListLink
+        />
+      )}
+      {stackedSupplyListId && (
+        <ViewSupplyListsModal
+          isOpen={!!stackedSupplyListId}
+          onClose={() => setStackedSupplyListId(null)}
+          initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
+          onSupplyListsChanged={() => fetchReceipt()}
+        />
       )}
     </Modal>
   )

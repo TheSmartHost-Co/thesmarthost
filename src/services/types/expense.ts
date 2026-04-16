@@ -3,6 +3,42 @@ import type { PaidByType } from './receipt'
 // Expense Types for HostMetrics Frontend
 
 /**
+ * Expense line item (from GET /api/expenses/:id with nested lineItems[])
+ */
+export interface ExpenseLineItem {
+  id: string
+  expenseId: string
+  supplyListItemId: string | null
+  description: string
+  quantity: number
+  unitCost: number | null
+  totalCost: number | null
+  createdAt: string
+}
+
+/**
+ * Linked receipt summary (nested in expense response)
+ */
+export interface ExpenseLinkedReceipt {
+  id: string
+  vendorName: string | null
+  total: number | null
+  status: string
+  expenseDate: string | null
+  originalName: string
+}
+
+/**
+ * Linked supply list summary (nested in expense response)
+ */
+export interface ExpenseLinkedSupplyList {
+  id: string
+  status: string
+  propertyId: string | null
+  itemCount: number
+}
+
+/**
  * Payment method options
  */
 export type PaymentMethod = 'cash' | 'credit_card' | 'debit_card' | 'bank_transfer' | 'etransfer' | 'check' | 'other'
@@ -103,6 +139,10 @@ export interface Expense {
   paidByName?: string | null
   createdAt: string
   updatedAt: string
+  // Nested related objects (from detail endpoint)
+  lineItems?: ExpenseLineItem[]
+  receipt?: ExpenseLinkedReceipt | null
+  supplyList?: ExpenseLinkedSupplyList | null
 }
 
 /**
@@ -346,5 +386,51 @@ export interface BulkImportExpensesResponse {
     summary: BulkImportExpenseSummary
     imported: BulkImportedExpense[]
   }
+  message?: string
+}
+
+// ============================================================================
+// EXPENSE LINE ITEM TYPES
+// ============================================================================
+
+/**
+ * Payload for creating an expense line item
+ */
+export interface CreateExpenseLineItemPayload {
+  userId: string
+  description: string
+  quantity?: number
+  unitCost?: number
+  totalCost?: number
+  supplyListItemId?: string | null
+}
+
+/**
+ * Payload for updating an expense line item
+ */
+export interface UpdateExpenseLineItemPayload {
+  userId: string
+  description?: string
+  quantity?: number
+  unitCost?: number
+  totalCost?: number
+  supplyListItemId?: string | null
+}
+
+/**
+ * API response for single expense line item
+ */
+export interface ExpenseLineItemResponse {
+  status: 'success' | 'failed'
+  data: ExpenseLineItem
+  message?: string
+}
+
+/**
+ * API response for multiple expense line items
+ */
+export interface ExpenseLineItemsResponse {
+  status: 'success' | 'failed'
+  data: ExpenseLineItem[]
   message?: string
 }

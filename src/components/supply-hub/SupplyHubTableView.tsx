@@ -6,6 +6,7 @@ import type { SupplyList } from '@/services/types/supplyList'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { formatSupplyListAge } from '@/services/supplyListService'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
+import NeedsReceiptBadge from '@/components/shared/NeedsReceiptBadge'
 import {
   EyeIcon,
   CameraIcon,
@@ -163,9 +164,12 @@ export default function SupplyHubTableView({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${badgeStyle}`}>
-                    {statusInfo.label}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${badgeStyle}`}>
+                      {statusInfo.label}
+                    </span>
+                    <NeedsReceiptBadge supplyList={sl} />
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>

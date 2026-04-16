@@ -9,6 +9,7 @@ import {
   TrashIcon,
   CameraIcon,
 } from '@heroicons/react/24/outline'
+import NeedsReceiptBadge from '@/components/shared/NeedsReceiptBadge'
 
 interface SupplyHubListCardProps {
   supplyList: SupplyList
@@ -68,6 +69,7 @@ export default function SupplyHubListCard({
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${STATUS_COLORS[statusInfo.color] || 'bg-gray-100 text-gray-700'}`}>
           {statusInfo.label}
         </span>
+        <NeedsReceiptBadge supplyList={sl} compact={compact} />
         <span className="text-[10px] text-gray-500 tabular-nums">
           {totalCount} item{totalCount !== 1 ? 's' : ''}
         </span>

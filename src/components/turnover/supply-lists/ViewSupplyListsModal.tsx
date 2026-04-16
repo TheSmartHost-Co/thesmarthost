@@ -13,9 +13,9 @@ import {
   toggleSupplyListItem,
   formatSupplyListAge,
 } from '@/services/supplyListService'
-import { searchReceipts, deleteReceipt, getReceiptLineItems } from '@/services/receiptService'
+import { searchReceipts, deleteReceipt } from '@/services/receiptService'
 import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
-import type { UploadedReceipt, ReceiptLineItem } from '@/services/types/receipt'
+import type { UploadedReceipt } from '@/services/types/receipt'
 import { SUPPLY_LIST_STATUS_INFO } from '@/services/types/supplyList'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -35,6 +35,10 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
+import TabBar from '@/components/shared/TabBar'
+import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
+import NeedsReceiptBadge from '@/components/shared/NeedsReceiptBadge'
 
 interface ViewSupplyListsModalProps {
   isOpen: boolean
@@ -106,12 +110,13 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   // Whether we opened directly to a specific supply list (skip list view)
   const isDirectDetail = !!initialSupplyList
 
-  // Line items state
-  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
-  const [lineItems, setLineItems] = useState<ReceiptLineItem[]>([])
-  const [lineItemsLoading, setLineItemsLoading] = useState(false)
   const [reviewReceiptId, setReviewReceiptId] = useState<string | null>(null)
   const [viewingExpenseId, setViewingExpenseId] = useState<string | null>(null)
+  const [stackedReceiptId, setStackedReceiptId] = useState<string | null>(null)
+
+  // Tab state for detail view
+  type DetailTab = 'items' | 'receipts' | 'details'
+  const [detailTab, setDetailTab] = useState<DetailTab>('items')
 
   // Preserve item order: capture the order when a list is first selected
   const itemOrderRef = useRef<string[]>([])
@@ -178,12 +183,12 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       setReceiptsLoading(false)
       setDeletingReceiptId(null)
       setConfirmDeleteReceiptId(null)
-      setExpandedReceiptId(null)
-      setLineItems([])
       setEditingItemId(null)
       setEditName('')
       setEditQuantity('1')
       setListNotes('')
+      setDetailTab('items')
+      setStackedReceiptId(null)
       itemOrderRef.current = []
     }
   }, [isOpen])
@@ -192,19 +197,47 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   const selectList = async (list: SupplyList) => {
     itemOrderRef.current = list.items.map(i => i.id)
     setItemFilter('all')
+    setDetailTab('items')
     setSelectedList(list)
     setListNotes(list.notes || '')
     setEditingItemId(null)
 
-    // Fetch receipts for this list
-    setReceiptsLoading(true)
-    try {
-      const res = await searchReceipts({ supplyListId: list.id })
-      if (res.status === 'success') setReceipts(res.data || [])
-    } catch {
-      // Non-critical, silently fail
-    } finally {
+    // Use receipts from API response if available, otherwise fetch
+    if (list.receipts) {
+      // Map SupplyListReceipt[] to UploadedReceipt[] shape for backwards compat
+      setReceipts(list.receipts.map(r => ({
+        id: r.id,
+        supplyListId: list.id,
+        uploadedBy: null,
+        storagePath: '',
+        originalName: r.originalName,
+        mimeType: '',
+        status: r.status as UploadedReceipt['status'],
+        appliedAt: r.appliedAt,
+        errorMessage: null,
+        createdAt: r.createdAt,
+        userId: null,
+        propertyId: null,
+        propertyName: null,
+        vendorName: r.vendorName,
+        expenseDate: r.expenseDate,
+        subtotal: null,
+        taxTotal: null,
+        total: r.total,
+        description: null,
+        uploaderName: null,
+      })))
       setReceiptsLoading(false)
+    } else {
+      setReceiptsLoading(true)
+      try {
+        const res = await searchReceipts({ supplyListId: list.id })
+        if (res.status === 'success') setReceipts(res.data || [])
+      } catch {
+        // Non-critical, silently fail
+      } finally {
+        setReceiptsLoading(false)
+      }
     }
   }
 
@@ -449,28 +482,6 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     }
   }
 
-  // Line items: expand/collapse receipt
-  const handleExpandReceipt = async (receiptId: string) => {
-    if (expandedReceiptId === receiptId) {
-      setExpandedReceiptId(null)
-      setLineItems([])
-      return
-    }
-    if (!selectedList) return
-    setExpandedReceiptId(receiptId)
-    setLineItemsLoading(true)
-    try {
-      const res = await getReceiptLineItems(receiptId)
-      if (res.status === 'success') {
-        setLineItems(res.data || [])
-      }
-    } catch {
-      // Non-critical
-    } finally {
-      setLineItemsLoading(false)
-    }
-  }
-
   // Refresh the selected supply list after line item mutations (backend cascades cost changes to items)
   const refreshSelectedList = async () => {
     if (!selectedList) return
@@ -490,7 +501,8 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
     if (list.progress) return list.progress
     const totalItems = list.items.length
     const purchasedItems = list.items.filter(i => i.isPurchased).length
-    return { totalItems, purchasedItems, percentage: totalItems > 0 ? Math.round((purchasedItems / totalItems) * 100) : 0 }
+    const totalCost = list.items.reduce((sum, i) => sum + (i.totalCost || 0), 0)
+    return { totalItems, purchasedItems, percentage: totalItems > 0 ? Math.round((purchasedItems / totalItems) * 100) : 0, totalCost }
   }
 
   return (
@@ -545,69 +557,59 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
               exit={{ opacity: 0, x: -20 }}
               className="space-y-4"
             >
-              {/* Status & Submitter Info */}
-              <div className="flex items-center gap-3">
-                <span className={`
-                  px-3 py-1.5 rounded-lg text-sm font-medium
-                  ${statusBadgeColors[SUPPLY_LIST_STATUS_INFO[selectedList.status].color] || 'bg-gray-100 text-gray-700'}
-                `}>
-                  {SUPPLY_LIST_STATUS_INFO[selectedList.status].label}
-                </span>
-                {selectedList.submitterName && (
-                  <span className="flex items-center gap-1 text-sm text-gray-600">
-                    <UserCircleIcon className="w-4 h-4" />
-                    {selectedList.submitterName}
-                  </span>
-                )}
-              </div>
-
-              {/* List-level Notes */}
-              <NoteInput
-                value={listNotes}
-                onSend={handleSendListNote}
-                placeholder={t('addNotesForSupplyList')}
-                multiline
+              {/* Tab Bar */}
+              <TabBar
+                tabs={[
+                  { key: 'items', label: t('items') || 'Items', badge: selectedList.items.length, badgeColor: 'bg-teal-500' },
+                  { key: 'receipts', label: t('receipts') || 'Receipts', badge: receipts.length || undefined, badgeColor: 'bg-blue-500' },
+                  { key: 'details', label: t('details') || 'Details' },
+                ]}
+                activeTab={detailTab}
+                onTabChange={(key) => setDetailTab(key as DetailTab)}
               />
 
-              {/* Progress Bar (detail view) */}
-              {selectedList.items.length > 0 && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} {t('purchasedLabel').toLowerCase()}</span>
-                    <span>{getProgress(selectedList).percentage}%</span>
-                  </div>
-                  <ProgressBar percentage={getProgress(selectedList).percentage} />
-                </div>
-              )}
+              {/* === ITEMS TAB === */}
+              {detailTab === 'items' && (
+                <>
+                  {/* Progress Bar */}
+                  {selectedList.items.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} {t('purchasedLabel').toLowerCase()}</span>
+                        <span>{getProgress(selectedList).percentage}%</span>
+                      </div>
+                      <ProgressBar percentage={getProgress(selectedList).percentage} />
+                    </div>
+                  )}
 
-              {/* Item Filter Pills */}
-              {selectedList.items.length > 0 && (() => {
-                const purchased = selectedList.items.filter(i => i.isPurchased).length
-                const remaining = selectedList.items.length - purchased
-                return (
-                  <div className="flex items-center gap-1.5">
-                    {([
-                      { key: 'all' as const, label: t('all'), count: selectedList.items.length },
-                      { key: 'remaining' as const, label: t('remaining'), count: remaining },
-                      { key: 'purchased' as const, label: t('purchasedLabel'), count: purchased },
-                    ]).map(({ key, label, count }) => (
-                      <button
-                        key={key}
-                        onClick={() => setItemFilter(key)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                          itemFilter === key
-                            ? 'bg-teal-500 text-white'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {label} ({count})
-                      </button>
-                    ))}
-                  </div>
-                )
-              })()}
+                  {/* Item Filter Pills */}
+                  {selectedList.items.length > 0 && (() => {
+                    const purchased = selectedList.items.filter(i => i.isPurchased).length
+                    const remaining = selectedList.items.length - purchased
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        {([
+                          { key: 'all' as const, label: t('all'), count: selectedList.items.length },
+                          { key: 'remaining' as const, label: t('remaining'), count: remaining },
+                          { key: 'purchased' as const, label: t('purchasedLabel'), count: purchased },
+                        ]).map(({ key, label, count }) => (
+                          <button
+                            key={key}
+                            onClick={() => setItemFilter(key)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                              itemFilter === key
+                                ? 'bg-teal-500 text-white'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`}
+                          >
+                            {label} ({count})
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
 
-              {/* Items Checklist */}
+                  {/* Items Checklist */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="space-y-2">
                   {getStableItems(selectedList)
@@ -745,127 +747,90 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                 </div>
               </div>
 
-              {/* Receipts Section */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                    <DocumentTextIcon className="w-4 h-4 text-gray-400" />
-                    {t('receipts')}
-                  </h4>
-                  {onScanReceipt && selectedList && (
-                    <button
-                      onClick={() => onScanReceipt(selectedList)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <CameraIcon className="w-3.5 h-3.5" /> {t('scanReceipt')}
-                    </button>
+                  {/* Delete Confirmation (in items tab) */}
+                  {showDeleteConfirm && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-sm text-red-700 font-medium mb-3">
+                        {t('confirmDeleteSupplyList')}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="flex-1 py-2 px-3 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        >
+                          {t('cancel')}
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          disabled={actionLoading}
+                          className="flex-1 py-2 px-3 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                        >
+                          {actionLoading ? t('deleting') : t('deleteList')}
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </div>
-                {receiptsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                </>
+              )}
+
+              {/* === RECEIPTS TAB === */}
+              {detailTab === 'receipts' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                      <DocumentTextIcon className="w-4 h-4 text-gray-400" />
+                      {t('receipts')} ({receipts.length})
+                    </h4>
+                    {onScanReceipt && selectedList && (
+                      <button
+                        onClick={() => onScanReceipt(selectedList)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <CameraIcon className="w-3.5 h-3.5" /> {t('scanReceipt')}
+                      </button>
+                    )}
                   </div>
-                ) : receipts.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">{t('noReceiptsScannedYet')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {receipts.map(receipt => {
-                      const receiptStatusColors: Record<string, string> = {
-                        pending: 'bg-gray-100 text-gray-600',
-                        matched: 'bg-amber-100 text-amber-700',
-                        applied: 'bg-green-100 text-green-700',
-                        error: 'bg-red-100 text-red-700',
-                        failed: 'bg-red-100 text-red-700',
-                      }
-                      const isConfirmingDelete = confirmDeleteReceiptId === receipt.id
-                      const isExpanded = expandedReceiptId === receipt.id
-                      const canExpand = receipt.status === 'applied' || receipt.status === 'matched'
-                      return (
+                  {receiptsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                    </div>
+                  ) : receipts.length === 0 ? (
+                    <div className="text-center py-8">
+                      <DocumentTextIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">{t('noReceiptsScannedYet')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {receipts.map(receipt => (
                         <div key={receipt.id}>
-                          <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2 min-w-0">
-                              {canExpand ? (
-                                <button
-                                  onClick={() => handleExpandReceipt(receipt.id)}
-                                  className="flex-shrink-0 p-0.5 text-gray-400 hover:text-teal-600 cursor-pointer"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDownIcon className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronRightIcon className="w-4 h-4" />
-                                  )}
-                                </button>
-                              ) : (
-                                <CameraIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-900 truncate">{receipt.originalName}</p>
-                                <p className="text-[10px] text-gray-400">
-                                  {new Date(receipt.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${receiptStatusColors[receipt.status] || 'bg-gray-100 text-gray-700'}`}>
-                                {receipt.status}
-                              </span>
-                              {receipt.status === 'matched' && (
-                                <button
-                                  onClick={() => setReviewReceiptId(receipt.id)}
-                                  className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors cursor-pointer"
-                                >
-                                  {t('review')}
-                                </button>
-                              )}
+                          <RelatedEntityCard
+                            entityType="receipt"
+                            title={receipt.vendorName || receipt.originalName}
+                            subtitle={receipt.createdAt ? new Date(receipt.createdAt).toLocaleDateString() : undefined}
+                            amount={receipt.total}
+                            status={receipt.status}
+                            onClick={() => setStackedReceiptId(receipt.id)}
+                          />
+                          {/* Quick actions below card */}
+                          <div className="flex items-center gap-1.5 mt-1 ml-8">
+                            {receipt.status === 'matched' && (
                               <button
-                                onClick={() => setConfirmDeleteReceiptId(isConfirmingDelete ? null : receipt.id)}
-                                disabled={deletingReceiptId === receipt.id}
-                                className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
-                                title={t('deleteReceipt')}
+                                onClick={() => setReviewReceiptId(receipt.id)}
+                                className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors cursor-pointer"
                               >
-                                <TrashIcon className="w-3.5 h-3.5" />
+                                {t('review')}
                               </button>
-                            </div>
+                            )}
+                            <button
+                              onClick={() => setConfirmDeleteReceiptId(confirmDeleteReceiptId === receipt.id ? null : receipt.id)}
+                              disabled={deletingReceiptId === receipt.id}
+                              className="px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {t('deleteReceipt')}
+                            </button>
                           </div>
-
-                          {/* Line Items Panel (expanded applied receipts) */}
-                          {isExpanded && (
-                            <div className="border-l-2 border-teal-300 ml-2 pl-3 mt-1">
-                              {lineItemsLoading ? (
-                                <div className="flex items-center justify-center py-3">
-                                  <div className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
-                                </div>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[11px] font-medium text-gray-700">
-                                      {t('lineItems')} ({lineItems.length})
-                                    </p>
-                                    {lineItems.length > 0 && (
-                                      <p className="text-[11px] font-medium text-teal-600">
-                                        {t('total')}: ${lineItems.reduce((sum, li) => sum + (Number(li.totalPrice) || 0), 0).toFixed(2)}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  {lineItems.map(li => {
-                                    return (
-                                      <div key={li.id} className="flex items-center justify-between p-1.5 bg-white rounded-lg text-[11px]">
-                                        <span className="text-gray-800 truncate">{li.name}</span>
-                                        <span className="text-gray-500 flex-shrink-0">
-                                          {li.quantity > 1 && `${li.quantity} × $${(Number(li.unitPrice) || 0).toFixed(2)} = `}
-                                          ${(Number(li.totalPrice) || 0).toFixed(2)}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {isConfirmingDelete && (
-                            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg">
+                          {confirmDeleteReceiptId === receipt.id && (
+                            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg ml-8">
                               <p className="text-[10px] text-red-700 mb-1.5">
                                 {receipt.status === 'applied'
                                   ? t('deleteReceiptLinkedWarning')
@@ -889,46 +854,90 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                             </div>
                           )}
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Fulfilled info */}
-              {selectedList.status === 'fulfilled' && selectedList.fulfilledAt && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                  <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                  <div>
-                    <p className="font-medium text-green-700">{t('fulfilled')}</p>
-                    <p className="text-sm text-green-600">
-                      {new Date(selectedList.fulfilledAt).toLocaleString()}
-                    </p>
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Delete Confirmation */}
-              {showDeleteConfirm && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <p className="text-sm text-red-700 font-medium mb-3">
-                    {t('confirmDeleteSupplyList')}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowDeleteConfirm(false)}
-                      className="flex-1 py-2 px-3 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                    >
-                      {t('cancel')}
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      disabled={actionLoading}
-                      className="flex-1 py-2 px-3 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {actionLoading ? t('deleting') : t('deleteList')}
-                    </button>
+              {/* === DETAILS TAB === */}
+              {detailTab === 'details' && (
+                <div className="space-y-4">
+                  {/* Status & Submitter Info */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className={`
+                      px-3 py-1.5 rounded-lg text-sm font-medium
+                      ${statusBadgeColors[SUPPLY_LIST_STATUS_INFO[selectedList.status].color] || 'bg-gray-100 text-gray-700'}
+                    `}>
+                      {SUPPLY_LIST_STATUS_INFO[selectedList.status].label}
+                    </span>
+                    {selectedList.submitterName && (
+                      <span className="flex items-center gap-1 text-sm text-gray-600">
+                        <UserCircleIcon className="w-4 h-4" />
+                        {selectedList.submitterName}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Property & Date */}
+                  {(selectedList.propertyName || selectedList.projectDate) && (
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      {selectedList.propertyName && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-500 font-medium">Property:</span>
+                          <span className="text-gray-900">{selectedList.propertyName}</span>
+                        </div>
+                      )}
+                      {selectedList.projectDate && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <ClockIcon className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-600">
+                            {new Date(selectedList.projectDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Progress Summary */}
+                  {selectedList.items.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{getProgress(selectedList).purchasedItems}/{getProgress(selectedList).totalItems} {t('purchasedLabel').toLowerCase()}</span>
+                        <span>{getProgress(selectedList).percentage}%</span>
+                      </div>
+                      <ProgressBar percentage={getProgress(selectedList).percentage} />
+                      {getProgress(selectedList).totalCost > 0 && (
+                        <p className="text-xs text-teal-600 font-medium mt-1">
+                          Total cost: ${getProgress(selectedList).totalCost.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* List-level Notes */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1">Notes</p>
+                    <NoteInput
+                      value={listNotes}
+                      onSend={handleSendListNote}
+                      placeholder={t('addNotesForSupplyList')}
+                      multiline
+                    />
+                  </div>
+
+                  {/* Fulfilled info */}
+                  {selectedList.status === 'fulfilled' && selectedList.fulfilledAt && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+                      <CheckCircleIcon className="w-6 h-6 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-700">{t('fulfilled')}</p>
+                        <p className="text-sm text-green-600">
+                          {new Date(selectedList.fulfilledAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -966,7 +975,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                             <ClipboardDocumentListIcon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="font-medium text-gray-900">
                                 {list.items.length} item{list.items.length !== 1 ? 's' : ''}
                               </span>
@@ -976,6 +985,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
                               `}>
                                 {statusInfo.label}
                               </span>
+                              <NeedsReceiptBadge supplyList={list} />
                             </div>
                             <p className="text-sm text-gray-600 line-clamp-1">
                               {list.items.map(i => i.name).join(', ')}
@@ -1067,6 +1077,23 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
       )}
     </Modal>
 
+    {stackedReceiptId && (
+      <ReceiptDetailModal
+        isOpen={!!stackedReceiptId}
+        onClose={() => setStackedReceiptId(null)}
+        receiptId={stackedReceiptId}
+        properties={[]}
+        onUpdated={() => {
+          // Refresh the selected supply list to pick up any receipt changes
+          if (selectedList) refreshSelectedList()
+        }}
+        onDeleted={() => {
+          setStackedReceiptId(null)
+          if (selectedList) refreshSelectedList()
+        }}
+        defaultSupplyListId={selectedList?.id}
+      />
+    )}
     {viewingExpenseId && (
       <ExpenseViewerModal
         isOpen={!!viewingExpenseId}

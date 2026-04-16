@@ -15,6 +15,18 @@ export interface SupplyListItem {
   createdAt: string
 }
 
+// Receipt summary nested in supply list response
+export interface SupplyListReceipt {
+  id: string
+  vendorName: string | null
+  total: number | null
+  status: string
+  appliedAt: string | null
+  createdAt: string
+  originalName: string
+  expenseDate: string | null
+}
+
 export interface SupplyList {
   id: string
   projectId: string | null
@@ -31,7 +43,8 @@ export interface SupplyList {
   propertyName: string | null
   projectDate: string | null
   items: SupplyListItem[]
-  progress?: { totalItems: number; purchasedItems: number; percentage: number }
+  receipts?: SupplyListReceipt[]
+  progress?: { totalItems: number; purchasedItems: number; percentage: number; totalCost: number }
 }
 
 export interface CreateSupplyListPayload {

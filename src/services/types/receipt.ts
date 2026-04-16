@@ -42,6 +42,27 @@ export interface UploadedReceipt {
   uploaderName: string | null
 }
 
+// Linked supply list summary (nested in receipt detail response)
+export interface ReceiptLinkedSupplyList {
+  id: string
+  status: string
+  propertyId: string | null
+  itemCount: number
+}
+
+// Linked expense summary (nested in receipt detail response)
+export interface ReceiptLinkedExpense {
+  id: string
+  amount: number
+  paymentStatus: string
+  paidByType: string | null
+  paidById: string | null
+  expenseDate: string
+  category: string | null
+  propertyId?: string | null
+  propertyName?: string | null
+}
+
 // Detail-level receipt (includes line items, used by GET /receipts/:id)
 export interface ReceiptDetail extends UploadedReceipt {
   taxGst: number | null
@@ -52,6 +73,9 @@ export interface ReceiptDetail extends UploadedReceipt {
   matchPreview: Record<string, unknown>[] | null
   lineItems: ReceiptLineItem[]
   signedUrl: string
+  // Nested related objects (from detail endpoint)
+  supplyList?: ReceiptLinkedSupplyList | null
+  expense?: ReceiptLinkedExpense | null
 }
 
 // Search/filter params for GET /receipts

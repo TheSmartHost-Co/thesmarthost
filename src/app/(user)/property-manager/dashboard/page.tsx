@@ -12,7 +12,9 @@ import { motion } from 'framer-motion'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { getProperties } from '@/services/propertyService'
 import { getCleaners } from '@/services/cleanerService'
+import { getClientsByParentId } from '@/services/clientService'
 import type { Cleaner } from '@/services/types/cleaner'
+import type { Client } from '@/services/types/client'
 import {
   getDashboardAlerts,
   getDashboardMetrics,
@@ -37,7 +39,7 @@ import RadialActionWheel, {
 // Timeline Charts
 import { ExpenseTimelineChart } from '@/components/analytics/expense-timeline'
 import { CleanerAnalyticsWidget } from '@/components/analytics/cleaner-timeline'
-import { AnalyticsWidgetCompact } from '@/components/analytics/AnalyticsWidget'
+import { BookingTimelineChart } from '@/components/analytics/booking-timeline'
 
 // Modals
 import GenerateReportModal from '@/components/report/generate/generateReportModal'
@@ -61,6 +63,7 @@ export default function DashboardPage() {
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [activities, setActivities] = useState<DashboardActivity[]>([])
@@ -95,6 +98,7 @@ export default function DashboardPage() {
     await Promise.all([
       loadProperties(),
       loadCleaners(),
+      loadClients(),
       loadAlerts(),
       loadMetrics(),
       loadActivities(),
@@ -121,6 +125,15 @@ export default function DashboardPage() {
       if (res.status === 'success') setCleaners(res.data || [])
     } catch (err) {
       console.error('Error loading cleaners:', err)
+    }
+  }
+
+  const loadClients = async () => {
+    try {
+      const res = await getClientsByParentId(effectiveUserId!)
+      if (res.status === 'success') setClients(res.data || [])
+    } catch (err) {
+      console.error('Error loading clients:', err)
     }
   }
 
@@ -223,10 +236,11 @@ export default function DashboardPage() {
   )
 
   // Analytics tab state
-  const [analyticsTab, setAnalyticsTab] = useState<'both' | 'expenses' | 'cleaners'>('both')
+  const [analyticsTab, setAnalyticsTab] = useState<'both' | 'bookings' | 'expenses' | 'cleaners'>('both')
 
-  // Map cleaners to CleanerOption shape for CleanerAnalyticsWidget
+  // Map cleaners/clients to option shapes
   const cleanerOptions = cleaners.map(c => ({ id: c.id, name: c.name }))
+  const clientOptions = clients.map(c => ({ id: c.id, name: c.name }))
 
   // Radial wheel actions
   const wheelActions = canWrite('dashboard')
@@ -286,6 +300,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
             {([
               { key: 'both', label: 'All Analytics' },
+              { key: 'bookings', label: 'Bookings' },
               { key: 'expenses', label: 'Expenses' },
               { key: 'cleaners', label: 'Cleaners' },
             ] as const).map(tab => (
@@ -336,18 +351,22 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* Booking Analytics (Compact) */}
-          {!loadingProperties && properties.length > 0 && (
+          {/* Booking Analytics (shown in 'both' and 'bookings') */}
+          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'bookings') && (
             <motion.div
+              key={`bookings-${analyticsTab}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
+              transition={{ duration: 0.3, delay: analyticsTab === 'both' ? 0.3 : 0.1 }}
             >
-              <AnalyticsWidgetCompact properties={properties} />
+              <BookingTimelineChart
+                userId={effectiveUserId}
+                properties={properties}
+                clients={clientOptions}
+                height={320}
+              />
             </motion.div>
           )}
-
-          {loadingProperties && <SectionSkeleton height="h-64" />}
         </div>
 
         {/* Sidebar — Alerts + Activity (sticky) */}

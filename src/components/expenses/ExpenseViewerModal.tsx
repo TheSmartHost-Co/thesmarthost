@@ -13,17 +13,25 @@ import {
   getReceiptPreviewUrl,
   downloadReceipt,
   formatCurrency,
-  formatExpenseDate
+  formatExpenseDate,
+  getExpenseLineItems,
+  createExpenseLineItem,
+  updateExpenseLineItem,
+  deleteExpenseLineItem,
 } from '@/services/expenseService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
 import { getSupplyListById } from '@/services/supplyListService'
+import type { SupplyList } from '@/services/types/supplyList'
 import { getReceiptLineItems } from '@/services/receiptService'
 import type { ReceiptLineItem } from '@/services/types/receipt'
 import type {
   Expense,
+  ExpenseLineItem,
   UpdateExpensePayload,
+  CreateExpenseLineItemPayload,
+  UpdateExpenseLineItemPayload,
   PaymentMethod,
   PaymentStatus
 } from '@/services/types/expense'
@@ -57,9 +65,14 @@ import {
   ChevronRightIcon,
   ClipboardDocumentListIcon,
   LinkIcon,
-  UserIcon
+  UserIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
+import TabBar from '@/components/shared/TabBar'
+import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
+import LineItemSubForm from '@/components/shared/LineItemSubForm'
 
 interface ExpenseViewerModalProps {
   isOpen: boolean
@@ -70,7 +83,7 @@ interface ExpenseViewerModalProps {
   hideSupplyListLink?: boolean
 }
 
-type ModalMode = 'view' | 'edit' | 'receipt'
+type ModalMode = 'view' | 'edit' | 'receipt' | 'line-items' | 'related'
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'credit_card', label: 'Credit Card' },
@@ -144,6 +157,17 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [supplyListProjectId, setSupplyListProjectId] = useState('')
   const [supplyListProjectName, setSupplyListProjectName] = useState('')
 
+  // Expense line items state
+  const [expenseLineItems, setExpenseLineItems] = useState<ExpenseLineItem[]>([])
+  const [lineItemsLoading, setLineItemsLoading] = useState(false)
+  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
+  const [addingLineItem, setAddingLineItem] = useState(false)
+  const [lineItemSaving, setLineItemSaving] = useState(false)
+
+  // Stacked modal state for related entities
+  const [stackedReceiptId, setStackedReceiptId] = useState<string | null>(null)
+  const [stackedSupplyListId, setStackedSupplyListId] = useState<string | null>(null)
+
   // Reference data
   const [properties, setProperties] = useState<Property[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -179,6 +203,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       if (response.status === 'success') {
         setExpense(response.data)
         initializeEditForm(response.data)
+        // Use nested lineItems from API if available
+        setExpenseLineItems(response.data.lineItems || [])
         // Fetch receipt line items if this expense came from a receipt
         if (response.data.receiptId) {
           setSupplyLineItemsLoading(true)
@@ -488,6 +514,65 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     }
   }
 
+  // --- Expense Line Item Handlers ---
+  const handleCreateLineItem = async (data: CreateExpenseLineItemPayload) => {
+    if (!expense || !effectiveUserId) return
+    setLineItemSaving(true)
+    try {
+      const res = await createExpenseLineItem(expense.id, { ...data, userId: effectiveUserId })
+      if (res.status === 'success') {
+        setExpenseLineItems(prev => [...prev, res.data])
+        setAddingLineItem(false)
+        // Re-fetch expense to get recalculated amount/subtotal
+        fetchExpense()
+      } else {
+        showNotification(res.message || 'Failed to add line item', 'error')
+      }
+    } catch (err) {
+      showNotification('Error adding line item', 'error')
+    } finally {
+      setLineItemSaving(false)
+    }
+  }
+
+  const handleUpdateLineItem = async (lineItemId: string, data: UpdateExpenseLineItemPayload) => {
+    if (!expense || !effectiveUserId) return
+    setLineItemSaving(true)
+    try {
+      const res = await updateExpenseLineItem(expense.id, lineItemId, { ...data, userId: effectiveUserId })
+      if (res.status === 'success') {
+        setExpenseLineItems(prev => prev.map(li => li.id === lineItemId ? res.data : li))
+        setEditingLineItemId(null)
+        fetchExpense()
+      } else {
+        showNotification(res.message || 'Failed to update line item', 'error')
+      }
+    } catch (err) {
+      showNotification('Error updating line item', 'error')
+    } finally {
+      setLineItemSaving(false)
+    }
+  }
+
+  const handleDeleteLineItem = async (lineItemId: string) => {
+    if (!expense || !effectiveUserId) return
+    setLineItemSaving(true)
+    try {
+      const res = await deleteExpenseLineItem(expense.id, lineItemId, effectiveUserId)
+      if (res.status === 'success') {
+        setExpenseLineItems(prev => prev.filter(li => li.id !== lineItemId))
+        setEditingLineItemId(null)
+        fetchExpense()
+      } else {
+        showNotification(res.message || 'Failed to delete line item', 'error')
+      }
+    } catch (err) {
+      showNotification('Error deleting line item', 'error')
+    } finally {
+      setLineItemSaving(false)
+    }
+  }
+
   const getCategoryLabel = (code: string | undefined) => {
     if (!code) return null
     const catInfo = getCategoryByCode(code, categories)
@@ -511,6 +596,195 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   }
 
   const isImageReceipt = expense?.receiptMimeType?.startsWith('image/')
+
+  // --- LINE ITEMS TAB ---
+  const renderLineItemsMode = () => {
+    if (!expense) return null
+    const lineItemsTotal = expenseLineItems.reduce((sum, li) => sum + (li.totalCost || 0), 0)
+
+    return (
+      <div className="space-y-4">
+        {/* Summary */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Line Items ({expenseLineItems.length})
+          </h3>
+          {lineItemsTotal > 0 && (
+            <span className="text-sm font-semibold text-gray-700 tabular-nums">
+              {formatCurrency(lineItemsTotal)}
+            </span>
+          )}
+        </div>
+
+        {lineItemsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Line items table */}
+            {expenseLineItems.length > 0 ? (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-12">Qty</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-20">Unit</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-20">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {expenseLineItems.map((item) => (
+                      <React.Fragment key={item.id}>
+                        <tr
+                          className={`cursor-pointer hover:bg-gray-50 transition-colors ${editingLineItemId === item.id ? 'bg-blue-50/30' : ''}`}
+                          onClick={() => {
+                            if (hasWrite && editingLineItemId !== item.id) {
+                              setEditingLineItemId(item.id)
+                              setAddingLineItem(false)
+                            }
+                          }}
+                        >
+                          <td className="px-3 py-2 text-gray-900">
+                            <span className="flex items-center gap-1.5">
+                              {item.supplyListItemId && (
+                                <LinkIcon className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" title="Linked to supply list item" />
+                              )}
+                              {item.description}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700 tabular-nums">{item.quantity}</td>
+                          <td className="px-3 py-2 text-right text-gray-700 tabular-nums">{item.unitCost != null ? `$${item.unitCost.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-2 text-right text-gray-700 tabular-nums">{item.totalCost != null ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                        </tr>
+                        {editingLineItemId === item.id && hasWrite && (
+                          <tr>
+                            <td colSpan={4} className="px-2 py-0">
+                              <LineItemSubForm
+                                lineItem={item}
+                                onSave={(data) => handleUpdateLineItem(item.id, data as UpdateExpenseLineItemPayload)}
+                                onCancel={() => setEditingLineItemId(null)}
+                                onDelete={() => handleDeleteLineItem(item.id)}
+                                saving={lineItemSaving}
+                                userId={effectiveUserId || ''}
+                                hasSupplyLink={!!item.supplyListItemId}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Totals footer */}
+                <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 flex justify-between items-center text-sm">
+                  <span className="font-medium text-gray-600">Subtotal (line items)</span>
+                  <span className="font-semibold text-gray-900 tabular-nums">{formatCurrency(lineItemsTotal)}</span>
+                </div>
+                {(expense.taxTotal || 0) > 0 && (
+                  <div className="bg-gray-50 border-t border-gray-100 px-3 py-1.5 flex justify-between items-center text-sm">
+                    <span className="text-gray-500">Tax</span>
+                    <span className="text-gray-700 tabular-nums">+ {formatCurrency(expense.taxTotal || 0)}</span>
+                  </div>
+                )}
+                <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-900">Total</span>
+                  <span className="font-bold text-gray-900 tabular-nums">{formatCurrency(expense.amount)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 border border-dashed border-gray-300 rounded-xl">
+                <CurrencyDollarIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">No line items yet</p>
+              </div>
+            )}
+
+            {/* Add line item form */}
+            {addingLineItem && hasWrite ? (
+              <LineItemSubForm
+                onSave={(data) => handleCreateLineItem(data as CreateExpenseLineItemPayload)}
+                onCancel={() => setAddingLineItem(false)}
+                saving={lineItemSaving}
+                userId={effectiveUserId || ''}
+              />
+            ) : hasWrite && (
+              <button
+                onClick={() => { setAddingLineItem(true); setEditingLineItemId(null) }}
+                className="w-full py-2.5 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Line Item
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // --- RELATED TAB ---
+  const renderRelatedMode = () => {
+    if (!expense) return null
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Related Entities</h3>
+
+        {/* Linked Receipt */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Receipt</p>
+          {expense.receipt ? (
+            <RelatedEntityCard
+              entityType="receipt"
+              title={expense.receipt.vendorName || expense.receipt.originalName}
+              subtitle={expense.receipt.expenseDate ? new Date(expense.receipt.expenseDate + 'T00:00:00').toLocaleDateString() : undefined}
+              amount={expense.receipt.total}
+              status={expense.receipt.status}
+              onClick={() => setStackedReceiptId(expense.receipt!.id)}
+            />
+          ) : expense.receiptPath ? (
+            <RelatedEntityCard
+              entityType="receipt"
+              title={expense.receiptOriginalName || 'Receipt attached'}
+              subtitle="Legacy receipt (no detail view)"
+              onClick={() => handleModeSwitch('receipt')}
+            />
+          ) : (
+            <RelatedEntityCard
+              entityType="receipt"
+              title=""
+              emptyText="No linked receipt"
+              onClick={() => {}}
+              onAction={hasWrite ? () => handleModeSwitch('receipt') : undefined}
+              actionLabel="Add Receipt"
+            />
+          )}
+        </div>
+
+        {/* Linked Supply List */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">Supply List</p>
+          {expense.supplyList ? (
+            <RelatedEntityCard
+              entityType="supply-list"
+              title={`Supply List (${expense.supplyList.itemCount} items)`}
+              status={expense.supplyList.status}
+              onClick={() => setStackedSupplyListId(expense.supplyList!.id)}
+            />
+          ) : (
+            <RelatedEntityCard
+              entityType="supply-list"
+              title=""
+              emptyText="No linked supply list"
+              onClick={() => {}}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
 
   const renderViewMode = () => {
     if (!expense) return null
@@ -1317,59 +1591,49 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-3xl w-11/12 !overflow-y-hidden flex flex-col">
       {/* Tab Navigation */}
-      <div className="flex space-x-1 mb-6 border-b border-gray-200">
-        <button
-          onClick={() => handleModeSwitch('view')}
-          className={`cursor-pointer px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-            mode === 'view'
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          Details
-        </button>
-        <button
-          onClick={() => handleModeSwitch('edit')}
-          className={`cursor-pointer px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-            mode === 'edit'
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => handleModeSwitch('receipt')}
-          className={`cursor-pointer px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-            mode === 'receipt'
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          Receipt {expense?.receiptPath && <span className="ml-1 text-green-600">*</span>}
-        </button>
+      <div className="px-6 pt-6">
+        <TabBar
+          tabs={[
+            { key: 'view', label: 'Details' },
+            { key: 'edit', label: 'Edit' },
+            { key: 'receipt', label: expense?.receiptPath ? 'Receipt *' : 'Receipt' },
+            { key: 'line-items', label: 'Line Items', badge: expenseLineItems.length || undefined, badgeColor: 'bg-teal-500' },
+            {
+              key: 'related',
+              label: 'Related',
+              badge: ((expense?.receipt ? 1 : 0) + (expense?.supplyList ? 1 : 0)) || undefined,
+              badgeColor: 'bg-purple-500',
+            },
+          ]}
+          activeTab={mode}
+          onTabChange={(key) => handleModeSwitch(key as ModalMode)}
+        />
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="text-gray-500">Loading expense...</div>
-        </div>
-      ) : !expense ? (
-        <div className="text-center py-8">
-          <div className="text-gray-500">Expense not found</div>
-        </div>
-      ) : (
-        <>
-          {mode === 'view' && renderViewMode()}
-          {mode === 'edit' && renderEditMode()}
-          {mode === 'receipt' && renderReceiptMode()}
-        </>
-      )}
+      <div className="flex-1 overflow-y-auto min-h-0 p-6">
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="text-gray-500">Loading expense...</div>
+          </div>
+        ) : !expense ? (
+          <div className="text-center py-8">
+            <div className="text-gray-500">Expense not found</div>
+          </div>
+        ) : (
+          <>
+            {mode === 'view' && renderViewMode()}
+            {mode === 'edit' && renderEditMode()}
+            {mode === 'receipt' && renderReceiptMode()}
+            {mode === 'line-items' && renderLineItemsMode()}
+            {mode === 'related' && renderRelatedMode()}
+          </>
+        )}
+      </div>
 
       {/* Modal Footer */}
-      <div className="flex justify-end pt-6 border-t mt-6">
+      <div className="flex-shrink-0 flex justify-end px-6 py-4 border-t border-gray-200">
         <button
           onClick={onClose}
           className="cursor-pointer px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
@@ -1379,6 +1643,25 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       </div>
     </Modal>
 
+    {/* Stacked modals for related entities */}
+    {stackedReceiptId && (
+      <ReceiptDetailModal
+        isOpen={!!stackedReceiptId}
+        onClose={() => setStackedReceiptId(null)}
+        receiptId={stackedReceiptId}
+        properties={properties}
+        onUpdated={() => fetchExpense()}
+        onDeleted={() => { setStackedReceiptId(null); fetchExpense() }}
+      />
+    )}
+    {stackedSupplyListId && (
+      <ViewSupplyListsModal
+        isOpen={!!stackedSupplyListId}
+        onClose={() => setStackedSupplyListId(null)}
+        initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
+        onSupplyListsChanged={() => fetchExpense()}
+      />
+    )}
     {showSupplyListModal && supplyListProjectId && (
       <ViewSupplyListsModal
         isOpen={showSupplyListModal}

@@ -15,7 +15,11 @@ import type {
   ExpenseFilters,
   ExpenseTotals,
   BulkExpensePayload,
-  BulkImportExpensesResponse
+  BulkImportExpensesResponse,
+  ExpenseLineItemsResponse,
+  ExpenseLineItemResponse,
+  CreateExpenseLineItemPayload,
+  UpdateExpenseLineItemPayload,
 } from './types/expense'
 
 /**
@@ -517,5 +521,59 @@ export async function scanReceipt(receipt: File): Promise<ScanReceiptResponse> {
       status: 'failed' as const,
       message: error.message || 'Failed to scan receipt'
     }
+  })
+}
+
+// ============================================================================
+// EXPENSE LINE ITEM OPERATIONS
+// ============================================================================
+
+/**
+ * Get all line items for an expense
+ */
+export async function getExpenseLineItems(expenseId: string, userId: string): Promise<ExpenseLineItemsResponse> {
+  return apiClient<ExpenseLineItemsResponse>(`/expenses/${expenseId}/line-items?userId=${userId}`)
+}
+
+/**
+ * Create a new line item for an expense
+ * Side effect: parent expense amount/subtotal recalculated
+ */
+export async function createExpenseLineItem(
+  expenseId: string,
+  data: CreateExpenseLineItemPayload
+): Promise<ExpenseLineItemResponse> {
+  return apiClient<ExpenseLineItemResponse>(`/expenses/${expenseId}/line-items`, {
+    method: 'POST',
+    body: data,
+  })
+}
+
+/**
+ * Update an expense line item
+ * Side effects: parent amount/subtotal recalc, linked supply_list_item cascaded
+ */
+export async function updateExpenseLineItem(
+  expenseId: string,
+  lineItemId: string,
+  data: UpdateExpenseLineItemPayload
+): Promise<ExpenseLineItemResponse> {
+  return apiClient<ExpenseLineItemResponse>(`/expenses/${expenseId}/line-items/${lineItemId}`, {
+    method: 'PATCH',
+    body: data,
+  })
+}
+
+/**
+ * Delete an expense line item
+ * Side effects: parent amount/subtotal recalc, linked supply_list_item reverted
+ */
+export async function deleteExpenseLineItem(
+  expenseId: string,
+  lineItemId: string,
+  userId: string
+): Promise<DeleteExpenseResponse> {
+  return apiClient<DeleteExpenseResponse>(`/expenses/${expenseId}/line-items/${lineItemId}?userId=${userId}`, {
+    method: 'DELETE',
   })
 }

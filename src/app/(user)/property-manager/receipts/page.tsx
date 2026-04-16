@@ -29,6 +29,8 @@ import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import DeleteReceiptModal from '@/components/receipt/delete/DeleteReceiptModal'
 import ReceiptGalleryCard from '@/components/receipt/ReceiptGalleryCard'
+import PropertyChip from '@/components/receipt/PropertyChip'
+import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
 
@@ -506,19 +508,22 @@ function ReceiptsContent() {
                       }`}
                     >
                       {/* Thumbnail */}
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                        {receipt.mimeType?.startsWith('image/') && receipt.signedUrl ? (
-                          <img src={receipt.signedUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <DocumentTextIcon className="w-5 h-5 text-gray-300" />
-                          </div>
-                        )}
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <ReceiptThumbnail
+                          signedUrl={receipt.signedUrl}
+                          mimeType={receipt.mimeType}
+                          originalName={receipt.originalName}
+                          imgClassName="w-full h-full object-cover"
+                          pdfRenderWidth={160}
+                          fallback={<DocumentTextIcon className="w-5 h-5 text-gray-300" />}
+                        />
                       </div>
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{receipt.vendorName || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500 truncate">{receipt.propertyName || 'No property'}</p>
+                        <div className="mt-1">
+                          <PropertyChip receipt={receipt} size="sm" />
+                        </div>
                       </div>
                       {/* Amount + Status */}
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -598,18 +603,15 @@ function ReceiptsContent() {
                         >
                           {/* Thumbnail */}
                           <td className="px-6 py-4">
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                              {receipt.mimeType?.startsWith('image/') && receipt.signedUrl ? (
-                                <img
-                                  src={receipt.signedUrl}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <DocumentTextIcon className="w-5 h-5 text-gray-300" />
-                                </div>
-                              )}
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              <ReceiptThumbnail
+                                signedUrl={receipt.signedUrl}
+                                mimeType={receipt.mimeType}
+                                originalName={receipt.originalName}
+                                imgClassName="w-full h-full object-cover"
+                                pdfRenderWidth={160}
+                                fallback={<DocumentTextIcon className="w-5 h-5 text-gray-300" />}
+                              />
                             </div>
                           </td>
 
@@ -625,7 +627,7 @@ function ReceiptsContent() {
 
                           {/* Property */}
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-700">{receipt.propertyName || '—'}</p>
+                            <PropertyChip receipt={receipt} size="sm" />
                           </td>
 
                           {/* Date */}

@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next'
 import type { UploadedReceipt, ReceiptStatus } from '@/services/types/receipt'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
+import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
 import { DocumentTextIcon } from '@heroicons/react/24/outline'
+import PropertyChip from './PropertyChip'
 
 const statusConfig: Record<ReceiptStatus, { label: string; bg: string; text: string; dot: string }> = {
   pending: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
@@ -28,7 +30,6 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
 }) => {
   const { t } = useTranslation('expenses')
   const status = statusConfig[receipt.status] || statusConfig.pending
-  const isImage = receipt.mimeType?.startsWith('image/')
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—'
@@ -53,17 +54,18 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
     >
       {/* Image area */}
       <div className="relative h-48 bg-gray-100">
-        {isImage && receipt.signedUrl ? (
-          <img
-            src={receipt.signedUrl}
-            alt={receipt.originalName}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <DocumentTextIcon className="w-12 h-12 text-gray-300" />
-          </div>
-        )}
+        <ReceiptThumbnail
+          signedUrl={receipt.signedUrl}
+          mimeType={receipt.mimeType}
+          originalName={receipt.originalName}
+          imgClassName="w-full h-full object-cover"
+          pdfRenderWidth={500}
+          fallback={
+            <div className="flex items-center justify-center h-full w-full">
+              <DocumentTextIcon className="w-12 h-12 text-gray-300" />
+            </div>
+          }
+        />
 
         {/* Status badge */}
         <span
@@ -100,9 +102,12 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
           </span>
         </div>
 
-        <p className="text-xs text-gray-400 mt-1.5">
-          {formatDate(receipt.expenseDate || receipt.createdAt)}
-        </p>
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          <p className="text-xs text-gray-400 flex-shrink-0">
+            {formatDate(receipt.expenseDate || receipt.createdAt)}
+          </p>
+          <PropertyChip receipt={receipt} size="sm" />
+        </div>
 
         {/* Quick actions */}
         {actions.length > 0 && (
