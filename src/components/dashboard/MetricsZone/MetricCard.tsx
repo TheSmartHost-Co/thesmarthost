@@ -23,7 +23,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return (
-    <div className="min-w-0 px-2.5 py-2 sm:px-4 sm:py-3 border-b border-r border-gray-100 sm:border-b-0 sm:border-r last:border-r-0 [&:nth-child(odd):last-child]:col-span-2">
+    <div className="min-w-0 px-2.5 py-2 sm:px-4 sm:py-3 border-b border-r border-gray-100 sm:border-b-0 sm:border-r last:border-r-0 max-sm:[&:nth-child(odd):last-child]:col-span-2">
       <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{title}</p>
       <p className="text-lg sm:text-xl font-semibold text-slate-800 mt-0.5">{formatValue()}</p>
       {secondaryLine && (
