@@ -135,7 +135,7 @@ export default function SpendKPIStrip({
   return (
     <div className="px-4 py-3">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {cards.map(card => (
           <KPICard
             key={card.label}
@@ -213,7 +213,7 @@ function KPICard({
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
-      className={`relative rounded-xl ${card.bgClass} px-4 py-3 transition-all ${
+      className={`relative rounded-xl ${card.bgClass} px-3 py-2.5 transition-all ${
         onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''
       } ${card.isActive ? `ring-2 ${card.ringClass} shadow-md` : ''}`}
     >
@@ -224,7 +224,7 @@ function KPICard({
         </p>
         <Tooltip text={metricDescriptions?.[card.descKey]?.description} />
       </div>
-      <p className={`mt-1 text-xl font-bold tabular-nums ${card.textClass}`}>{card.value}</p>
+      <p className={`mt-1 text-lg font-bold tabular-nums ${card.textClass}`}>{card.value}</p>
       <div className="mt-1 flex items-center justify-between">
         <p className="text-[10px] text-gray-400">{card.subtitle}</p>
         {card.delta && <DeltaBadge delta={card.delta} />}
