@@ -18,6 +18,7 @@ interface SpendKPIStripProps {
   showProjections: boolean
   onCardClick?: (status: InvoiceStatus | 'upcoming') => void
   activeInvoiceStatuses?: InvoiceStatus[]
+  overdueTotals?: { overdueAmount: number; overdueCount: number; upcomingAmount: number; upcomingCount: number }
 }
 
 const fmtCurrency = (v: number) =>
@@ -32,13 +33,19 @@ export default function SpendKPIStrip({
   showProjections,
   onCardClick,
   activeInvoiceStatuses = [],
+  overdueTotals,
 }: SpendKPIStripProps) {
   const { current, delta } = portfolio
 
-  const upcomingAmount =
-    current.projectedInvoiceAmountForPendingProjects +
-    current.projectedInvoiceAmountForUnassignedProjects
-  const upcomingCount = current.pendingProjects + current.unassignedProjects
+  // Use timeline-derived overdue/upcoming split when available, otherwise fall back to portfolio totals
+  const overdueAmount = overdueTotals?.overdueAmount ?? 0
+  const overdueCount = overdueTotals?.overdueCount ?? 0
+  const upcomingAmount = overdueTotals
+    ? overdueTotals.upcomingAmount + current.projectedInvoiceAmountForUnassignedProjects
+    : current.projectedInvoiceAmountForPendingProjects + current.projectedInvoiceAmountForUnassignedProjects
+  const upcomingCount = overdueTotals
+    ? overdueTotals.upcomingCount + current.unassignedProjects
+    : current.pendingProjects + current.unassignedProjects
 
   const cards: KPICardData[] = [
     {
@@ -80,19 +87,42 @@ export default function SpendKPIStrip({
       isActive: activeInvoiceStatuses.length === 1 && activeInvoiceStatuses[0] === 'uninvoiced',
       ringClass: 'ring-red-400',
     },
-    {
-      label: 'Upcoming Spend',
-      value: fmtCurrency(upcomingAmount),
-      subtitle: `${upcomingCount} scheduled`,
-      color: SPEND_COLORS.upcoming,
-      bgClass: 'bg-blue-50',
-      textClass: 'text-blue-700',
-      delta: null,
-      descKey: 'projectedInvoiceAmountForPendingProjects',
-      filterKey: 'upcoming' as InvoiceStatus | 'upcoming',
-      isActive: false,
-      ringClass: 'ring-blue-400',
-    },
+    // Show Overdue card when there are past-due pending projects
+    ...(overdueAmount > 0
+      ? [
+          {
+            label: 'Overdue',
+            value: fmtCurrency(overdueAmount),
+            subtitle: `${overdueCount} past due`,
+            color: SPEND_COLORS.overdue,
+            bgClass: 'bg-red-50',
+            textClass: 'text-red-700',
+            delta: null as CleanerDelta | null,
+            descKey: 'projectedInvoiceAmountForPendingProjects',
+            filterKey: 'upcoming' as InvoiceStatus | 'upcoming',
+            isActive: false,
+            ringClass: 'ring-red-400',
+          },
+        ]
+      : []),
+    // Show Upcoming card when there are future pending projects
+    ...(upcomingAmount > 0 || overdueAmount === 0
+      ? [
+          {
+            label: 'Upcoming Spend',
+            value: fmtCurrency(upcomingAmount),
+            subtitle: `${upcomingCount} scheduled`,
+            color: SPEND_COLORS.upcoming,
+            bgClass: 'bg-blue-50',
+            textClass: 'text-blue-700',
+            delta: null as CleanerDelta | null,
+            descKey: 'projectedInvoiceAmountForPendingProjects',
+            filterKey: 'upcoming' as InvoiceStatus | 'upcoming',
+            isActive: false,
+            ringClass: 'ring-blue-400',
+          },
+        ]
+      : []),
   ]
 
   // Reconciliation

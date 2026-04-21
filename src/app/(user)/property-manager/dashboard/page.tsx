@@ -8,7 +8,7 @@ import { useCleanerEarningsStore } from '@/store/useCleanerEarningsStore'
 import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { getProperties } from '@/services/propertyService'
 import { getCleaners } from '@/services/cleanerService'
@@ -232,11 +232,20 @@ export default function DashboardPage() {
   }
 
   const SectionSkeleton = ({ height = 'h-48' }: { height?: string }) => (
-    <div className={`${height} animate-pulse rounded-xl bg-gray-100`} />
+    <div className={`${height} animate-pulse rounded-lg bg-stone-200`} />
   )
 
   // Analytics tab state
+  const TAB_ORDER = ['both', 'bookings', 'expenses', 'cleaners'] as const
   const [analyticsTab, setAnalyticsTab] = useState<'both' | 'bookings' | 'expenses' | 'cleaners'>('both')
+  const [slideDirection, setSlideDirection] = useState(0) // -1 left, 1 right
+
+  const handleTabSwitch = (key: typeof analyticsTab) => {
+    const oldIdx = TAB_ORDER.indexOf(analyticsTab)
+    const newIdx = TAB_ORDER.indexOf(key)
+    setSlideDirection(newIdx > oldIdx ? 1 : -1)
+    setAnalyticsTab(key)
+  }
 
   // Map cleaners/clients to option shapes
   const cleanerOptions = cleaners.map(c => ({ id: c.id, name: c.name }))
@@ -257,21 +266,21 @@ export default function DashboardPage() {
     : []
 
   return (
-    <div className="space-y-4 pb-8 sm:space-y-6">
+    <div className="space-y-3 pb-8 sm:space-y-4">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">{t('title')}</h1>
-          <p className="mt-0.5 text-sm text-slate-400">
+          <h1 className="text-lg font-semibold text-stone-900">{t('title')}</h1>
+          <p className="mt-0.5 text-sm text-stone-400">
             {t('welcomeBack', { name: profile?.fullName })}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">Updated {formatLastRefreshed()}</span>
+          <span className="text-xs text-stone-400">Updated {formatLastRefreshed()}</span>
           <button
             onClick={handleRefreshAll}
             disabled={isRefreshing}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 disabled:opacity-50"
           >
             <ArrowPathIcon className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t('refresh')}
@@ -280,24 +289,18 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Metrics Grid (full width) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {loadingMetrics ? (
-          <SectionSkeleton height="h-20" />
-        ) : (
-          metrics && <MetricsGrid metrics={metrics} />
-        )}
-      </motion.div>
+      {loadingMetrics ? (
+        <SectionSkeleton height="h-20" />
+      ) : (
+        metrics && <MetricsGrid metrics={metrics} />
+      )}
 
       {/* ── Two-Column: Main + Sidebar ── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Main Content — tabbed analytics + booking chart */}
-        <div className="space-y-6">
-          {/* Analytics tab strip */}
-          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        {/* Main Content — tabbed analytics */}
+        <div className="space-y-3">
+          {/* Analytics tab strip (CTA-style pills) */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-stone-100 p-1">
             {([
               { key: 'both', label: 'All Analytics' },
               { key: 'bookings', label: 'Bookings' },
@@ -306,71 +309,71 @@ export default function DashboardPage() {
             ] as const).map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setAnalyticsTab(tab.key)}
-                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                onClick={() => handleTabSwitch(tab.key)}
+                className={`relative flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   analyticsTab === tab.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-white'
+                    : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
-                {tab.label}
+                {analyticsTab === tab.key && (
+                  <motion.div
+                    layoutId="analytics-tab-bg"
+                    className="absolute inset-0 rounded-lg bg-teal-600 shadow-sm"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Cleaner Analytics (shown in 'both' and 'cleaners') */}
-          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'cleaners') && (
-            <motion.div
-              key={`cleaner-${analyticsTab}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <CleanerAnalyticsWidget
-                userId={effectiveUserId}
-                properties={properties}
-                cleaners={cleanerOptions}
-                height={320}
-              />
-            </motion.div>
-          )}
+          {/* Analytics widgets with horizontal slide */}
+          <div className="overflow-hidden">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={analyticsTab}
+                initial={{ x: slideDirection * 60, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: slideDirection * -60, opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="space-y-3"
+              >
+                {/* Cleaner Analytics */}
+                {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'cleaners') && (
+                  <CleanerAnalyticsWidget
+                    userId={effectiveUserId}
+                    properties={properties}
+                    cleaners={cleanerOptions}
+                    height={320}
+                  />
+                )}
 
-          {/* Expense Timeline (shown in 'both' and 'expenses') */}
-          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'expenses') && (
-            <motion.div
-              key={`expense-${analyticsTab}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: analyticsTab === 'both' ? 0.2 : 0.1 }}
-            >
-              <ExpenseTimelineChart
-                userId={effectiveUserId}
-                properties={properties}
-                height={320}
-              />
-            </motion.div>
-          )}
+                {/* Expense Timeline */}
+                {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'expenses') && (
+                  <ExpenseTimelineChart
+                    userId={effectiveUserId}
+                    properties={properties}
+                    height={320}
+                  />
+                )}
 
-          {/* Booking Analytics (shown in 'both' and 'bookings') */}
-          {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'bookings') && (
-            <motion.div
-              key={`bookings-${analyticsTab}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: analyticsTab === 'both' ? 0.3 : 0.1 }}
-            >
-              <BookingTimelineChart
-                userId={effectiveUserId}
-                properties={properties}
-                clients={clientOptions}
-                height={320}
-              />
-            </motion.div>
-          )}
+                {/* Booking Analytics */}
+                {effectiveUserId && (analyticsTab === 'both' || analyticsTab === 'bookings') && (
+                  <BookingTimelineChart
+                    userId={effectiveUserId}
+                    properties={properties}
+                    clients={clientOptions}
+                    height={320}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Sidebar — Alerts + Activity (sticky) */}
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+        <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           {loadingAlerts ? (
             <SectionSkeleton height="h-32" />
           ) : (

@@ -72,6 +72,13 @@ function groupLineItemsByProperty(items: CleanerLineItem[]): Map<string, Propert
   return map
 }
 
+function getPendingLabel(dateRange: DateRange): { label: string; textClass: string } {
+  const today = new Date().toISOString().slice(0, 10)
+  if (dateRange.endDate < today) return { label: 'Overdue', textClass: 'text-red-700' }
+  if (dateRange.startDate >= today) return { label: 'Upcoming', textClass: 'text-blue-700' }
+  return { label: 'Upcoming', textClass: 'text-blue-700' }
+}
+
 export default function BreakdownTable({
   activeTab,
   breakdownView,
@@ -82,7 +89,9 @@ export default function BreakdownTable({
   lineItems,
   lineItemsLoading,
   onFetchLineItems,
+  dateRange,
 }: BreakdownTableProps) {
+  const pendingLabel = getPendingLabel(dateRange)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [lineItemsRow, setLineItemsRow] = useState<string | null>(null)
 
@@ -147,6 +156,7 @@ export default function BreakdownTable({
               lineItemsLoading={lineItemsLoading}
               onViewLineItems={handleViewLineItems}
               onFetchLineItems={onFetchLineItems}
+              pendingLabel={pendingLabel}
             />
           ) : (
             <SpendByPropertyTable
@@ -155,6 +165,7 @@ export default function BreakdownTable({
               lineItems={lineItems}
               lineItemsLoading={lineItemsLoading}
               onFetchLineItems={onFetchLineItems}
+              pendingLabel={pendingLabel}
             />
           )
         ) : breakdownView === 'byCleaner' ? (
@@ -162,6 +173,7 @@ export default function BreakdownTable({
             data={byCleaner}
             expandedRows={expandedRows}
             toggleRow={toggleRow}
+            pendingLabel={pendingLabel}
           />
         ) : (
           <WorkloadByPropertyTable data={byProperty} />
@@ -177,15 +189,17 @@ export default function BreakdownTable({
               showProjections={showProjections}
               expandedRows={expandedRows}
               toggleRow={toggleRow}
+              pendingLabel={pendingLabel}
             />
           ) : (
-            <MobileSpendByPropertyCards data={byProperty} showProjections={showProjections} />
+            <MobileSpendByPropertyCards data={byProperty} showProjections={showProjections} pendingLabel={pendingLabel} />
           )
         ) : breakdownView === 'byCleaner' ? (
           <MobileWorkloadByCleanerCards
             data={byCleaner}
             expandedRows={expandedRows}
             toggleRow={toggleRow}
+            pendingLabel={pendingLabel}
           />
         ) : (
           <MobileWorkloadByPropertyCards data={byProperty} />
@@ -209,6 +223,7 @@ function SpendByCleanerTable({
   lineItemsLoading,
   onViewLineItems,
   onFetchLineItems,
+  pendingLabel,
 }: {
   data: CleanerBreakdown[]
   showProjections: boolean
@@ -219,6 +234,7 @@ function SpendByCleanerTable({
   lineItemsLoading: boolean
   onViewLineItems: (cleanerId: string) => void
   onFetchLineItems: (cleanerId?: string | null, propertyIds?: string[] | null) => Promise<CleanerLineItem[]>
+  pendingLabel: { label: string; textClass: string }
 }) {
   // Cache line items per cleaner for enriched accordion
   const [cleanerItemsCache, setCleanerItemsCache] = useState<Record<string, CleanerLineItem[]>>({})
@@ -260,7 +276,7 @@ function SpendByCleanerTable({
           <th className="px-3 py-2 text-right font-medium text-gray-500">Paid</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Owed</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Not Billed</th>
-          <th className="px-3 py-2 text-right font-medium text-gray-500">Upcoming</th>
+          <th className={`px-3 py-2 text-right font-medium ${pendingLabel.label === 'Overdue' ? 'text-red-500' : 'text-gray-500'}`}>{pendingLabel.label}</th>
           {showProjections && (
             <>
               <th className="px-3 py-2 text-right font-medium text-gray-500">Projected</th>
@@ -303,7 +319,7 @@ function SpendByCleanerTable({
                 <td className="px-3 py-2.5 text-right tabular-nums text-emerald-700">{fmtCurrency(c.paidInvoicesAmount)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-amber-700">{fmtCurrency(c.unpaidInvoicesAmount)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-red-700">{fmtCurrency(c.uninvoicedCompletedAmount)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-blue-700">{fmtCurrency(c.projectedInvoiceAmountForPendingProjects)}</td>
+                <td className={`px-3 py-2.5 text-right tabular-nums ${pendingLabel.textClass}`}>{fmtCurrency(c.projectedInvoiceAmountForPendingProjects)}</td>
                 {showProjections && (
                   <>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{fmtCurrency(projected)}</td>
@@ -382,10 +398,10 @@ function SpendByCleanerTable({
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    {/* Upcoming */}
+                    {/* Upcoming / Overdue */}
                     <td className="px-3 py-1.5 text-right text-[11px] tabular-nums">
                       {prop.pendingProjects > 0 ? (
-                        <span className="text-blue-600">{fmtCurrency(prop.projectedInvoiceAmountForPendingProjects)}</span>
+                        <span className={pendingLabel.label === 'Overdue' ? 'text-red-600' : 'text-blue-600'}>{fmtCurrency(prop.projectedInvoiceAmountForPendingProjects)}</span>
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
@@ -455,9 +471,11 @@ function SpendByPropertyTable({
   lineItems,
   lineItemsLoading,
   onFetchLineItems,
+  pendingLabel,
 }: {
   data: CleanerPropertyBreakdown[]
   showProjections: boolean
+  pendingLabel: { label: string; textClass: string }
   lineItems: CleanerLineItem[]
   lineItemsLoading: boolean
   onFetchLineItems: (cleanerId?: string | null, propertyIds?: string[] | null) => Promise<CleanerLineItem[]>
@@ -500,7 +518,7 @@ function SpendByPropertyTable({
           <th className="px-3 py-2 text-right font-medium text-gray-500">Paid</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Owed</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Not Billed</th>
-          <th className="px-3 py-2 text-right font-medium text-gray-500">Upcoming</th>
+          <th className={`px-3 py-2 text-right font-medium ${pendingLabel.label === 'Overdue' ? 'text-red-500' : 'text-gray-500'}`}>{pendingLabel.label}</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Cleaners</th>
           {showProjections && (
             <>
@@ -540,7 +558,7 @@ function SpendByPropertyTable({
                 <td className="px-3 py-2.5 text-right tabular-nums text-emerald-700">{fmtCurrency(p.paidInvoicesAmount)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-amber-700">{fmtCurrency(p.unpaidInvoicesAmount)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-red-700">{fmtCurrency(p.uninvoicedCompletedAmount)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-blue-700">
+                <td className={`px-3 py-2.5 text-right tabular-nums ${pendingLabel.textClass}`}>
                   {fmtCurrency(p.projectedInvoiceAmountForPendingProjects + p.projectedInvoiceAmountForUnassignedProjects)}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{p.cleanerCount}</td>
@@ -582,10 +600,12 @@ function WorkloadByCleanerTable({
   data,
   expandedRows,
   toggleRow,
+  pendingLabel,
 }: {
   data: CleanerBreakdown[]
   expandedRows: Set<string>
   toggleRow: (id: string) => void
+  pendingLabel: { label: string; textClass: string }
 }) {
   const sorted = [...data].sort(
     (a, b) => (b.current.completedProjects + b.current.pendingProjects) - (a.current.completedProjects + a.current.pendingProjects)
@@ -598,7 +618,7 @@ function WorkloadByCleanerTable({
           <th className="w-8 px-2 py-2" />
           <th className="px-3 py-2 text-left font-medium text-gray-500">Cleaner</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Completed</th>
-          <th className="px-3 py-2 text-right font-medium text-gray-500">Upcoming</th>
+          <th className={`px-3 py-2 text-right font-medium ${pendingLabel.label === 'Overdue' ? 'text-red-500' : 'text-gray-500'}`}>{pendingLabel.label}</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Total</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Projects/wk</th>
           <th className="px-3 py-2 text-right font-medium text-gray-500">Hours</th>
@@ -627,7 +647,7 @@ function WorkloadByCleanerTable({
                 </td>
                 <td className="px-3 py-2.5 font-medium text-gray-900">{cleaner.cleanerName}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-emerald-700">{c.completedProjects}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-blue-700">{c.pendingProjects}</td>
+                <td className={`px-3 py-2.5 text-right tabular-nums ${pendingLabel.textClass}`}>{c.pendingProjects}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums text-gray-900">{total}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{c.projectsPerWeek.toFixed(1)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{c.totalHoursWorked.toFixed(1)}</td>
@@ -652,7 +672,7 @@ function WorkloadByCleanerTable({
                       </div>
                     </td>
                     <td className="px-3 py-1.5 text-right text-[11px] tabular-nums text-emerald-600">{prop.completedProjects}</td>
-                    <td className="px-3 py-1.5 text-right text-[11px] tabular-nums text-blue-600">{prop.pendingProjects}</td>
+                    <td className={`px-3 py-1.5 text-right text-[11px] tabular-nums ${pendingLabel.label === 'Overdue' ? 'text-red-600' : 'text-blue-600'}`}>{prop.pendingProjects}</td>
                     <td className="px-3 py-1.5 text-right text-[11px] font-medium tabular-nums text-gray-700">{propTotal}</td>
                     <td className="px-3 py-1.5 text-right text-[11px] tabular-nums text-gray-400">
                       {prop.projectsPerWeek > 0 ? prop.projectsPerWeek.toFixed(1) : '—'}
@@ -723,11 +743,13 @@ function MobileSpendByCleanerCards({
   showProjections,
   expandedRows,
   toggleRow,
+  pendingLabel,
 }: {
   data: CleanerBreakdown[]
   showProjections: boolean
   expandedRows: Set<string>
   toggleRow: (id: string) => void
+  pendingLabel: { label: string; textClass: string }
 }) {
   const sorted = [...data].sort(
     (a, b) => b.current.paidInvoicesAmount + b.current.unpaidInvoicesAmount - (a.current.paidInvoicesAmount + a.current.unpaidInvoicesAmount)
@@ -772,8 +794,8 @@ function MobileSpendByCleanerCards({
                     <p className="font-medium tabular-nums text-red-700">{fmtCurrency(c.uninvoicedCompletedAmount)}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Upcoming</span>
-                    <p className="font-medium tabular-nums text-blue-700">{fmtCurrency(c.projectedInvoiceAmountForPendingProjects)}</p>
+                    <span className="text-gray-500">{pendingLabel.label}</span>
+                    <p className={`font-medium tabular-nums ${pendingLabel.textClass}`}>{fmtCurrency(c.projectedInvoiceAmountForPendingProjects)}</p>
                   </div>
                   {showProjections && (
                     <div className="col-span-2">
@@ -806,9 +828,11 @@ function MobileSpendByCleanerCards({
 function MobileSpendByPropertyCards({
   data,
   showProjections,
+  pendingLabel,
 }: {
   data: CleanerPropertyBreakdown[]
   showProjections: boolean
+  pendingLabel: { label: string; textClass: string }
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const sorted = [...data].sort(
@@ -854,8 +878,8 @@ function MobileSpendByPropertyCards({
                     <p className="font-medium tabular-nums text-red-700">{fmtCurrency(p.uninvoicedCompletedAmount)}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Upcoming</span>
-                    <p className="font-medium tabular-nums text-blue-700">
+                    <span className="text-gray-500">{pendingLabel.label}</span>
+                    <p className={`font-medium tabular-nums ${pendingLabel.textClass}`}>
                       {fmtCurrency(p.projectedInvoiceAmountForPendingProjects + p.projectedInvoiceAmountForUnassignedProjects)}
                     </p>
                   </div>
@@ -879,10 +903,12 @@ function MobileWorkloadByCleanerCards({
   data,
   expandedRows,
   toggleRow,
+  pendingLabel,
 }: {
   data: CleanerBreakdown[]
   expandedRows: Set<string>
   toggleRow: (id: string) => void
+  pendingLabel: { label: string; textClass: string }
 }) {
   const sorted = [...data].sort(
     (a, b) => (b.current.completedProjects + b.current.pendingProjects) - (a.current.completedProjects + a.current.pendingProjects)
@@ -907,7 +933,7 @@ function MobileWorkloadByCleanerCards({
                 <p className="truncate text-xs font-medium text-gray-900">{cleaner.cleanerName}</p>
                 <div className="flex gap-3 text-[11px]">
                   <span className="text-emerald-700">{c.completedProjects} done</span>
-                  <span className="text-blue-700">{c.pendingProjects} upcoming</span>
+                  <span className={pendingLabel.textClass}>{c.pendingProjects} {pendingLabel.label.toLowerCase()}</span>
                 </div>
               </div>
               <div className="text-right">

@@ -136,6 +136,7 @@ export interface ApplyReceiptPayload {
     mode: 'none' | 'new' | 'existing'
     projectId?: string | null
     supplyListId?: string
+    mapping?: ConfirmedMapping[]
   }
 }
 
@@ -257,4 +258,29 @@ export interface ScanReceiptMatch {
   matchedItemName: string | null
   matchScore: number
   matchType: 'exact' | 'fuzzy' | 'none'
+}
+
+// --- Match Review Types ---
+
+// Match suggestion from POST /receipts/:id/match
+export interface ReceiptMatchSuggestion {
+  receiptLineItemId: string
+  receiptLineItemName: string
+  suggestedSupplyListItemId: string | null
+  suggestedSupplyListItemName: string | null
+  matchScore: number
+  matchType: 'exact' | 'fuzzy' | 'new'
+}
+
+export interface MatchSuggestionsResponse {
+  status: 'success' | 'failed'
+  data: { matches: ReceiptMatchSuggestion[] }
+  message?: string
+}
+
+// Confirmed mapping item sent with apply
+export interface ConfirmedMapping {
+  receiptLineItemId: string
+  supplyListItemId: string | null
+  action: 'existing' | 'new'
 }

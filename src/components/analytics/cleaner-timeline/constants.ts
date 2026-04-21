@@ -19,6 +19,8 @@ export const SPEND_COLORS = {
   notBilledStroke: '#DC2626',// red-600
   upcoming: '#3B82F6',       // blue-500
   upcomingStroke: '#2563EB', // blue-600
+  overdue: '#DC2626',        // red-600
+  overdueStroke: '#B91C1C',  // red-700
   unassigned: '#9CA3AF',     // gray-400
 } as const
 

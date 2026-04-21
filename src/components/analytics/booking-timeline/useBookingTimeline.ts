@@ -47,7 +47,7 @@ export function useBookingTimeline(userId: string) {
     sources: [],
     financialReadiness: [],
     bookingStatus: [],
-    granularity: 'monthly',
+    granularity: 'daily',
     comparison: true,
   }))
 

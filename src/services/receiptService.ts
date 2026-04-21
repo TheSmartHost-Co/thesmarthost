@@ -14,6 +14,7 @@ import type {
   UpdateLineItemPayload,
   ReceiptLineItemsResponse,
   ReceiptLineItemResponse,
+  MatchSuggestionsResponse,
 } from './types/receipt'
 
 /**
@@ -132,6 +133,19 @@ export function deleteReceipt(id: string): Promise<GenericReceiptResponse> {
   return apiClient<GenericReceiptResponse>(`/receipts/${id}`, {
     method: 'DELETE',
   })
+}
+
+/**
+ * Get AI match suggestions for receipt line items against a supply list
+ */
+export function getReceiptMatchSuggestions(
+  receiptId: string,
+  supplyListId: string
+): Promise<MatchSuggestionsResponse> {
+  return apiClient<MatchSuggestionsResponse, { supplyListId: string }>(
+    `/receipts/${receiptId}/match`,
+    { method: 'POST', body: { supplyListId } }
+  )
 }
 
 // --- Line Item CRUD ---

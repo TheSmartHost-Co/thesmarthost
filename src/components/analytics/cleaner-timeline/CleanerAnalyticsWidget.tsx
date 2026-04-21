@@ -64,6 +64,7 @@ export default function CleanerAnalyticsWidget({
     hasActiveFilters,
     rawData,
     spendChartData,
+    overdueTotals,
     workloadBars,
     activeCleaners,
     lineItems,
@@ -199,6 +200,7 @@ export default function CleanerAnalyticsWidget({
               showProjections={showProjections}
               onCardClick={handleKPIClick}
               activeInvoiceStatuses={filters.invoiceStatuses}
+              overdueTotals={overdueTotals}
             />
           ) : (
             <WorkloadKPIStrip portfolio={portfolio} />

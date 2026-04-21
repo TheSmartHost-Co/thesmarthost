@@ -39,7 +39,7 @@ const DEFAULT_FILTERS: CleanerFiltersState = {
   propertyIds: [],
   statuses: [],
   invoiceStatuses: [],
-  granularity: 'monthly',
+  granularity: 'daily',
   comparison: true,
 }
 
@@ -97,18 +97,44 @@ export function useCleanerTimeline(userId: string) {
   const spendChartData = useMemo<SpendChartDataPoint[]>(() => {
     if (!rawData?.timeline) return []
 
-    return rawData.timeline.map(point => ({
-      date: point.date,
-      label: formatDateLabel(point.date, filters.granularity),
-      paidInvoicesAmount: point.paidInvoicesAmount,
-      unpaidInvoicesAmount: point.unpaidInvoicesAmount,
-      uninvoicedCompletedAmount: point.uninvoicedCompletedAmount,
-      upcomingAmount:
-        point.projectedInvoiceAmountForPendingProjects,
-      completedProjects: point.completedProjects,
-      pendingProjects: point.pendingProjects,
-    }))
+    const today = new Date().toISOString().slice(0, 10)
+
+    return rawData.timeline.map(point => {
+      const isPast = point.date < today
+      const projected = point.projectedInvoiceAmountForPendingProjects
+      return {
+        date: point.date,
+        label: formatDateLabel(point.date, filters.granularity),
+        paidInvoicesAmount: point.paidInvoicesAmount,
+        unpaidInvoicesAmount: point.unpaidInvoicesAmount,
+        uninvoicedCompletedAmount: point.uninvoicedCompletedAmount,
+        upcomingAmount: isPast ? 0 : projected,
+        overdueAmount: isPast ? projected : 0,
+        completedProjects: point.completedProjects,
+        pendingProjects: point.pendingProjects,
+      }
+    })
   }, [rawData?.timeline, filters.granularity])
+
+  // --- Overdue / upcoming totals (derived from timeline) ---
+  const overdueTotals = useMemo(() => {
+    let overdueAmount = 0
+    let overdueCount = 0
+    let upcomingAmount = 0
+    let upcomingCount = 0
+    const today = new Date().toISOString().slice(0, 10)
+
+    for (const point of rawData?.timeline ?? []) {
+      if (point.date < today) {
+        overdueAmount += point.projectedInvoiceAmountForPendingProjects
+        overdueCount += point.pendingProjects
+      } else {
+        upcomingAmount += point.projectedInvoiceAmountForPendingProjects
+        upcomingCount += point.pendingProjects
+      }
+    }
+    return { overdueAmount, overdueCount, upcomingAmount, upcomingCount }
+  }, [rawData?.timeline])
 
   // --- Workload bars ---
   const workloadBars = useMemo<WorkloadCleanerBar[]>(() => {
@@ -272,6 +298,7 @@ export function useCleanerTimeline(userId: string) {
     // Data
     rawData,
     spendChartData,
+    overdueTotals,
     workloadBars,
     activeCleaners,
 

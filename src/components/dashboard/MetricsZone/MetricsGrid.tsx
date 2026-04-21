@@ -73,7 +73,7 @@ export const MetricsGrid: React.FC<MetricsGridProps> = ({ metrics }) => {
     },
   ] : null
 
-  const rowClass = "bg-white border border-gray-200 rounded-lg grid grid-cols-2 sm:grid-cols-5"
+  const rowClass = "grid grid-cols-2 sm:grid-cols-5 bg-white border border-stone-200 rounded-lg"
 
   return (
     <div className="space-y-2">

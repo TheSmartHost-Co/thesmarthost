@@ -56,7 +56,7 @@ export function useExpenseTimeline(userId: string) {
     paymentMethods: [],
     isReimbursable: null,
     isTaxDeductible: null,
-    granularity: 'monthly',
+    granularity: 'daily',
     comparison: true,
   }))
 

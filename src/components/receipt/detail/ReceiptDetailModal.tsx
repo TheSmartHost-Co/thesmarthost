@@ -21,7 +21,7 @@ import { getCleaningProjects } from '@/services/cleaningProjectService'
 import { getCleaners, getCleanerByAuthUserId } from '@/services/cleanerService'
 import { getTeamMembers } from '@/services/teamMemberService'
 import { getUserProfile } from '@/services/profileService'
-import type { ReceiptDetail, ReceiptLineItem, ReceiptStatus, ApplyReceiptPayload, UpdateReceiptPayload, PaidByType } from '@/services/types/receipt'
+import type { ReceiptDetail, ReceiptLineItem, ReceiptStatus, ApplyReceiptPayload, UpdateReceiptPayload, PaidByType, ConfirmedMapping } from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 import type { SupplyList } from '@/services/types/supplyList'
 import type { CleaningProject } from '@/services/types/cleaningProject'
@@ -53,6 +53,7 @@ import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
 import PropertyChip from '@/components/receipt/PropertyChip'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
+import ReceiptMatchReviewModal from '@/components/receipt/match-review/ReceiptMatchReviewModal'
 
 interface ReceiptDetailModalProps {
   isOpen: boolean
@@ -168,6 +169,9 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const [availableProjects, setAvailableProjects] = useState<CleaningProject[]>([])
   const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
   const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
+
+  // Match review modal state
+  const [showMatchReview, setShowMatchReview] = useState(false)
 
   // Stacked modal state for related entities
   const [stackedExpenseId, setStackedExpenseId] = useState<string | null>(null)
@@ -535,33 +539,36 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   }
 
   // --- Apply ---
+  const buildApplyPayload = (): ApplyReceiptPayload => ({
+    propertyId: applyPropertyId,
+    expenseDate: receipt?.expenseDate || new Date().toISOString().split('T')[0],
+    vendorName: receipt?.vendorName || 'Unknown',
+    category: applyCategory || 'SUPPLIES',
+    paymentMethod: receipt?.paymentMethod || 'credit_card',
+    paidByType: applyPaidByType,
+    paidById: applyPaidById || null,
+    subtotal: p(receipt?.subtotal),
+    taxGst: receipt?.taxGst ? p(receipt.taxGst) : null,
+    taxPst: receipt?.taxPst ? p(receipt.taxPst) : null,
+    taxHst: receipt?.taxHst ? p(receipt.taxHst) : null,
+    taxTotal: p(receipt?.taxTotal),
+    supplyList: {
+      mode: applySupplyMode,
+      ...(applySupplyMode === 'new' && applyProjectId ? { projectId: applyProjectId } : {}),
+      ...(applySupplyMode === 'existing' && applySupplyListId ? { supplyListId: applySupplyListId } : {}),
+    },
+  })
+
   const handleApplySubmit = async () => {
     if (!receipt || !applyPropertyId) return
-    setApplySubmitting(true)
-
-    const allCategories = categories.length > 0 ? categories : DEFAULT_EXPENSE_CATEGORIES
-
-    const payload: ApplyReceiptPayload = {
-      propertyId: applyPropertyId,
-      expenseDate: receipt.expenseDate || new Date().toISOString().split('T')[0],
-      vendorName: receipt.vendorName || 'Unknown',
-      category: applyCategory || 'SUPPLIES',
-      paymentMethod: receipt.paymentMethod || 'credit_card',
-      paidByType: applyPaidByType,
-      paidById: applyPaidById || null,
-      subtotal: p(receipt.subtotal),
-      taxGst: receipt.taxGst ? p(receipt.taxGst) : null,
-      taxPst: receipt.taxPst ? p(receipt.taxPst) : null,
-      taxHst: receipt.taxHst ? p(receipt.taxHst) : null,
-      taxTotal: p(receipt.taxTotal),
-      supplyList: {
-        mode: applySupplyMode,
-        ...(applySupplyMode === 'new' && applyProjectId ? { projectId: applyProjectId } : {}),
-        ...(applySupplyMode === 'existing' && applySupplyListId ? { supplyListId: applySupplyListId } : {}),
-      },
+    // For "existing" mode, open match review modal instead
+    if (applySupplyMode === 'existing' && applySupplyListId) {
+      setShowMatchReview(true)
+      return
     }
-
+    setApplySubmitting(true)
     try {
+      const payload = buildApplyPayload()
       const res = await applyReceipt(receipt.id, payload)
       if (res.status === 'success') {
         showNotification('Receipt applied! Expense created.', 'success')
@@ -575,6 +582,25 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       showNotification('Failed to apply receipt', 'error')
     } finally {
       setApplySubmitting(false)
+    }
+  }
+
+  const handleMatchConfirm = async (mapping: ConfirmedMapping[], deletedIds: string[]) => {
+    if (!receipt) return
+    // Delete removed line items first
+    await Promise.all(deletedIds.map((id) => deleteReceiptLineItem(receipt.id, id)))
+    // Build payload with mapping
+    const payload = buildApplyPayload()
+    payload.supplyList.mapping = mapping
+    const res = await applyReceipt(receipt.id, payload)
+    if (res.status === 'success') {
+      showNotification('Receipt applied! Expense created.', 'success')
+      setShowMatchReview(false)
+      onUpdated()
+      onClose()
+    } else {
+      showNotification(res.message || 'Failed to apply receipt', 'error')
+      throw new Error(res.message || 'Failed to apply')
     }
   }
 
@@ -1026,7 +1052,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         </button>
         <button onClick={handleApplySubmit} disabled={!applyPropertyId || (applySupplyMode === 'existing' && !applySupplyListId) || applySubmitting}
           className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-          {applySubmitting ? 'Applying...' : 'Confirm & Apply'}
+          {applySubmitting ? 'Applying...' : applySupplyMode === 'existing' && applySupplyListId ? 'Review Matches' : 'Confirm & Apply'}
         </button>
       </div>
     </div>
@@ -1142,6 +1168,17 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           onClose={() => setStackedSupplyListId(null)}
           initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
           onSupplyListsChanged={() => fetchReceipt()}
+        />
+      )}
+      {showMatchReview && receipt && applySupplyListId && (
+        <ReceiptMatchReviewModal
+          isOpen={showMatchReview}
+          onClose={() => setShowMatchReview(false)}
+          receiptId={receipt.id}
+          supplyListId={applySupplyListId}
+          receiptLineItems={lineItems}
+          supplyListItems={availableSupplyLists.find((sl) => sl.id === applySupplyListId)?.items ?? []}
+          onApply={handleMatchConfirm}
         />
       )}
     </Modal>

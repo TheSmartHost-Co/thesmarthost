@@ -11,13 +11,15 @@ import {
   createReceiptLineItem,
   deleteReceiptLineItem,
 } from '@/services/receiptService'
-import type { SupplyList } from '@/services/types/supplyList'
+import type { SupplyList, SupplyListItem } from '@/services/types/supplyList'
 import type {
   ReceiptDetail,
   ReceiptLineItem,
   ApplyReceiptPayload,
   AutoApplyOptions,
   PaidByType,
+  ScanReceiptMatch,
+  ConfirmedMapping,
 } from '@/services/types/receipt'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -36,6 +38,8 @@ import {
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
 } from '@heroicons/react/24/outline'
+import ReceiptMatchReviewModal from '@/components/receipt/match-review/ReceiptMatchReviewModal'
+import { getAllSupplyLists } from '@/services/supplyListService'
 
 interface ScanSupplyReceiptModalProps {
   isOpen: boolean
@@ -138,6 +142,11 @@ export default function ScanSupplyReceiptModal({
   const [supplyListMode, setSupplyListMode] = useState<'none' | 'new' | 'existing'>('none')
   const [applySupplyListId, setApplySupplyListId] = useState('')
 
+  // Match review state
+  const [showMatchReview, setShowMatchReview] = useState(false)
+  const [uploadMatchSuggestions, setUploadMatchSuggestions] = useState<ScanReceiptMatch[] | null>(null)
+  const [matchReviewSupplyListItems, setMatchReviewSupplyListItems] = useState<SupplyListItem[]>([])
+
   // Saving indicator for inline line item edits
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
 
@@ -174,6 +183,9 @@ export default function ScanSupplyReceiptModal({
       setSupplyListMode('none')
       setApplySupplyListId('')
       setSavingItemId(null)
+      setShowMatchReview(false)
+      setUploadMatchSuggestions(null)
+      setMatchReviewSupplyListItems([])
     }
   }, [isOpen])
 
@@ -462,38 +474,54 @@ export default function ScanSupplyReceiptModal({
     }
   }
 
+  const buildApplyPayload = (): ApplyReceiptPayload => ({
+    propertyId: selectedPropertyId || receiptDetail?.propertyId || '',
+    expenseDate,
+    vendorName,
+    category: category || 'SUPPLIES',
+    paymentMethod,
+    paidByType: paidByType || 'PROPERTY-MANAGER',
+    paidById: null,
+    subtotal,
+    taxGst,
+    taxPst,
+    taxHst,
+    taxTotal,
+    supplyList: {
+      mode: supplyListMode,
+      ...(supplyListMode === 'existing' && applySupplyListId ? { supplyListId: applySupplyListId } : {}),
+      ...(supplyListMode === 'new' && selectedProjectId ? { projectId: selectedProjectId } : {}),
+    },
+  })
+
   const handleApply = async () => {
     if (!effectiveUserId || !receiptDetail) return
-    setSubmitting(true)
 
     const propertyId = selectedPropertyId || receiptDetail.propertyId || ''
     if (!propertyId) {
       showNotification('Please select a property', 'error')
-      setSubmitting(false)
       return
     }
 
-    const payload: ApplyReceiptPayload = {
-      propertyId,
-      expenseDate,
-      vendorName,
-      category: category || 'SUPPLIES',
-      paymentMethod,
-      paidByType: paidByType || 'PROPERTY-MANAGER',
-      paidById: null,
-      subtotal,
-      taxGst,
-      taxPst,
-      taxHst,
-      taxTotal,
-      supplyList: {
-        mode: supplyListMode,
-        ...(supplyListMode === 'existing' && applySupplyListId ? { supplyListId: applySupplyListId } : {}),
-        ...(supplyListMode === 'new' && selectedProjectId ? { projectId: selectedProjectId } : {}),
-      },
+    // For "existing" mode, open match review modal
+    if (supplyListMode === 'existing' && applySupplyListId) {
+      // Fetch supply list items for the review modal
+      try {
+        const res = await getAllSupplyLists()
+        if (res.status === 'success') {
+          const targetList = res.data.find((sl) => sl.id === applySupplyListId)
+          if (targetList) {
+            setMatchReviewSupplyListItems(targetList.items)
+          }
+        }
+      } catch { /* will proceed with empty items */ }
+      setShowMatchReview(true)
+      return
     }
 
+    setSubmitting(true)
     try {
+      const payload = buildApplyPayload()
       const res = await applyReceipt(receiptDetail.id, payload)
       if (res.status === 'success') {
         showNotification('Expense created from receipt!', 'success')
@@ -507,6 +535,25 @@ export default function ScanSupplyReceiptModal({
       showNotification('Error creating expense', 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleMatchConfirm = async (mapping: ConfirmedMapping[], deletedIds: string[]) => {
+    if (!receiptDetail) return
+    // Delete removed line items first
+    await Promise.all(deletedIds.map((id) => deleteReceiptLineItem(receiptDetail.id, id)))
+    // Build payload with mapping
+    const payload = buildApplyPayload()
+    payload.supplyList.mapping = mapping
+    const res = await applyReceipt(receiptDetail.id, payload)
+    if (res.status === 'success') {
+      showNotification('Expense created from receipt!', 'success')
+      setShowMatchReview(false)
+      onReceiptApplied()
+      onClose()
+    } else {
+      showNotification(res.message || 'Failed to apply receipt', 'error')
+      throw new Error(res.message || 'Failed to apply')
     }
   }
 
@@ -546,6 +593,7 @@ export default function ScanSupplyReceiptModal({
       : ['upload', 'processing', 'review', 'confirm']
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} style={`p-0 w-[calc(100%-1rem)] sm:w-11/12 !overflow-y-hidden flex flex-col !max-h-[90vh] ${step === 'review' || step === 'confirm' ? '!h-[90vh]' : ''} ${(step === 'review' || step === 'confirm') && imageUrl ? 'max-w-4xl' : 'max-w-2xl'}`}>
       {/* Header */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
@@ -1272,12 +1320,25 @@ export default function ScanSupplyReceiptModal({
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircleIcon className="w-4 h-4" />
-                {submitting ? 'Creating...' : 'Create Expense'}
+                {submitting ? 'Creating...' : supplyListMode === 'existing' && applySupplyListId ? 'Review Matches' : 'Create Expense'}
               </button>
             </>
           )}
         </div>
       )}
     </Modal>
+      {showMatchReview && receiptDetail && applySupplyListId && (
+        <ReceiptMatchReviewModal
+          isOpen={showMatchReview}
+          onClose={() => setShowMatchReview(false)}
+          receiptId={receiptDetail.id}
+          supplyListId={applySupplyListId}
+          receiptLineItems={lineItems}
+          supplyListItems={matchReviewSupplyListItems}
+          initialSuggestions={uploadMatchSuggestions}
+          onApply={handleMatchConfirm}
+        />
+      )}
+    </>
   )
 }

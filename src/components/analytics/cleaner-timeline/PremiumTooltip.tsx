@@ -72,13 +72,15 @@ function SpendTooltipBody({ dataPoint }: { dataPoint: Record<string, number | st
   const paid = (dataPoint.paidInvoicesAmount as number) || 0
   const owed = (dataPoint.unpaidInvoicesAmount as number) || 0
   const notBilled = (dataPoint.uninvoicedCompletedAmount as number) || 0
+  const overdue = (dataPoint.overdueAmount as number) || 0
   const upcoming = (dataPoint.upcomingAmount as number) || 0
-  const total = paid + owed + notBilled + upcoming
+  const total = paid + owed + notBilled + overdue + upcoming
 
   const rows = [
     { color: SPEND_COLORS.paid, label: 'Paid', amount: paid },
     { color: SPEND_COLORS.owed, label: 'Owed', amount: owed },
     { color: SPEND_COLORS.notBilled, label: 'Not Billed', amount: notBilled },
+    { color: SPEND_COLORS.overdue, label: 'Overdue', amount: overdue },
     { color: SPEND_COLORS.upcoming, label: 'Upcoming', amount: upcoming },
   ].filter(r => r.amount > 0)
 
@@ -123,7 +125,7 @@ function WorkloadTooltipBody({ dataPoint }: { dataPoint: Record<string, number |
       />
       <TooltipRow
         color={WORKLOAD_COLORS.pending}
-        label="Upcoming"
+        label="Pending"
         amount={pending}
         barWidth={total > 0 ? (pending / total) * 100 : 0}
         isCount

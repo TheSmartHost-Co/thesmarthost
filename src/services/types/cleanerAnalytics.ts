@@ -248,6 +248,7 @@ export interface SpendChartDataPoint {
   unpaidInvoicesAmount: number
   uninvoicedCompletedAmount: number
   upcomingAmount: number
+  overdueAmount: number
   completedProjects: number
   pendingProjects: number
 }

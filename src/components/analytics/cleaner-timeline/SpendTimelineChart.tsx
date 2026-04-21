@@ -108,6 +108,9 @@ export default function SpendTimelineChart({
     )
   }
 
+  const hasOverdue = data?.some(d => d.overdueAmount > 0) ?? false
+  const hasUpcoming = data?.some(d => d.upcomingAmount > 0) ?? false
+
   if (!data || data.length === 0) {
     return (
       <div
@@ -144,6 +147,13 @@ export default function SpendTimelineChart({
       <pattern id="hatchUpcoming" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
         <rect width="2" height="6" fill={SPEND_COLORS.upcoming} opacity="0.3" />
       </pattern>
+      <linearGradient id="gradOverdue" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={SPEND_COLORS.overdue} stopOpacity={0.3} />
+        <stop offset="100%" stopColor={SPEND_COLORS.overdue} stopOpacity={0} />
+      </linearGradient>
+      <pattern id="hatchOverdue" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+        <rect width="2" height="6" fill={SPEND_COLORS.overdue} opacity="0.3" />
+      </pattern>
     </defs>
   )
 
@@ -168,7 +178,8 @@ export default function SpendTimelineChart({
           { color: SPEND_COLORS.paid, label: 'Paid' },
           { color: SPEND_COLORS.owed, label: 'Owed' },
           { color: SPEND_COLORS.notBilled, label: 'Not Billed' },
-          { color: SPEND_COLORS.upcoming, label: 'Upcoming' },
+          ...(hasOverdue ? [{ color: SPEND_COLORS.overdue, label: 'Overdue' }] : []),
+          ...(hasUpcoming || !hasOverdue ? [{ color: SPEND_COLORS.upcoming, label: 'Upcoming' }] : []),
         ].map(item => (
           <div key={item.label} className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -247,6 +258,18 @@ export default function SpendTimelineChart({
                       name="Not Billed"
                     />
                     <Bar
+                      dataKey="overdueAmount"
+                      stackId="spend"
+                      fill="url(#hatchOverdue)"
+                      stroke={SPEND_COLORS.overdue}
+                      strokeWidth={1}
+                      strokeDasharray="4 2"
+                      radius={[0, 0, 0, 0]}
+                      maxBarSize={48}
+                      animationDuration={800}
+                      name="Overdue"
+                    />
+                    <Bar
                       dataKey="upcomingAmount"
                       stackId="spend"
                       fill="url(#hatchUpcoming)"
@@ -295,6 +318,17 @@ export default function SpendTimelineChart({
                       type="monotone"
                       animationDuration={800}
                       name="Not Billed"
+                    />
+                    <Area
+                      dataKey="overdueAmount"
+                      stackId="spend"
+                      stroke={SPEND_COLORS.overdueStroke}
+                      fill="url(#gradOverdue)"
+                      strokeWidth={2}
+                      strokeDasharray="6 3"
+                      type="monotone"
+                      animationDuration={800}
+                      name="Overdue"
                     />
                     <Area
                       dataKey="upcomingAmount"
