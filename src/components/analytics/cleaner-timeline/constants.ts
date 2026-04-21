@@ -6,7 +6,7 @@ export type AnalyticsTab = 'spend' | 'workload'
 
 export type BreakdownView = 'byCleaner' | 'byProperty'
 
-export type ChartType = 'bar' | 'area'
+export type ChartType = 'bar' | 'area' | 'pie'
 
 // --- Spend colors ---
 

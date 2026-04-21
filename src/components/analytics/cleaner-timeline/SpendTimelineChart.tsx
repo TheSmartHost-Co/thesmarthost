@@ -14,12 +14,14 @@ import {
   Tooltip,
 } from 'recharts'
 import PremiumTooltip from './PremiumTooltip'
-import type { SpendChartDataPoint } from '@/services/types/cleanerAnalytics'
+import CleanerDistributionChart from './CleanerDistributionChart'
+import type { SpendChartDataPoint, CleanerBreakdown } from '@/services/types/cleanerAnalytics'
 import type { ChartType } from './constants'
 import { SPEND_COLORS } from './constants'
 
 interface SpendTimelineChartProps {
   data: SpendChartDataPoint[]
+  byCleaner?: CleanerBreakdown[]
   granularity: string
   isLoading: boolean
   height?: number
@@ -53,10 +55,21 @@ const CHART_TYPE_OPTIONS: { value: ChartType; label: string; icon: React.ReactNo
       </svg>
     ),
   },
+  {
+    value: 'pie',
+    label: 'Pie',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+        <path d="M8.5 1.05V7.5H14.95A7 7 0 008.5 1.05z" opacity="0.6" />
+        <path d="M7.5 1.05A7 7 0 101.05 8.5H7.5V1.05z" />
+      </svg>
+    ),
+  },
 ]
 
 export default function SpendTimelineChart({
   data,
+  byCleaner = [],
   granularity,
   isLoading,
   height = 320,
@@ -110,6 +123,38 @@ export default function SpendTimelineChart({
 
   const hasOverdue = data?.some(d => d.overdueAmount > 0) ?? false
   const hasUpcoming = data?.some(d => d.upcomingAmount > 0) ?? false
+
+  // Pie mode — delegate entirely to CleanerDistributionChart
+  if (chartType === 'pie') {
+    return (
+      <div>
+        {/* Chart type toggle only (no spend legend needed for pie) */}
+        <div className="mb-2 flex items-center justify-end">
+          <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+            {CHART_TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setChartType(opt.value)}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all ${
+                  chartType === opt.value
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title={opt.label}
+              >
+                {opt.icon}
+              </button>
+            ))}
+          </div>
+        </div>
+        <CleanerDistributionChart
+          byCleaner={byCleaner}
+          isLoading={isLoading}
+          height={height}
+        />
+      </div>
+    )
+  }
 
   if (!data || data.length === 0) {
     return (

@@ -229,6 +229,7 @@ export default function CleanerAnalyticsWidget({
         ) : activeTab === 'spend' ? (
           <SpendTimelineChart
             data={spendChartData}
+            byCleaner={rawData?.byCleaner ?? []}
             granularity={filters.granularity}
             isLoading={isLoading}
             height={height}
