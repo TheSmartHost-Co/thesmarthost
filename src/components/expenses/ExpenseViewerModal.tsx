@@ -81,6 +81,7 @@ interface ExpenseViewerModalProps {
   onExpenseUpdated?: () => void
   onExpenseDeleted?: (expenseId: string) => void
   hideSupplyListLink?: boolean
+  zIndex?: number
 }
 
 type ModalMode = 'view' | 'edit' | 'receipt' | 'line-items' | 'related'
@@ -109,6 +110,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   onExpenseUpdated,
   onExpenseDeleted,
   hideSupplyListLink = false,
+  zIndex,
 }) => {
   const [expense, setExpense] = useState<Expense | null>(null)
   const [loading, setLoading] = useState(false)
@@ -1594,7 +1596,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-3xl w-11/12 !overflow-y-hidden flex flex-col">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-3xl w-11/12 !overflow-y-hidden flex flex-col" zIndex={zIndex}>
       {/* Tab Navigation */}
       <div className="px-6 pt-6">
         <TabBar

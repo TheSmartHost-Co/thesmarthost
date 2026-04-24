@@ -6,12 +6,17 @@ import SearchableSelect, { SearchableSelectOption } from '@/components/shared/Se
 import { convertItemToExpense } from '@/services/cleanerInvoiceService'
 import { getProperties } from '@/services/propertyService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
+import { getCleaners } from '@/services/cleanerService'
+import { getTeamMembers } from '@/services/teamMemberService'
+import { getUserProfile } from '@/services/profileService'
 import type { CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
 import type { Property } from '@/services/types/property'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
+import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
+import type { PaidByType } from '@/services/types/receipt'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
   BanknotesIcon,
@@ -23,6 +28,7 @@ interface ConvertToExpenseModalProps {
   invoiceId: string
   item: CleanerInvoiceItem
   onConverted: (updatedItem: CleanerInvoiceItem) => void
+  role?: 'cleaner' | 'pm'
 }
 
 const PAYMENT_METHODS = [
@@ -47,20 +53,40 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
   invoiceId,
   item,
   onConverted,
+  role = 'pm',
 }) => {
   const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((s) => s.showNotification)
   const { effectiveUserId } = usePermissions()
+  const { profile } = useUserStore()
 
   // Form state
   const [propertyId, setPropertyId] = useState('')
   const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState('CAD')
   const [category, setCategory] = useState('')
   const [vendorName, setVendorName] = useState('')
   const [description, setDescription] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [paymentStatus, setPaymentStatus] = useState('paid')
+
+  // Financial flags
+  const [isReimbursable, setIsReimbursable] = useState(false)
+  const [isTaxDeductible, setIsTaxDeductible] = useState(false)
+
+  // Paid By state
+  const [paidById, setPaidById] = useState<string | null>(null)
+  const [paidByType, setPaidByType] = useState<PaidByType>(role === 'cleaner' ? 'CLEANER' : 'PROPERTY-MANAGER')
+  const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
+  const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
+
+  // Tax breakdown state
+  const [subtotal, setSubtotal] = useState('')
+  const [taxGst, setTaxGst] = useState('')
+  const [taxPst, setTaxPst] = useState('')
+  const [taxHst, setTaxHst] = useState('')
+  const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
@@ -85,6 +111,11 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
     return [...userCats, ...defaultCats]
   }, [categories])
 
+  const getCategoryColor = (categoryCode: string) => {
+    const catInfo = getCategoryByCode(categoryCode, categories)
+    return catInfo?.colorHex || '#6B7280'
+  }
+
   // Load data when modal opens
   useEffect(() => {
     if (isOpen && effectiveUserId) {
@@ -97,15 +128,56 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
     if (!effectiveUserId) return
     setLoading(true)
     try {
-      const [propertiesRes, categoriesRes] = await Promise.all([
+      const [propertiesRes, categoriesRes, tmRes, clRes] = await Promise.all([
         getProperties(effectiveUserId),
         getCategoriesByUserId(effectiveUserId),
+        getTeamMembers(effectiveUserId).catch(() => null),
+        getCleaners(effectiveUserId).catch(() => null),
       ])
+
       if (propertiesRes.status === 'success') {
         setProperties(propertiesRes.data || [])
       }
       if (categoriesRes.status === 'success') {
         setCategories(categoriesRes.data || [])
+      }
+
+      // Build people picker options (mirrors CreateExpenseModal)
+      if (profile?.id) {
+        const roleLabel = (r: string) => r === 'CLEANER' ? 'Cleaner' : r === 'TEAM_MEMBER' ? 'Team Member' : 'PM'
+        const roleType = (r: string): PaidByType => r === 'CLEANER' ? 'CLEANER' : r === 'TEAM_MEMBER' ? 'TEAM_MEMBER' : 'PROPERTY-MANAGER'
+        const opts: SearchableSelectOption<string>[] = []
+        const typeMap: Record<string, PaidByType> = {}
+        opts.push({ value: profile.id, label: `${profile.fullName} (You)`, secondaryLabel: roleLabel(profile.role) })
+        typeMap[profile.id] = roleType(profile.role)
+
+        // Add PM if current user is not the PM
+        const pmUserId = effectiveUserId !== profile.id ? effectiveUserId : null
+        if (pmUserId) {
+          try {
+            const pmRes = await getUserProfile(pmUserId)
+            if (pmRes.status === 'success' && pmRes.data) {
+              opts.push({ value: pmRes.data.id, label: pmRes.data.fullName, secondaryLabel: 'PM' })
+              typeMap[pmRes.data.id] = 'PROPERTY-MANAGER'
+            }
+          } catch { /* non-critical */ }
+        }
+        if (tmRes?.status === 'success') {
+          tmRes.data.filter(tm => tm.status === 'active' && tm.authUserId && tm.authUserId !== profile.id).forEach(tm => {
+            opts.push({ value: tm.authUserId!, label: tm.name, secondaryLabel: 'Team Member' })
+            typeMap[tm.authUserId!] = 'TEAM_MEMBER'
+          })
+        }
+        if (clRes?.status === 'success') {
+          clRes.data.filter(cl => cl.status === 'active' && cl.authUserId && cl.authUserId !== profile.id).forEach(cl => {
+            opts.push({ value: cl.authUserId!, label: cl.name, secondaryLabel: 'Cleaner' })
+            typeMap[cl.authUserId!] = 'CLEANER'
+          })
+        }
+        setPeopleOptions(opts)
+        setPeopleTypeMap(typeMap)
+        setPaidById(profile.id)
+        setPaidByType(typeMap[profile.id])
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -117,12 +189,22 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
   const resetForm = () => {
     setPropertyId(item.propertyId || '')
     setAmount(item.amount.toFixed(2))
+    setCurrency('CAD')
     setCategory('')
     setVendorName('')
     setDescription(item.description || '')
     setExpenseDate(new Date().toISOString().split('T')[0])
     setPaymentMethod('credit_card')
     setPaymentStatus('paid')
+    setIsReimbursable(false)
+    setIsTaxDeductible(false)
+    setPaidByType(role === 'cleaner' ? 'CLEANER' : 'PROPERTY-MANAGER')
+    setPaidById(profile?.id || null)
+    setSubtotal('')
+    setTaxGst('')
+    setTaxPst('')
+    setTaxHst('')
+    setShowTaxBreakdown(false)
   }
 
   const handleSubmit = async () => {
@@ -131,6 +213,11 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
 
     try {
       const parsedAmount = parseFloat(amount)
+      const gst = parseFloat(taxGst) || 0
+      const pst = parseFloat(taxPst) || 0
+      const hst = parseFloat(taxHst) || 0
+      const taxTotal = gst + pst + hst
+
       const res = await convertItemToExpense(invoiceId, item.id, {
         propertyId,
         amount: parsedAmount !== item.amount ? parsedAmount : undefined,
@@ -140,6 +227,16 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
         expenseDate: expenseDate || undefined,
         paymentMethod: paymentMethod || undefined,
         paymentStatus: paymentStatus || undefined,
+        isReimbursable: isReimbursable || undefined,
+        isTaxDeductible: isTaxDeductible || undefined,
+        paidById: paidById || undefined,
+        paidByType: paidByType || undefined,
+        currency: currency !== 'CAD' ? currency : undefined,
+        subtotal: parseFloat(subtotal) || undefined,
+        taxGst: gst || undefined,
+        taxPst: pst || undefined,
+        taxHst: hst || undefined,
+        taxTotal: taxTotal || undefined,
       })
 
       if (res.status === 'success') {
@@ -160,14 +257,14 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
   const amountChanged = parseFloat(amount) !== item.amount && amount !== ''
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-5 max-w-lg !w-11/12" zIndex={70}>
+    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-4xl !w-11/12" zIndex={70}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4 pr-8">
+      <div className="flex items-center gap-2 mb-5 pr-8">
         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
           <BanknotesIcon className="h-4 w-4 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-gray-900">{t('convertToExpenseTitle')}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('convertToExpenseTitle')}</h2>
           <p className="text-[11px] text-gray-500">{t('convertToExpenseDescription')}</p>
         </div>
       </div>
@@ -178,129 +275,280 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
         </div>
       ) : (
         <>
-          <div className="space-y-3 mb-4">
-            {/* Property (required) */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">{t('selectProperty')} *</label>
-              <SearchableSelect
-                options={propertyOptions}
-                value={propertyId || null}
-                onChange={(value) => setPropertyId(value || '')}
-                placeholder={t('selectProperty')}
-                emptyText={t('noPropertiesFound')}
-              />
-              {!propertyId && (
-                <p className="text-[10px] text-red-500 mt-0.5">{t('propertyRequired')}</p>
-              )}
-            </div>
+          <div className="space-y-5 mb-5">
+            {/* Property + Amount + Date */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('selectProperty')} *</label>
+                <SearchableSelect
+                  options={propertyOptions}
+                  value={propertyId || null}
+                  onChange={(value) => setPropertyId(value || '')}
+                  placeholder={t('selectProperty')}
+                  emptyText={t('noPropertiesFound')}
+                />
+                {!propertyId && (
+                  <p className="text-[10px] text-red-500 mt-0.5">{t('propertyRequired')}</p>
+                )}
+              </div>
 
-            {/* Amount */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">{t('expenseAmount')}</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseAmount')} *</label>
+                <div className="flex">
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="border border-gray-300 rounded-l-lg px-2 py-2 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="CAD">CAD</option>
+                    <option value="USD">USD</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="flex-1 border border-l-0 border-gray-300 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                {amountChanged && (
+                  <p className="text-[10px] text-amber-600 mt-0.5">
+                    {t('invoiceLineAmount', { amount: item.amount.toFixed(2) })}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseDate')}</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  type="date"
+                  value={expenseDate}
+                  onChange={(e) => setExpenseDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
-              {amountChanged && (
-                <p className="text-[10px] text-amber-600 mt-0.5">
-                  {t('invoiceLineAmount', { amount: item.amount.toFixed(2) })}
-                </p>
-              )}
             </div>
 
             {/* Category */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">{t('expenseCategory')}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseCategory')}</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                style={{
+                  borderLeftWidth: category ? '4px' : '1px',
+                  borderLeftColor: category ? getCategoryColor(category) : undefined
+                }}
               >
-                <option value="">{t('selectCategory')}</option>
-                {categoryOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
+                <option value="">{t('noCategoryIncomplete')}</option>
+                <optgroup label="Default Categories">
+                  {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
+                    <option key={cat.code} value={cat.code}>{cat.label}</option>
+                  ))}
+                </optgroup>
+                {categories.length > 0 && (
+                  <optgroup label="Custom Categories">
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.code}>{cat.label}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
-            {/* Vendor + Description row */}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('expenseVendorName')}</label>
+            {/* Vendor + Description */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseVendorName')}</label>
                 <input
                   type="text"
                   value={vendorName}
                   onChange={(e) => setVendorName(e.target.value)}
                   placeholder={t('vendorNamePlaceholder')}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('expenseDescription')}</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseDescription')}</label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('descriptionPlaceholder')}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
-            {/* Date + Payment row */}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('expenseDate')}</label>
-                <input
-                  type="date"
-                  value={expenseDate}
-                  onChange={(e) => setExpenseDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 mb-1">{t('expensePaymentMethod')}</label>
+            {/* Payment Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expensePaymentMethod')}</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   {PAYMENT_METHODS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expensePaymentStatus')}</label>
+                <select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  {PAYMENT_STATUSES.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Payment Status */}
-            <div className="w-1/2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">{t('expensePaymentStatus')}</label>
-              <select
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+            {/* Paid By */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('paidByLabel')}</label>
+              <SearchableSelect
+                options={peopleOptions}
+                value={paidById}
+                onChange={(val) => {
+                  setPaidById(val)
+                  if (val && peopleTypeMap[val]) {
+                    setPaidByType(peopleTypeMap[val])
+                  }
+                }}
+                placeholder={t('selectPaidBy')}
+                loading={peopleOptions.length === 0}
+                loadingText={t('loadingPeople')}
+                emptyText={t('noPeopleFound')}
+              />
+            </div>
+
+            {/* Financial Flags */}
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isReimbursable}
+                  onChange={(e) => setIsReimbursable(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">{t('reimbursableLabel')}</span>
+              </label>
+
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isTaxDeductible}
+                  onChange={(e) => setIsTaxDeductible(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">{t('taxDeductibleLabel')}</span>
+              </label>
+            </div>
+
+            {/* Tax Breakdown (Optional) */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowTaxBreakdown(!showTaxBreakdown)}
+                className="w-full px-4 py-3 bg-gray-50 text-left flex items-center justify-between hover:bg-gray-100 transition-colors"
               >
-                {PAYMENT_STATUSES.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+                <span className="text-sm font-medium text-gray-700">{t('taxBreakdownOptional')}</span>
+                <span className={`transform transition-transform ${showTaxBreakdown ? 'rotate-180' : ''}`}>
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </button>
+
+              {showTaxBreakdown && (
+                <div className="p-4 space-y-4">
+                  <p className="text-xs text-gray-500">Enter tax amounts if you want to track them separately</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('subtotalLabel')}</label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={subtotal}
+                          onChange={(e) => setSubtotal(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('taxGstLabel')}</label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={taxGst}
+                          onChange={(e) => setTaxGst(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('taxPstLabel')}</label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={taxPst}
+                          onChange={(e) => setTaxPst(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('taxHstLabel')}</label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={taxHst}
+                          onChange={(e) => setTaxHst(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {(parseFloat(taxGst) > 0 || parseFloat(taxPst) > 0 || parseFloat(taxHst) > 0) && (
+                    <div className="text-right text-sm text-gray-600">
+                      {t('totalTaxLabel')}: <span className="font-medium">${((parseFloat(taxGst) || 0) + (parseFloat(taxPst) || 0) + (parseFloat(taxHst) || 0)).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 cursor-pointer"
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
             >
               {t('cancel')}
             </button>

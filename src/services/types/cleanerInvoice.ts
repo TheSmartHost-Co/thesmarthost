@@ -274,6 +274,16 @@ export interface ConvertItemToExpensePayload {
   expenseDate?: string
   paymentMethod?: string
   paymentStatus?: string
+  isReimbursable?: boolean
+  isTaxDeductible?: boolean
+  paidById?: string
+  paidByType?: string
+  currency?: string
+  subtotal?: number
+  taxGst?: number
+  taxPst?: number
+  taxHst?: number
+  taxTotal?: number
 }
 
 export interface ConvertItemToExpenseResponse {

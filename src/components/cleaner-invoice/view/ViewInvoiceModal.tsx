@@ -21,6 +21,7 @@ import AddExtraChargeModal from '../create/AddExtraChargeModal'
 import ConvertToExpenseModal from './ConvertToExpenseModal'
 import AddReceiptToInvoiceModal from '../create/AddReceiptToInvoiceModal'
 import AddExistingExpenseModal from '../create/AddExistingExpenseModal'
+import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import { deleteExpense } from '@/services/expenseService'
 import { usePermissions } from '@/hooks/usePermissions'
 import DeleteInvoiceModal from '../delete/DeleteInvoiceModal'
@@ -50,7 +51,19 @@ import {
   ArchiveBoxIcon,
   BanknotesIcon,
 } from '@heroicons/react/24/outline'
-import { TAX_RATES } from '@/constants/taxRates'
+import { TAX_RATES, calcTax } from '@/constants/taxRates'
+
+/** Recompute subtotal, taxes, and total from items + tax flags */
+function computeInvoiceTotals(items: CleanerInvoiceItem[], inv: CleanerInvoice) {
+  const taxableSubtotal = items.filter(i => i.isTaxable).reduce((sum, i) => sum + i.amount, 0)
+  const nonTaxableSubtotal = items.filter(i => !i.isTaxable).reduce((sum, i) => sum + i.amount, 0)
+  const subtotal = taxableSubtotal + nonTaxableSubtotal
+  const taxHst = inv.taxHstEnabled ? calcTax(taxableSubtotal, 'hst') : 0
+  const taxGst = inv.taxGstEnabled ? calcTax(taxableSubtotal, 'gst') : 0
+  const taxQst = inv.taxQstEnabled ? calcTax(taxableSubtotal, 'qst') : 0
+  const total = subtotal + taxHst + taxGst + taxQst
+  return { subtotal, taxHst, taxGst, taxQst, total }
+}
 
 interface ViewInvoiceModalProps {
   isOpen: boolean
@@ -85,6 +98,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [showAddReceiptModal, setShowAddReceiptModal] = useState(false)
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false)
   const [deletingExpenseItemId, setDeletingExpenseItemId] = useState<string | null>(null)
+  const [viewingExpenseId, setViewingExpenseId] = useState<string | null>(null)
   const [cleanerNotes, setCleanerNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -105,6 +119,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [billFromDraft, setBillFromDraft] = useState('')
   // Tax toggle saving
   const [savingTax, setSavingTax] = useState(false)
+  // Optimistic: dirty flag + snapshot for rollback
+  const [isDirty, setIsDirty] = useState(false)
+  const [snapshotInvoice, setSnapshotInvoice] = useState<CleanerInvoice | null>(null)
 
   const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -141,7 +158,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         const res = await getInvoiceById(invoiceId)
         if (res.status === 'success') {
           setInvoice(res.data)
+          setSnapshotInvoice(res.data)
           setCleanerNotes(res.data.cleanerNotes || '')
+          setIsDirty(false)
         }
       } catch (err) {
         console.error('Error fetching invoice:', err)
@@ -162,20 +181,36 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     }
   }, [isOpen])
 
+  /** Re-fetch invoice from server — used only for error recovery / rollback */
   const refreshInvoice = async () => {
     const res = await getInvoiceById(invoiceId)
     if (res.status === 'success') {
       setInvoice(res.data)
+      setSnapshotInvoice(res.data)
       setCleanerNotes(res.data.cleanerNotes || '')
     }
-    // Refresh PDF files
     try {
       const filesRes = await getInvoiceFiles(invoiceId)
       if (filesRes.status === 'success') {
         setCurrentFile(filesRes.data.find(f => f.isCurrent) || null)
       }
     } catch {}
-    onUpdated()
+  }
+
+  /** Helper: apply optimistic item changes + recompute totals */
+  const updateInvoiceOptimistic = (updatedItems: CleanerInvoiceItem[], extraFields?: Partial<CleanerInvoice>) => {
+    if (!invoice) return
+    const totals = computeInvoiceTotals(updatedItems, { ...invoice, ...extraFields })
+    setInvoice({ ...invoice, ...extraFields, items: updatedItems, ...totals })
+    setIsDirty(true)
+  }
+
+  /** Wrap onClose to refetch parent data when dirty */
+  const handleModalClose = () => {
+    if (isDirty) {
+      onUpdated()
+    }
+    onClose()
   }
 
   // Save invoice number edit
@@ -186,7 +221,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success') {
         showNotification(t('invoiceNumberUpdated'), 'success')
         setEditingInvoiceNumber(false)
-        await refreshInvoice()
+        setInvoice({ ...invoice, invoiceNumber: invoiceNumberDraft.trim() })
+        setIsDirty(true)
       } else {
         showNotification(res.message || t('failedToUpdate'), 'error')
       }
@@ -201,7 +237,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success') {
         showNotification(t('billFromUpdated'), 'success')
         setEditingBillFrom(false)
-        await refreshInvoice()
+        setInvoice({ ...invoice, billFromName: billFromDraft.trim() || null })
+        setIsDirty(true)
       } else {
         showNotification(res.message || t('failedToUpdate'), 'error')
       }
@@ -211,35 +248,49 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   // Toggle a tax flag
   const handleTaxToggle = async (taxType: 'hst' | 'gst' | 'qst') => {
     if (!invoice) return
+    // Optimistic toggle
+    const flagKey = taxType === 'hst' ? 'taxHstEnabled' : taxType === 'gst' ? 'taxGstEnabled' : 'taxQstEnabled'
+    const prevValue = invoice[flagKey]
+    const updatedInvoice = { ...invoice, [flagKey]: !prevValue }
+    const totals = computeInvoiceTotals(invoice.items || [], updatedInvoice)
+    setInvoice({ ...updatedInvoice, ...totals })
+    setIsDirty(true)
+
     setSavingTax(true)
     try {
-      const payload: Record<string, boolean> = {}
-      if (taxType === 'hst') payload.taxHstEnabled = !invoice.taxHstEnabled
-      if (taxType === 'gst') payload.taxGstEnabled = !invoice.taxGstEnabled
-      if (taxType === 'qst') payload.taxQstEnabled = !invoice.taxQstEnabled
-      const res = await updateInvoice(invoice.id, payload)
-      if (res.status === 'success') {
-        await refreshInvoice()
-      } else {
+      const res = await updateInvoice(invoice.id, { [flagKey]: !prevValue })
+      if (res.status !== 'success') {
         showNotification(res.message || t('failedToUpdateTax'), 'error')
+        // Revert
+        const reverted = { ...invoice, [flagKey]: prevValue }
+        const revertTotals = computeInvoiceTotals(invoice.items || [], reverted)
+        setInvoice({ ...reverted, ...revertTotals })
       }
-    } catch { showNotification(t('errorUpdatingTax'), 'error') }
-    finally { setSavingTax(false) }
+    } catch {
+      showNotification(t('errorUpdatingTax'), 'error')
+      const reverted = { ...invoice, [flagKey]: prevValue }
+      const revertTotals = computeInvoiceTotals(invoice.items || [], reverted)
+      setInvoice({ ...reverted, ...revertTotals })
+    } finally { setSavingTax(false) }
   }
 
   const handleStatusChange = async (newStatus: InvoiceStatus) => {
     if (!invoice) return
+    const prevStatus = invoice.status
+    setInvoice({ ...invoice, status: newStatus })
+    setIsDirty(true)
     setPmActionLoading(true)
     try {
       const res = await changeInvoiceStatus(invoice.id, newStatus)
       if (res.status === 'success') {
         showNotification(t('statusChangedTo', { status: INVOICE_STATUS_INFO[newStatus].label }), 'success')
-        await refreshInvoice()
       } else {
         showNotification(res.message || t('failedToChangeStatus'), 'error')
+        setInvoice({ ...invoice, status: prevStatus })
       }
     } catch {
       showNotification(t('errorChangingStatus'), 'error')
+      setInvoice({ ...invoice, status: prevStatus })
     } finally {
       setPmActionLoading(false)
     }
@@ -363,18 +414,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       if (res.status === 'success') {
         showNotification(t('itemUpdated'), 'success')
         setEditingItemId(null)
-        // Optimistically update the item in place
-        setInvoice({
-          ...invoice,
-          items: (invoice.items || []).map(i => i.id === editingItemId ? res.data : i),
-        })
-        // Background refresh for totals
-        const refreshRes = await getInvoiceById(invoiceId)
-        if (refreshRes.status === 'success') {
-          setInvoice(refreshRes.data)
-          setCleanerNotes(refreshRes.data.cleanerNotes || '')
-        }
-        onUpdated()
+        const updatedItems = (invoice.items || []).map(i => i.id === editingItemId ? res.data : i)
+        updateInvoiceOptimistic(updatedItems)
       } else {
         showNotification(res.message || t('failedToUpdateItem'), 'error')
       }
@@ -387,106 +428,63 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const handleDeleteItem = async (itemId: string) => {
     if (!invoice) return
 
-    // Optimistically remove the item
-    setInvoice({
-      ...invoice,
-      items: (invoice.items || []).filter(i => i.id !== itemId),
-    })
+    const prevItems = invoice.items || []
+    const updatedItems = prevItems.filter(i => i.id !== itemId)
+    updateInvoiceOptimistic(updatedItems)
 
     try {
       const res = await deleteInvoiceItem(invoice.id, itemId)
       if (res.status === 'success') {
         showNotification(t('itemRemoved'), 'success')
-        // Background refresh for accurate totals
-        const refreshRes = await getInvoiceById(invoiceId)
-        if (refreshRes.status === 'success') {
-          setInvoice(refreshRes.data)
-          setCleanerNotes(refreshRes.data.cleanerNotes || '')
-        }
-        onUpdated()
       } else {
         showNotification(res.message || t('failedToRemoveItem'), 'error')
-        // Revert — re-fetch the real state
-        await refreshInvoice()
+        updateInvoiceOptimistic(prevItems)
       }
     } catch (err) {
       console.error('Error deleting item:', err)
       showNotification(t('errorRemovingItem'), 'error')
-      await refreshInvoice()
+      updateInvoiceOptimistic(prevItems)
     }
   }
 
-  const handleItemAdded = async (newItem: CleanerInvoiceItem) => {
-    // Optimistically append the new item to avoid a full re-render flash
+  const handleItemAdded = (newItem: CleanerInvoiceItem) => {
     if (invoice) {
-      setInvoice({
-        ...invoice,
-        items: [...(invoice.items || []), newItem],
-      })
+      updateInvoiceOptimistic([...(invoice.items || []), newItem])
     }
-    // Background refresh to get accurate totals from the server
-    try {
-      const res = await getInvoiceById(invoiceId)
-      if (res.status === 'success') {
-        setInvoice(res.data)
-        setCleanerNotes(res.data.cleanerNotes || '')
-      }
-    } catch { /* silent — optimistic update already in place */ }
-    onUpdated()
   }
 
   const isConvertibleToExpense = (item: CleanerInvoiceItem): boolean =>
     item.type === 'extra_charge'
 
-  const handleItemConverted = async (updatedItem: CleanerInvoiceItem) => {
-    // Optimistic update: set expenseId on the converted item
+  const handleItemConverted = (updatedItem: CleanerInvoiceItem) => {
     if (invoice) {
-      setInvoice({
-        ...invoice,
-        items: (invoice.items || []).map(i =>
-          i.id === updatedItem.id ? { ...i, expenseId: updatedItem.expenseId } : i
-        ),
-      })
+      const updatedItems = (invoice.items || []).map(i =>
+        i.id === updatedItem.id ? { ...i, expenseId: updatedItem.expenseId } : i
+      )
+      updateInvoiceOptimistic(updatedItems)
     }
     setConvertingItem(null)
-    // Background refresh for accurate state
-    try {
-      const res = await getInvoiceById(invoiceId)
-      if (res.status === 'success') {
-        setInvoice(res.data)
-        setCleanerNotes(res.data.cleanerNotes || '')
-      }
-    } catch { /* silent — optimistic update already in place */ }
-    onUpdated()
   }
 
   const handleDeleteRelatedExpense = async (item: CleanerInvoiceItem) => {
     if (!invoice || !item.expenseId || !effectiveUserId) return
-    // Optimistic: revert item to extra_charge
-    setInvoice({
-      ...invoice,
-      items: (invoice.items || []).map(i =>
-        i.id === item.id ? { ...i, expenseId: null, type: 'extra_charge' as const } : i
-      ),
-    })
+    const prevItems = invoice.items || []
+    const updatedItems = prevItems.map(i =>
+      i.id === item.id ? { ...i, expenseId: null, type: 'extra_charge' as const } : i
+    )
+    updateInvoiceOptimistic(updatedItems)
     setDeletingExpenseItemId(null)
     try {
       const res = await deleteExpense(item.expenseId, effectiveUserId)
       if (res.status === 'success') {
         showNotification(t('relatedExpenseDeleted'), 'success')
-        const refreshRes = await getInvoiceById(invoiceId)
-        if (refreshRes.status === 'success') {
-          setInvoice(refreshRes.data)
-          setCleanerNotes(refreshRes.data.cleanerNotes || '')
-        }
-        onUpdated()
       } else {
         showNotification(res.message || t('failedToDeleteExpense'), 'error')
-        await refreshInvoice()
+        updateInvoiceOptimistic(prevItems)
       }
     } catch {
       showNotification(t('errorDeletingExpense'), 'error')
-      await refreshInvoice()
+      updateInvoiceOptimistic(prevItems)
     }
   }
 
@@ -497,7 +495,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       const res = await updateInvoice(invoice.id, { cleanerNotes })
       if (res.status === 'success') {
         showNotification(t('notesSaved'), 'success')
-        await refreshInvoice()
+        setInvoice({ ...invoice, cleanerNotes })
+        setIsDirty(true)
       } else {
         showNotification(res.message || t('failedToSaveNotes'), 'error')
       }
@@ -516,7 +515,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       const res = await submitInvoice(invoice.id)
       if (res.status === 'success') {
         showNotification(t('invoiceSubmittedToPm'), 'success')
-        await refreshInvoice()
+        setInvoice({ ...invoice, status: 'pending' as InvoiceStatus })
+        setIsDirty(true)
       } else {
         showNotification(res.message || t('failedToSubmitInvoice'), 'error')
       }
@@ -566,7 +566,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   if (loading || !invoice) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} style={modalStyle}>
+      <Modal isOpen={isOpen} onClose={handleModalClose} style={modalStyle}>
         <div className="flex justify-center items-center py-12">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -578,7 +578,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const items = invoice.items || []
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style={modalStyle}>
+    <Modal isOpen={isOpen} onClose={handleModalClose} style={modalStyle}>
       {/* Header */}
       <div className="flex items-start justify-between mb-5 pr-8">
         <div>
@@ -781,9 +781,15 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     )}
                     <p className="text-sm font-medium text-gray-900 truncate">{item.description}</p>
                     {item.expenseId && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-700">
-                        {t('reimbursement')}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setViewingExpenseId(item.expenseId!) }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
+                        title={t('viewExpenseDetails')}
+                      >
+                        <EyeIcon className="h-2.5 w-2.5" />
+                        {t('viewExpenseDetails')}
+                      </button>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 ml-6">
@@ -829,23 +835,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                         e.stopPropagation()
                         if (!isEditable) return
                         try {
-                          // Optimistically toggle the taxable flag
-                          setInvoice({
-                            ...invoice,
-                            items: (invoice.items || []).map(i => i.id === item.id ? { ...i, isTaxable: !i.isTaxable } : i),
-                          })
+                          const updatedItems = (invoice.items || []).map(i => i.id === item.id ? { ...i, isTaxable: !i.isTaxable } : i)
+                          updateInvoiceOptimistic(updatedItems)
                           const res = await updateInvoiceItem(invoice.id, item.id, { isTaxable: !item.isTaxable })
-                          if (res.status === 'success') {
-                            // Background refresh for totals
-                            const refreshRes = await getInvoiceById(invoiceId)
-                            if (refreshRes.status === 'success') {
-                              setInvoice(refreshRes.data)
-                              setCleanerNotes(refreshRes.data.cleanerNotes || '')
-                            }
-                            onUpdated()
-                          } else {
+                          if (res.status !== 'success') {
                             showNotification(res.message || t('failedToUpdate'), 'error')
-                            await refreshInvoice()
+                            const revertedItems = (invoice.items || []).map(i => i.id === item.id ? { ...i, isTaxable: item.isTaxable } : i)
+                            updateInvoiceOptimistic(revertedItems)
                           }
                         } catch { showNotification(t('errorUpdatingTax'), 'error') }
                       }}
@@ -877,7 +873,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                       </button>
                     </div>
                   )}
-                  {role === 'pm' && isConvertibleToExpense(item) && (
+                  {isEditable && isConvertibleToExpense(item) && (
                     <button
                       onClick={() => setConvertingItem(item)}
                       className="p-1 rounded hover:bg-emerald-100 transition-colors"
@@ -1204,7 +1200,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   showNotification(t('invoiceRejected'), 'success')
                   setShowRejectInput(false)
                   setPmRejectNotes('')
-                  await refreshInvoice()
+                  setInvoice({ ...invoice, status: 'rejected' as InvoiceStatus, pmNotes: pmRejectNotes })
+                  setIsDirty(true)
                 } else { showNotification(res.message || t('failedToUpdate'), 'error') }
               } catch { showNotification(t('errorRejectingInvoice'), 'error') }
               finally { setPmActionLoading(false) }
@@ -1245,7 +1242,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
         </div>
         <div className="flex gap-2">
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           >
             {t('close')}
@@ -1280,7 +1277,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                     const res = await approveInvoice(invoice.id)
                     if (res.status === 'success') {
                       showNotification(t('invoiceApproved', { number: invoice.invoiceNumber }), 'success')
-                      await refreshInvoice()
+                      setInvoice({ ...invoice, status: 'approved' as InvoiceStatus })
+                      setIsDirty(true)
                     } else { showNotification(res.message || t('failedToUpdate'), 'error') }
                   } catch { showNotification(t('errorApproving'), 'error') }
                   finally { setPmActionLoading(false) }
@@ -1301,7 +1299,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   const res = await markInvoicePaid(invoice.id)
                   if (res.status === 'success') {
                     showNotification(t('invoiceMarkedPaid', { number: invoice.invoiceNumber }), 'success')
-                    await refreshInvoice()
+                    setInvoice({ ...invoice, status: 'paid' as InvoiceStatus })
+                    setIsDirty(true)
                   } else { showNotification(res.message || t('failedToUpdate'), 'error') }
                 } catch { showNotification(t('errorMarkingPaid'), 'error') }
                 finally { setPmActionLoading(false) }
@@ -1332,6 +1331,25 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           invoiceId={invoice.id}
           item={convertingItem}
           onConverted={handleItemConverted}
+          role={role}
+        />
+      )}
+      {viewingExpenseId && (
+        <ExpenseViewerModal
+          isOpen={!!viewingExpenseId}
+          onClose={() => setViewingExpenseId(null)}
+          expenseId={viewingExpenseId}
+          zIndex={70}
+          onExpenseUpdated={() => { setIsDirty(true) }}
+          onExpenseDeleted={(deletedId) => {
+            setViewingExpenseId(null)
+            if (invoice) {
+              const updatedItems = (invoice.items || []).map(i =>
+                i.expenseId === deletedId ? { ...i, expenseId: null, type: 'extra_charge' as const } : i
+              )
+              updateInvoiceOptimistic(updatedItems)
+            }
+          }}
         />
       )}
     </Modal>
