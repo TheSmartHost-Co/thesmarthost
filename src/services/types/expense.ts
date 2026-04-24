@@ -174,6 +174,8 @@ export interface CreateExpensePayload {
   taxTotal?: number
   ocrProcessed?: boolean
   ocrConfidence?: OcrConfidence
+  paidByType?: PaidByType | null
+  paidById?: string | null
 }
 
 /**

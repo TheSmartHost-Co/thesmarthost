@@ -7,7 +7,6 @@ import {
   updateInvoice,
   updateInvoiceItem,
   deleteInvoiceItem,
-  removeInvoiceExpense,
   submitInvoice,
   deleteInvoice,
   approveInvoice,
@@ -18,9 +17,12 @@ import {
   getInvoiceFiles,
   downloadInvoiceFile,
 } from '@/services/cleanerInvoiceService'
-// addInvoiceItem is now handled by AddExtraChargeModal
 import AddExtraChargeModal from '../create/AddExtraChargeModal'
+import ConvertToExpenseModal from './ConvertToExpenseModal'
 import AddReceiptToInvoiceModal from '../create/AddReceiptToInvoiceModal'
+import AddExistingExpenseModal from '../create/AddExistingExpenseModal'
+import { deleteExpense } from '@/services/expenseService'
+import { usePermissions } from '@/hooks/usePermissions'
 import DeleteInvoiceModal from '../delete/DeleteInvoiceModal'
 import type { InvoiceFile } from '@/services/types/cleanerInvoice'
 import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
@@ -79,7 +81,10 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '', isTaxable: false })
   const [showAddExtraModal, setShowAddExtraModal] = useState(false)
+  const [convertingItem, setConvertingItem] = useState<CleanerInvoiceItem | null>(null)
   const [showAddReceiptModal, setShowAddReceiptModal] = useState(false)
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false)
+  const [deletingExpenseItemId, setDeletingExpenseItemId] = useState<string | null>(null)
   const [cleanerNotes, setCleanerNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -103,6 +108,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
+  const { effectiveUserId } = usePermissions()
 
   const statusLabels: Record<InvoiceStatus, string> = {
     draft: t('statusDraft'),
@@ -380,7 +386,6 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   const handleDeleteItem = async (itemId: string) => {
     if (!invoice) return
-    const item = invoice.items?.find(i => i.id === itemId)
 
     // Optimistically remove the item
     setInvoice({
@@ -389,12 +394,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     })
 
     try {
-      let res
-      if (item?.expenseId) {
-        res = await removeInvoiceExpense(invoice.id, item.expenseId)
-      } else {
-        res = await deleteInvoiceItem(invoice.id, itemId)
-      }
+      const res = await deleteInvoiceItem(invoice.id, itemId)
       if (res.status === 'success') {
         showNotification(t('itemRemoved'), 'success')
         // Background refresh for accurate totals
@@ -433,6 +433,61 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       }
     } catch { /* silent — optimistic update already in place */ }
     onUpdated()
+  }
+
+  const isConvertibleToExpense = (item: CleanerInvoiceItem): boolean =>
+    item.type === 'extra_charge'
+
+  const handleItemConverted = async (updatedItem: CleanerInvoiceItem) => {
+    // Optimistic update: set expenseId on the converted item
+    if (invoice) {
+      setInvoice({
+        ...invoice,
+        items: (invoice.items || []).map(i =>
+          i.id === updatedItem.id ? { ...i, expenseId: updatedItem.expenseId } : i
+        ),
+      })
+    }
+    setConvertingItem(null)
+    // Background refresh for accurate state
+    try {
+      const res = await getInvoiceById(invoiceId)
+      if (res.status === 'success') {
+        setInvoice(res.data)
+        setCleanerNotes(res.data.cleanerNotes || '')
+      }
+    } catch { /* silent — optimistic update already in place */ }
+    onUpdated()
+  }
+
+  const handleDeleteRelatedExpense = async (item: CleanerInvoiceItem) => {
+    if (!invoice || !item.expenseId || !effectiveUserId) return
+    // Optimistic: revert item to extra_charge
+    setInvoice({
+      ...invoice,
+      items: (invoice.items || []).map(i =>
+        i.id === item.id ? { ...i, expenseId: null, type: 'extra_charge' as const } : i
+      ),
+    })
+    setDeletingExpenseItemId(null)
+    try {
+      const res = await deleteExpense(item.expenseId, effectiveUserId)
+      if (res.status === 'success') {
+        showNotification(t('relatedExpenseDeleted'), 'success')
+        const refreshRes = await getInvoiceById(invoiceId)
+        if (refreshRes.status === 'success') {
+          setInvoice(refreshRes.data)
+          setCleanerNotes(refreshRes.data.cleanerNotes || '')
+        }
+        onUpdated()
+      } else {
+        showNotification(res.message || t('failedToDeleteExpense'), 'error')
+        await refreshInvoice()
+      }
+    } catch {
+      showNotification(t('errorDeletingExpense'), 'error')
+      await refreshInvoice()
+    }
   }
 
   const handleSaveNotes = async () => {
@@ -822,6 +877,42 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                       </button>
                     </div>
                   )}
+                  {role === 'pm' && isConvertibleToExpense(item) && (
+                    <button
+                      onClick={() => setConvertingItem(item)}
+                      className="p-1 rounded hover:bg-emerald-100 transition-colors"
+                      title={t('convertToExpense')}
+                    >
+                      <BanknotesIcon className="h-3.5 w-3.5 text-emerald-500" />
+                    </button>
+                  )}
+                  {role === 'pm' && item.type === 'expense' && item.expenseId && (
+                    deletingExpenseItemId === item.id ? (
+                      <div className="flex items-center gap-1 text-[10px]">
+                        <span className="text-red-600">{t('deleteRelatedExpense')}?</span>
+                        <button
+                          onClick={() => handleDeleteRelatedExpense(item)}
+                          className="text-red-600 font-semibold hover:underline cursor-pointer"
+                        >
+                          {t('yes')}
+                        </button>
+                        <button
+                          onClick={() => setDeletingExpenseItemId(null)}
+                          className="text-gray-500 hover:underline cursor-pointer"
+                        >
+                          {t('no')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingExpenseItemId(item.id)}
+                        className="p-1 rounded hover:bg-red-100 transition-colors"
+                        title={t('deleteRelatedExpense')}
+                      >
+                        <TrashIcon className="h-3.5 w-3.5 text-amber-500" />
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -954,6 +1045,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
               <DocumentTextIcon className="h-3.5 w-3.5" />
               {t('addReceiptToInvoice')}
             </button>
+            <button
+              onClick={() => setShowAddExpenseModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              <BanknotesIcon className="h-3.5 w-3.5" />
+              {t('addExistingExpense')}
+            </button>
           </div>
         )}
 
@@ -974,6 +1072,16 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           cleanerId={invoice.cleanerId}
           onAdded={handleItemAdded}
         />
+
+        {showAddExpenseModal && (
+          <AddExistingExpenseModal
+            isOpen={showAddExpenseModal}
+            onClose={() => setShowAddExpenseModal(false)}
+            invoiceId={invoiceId}
+            cleanerId={invoice.cleanerId}
+            onAdded={handleItemAdded}
+          />
+        )}
       </div>
 
       {/* Tax Toggles */}
@@ -1215,6 +1323,15 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           onClose={() => setShowDeleteConfirm(false)}
           invoice={invoice}
           onDeleted={() => { onUpdated(); onClose() }}
+        />
+      )}
+      {convertingItem && invoice && (
+        <ConvertToExpenseModal
+          isOpen={!!convertingItem}
+          onClose={() => setConvertingItem(null)}
+          invoiceId={invoice.id}
+          item={convertingItem}
+          onConverted={handleItemConverted}
         />
       )}
     </Modal>

@@ -397,7 +397,10 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       const response = await updateExpense(expense.id, payload)
       if (response.status === 'success') {
         showNotification('Expense updated successfully', 'success')
-        setExpense(response.data)
+        // Backend RETURNING * doesn't run the JOIN, so paidByName is null on update.
+        // Patch it locally from the picker label so the displayed name doesn't disappear.
+        const localName = peopleOptions.find(o => o.value === editPaidById)?.label?.replace(/\s*\(You\)\s*$/, '') ?? null
+        setExpense({ ...response.data, paidByName: response.data.paidByName ?? localName })
         setMode('view')
         onExpenseUpdated?.()
       } else {

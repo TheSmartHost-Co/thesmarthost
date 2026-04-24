@@ -17,6 +17,8 @@ import type {
   InvoiceFileDownloadResponse,
   MonthlyEarningsResponse,
   InvoiceStatus,
+  ConvertItemToExpensePayload,
+  ConvertItemToExpenseResponse,
 } from './types/cleanerInvoice'
 
 // List invoices with optional filters
@@ -156,6 +158,22 @@ export function removeInvoiceExpense(
   return apiClient<DeleteInvoiceResponse>(
     `/cleaner-invoices/${invoiceId}/expenses/${expenseId}`,
     { method: 'DELETE' }
+  )
+}
+
+// Convert extra charge line item to a tracked expense
+export function convertItemToExpense(
+  invoiceId: string,
+  itemId: string,
+  data: ConvertItemToExpensePayload
+): Promise<ConvertItemToExpenseResponse> {
+  return apiClient<ConvertItemToExpenseResponse, ConvertItemToExpensePayload>(
+    `/cleaner-invoices/${invoiceId}/items/${itemId}/expense`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: data,
+    }
   )
 }
 

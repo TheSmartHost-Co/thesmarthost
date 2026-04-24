@@ -8,13 +8,18 @@ import { createExpense } from '@/services/expenseService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
+import { getCleaners } from '@/services/cleanerService'
+import { getTeamMembers } from '@/services/teamMemberService'
+import { getUserProfile } from '@/services/profileService'
 import { parseLocalDate } from '@/utils/dateUtils'
 import type { CreateExpensePayload, Expense, PaymentMethod, PaymentStatus } from '@/services/types/expense'
+import type { PaidByType } from '@/services/types/receipt'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
   CloudArrowUpIcon,
@@ -79,6 +84,12 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
+  // Paid By state
+  const [paidById, setPaidById] = useState<string | null>(null)
+  const [paidByType, setPaidByType] = useState<PaidByType>('PROPERTY-MANAGER')
+  const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
+  const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
+
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -87,6 +98,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [submitting, setSubmitting] = useState(false)
 
   const { effectiveUserId } = usePermissions()
+  const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   // Convert properties to SearchableSelect options
@@ -130,9 +142,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
     setLoading(true)
     try {
-      const [propertiesRes, categoriesRes] = await Promise.all([
+      const [propertiesRes, categoriesRes, tmRes, clRes] = await Promise.all([
         getProperties(effectiveUserId),
         getCategoriesByUserId(effectiveUserId),
+        getTeamMembers(effectiveUserId).catch(() => null),
+        getCleaners(effectiveUserId).catch(() => null),
       ])
 
       if (propertiesRes.status === 'success') {
@@ -146,6 +160,45 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         if (defaultCat) {
           setCategory(defaultCat.code)
         }
+      }
+
+      // Build people picker options (mirrors ExpenseViewerModal)
+      if (profile?.id) {
+        const roleLabel = (r: string) => r === 'CLEANER' ? 'Cleaner' : r === 'TEAM_MEMBER' ? 'Team Member' : 'PM'
+        const roleType = (r: string): PaidByType => r === 'CLEANER' ? 'CLEANER' : r === 'TEAM_MEMBER' ? 'TEAM_MEMBER' : 'PROPERTY-MANAGER'
+        const opts: SearchableSelectOption<string>[] = []
+        const typeMap: Record<string, PaidByType> = {}
+        opts.push({ value: profile.id, label: `${profile.fullName} (You)`, secondaryLabel: roleLabel(profile.role) })
+        typeMap[profile.id] = roleType(profile.role)
+
+        // Add PM if current user is not the PM
+        const pmUserId = effectiveUserId !== profile.id ? effectiveUserId : null
+        if (pmUserId) {
+          try {
+            const pmRes = await getUserProfile(pmUserId)
+            if (pmRes.status === 'success' && pmRes.data) {
+              opts.push({ value: pmRes.data.id, label: pmRes.data.fullName, secondaryLabel: 'PM' })
+              typeMap[pmRes.data.id] = 'PROPERTY-MANAGER'
+            }
+          } catch { /* non-critical */ }
+        }
+        if (tmRes?.status === 'success') {
+          tmRes.data.filter(tm => tm.status === 'active' && tm.authUserId && tm.authUserId !== profile.id).forEach(tm => {
+            opts.push({ value: tm.authUserId!, label: tm.name, secondaryLabel: 'Team Member' })
+            typeMap[tm.authUserId!] = 'TEAM_MEMBER'
+          })
+        }
+        if (clRes?.status === 'success') {
+          clRes.data.filter(cl => cl.status === 'active' && cl.authUserId && cl.authUserId !== profile.id).forEach(cl => {
+            opts.push({ value: cl.authUserId!, label: cl.name, secondaryLabel: 'Cleaner' })
+            typeMap[cl.authUserId!] = 'CLEANER'
+          })
+        }
+        setPeopleOptions(opts)
+        setPeopleTypeMap(typeMap)
+        // Default to current user
+        setPaidById(profile.id)
+        setPaidByType(typeMap[profile.id])
       }
 
       // Set preselected values
@@ -195,6 +248,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setTaxPst('')
     setTaxHst('')
     setShowTaxBreakdown(false)
+    setPaidById(profile?.id || null)
+    setPaidByType('PROPERTY-MANAGER')
   }
 
   const handleFileSelect = (file: File) => {
@@ -290,12 +345,17 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         taxPst: pst || undefined,
         taxHst: hst || undefined,
         taxTotal: taxTotal || undefined,
+        paidById,
+        paidByType,
       }
 
       const response = await createExpense(payload)
       if (response.status === 'success') {
         showNotification('Expense created successfully', 'success')
-        onAdd(response.data)
+        // Backend RETURNING * doesn't run the JOIN, so paidByName is null on create.
+        // Patch it locally from the picker label so the parent list renders the name immediately.
+        const localName = peopleOptions.find(o => o.value === paidById)?.label?.replace(/\s*\(You\)\s*$/, '') ?? null
+        onAdd({ ...response.data, paidByName: response.data.paidByName ?? localName })
         onClose()
       } else {
         showNotification(response.message || 'Failed to create expense', 'error')
@@ -482,6 +542,25 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Paid By */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Paid By</label>
+            <SearchableSelect
+              options={peopleOptions}
+              value={paidById}
+              onChange={(val) => {
+                setPaidById(val)
+                if (val && peopleTypeMap[val]) {
+                  setPaidByType(peopleTypeMap[val])
+                }
+              }}
+              placeholder="Select who paid..."
+              loading={peopleOptions.length === 0}
+              loadingText="Loading people..."
+              emptyText="No people found"
+            />
           </div>
 
           {/* Financial Flags */}

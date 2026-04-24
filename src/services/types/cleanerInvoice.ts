@@ -69,7 +69,9 @@ export interface CleanerInvoiceItem {
   receiptOriginalName?: string | null
   receiptStoragePath?: string | null
   receiptSignedUrl?: string | null
+  receiptMimeType?: string | null
   expenseId?: string | null
+  type?: 'cleaning_project' | 'expense' | 'extra_charge'
 }
 
 // Available project for invoice generation
@@ -164,10 +166,12 @@ export interface UpdateInvoiceItemPayload {
 }
 
 export interface AddInvoiceItemPayload {
-  description: string
-  amount: number
+  description?: string
+  amount?: number
   notes?: string | null
   isTaxable?: boolean
+  receiptId?: string
+  expenseId?: string
 }
 
 // Add expense as invoice line item
@@ -257,6 +261,27 @@ export interface InvoiceFileDownloadResponse {
 export interface MonthlyEarningsResponse {
   status: 'success' | 'failed'
   data: MonthlyEarnings
+  message?: string
+}
+
+// Convert extra charge to expense
+export interface ConvertItemToExpensePayload {
+  propertyId: string
+  amount?: number
+  category?: string
+  vendorName?: string
+  description?: string
+  expenseDate?: string
+  paymentMethod?: string
+  paymentStatus?: string
+}
+
+export interface ConvertItemToExpenseResponse {
+  status: 'success' | 'failed'
+  data: {
+    expense: Record<string, unknown>
+    invoiceItem: CleanerInvoiceItem
+  }
   message?: string
 }
 

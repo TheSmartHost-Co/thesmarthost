@@ -2,20 +2,19 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
-import { addInvoiceExpense, getAvailableExpenses } from '@/services/cleanerInvoiceService'
+import { addInvoiceItem } from '@/services/cleanerInvoiceService'
 import { uploadReceipt, searchReceipts, applyReceipt } from '@/services/receiptService'
 import { getProperties } from '@/services/propertyService'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import type { UploadedReceipt, ReceiptDetail, AutoApplyReceiptResponse, ApplyReceiptPayload } from '@/services/types/receipt'
-import type { AvailableExpense, CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
+import type { CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
 import type { Property } from '@/services/types/property'
 import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
 import {
   ArrowUpTrayIcon,
   ClipboardDocumentListIcon,
-  BanknotesIcon,
   DocumentTextIcon,
   PhotoIcon,
   XMarkIcon,
@@ -32,7 +31,7 @@ interface AddReceiptToInvoiceModalProps {
   onAdded: (item: CleanerInvoiceItem) => void
 }
 
-type Tab = 'upload' | 'unapplied' | 'available'
+type Tab = 'upload' | 'unapplied'
 
 type UploadStep = 'select' | 'uploading' | 'preview'
 
@@ -72,11 +71,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
   const [selectedReceipt, setSelectedReceipt] = useState<UploadedReceipt | null>(null)
   const [applyPropertyId, setApplyPropertyId] = useState('')
 
-  // Tab 3: Available expenses state
-  const [availableExpenses, setAvailableExpenses] = useState<AvailableExpense[]>([])
-  const [expensesLoading, setExpensesLoading] = useState(false)
-  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)
-
   // Load properties on open
   useEffect(() => {
     if (!isOpen || !profile?.id) return
@@ -90,7 +84,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
   useEffect(() => {
     if (!isOpen) return
     if (activeTab === 'unapplied') loadUnappliedReceipts()
-    if (activeTab === 'available') loadAvailableExpenses()
   }, [isOpen, activeTab])
 
   // Reset on close
@@ -108,8 +101,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       setUnappliedReceipts([])
       setSelectedReceipt(null)
       setApplyPropertyId('')
-      setAvailableExpenses([])
-      setSelectedExpenseId(null)
     }
   }, [isOpen])
 
@@ -128,18 +119,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       console.error('Error loading unapplied receipts:', err)
     } finally {
       setUnappliedLoading(false)
-    }
-  }
-
-  const loadAvailableExpenses = async () => {
-    setExpensesLoading(true)
-    try {
-      const res = await getAvailableExpenses(cleanerId)
-      if (res.status === 'success') setAvailableExpenses(res.data)
-    } catch (err) {
-      console.error('Error loading available expenses:', err)
-    } finally {
-      setExpensesLoading(false)
     }
   }
 
@@ -212,7 +191,10 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
     setSubmitting(true)
 
     try {
-      const res = await addInvoiceExpense(invoiceId, ocrResult.expenseId)
+      const res = await addInvoiceItem(invoiceId, {
+        expenseId: ocrResult.expenseId,
+        receiptId: ocrResult.receipt.id,
+      })
       if (res.status === 'success') {
         showNotification(t('receiptAddedToInvoice'), 'success')
         onAdded(res.data)
@@ -259,7 +241,10 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       }
 
       const expenseId = (applyRes.data.expense as { id: string }).id
-      const addRes = await addInvoiceExpense(invoiceId, expenseId)
+      const addRes = await addInvoiceItem(invoiceId, {
+        expenseId,
+        receiptId: selectedReceipt.id,
+      })
       if (addRes.status === 'success') {
         showNotification(t('receiptAddedToInvoice'), 'success')
         onAdded(addRes.data)
@@ -270,29 +255,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
     } catch (err) {
       console.error('Error applying receipt:', err)
       showNotification(err instanceof Error ? err.message : t('failedToApplyReceipt'), 'error')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // --- Tab 3: Available expense handlers ---
-
-  const handleAddExpense = async () => {
-    if (!selectedExpenseId) return
-    setSubmitting(true)
-
-    try {
-      const res = await addInvoiceExpense(invoiceId, selectedExpenseId)
-      if (res.status === 'success') {
-        showNotification(t('receiptAddedToInvoice'), 'success')
-        onAdded(res.data)
-        onClose()
-      } else {
-        showNotification(res.message || t('failedToAddReceiptExpense'), 'error')
-      }
-    } catch (err) {
-      console.error('Error adding expense:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToAddReceiptExpense'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -339,10 +301,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       }
       return { label: t('uploadAndAdd'), onClick: handleUploadAndApply, disabled: !file || !uploadPropertyId || uploadStep === 'uploading' }
     }
-    if (activeTab === 'unapplied') {
-      return { label: t('applyAndAdd'), onClick: handleApplyAndAdd, disabled: !selectedReceipt || !applyPropertyId || submitting }
-    }
-    return { label: t('addToInvoice'), onClick: handleAddExpense, disabled: !selectedExpenseId || submitting }
+    return { label: t('applyAndAdd'), onClick: handleApplyAndAdd, disabled: !selectedReceipt || !applyPropertyId || submitting }
   }
 
   const footer = getFooterAction()
@@ -365,7 +324,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
         {([
           { key: 'upload' as Tab, icon: ArrowUpTrayIcon, label: t('uploadNewTab') },
           { key: 'unapplied' as Tab, icon: ClipboardDocumentListIcon, label: t('unappliedReceiptsTab') },
-          { key: 'available' as Tab, icon: BanknotesIcon, label: t('availableExpensesTab') },
         ]).map(({ key, icon: Icon, label }, i) => (
           <button
             key={key}
@@ -631,79 +589,6 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
           </div>
         )}
 
-        {/* === Tab 3: Available Expenses === */}
-        {activeTab === 'available' && (
-          <div>
-            {expensesLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : availableExpenses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
-                  <BanknotesIcon className="h-6 w-6 text-gray-400" />
-                </div>
-                <p className="text-sm font-medium text-gray-700 mb-0.5">{t('noAvailableExpenses')}</p>
-                <p className="text-xs text-gray-500 max-w-xs">{t('noAvailableExpensesDescription')}</p>
-              </div>
-            ) : (
-              <div className="max-h-56 overflow-y-auto space-y-1 rounded-lg border border-gray-100 p-1">
-                {availableExpenses.map((expense) => {
-                  const isSelected = selectedExpenseId === expense.id
-                  return (
-                    <button
-                      key={expense.id}
-                      type="button"
-                      onClick={() => setSelectedExpenseId(isSelected ? null : expense.id)}
-                      className={`w-full text-left flex items-center gap-2.5 p-2.5 rounded-lg transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-amber-50 border border-amber-300 ring-1 ring-amber-300'
-                          : 'hover:bg-gray-50 border border-transparent'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-amber-100' : 'bg-gray-100'
-                      }`}>
-                        <BanknotesIcon className={`w-4 h-4 ${isSelected ? 'text-amber-600' : 'text-amber-500'}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className={`text-xs font-medium truncate ${isSelected ? 'text-amber-900' : 'text-gray-900'}`}>
-                            {expense.vendorName || t('unknownVendor')}
-                          </p>
-                          {expense.receiptId && (
-                            <DocumentTextIcon className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {expense.propertyName && (
-                            <span className="text-[10px] text-gray-400 truncate">{expense.propertyName}</span>
-                          )}
-                          {expense.propertyName && expense.expenseDate && (
-                            <span className="text-[10px] text-gray-300">&middot;</span>
-                          )}
-                          {expense.expenseDate && (
-                            <span className="text-[10px] text-gray-400">{formatDate(expense.expenseDate)}</span>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">
-                        {formatAmount(expense.amount)}
-                      </span>
-                      {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Footer */}
