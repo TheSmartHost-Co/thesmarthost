@@ -14,8 +14,10 @@ import {
   getConnection,
   setAutoExport as apiSetAutoExport,
   setDefaultEntityType as apiSetDefaultEntityType,
+  setDefaultPaymentAccount as apiSetDefaultPaymentAccount,
+  getQbPaymentAccounts,
 } from '@/services/quickbooksService'
-import type { QbConnection, QbEntityType } from '@/services/types/quickbooks'
+import type { QbConnection, QbEntityType, QbPaymentAccount } from '@/services/types/quickbooks'
 import ConnectQuickBooksModal from './ConnectQuickBooksModal'
 import DisconnectQuickBooksModal from './DisconnectQuickBooksModal'
 import CategoryMappingTable from './CategoryMappingTable'
@@ -39,7 +41,10 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
   const [loading, setLoading] = useState(true)
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [showDisconnectModal, setShowDisconnectModal] = useState(false)
-  const [savingToggle, setSavingToggle] = useState<'autoExport' | 'defaultType' | null>(null)
+  const [savingToggle, setSavingToggle] = useState<
+    'autoExport' | 'defaultType' | 'paymentAccount' | null
+  >(null)
+  const [paymentAccounts, setPaymentAccounts] = useState<QbPaymentAccount[]>([])
 
   const fetchConnection = useCallback(async () => {
     setLoading(true)
@@ -61,6 +66,23 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
   useEffect(() => {
     fetchConnection()
   }, [fetchConnection])
+
+  // Fetch the user's QBO payment-source accounts whenever the connection
+  // becomes active. Used by the "Default payment account" picker below.
+  useEffect(() => {
+    if (!connection?.connected || connection.status === 'expired') {
+      setPaymentAccounts([])
+      return
+    }
+    let cancelled = false
+    getQbPaymentAccounts()
+      .then((res) => {
+        if (cancelled) return
+        if (res.status === 'success') setPaymentAccounts(res.data)
+      })
+      .catch(() => { /* leave list empty; the picker will render the auto-pick fallback hint */ })
+    return () => { cancelled = true }
+  }, [connection?.connected, connection?.status])
 
   // Pick up ?qb=connected / ?qb=error from the OAuth round trip.
   useEffect(() => {
@@ -125,6 +147,36 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
     } catch (err) {
       console.error(err)
       showNotification('Failed to update default type', 'error')
+    } finally {
+      setSavingToggle(null)
+    }
+  }
+
+  const handleDefaultPaymentAccountChange = async (qbAccountId: string) => {
+    if (!qbAccountId) return
+    setSavingToggle('paymentAccount')
+    try {
+      const res = await apiSetDefaultPaymentAccount(qbAccountId)
+      if (res.status === 'success') {
+        setConnection((prev) =>
+          prev
+            ? {
+                ...prev,
+                defaultPaymentAccountId: res.data.defaultPaymentAccountId ?? qbAccountId,
+                defaultPaymentAccountName:
+                  res.data.defaultPaymentAccountName ??
+                  paymentAccounts.find((a) => a.id === qbAccountId)?.name ??
+                  null,
+              }
+            : prev
+        )
+        showNotification('Default payment account updated', 'success')
+      } else {
+        showNotification(res.message || 'Failed to update payment account', 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      showNotification('Failed to update payment account', 'error')
     } finally {
       setSavingToggle(null)
     }
@@ -237,33 +289,75 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
           </div>
 
           {canWrite && (
-            <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
-              <div className="text-sm">
-                <div className="font-semibold text-gray-900 flex items-center gap-1.5">
-                  <ArrowPathIcon className="w-4 h-4 text-emerald-600" />
-                  Auto-export new expenses
+            <>
+              <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                <div className="text-sm">
+                  <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                    <ArrowPathIcon className="w-4 h-4 text-emerald-600" />
+                    Auto-export new expenses
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Every newly created expense gets queued for QuickBooks sync.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!connection?.autoExport}
+                  onClick={() => handleAutoExportToggle(!connection?.autoExport)}
+                  disabled={savingToggle === 'autoExport'}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    connection?.autoExport ? 'bg-emerald-600' : 'bg-gray-300'
+                  } disabled:opacity-50`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      connection?.autoExport ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/*
+                Default payment account picker. Required for Purchase entities
+                (their top-level AccountRef must be Bank/CreditCard/Cash). If
+                left unset, the sync service auto-picks the first Bank account
+                and writes it back here as the new default.
+              */}
+              <div className="p-3 bg-white border border-gray-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Default payment account
+                  </div>
+                  {connection?.defaultPaymentAccountName && (
+                    <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                      {connection.defaultPaymentAccountName}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500">
-                  Every newly created expense gets queued for QuickBooks sync.
+                  The Bank, Credit Card, or Cash account QuickBooks attributes
+                  Purchase expenses to. Leave it auto-picked or pick explicitly.
                 </div>
+                <select
+                  value={connection?.defaultPaymentAccountId || ''}
+                  onChange={(e) => handleDefaultPaymentAccountChange(e.target.value)}
+                  disabled={savingToggle === 'paymentAccount' || paymentAccounts.length === 0}
+                  className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                >
+                  <option value="" disabled>
+                    {paymentAccounts.length === 0
+                      ? 'Loading payment accounts…'
+                      : 'Select an account…'}
+                  </option>
+                  {paymentAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.accountType}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={!!connection?.autoExport}
-                onClick={() => handleAutoExportToggle(!connection?.autoExport)}
-                disabled={savingToggle === 'autoExport'}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  connection?.autoExport ? 'bg-emerald-600' : 'bg-gray-300'
-                } disabled:opacity-50`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    connection?.autoExport ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+            </>
           )}
 
           <div>

@@ -25,6 +25,9 @@ import type {
   BulkSyncResponse,
 } from './types/quickbooks'
 
+// Payment-accounts list shares the QbAccountsResponse shape (id/name/type rows).
+type QbPaymentAccountsResponse = QbAccountsResponse
+
 // ─────────────────────────────────────────────────────────────────────────
 // Connection lifecycle
 // ─────────────────────────────────────────────────────────────────────────
@@ -61,12 +64,33 @@ export async function setDefaultEntityType(
   )
 }
 
+/**
+ * Set the user's default payment-source account (Bank/CreditCard/Cash).
+ * Used as the top-level AccountRef when creating Purchase entities.
+ */
+export async function setDefaultPaymentAccount(
+  qbAccountId: string
+): Promise<QbToggleResponse> {
+  return apiClient<QbToggleResponse, { qbAccountId: string }>(
+    '/quickbooks/default-payment-account',
+    { method: 'POST', body: { qbAccountId } }
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // QBO accounts (chart of accounts)
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function getQbAccounts(): Promise<QbAccountsResponse> {
   return apiClient<QbAccountsResponse>('/quickbooks/qb-accounts')
+}
+
+/**
+ * List Bank / CreditCard / OtherCurrentAsset accounts — the valid choices
+ * for the top-level AccountRef of a Purchase entity.
+ */
+export async function getQbPaymentAccounts(): Promise<QbPaymentAccountsResponse> {
+  return apiClient<QbPaymentAccountsResponse>('/quickbooks/qb-payment-accounts')
 }
 
 // ─────────────────────────────────────────────────────────────────────────

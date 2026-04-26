@@ -12,6 +12,9 @@ export interface QbConnection {
   currency?: string | null
   autoExport?: boolean
   defaultQbEntityType?: QbEntityType
+  /** Top-level AccountRef for Purchase entities (Bank/CreditCard/Cash). */
+  defaultPaymentAccountId?: string | null
+  defaultPaymentAccountName?: string | null
   lastSyncAt?: string | null
   status?: 'active' | 'expired' | 'inactive' | string
   accessTokenExpiresAt?: string | null
@@ -26,6 +29,13 @@ export interface QbAccount {
   accountSubType?: string
   fullyQualifiedName?: string
 }
+
+/**
+ * QbPaymentAccount has the same shape as QbAccount but is sourced from
+ * different AccountTypes (Bank / Credit Card / Other Current Asset). Kept as
+ * a separate type alias for readability where the distinction matters.
+ */
+export type QbPaymentAccount = QbAccount
 
 export interface QbAccountMapping {
   id: string
@@ -123,7 +133,12 @@ export interface BulkSyncResponse {
 export interface QbToggleResponse {
   status: 'success' | 'failed'
   message?: string
-  data: { autoExport?: boolean; defaultQbEntityType?: QbEntityType }
+  data: {
+    autoExport?: boolean
+    defaultQbEntityType?: QbEntityType
+    defaultPaymentAccountId?: string | null
+    defaultPaymentAccountName?: string | null
+  }
 }
 
 export interface QbDeleteResponse {
