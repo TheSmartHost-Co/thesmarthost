@@ -26,7 +26,6 @@ import type { Property } from '@/services/types/property'
 import type { SupplyList } from '@/services/types/supplyList'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -671,7 +670,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const isEditable = receipt?.status !== 'applied' && receipt?.status !== 'archived'
   const isImage = receipt?.mimeType?.startsWith('image/')
   const status = receipt ? statusConfig[receipt.status] : null
-  const allCategories = categories.length > 0 ? categories : DEFAULT_EXPENSE_CATEGORIES
+  const allCategories = categories
 
   if (!isOpen) return null
 

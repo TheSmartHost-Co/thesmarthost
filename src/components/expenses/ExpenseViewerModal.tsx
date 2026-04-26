@@ -42,7 +42,7 @@ import { getUserProfile } from '@/services/profileService'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import type { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
+import { getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -52,6 +52,7 @@ import {
   PencilIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
   CloudArrowUpIcon,
   DocumentTextIcon,
   XMarkIcon,
@@ -68,6 +69,9 @@ import {
   UserIcon,
   PlusIcon
 } from '@heroicons/react/24/outline'
+import SendToQbModal from '@/components/quickbooks/SendToQbModal'
+import { getConnection as getQbConnection } from '@/services/quickbooksService'
+import type { QbConnection, QbEntityType } from '@/services/types/quickbooks'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import TabBar from '@/components/shared/TabBar'
@@ -117,6 +121,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [mode, setMode] = useState<ModalMode>('view')
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
   const [loadingReceipt, setLoadingReceipt] = useState(false)
+  const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
+  const [showSendToQbModal, setShowSendToQbModal] = useState(false)
 
   // Edit form state
   const [propertyId, setPropertyId] = useState('')
@@ -131,6 +137,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [isTaxDeductible, setIsTaxDeductible] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid')
+  // QuickBooks per-expense type override; '' = inherit connection default.
+  const [editQbEntityType, setEditQbEntityType] = useState<'' | 'purchase' | 'bill'>('')
   const [submitting, setSubmitting] = useState(false)
 
   // Tax breakdown state
@@ -188,6 +196,20 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       loadReferenceData()
     }
   }, [isOpen, expenseId, effectiveUserId])
+
+  // Pull QB connection state once when the modal opens; drives visibility of
+  // the "Send to QuickBooks" header button.
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    getQbConnection()
+      .then((res) => {
+        if (cancelled) return
+        if (res.status === 'success') setQbConnection(res.data)
+      })
+      .catch(() => { /* hide the button on failure */ })
+    return () => { cancelled = true }
+  }, [isOpen])
 
   // Load bookings when property changes in edit mode
   useEffect(() => {
@@ -314,6 +336,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setIsTaxDeductible(exp.isTaxDeductible)
     setPaymentMethod(exp.paymentMethod || 'credit_card')
     setPaymentStatus(exp.paymentStatus)
+    setEditQbEntityType(exp.qbEntityType || '')
     setEditPaidById(exp.paidById || profile?.id || null)
     setEditPaidByType(exp.paidByType || 'PROPERTY-MANAGER')
 
@@ -394,6 +417,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         taxTotal: calculatedTaxTotal > 0 ? calculatedTaxTotal : undefined,
         paidByType: editPaidByType,
         paidById: editPaidById,
+        // null clears the override; '' is mapped to null so the connection default applies.
+        qbEntityType: editQbEntityType === '' ? null : editQbEntityType,
       }
 
       const response = await updateExpense(expense.id, payload)
@@ -825,6 +850,18 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           </div>
           {hasWrite && (
             <div className="flex gap-2">
+              {qbConnection?.connected
+                && qbConnection.status !== 'expired'
+                && expense.qbSyncStatus !== 'synced' && (
+                <button
+                  onClick={() => setShowSendToQbModal(true)}
+                  className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                  title="Send this expense to QuickBooks"
+                >
+                  <ArrowUpTrayIcon className="w-4 h-4" />
+                  Send to QB
+                </button>
+              )}
               <button
                 onClick={() => handleModeSwitch('edit')}
                 className="cursor-pointer p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1188,18 +1225,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">No category (incomplete)</option>
-              <optgroup label="Default Categories">
-                {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat.code} value={cat.code}>{cat.label}</option>
-                ))}
-              </optgroup>
-              {categories.length > 0 && (
-                <optgroup label="Custom Categories">
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.code}>{cat.label}</option>
-                  ))}
-                </optgroup>
-              )}
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.code}>{cat.label}</option>
+              ))}
             </select>
             {!category && (
               <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>
@@ -1255,6 +1283,22 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               {PAYMENT_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              QuickBooks Type
+              <span className="ml-1 text-xs font-normal text-gray-500">(optional)</span>
+            </label>
+            <select
+              value={editQbEntityType}
+              onChange={(e) => setEditQbEntityType(e.target.value as '' | 'purchase' | 'bill')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Use account default</option>
+              <option value="purchase">Purchase (paid)</option>
+              <option value="bill">Bill (unpaid)</option>
             </select>
           </div>
         </div>
@@ -1646,6 +1690,21 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           Close
         </button>
       </div>
+
+      {expense && (
+        <SendToQbModal
+          isOpen={showSendToQbModal}
+          onClose={() => setShowSendToQbModal(false)}
+          expenseId={expense.id}
+          vendorName={expense.vendorName || null}
+          hasReceipt={!!expense.receiptPath || !!expense.receiptId}
+          connectionDefaultEntityType={(qbConnection?.defaultQbEntityType as QbEntityType) || 'purchase'}
+          onSynced={() => {
+            // Refresh the expense so the badge flips to 'synced'.
+            fetchExpense()
+          }}
+        />
+      )}
     </Modal>
 
     {/* Stacked modals for related entities */}

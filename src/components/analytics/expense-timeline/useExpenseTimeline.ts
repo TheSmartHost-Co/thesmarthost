@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getExpenseAnalytics, getExpenseDrilldown } from '@/services/expenseAnalyticsService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getCurrentMonthRange } from '@/services/analyticsService'
-import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import type {
   DateRange,
@@ -97,11 +96,13 @@ export function useExpenseTimeline(userId: string) {
   }, [filters, crossFilter])
 
   // --- Category map ---
+  // Built from API-fetched categories. Backend lazy-seeds canonical defaults
+  // into expense_categories on first read, so once getCategoriesByUserId
+  // resolves this map covers every code an expense might have. Codes not in
+  // the map (legacy free-text values) fall through to the chart's "Other"
+  // bucket — same treatment as before, just no hardcoded fallback list.
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryInfo>()
-    for (const cat of DEFAULT_EXPENSE_CATEGORIES) {
-      map.set(cat.code, { code: cat.code, label: cat.label, colorHex: cat.colorHex })
-    }
     for (const cat of userCategories) {
       map.set(cat.code, { code: cat.code, label: cat.label, colorHex: cat.colorHex || '#6B7280' })
     }

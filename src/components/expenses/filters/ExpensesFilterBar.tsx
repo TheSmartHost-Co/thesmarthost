@@ -17,7 +17,6 @@ import type {
 } from '@/services/types/expense'
 import type { Property } from '@/services/types/property'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
   { value: 'paid',       label: 'Paid' },
@@ -83,25 +82,13 @@ export default function ExpensesFilterBar({
     secondaryLabel: p.address,
   }))
 
-  // Combined category options. User-defined categories override defaults that
-  // share the same `code` (e.g. a custom "MAINT") so the chip list stays unique
-  // and the user's preferred label/color wins.
-  const categoryByCode = new Map<string, { value: string; label: string; colorHex: string }>()
-  DEFAULT_EXPENSE_CATEGORIES.forEach((cat) => {
-    categoryByCode.set(cat.code, {
-      value: cat.code,
-      label: cat.label,
-      colorHex: cat.colorHex,
-    })
-  })
-  categories.forEach((cat) => {
-    categoryByCode.set(cat.code, {
-      value: cat.code,
-      label: cat.label,
-      colorHex: cat.colorHex || '#6B7280',
-    })
-  })
-  const categoryOptions = Array.from(categoryByCode.values())
+  // Category options come straight from the API-fetched list. The backend
+  // lazy-seeds canonical defaults, so this list contains them automatically.
+  const categoryOptions = categories.map((cat) => ({
+    value: cat.code,
+    label: cat.label,
+    colorHex: cat.colorHex || '#6B7280',
+  }))
 
   const update = (patch: Partial<ExpenseFilterState>) => onChange({ ...state, ...patch })
 

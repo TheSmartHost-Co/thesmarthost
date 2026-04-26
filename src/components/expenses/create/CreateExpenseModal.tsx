@@ -15,7 +15,7 @@ import { parseLocalDate } from '@/utils/dateUtils'
 import type { CreateExpensePayload, Expense, PaymentMethod, PaymentStatus } from '@/services/types/expense'
 import type { PaidByType } from '@/services/types/receipt'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
+import { getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -72,6 +72,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [isTaxDeductible, setIsTaxDeductible] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid')
+  // QuickBooks per-expense type override. '' = use connection default.
+  const [qbEntityType, setQbEntityType] = useState<'' | 'purchase' | 'bill'>('')
 
   // Tax breakdown state
   const [subtotal, setSubtotal] = useState('')
@@ -241,6 +243,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setIsReimbursable(false)
     setIsTaxDeductible(false)
     setPaymentMethod('credit_card')
+    setQbEntityType('')
     setPaymentStatus('paid')
     setSelectedFile(null)
     setSubtotal('')
@@ -347,6 +350,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         taxTotal: taxTotal || undefined,
         paidById,
         paidByType,
+        qbEntityType: qbEntityType || undefined,
       }
 
       const response = await createExpense(payload)
@@ -463,22 +467,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 }}
               >
                 <option value="">No category (incomplete)</option>
-                <optgroup label="Default Categories">
-                  {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                    <option key={cat.code} value={cat.code}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </optgroup>
-                {categories.length > 0 && (
-                  <optgroup label="Custom Categories">
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.code}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.code}>
+                    {cat.label}
+                  </option>
+                ))}
               </select>
               {!category && (
                 <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>
@@ -540,6 +533,22 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                     {status.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                QuickBooks Type
+                <span className="ml-1 text-xs font-normal text-gray-500">(optional)</span>
+              </label>
+              <select
+                value={qbEntityType}
+                onChange={(e) => setQbEntityType(e.target.value as '' | 'purchase' | 'bill')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Use account default</option>
+                <option value="purchase">Purchase (paid)</option>
+                <option value="bill">Bill (unpaid)</option>
               </select>
             </div>
           </div>

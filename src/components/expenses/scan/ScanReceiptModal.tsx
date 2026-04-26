@@ -8,7 +8,6 @@ import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import type { OcrReceiptData, PaymentMethod, CreateExpensePayload } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -571,18 +570,9 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">No category (incomplete)</option>
-            <optgroup label="Default Categories">
-              {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                <option key={cat.code} value={cat.code}>{cat.label}</option>
-              ))}
-            </optgroup>
-            {categories.length > 0 && (
-              <optgroup label="Custom Categories">
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.code}>{cat.label}</option>
-                ))}
-              </optgroup>
-            )}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.code}>{cat.label}</option>
+            ))}
           </select>
           {!category && (
             <p className="mt-1 text-xs text-amber-600">Expenses without a category will be flagged as incomplete</p>

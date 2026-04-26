@@ -12,7 +12,7 @@ import { getUserProfile } from '@/services/profileService'
 import type { CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
 import type { Property } from '@/services/types/property'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
+import { getCategoryByCode } from '@/services/types/expenseCategories'
 import type { PaidByType } from '@/services/types/receipt'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -102,14 +102,12 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
     }))
   }, [properties])
 
-  // Combined categories (user + defaults)
-  const categoryOptions = useMemo(() => {
-    const userCats = categories.map(c => ({ value: c.code, label: c.label }))
-    const defaultCats = DEFAULT_EXPENSE_CATEGORIES
-      .filter(dc => !categories.some(uc => uc.code === dc.code))
-      .map(dc => ({ value: dc.code, label: dc.label }))
-    return [...userCats, ...defaultCats]
-  }, [categories])
+  // Categories from API; backend lazy-seeds canonical defaults so this is
+  // guaranteed to contain the standard list once loadData() resolves.
+  const categoryOptions = useMemo(
+    () => categories.map((c) => ({ value: c.code, label: c.label })),
+    [categories]
+  )
 
   const getCategoryColor = (categoryCode: string) => {
     const catInfo = getCategoryByCode(categoryCode, categories)
@@ -344,18 +342,9 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
                 }}
               >
                 <option value="">{t('noCategoryIncomplete')}</option>
-                <optgroup label="Default Categories">
-                  {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                    <option key={cat.code} value={cat.code}>{cat.label}</option>
-                  ))}
-                </optgroup>
-                {categories.length > 0 && (
-                  <optgroup label="Custom Categories">
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.code}>{cat.label}</option>
-                    ))}
-                  </optgroup>
-                )}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.code}>{cat.label}</option>
+                ))}
               </select>
             </div>
 

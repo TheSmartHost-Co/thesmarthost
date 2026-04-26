@@ -28,6 +28,7 @@ import { getConnectionByUserId as getHospitableConnection, disconnectHospitable 
 import HostawayConnectionModal from '@/components/connection/hostaway/HostawayConnectionModal'
 import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnectionModal'
 import HospitableConnectionModal from '@/components/connection/hospitable/HospitableConnectionModal'
+import QuickBooksSection from '@/components/quickbooks/QuickBooksSection'
 import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscriptionsSection'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
@@ -1028,6 +1029,9 @@ export default function PropertyManagerSettingsPage() {
                 </div>
               )}
             </div>
+
+            {/* QuickBooks Online */}
+            <QuickBooksSection canWrite={canWrite('settings')} />
 
             {/* Future PMS integrations placeholder */}
             <div className="p-6 border-2 border-dashed border-gray-200 rounded-xl">

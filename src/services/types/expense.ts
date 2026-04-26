@@ -134,6 +134,8 @@ export interface Expense {
   paymentMethod?: PaymentMethod
   paymentStatus: PaymentStatus
   qbSyncStatus?: QbSyncStatus | null
+  qbEntityType?: 'purchase' | 'bill' | null
+  qbEntityId?: string | null
   receiptStatus?: ReceiptStatus | null
   isRecurring: boolean
   recurringFrequency?: RecurringFrequency
@@ -190,6 +192,8 @@ export interface CreateExpensePayload {
   ocrConfidence?: OcrConfidence
   paidByType?: PaidByType | null
   paidById?: string | null
+  /** QuickBooks per-expense override; null/omitted = use connection default. */
+  qbEntityType?: 'purchase' | 'bill' | null
 }
 
 /**
@@ -220,6 +224,8 @@ export interface UpdateExpensePayload {
   taxTotal?: number
   paidByType?: PaidByType | null
   paidById?: string | null
+  /** QuickBooks per-expense override; null clears the override. */
+  qbEntityType?: 'purchase' | 'bill' | null
 }
 
 /**

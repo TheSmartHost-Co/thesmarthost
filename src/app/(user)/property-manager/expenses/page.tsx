@@ -60,6 +60,7 @@ import {
   CameraIcon,
   DocumentArrowUpIcon,
   ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
   CheckCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
@@ -81,6 +82,8 @@ import ColumnsToggle, {
 } from '@/components/expenses/filters/ColumnsToggle'
 import BulkActionsToolbar, { type BulkAction } from '@/components/shared/BulkActionsToolbar'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
+import { bulkSyncExpensesToQb, getConnection as getQbConnection } from '@/services/quickbooksService'
+import type { QbConnection } from '@/services/types/quickbooks'
 
 // ─── Column registry ────────────────────────────────────────────
 
@@ -206,6 +209,19 @@ function ExpensesContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
+
+  // QuickBooks connection (drives the visibility of the Send-to-QB bulk action).
+  const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getQbConnection()
+      .then((res) => {
+        if (cancelled) return
+        if (res.status === 'success') setQbConnection(res.data)
+      })
+      .catch(() => { /* non-fatal: just hides the bulk action */ })
+    return () => { cancelled = true }
+  }, [])
 
   // Saved views
   const [presets, setPresets] = useState<ExpenseFilterPreset[]>([])
@@ -414,6 +430,46 @@ function ExpensesContent() {
     }
   }
 
+  const sendSelectedToQuickbooks = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const res = await bulkSyncExpensesToQb({ expenseIds: ids, includeReceipts: true })
+      if (res.status === 'success') {
+        const { enqueued, skipped } = res.data
+        if (enqueued > 0) {
+          showNotification(
+            skipped.length > 0
+              ? `Queued ${enqueued} for QuickBooks (${skipped.length} skipped)`
+              : `Queued ${enqueued} for QuickBooks`,
+            skipped.length > 0 ? 'info' : 'success'
+          )
+        } else {
+          showNotification(
+            skipped.length > 0
+              ? `Nothing queued — all ${skipped.length} expenses skipped (e.g. unmapped category)`
+              : 'No expenses to queue',
+            'error'
+          )
+        }
+        // Refresh so qb_sync_status flips visible for items that pre-flighted as already_synced
+        loadExpenses()
+        setSelectedIds(new Set())
+      } else {
+        if (res.code === 'connection_inactive') {
+          showNotification('Connect QuickBooks first (Settings → Integrations)', 'error')
+        } else {
+          showNotification(res.message || 'Failed to send to QuickBooks', 'error')
+        }
+      }
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   const exportCurrent = async (format: 'csv' | 'xlsx') => {
     if (!effectiveUserId) return
     try {
@@ -434,8 +490,14 @@ function ExpensesContent() {
     { label: 'Export CSV',        icon: ArrowDownTrayIcon,  onClick: () => exportSelectedRows('csv'),    disabled: bulkBusy },
     { label: 'Export XLSX',       icon: ArrowDownTrayIcon,  onClick: () => exportSelectedRows('xlsx'),   disabled: bulkBusy },
     { label: 'Delete',            icon: TrashIcon,          variant: 'danger', onClick: () => setShowBulkDeleteModal(true), disabled: bulkBusy },
-    // Next 3 — QuickBooks: literally one new line here.
-    // { label: 'Send to QuickBooks', icon: ArrowUpTrayIcon, onClick: () => qbSendBulk(Array.from(selectedIds)) },
+    ...(qbConnection?.connected && qbConnection.status !== 'expired'
+      ? [{
+          label: 'Send to QuickBooks',
+          icon: ArrowUpTrayIcon,
+          onClick: () => sendSelectedToQuickbooks(),
+          disabled: bulkBusy,
+        } as BulkAction]
+      : []),
   ]
 
   // ─── Row actions ──────────────────────────────────────────────
