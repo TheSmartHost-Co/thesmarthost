@@ -18,7 +18,7 @@ interface MatchRowProps {
   onUndelete: () => void
 }
 
-const fmt = (v: number) => `$${v.toFixed(2)}`
+const fmt = (v: number) => `$${Number(v).toFixed(2)}`
 
 export default function MatchRow({
   row,
