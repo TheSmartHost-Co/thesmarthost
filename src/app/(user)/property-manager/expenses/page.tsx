@@ -63,10 +63,12 @@ import {
   ArrowUpTrayIcon,
   CheckCircleIcon,
   XMarkIcon,
+  LinkIcon,
 } from '@heroicons/react/24/outline'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
+import QbMappingModal from '@/components/quickbooks/QbMappingModal'
 import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 import BulkImportExpenseModal from '@/components/expense/import/BulkImportExpenseModal'
 import BulkUploadReceiptModal from '@/components/receipt/upload/BulkUploadReceiptModal'
@@ -247,6 +249,7 @@ function ExpensesContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewerModal, setShowViewerModal] = useState(false)
   const [showCategoriesModal, setShowCategoriesModal] = useState(false)
+  const [showQbMappingModal, setShowQbMappingModal] = useState(false)
   const [showScanModal, setShowScanModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
@@ -641,6 +644,26 @@ function ExpensesContent() {
               Categories
             </motion.button>
           )}
+          {canWrite('expenses') && qbConnection?.connected && (() => {
+            const isExpired = qbConnection.status === 'expired'
+            return (
+              <motion.button
+                onClick={() => { if (!isExpired) setShowQbMappingModal(true) }}
+                disabled={isExpired}
+                title={isExpired ? 'Reconnect QuickBooks to manage mappings' : undefined}
+                whileHover={!isExpired ? { scale: 1.02 } : undefined}
+                whileTap={!isExpired ? { scale: 0.98 } : undefined}
+                className={`inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition-colors ${
+                  isExpired
+                    ? 'bg-indigo-300 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                QB Mappings
+              </motion.button>
+            )
+          })()}
           {canWrite('expenses') && (
             <motion.button
               onClick={() => setShowBulkImportModal(true)}
@@ -1031,6 +1054,12 @@ function ExpensesContent() {
             })
           }
         }}
+      />
+
+      <QbMappingModal
+        isOpen={showQbMappingModal}
+        onClose={() => setShowQbMappingModal(false)}
+        isConnected={!!qbConnection?.connected && qbConnection.status !== 'expired'}
       />
 
       <ScanReceiptModal

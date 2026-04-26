@@ -82,6 +82,10 @@ export interface QbAccountMappingResponse {
 export interface SyncExpensePayload {
   qbEntityType?: QbEntityType
   includeReceipt?: boolean
+  /** Per-send override for the line-level expense AccountRef. Transient — does not update saved category mappings. */
+  qbAccountId?: string
+  /** Per-send override for the top-level Purchase AccountRef. Ignored for Bills. Transient — does not update connection default. */
+  paymentAccountId?: string
 }
 
 export interface SyncExpenseResult {

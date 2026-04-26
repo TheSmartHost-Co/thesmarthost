@@ -1699,6 +1699,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           vendorName={expense.vendorName || null}
           hasReceipt={!!expense.receiptPath || !!expense.receiptId}
           connectionDefaultEntityType={(qbConnection?.defaultQbEntityType as QbEntityType) || 'purchase'}
+          categoryCode={expense.category}
+          expenseAmount={Number(expense.amount)}
           onSynced={() => {
             // Refresh the expense so the badge flips to 'synced'.
             fetchExpense()
