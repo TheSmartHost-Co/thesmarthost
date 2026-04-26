@@ -26,7 +26,9 @@ import {
 } from '@heroicons/react/24/outline'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { getProperties, calculatePropertyStats, formatOwnerDisplay } from '@/services/propertyService'
+import { exportExpenses } from '@/services/expenseService'
 import { getClientsByParentId } from '@/services/clientService'
+import { useNotificationStore } from '@/store/useNotificationStore'
 import { Property } from '@/services/types/property'
 import { Client } from '@/services/types/client'
 import { useUserStore } from '@/store/useUserStore'
@@ -98,6 +100,29 @@ export default function PropertyManagerPropertiesPage() {
   const { t } = useTranslation('properties')
   usePermissionGuard('properties')
   const { effectiveUserId, canWrite } = usePermissions()
+  const { showNotification } = useNotificationStore()
+
+  /**
+   * Per-property "Export expenses" — there is no /properties/[id] detail page,
+   * so the row-action slot is the natural home for this entry point. The
+   * page-level expenses page also exposes export with full filter control.
+   */
+  const handleExportPropertyExpenses = async (property: Property, format: 'csv' | 'xlsx') => {
+    if (!effectiveUserId) return
+    try {
+      const result = await exportExpenses({
+        format,
+        userId: effectiveUserId,
+        filters: { userId: effectiveUserId, propertyIds: [property.id] },
+      })
+      showNotification(
+        `Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'} for ${property.listingName}`,
+        'success'
+      )
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+    }
+  }
 
   // Refresh all properties from server
   const refreshProperties = useCallback(async () => {
@@ -347,6 +372,18 @@ export default function PropertyManagerPropertiesPage() {
         label: 'iCal Feeds',
         icon: CalendarDaysIcon,
         onClick: () => handleOpenICal(property),
+        variant: 'default'
+      },
+      {
+        label: 'Export expenses (XLSX)',
+        icon: ArrowDownTrayIcon,
+        onClick: () => handleExportPropertyExpenses(property, 'xlsx'),
+        variant: 'default'
+      },
+      {
+        label: 'Export expenses (CSV)',
+        icon: ArrowDownTrayIcon,
+        onClick: () => handleExportPropertyExpenses(property, 'csv'),
         variant: 'default'
       }
     )

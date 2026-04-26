@@ -21,13 +21,9 @@ export interface SearchableSelectHeaderAction {
   onClick: () => void
 }
 
-export interface SearchableSelectProps<T = string> {
+interface SearchableSelectBaseProps<T = string> {
   /** Array of options to display */
   options: SearchableSelectOption<T>[]
-  /** Currently selected value */
-  value: T | null
-  /** Callback when selection changes */
-  onChange: (value: T | null) => void
   /** Placeholder text when no selection */
   placeholder?: string
   /** Label for the field (optional, handled externally typically) */
@@ -46,7 +42,7 @@ export interface SearchableSelectProps<T = string> {
   error?: string
   /** Custom class for the container */
   className?: string
-  /** Allow clearing the selection */
+  /** Allow clearing the selection (multi-select: clears the array) */
   clearable?: boolean
   /** Custom filter function (defaults to label + secondaryLabel matching) */
   filterFn?: (option: SearchableSelectOption<T>, query: string) => boolean
@@ -58,25 +54,38 @@ export interface SearchableSelectProps<T = string> {
   headerAction?: SearchableSelectHeaderAction
 }
 
-function SearchableSelect<T = string>({
-  options,
-  value,
-  onChange,
-  placeholder = 'Select an option...',
-  label,
-  required = false,
-  disabled = false,
-  loading = false,
-  loadingText = 'Loading...',
-  emptyText = 'No results found',
-  error,
-  className = '',
-  clearable = true,
-  filterFn,
-  renderOption,
-  id,
-  headerAction,
-}: SearchableSelectProps<T>) {
+interface SearchableSelectSingleProps<T = string> extends SearchableSelectBaseProps<T> {
+  multiSelect?: false
+  value: T | null
+  onChange: (value: T | null) => void
+}
+
+interface SearchableSelectMultiProps<T = string> extends SearchableSelectBaseProps<T> {
+  multiSelect: true
+  value: T[]
+  onChange: (value: T[]) => void
+}
+
+export type SearchableSelectProps<T = string> = SearchableSelectSingleProps<T> | SearchableSelectMultiProps<T>
+
+function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
+  const {
+    options,
+    placeholder = 'Select an option...',
+    label,
+    required = false,
+    disabled = false,
+    loading = false,
+    loadingText = 'Loading...',
+    emptyText = 'No results found',
+    error,
+    className = '',
+    clearable = true,
+    filterFn,
+    renderOption,
+    id,
+    headerAction,
+  } = props
   const { t } = useTranslation('common')
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -88,10 +97,27 @@ function SearchableSelect<T = string>({
 
   const componentId = id || `searchable-select-${Math.random().toString(36).slice(2, 9)}`
 
-  // Find the selected option
+  const isMulti = props.multiSelect === true
+
+  // Active selection set / single
+  const selectedSet = useMemo(() => {
+    if (isMulti) return new Set<T>(props.value)
+    return null
+  }, [isMulti, props.value])
+
   const selectedOption = useMemo(() => {
-    return options.find(opt => opt.value === value) || null
-  }, [options, value])
+    if (isMulti) return null
+    return options.find((opt) => opt.value === (props.value as T | null)) || null
+  }, [options, props.value, isMulti])
+
+  const isOptionSelected = useCallback(
+    (option: SearchableSelectOption<T>) => {
+      return isMulti
+        ? selectedSet!.has(option.value)
+        : (props.value as T | null) === option.value
+    },
+    [isMulti, selectedSet, props.value]
+  )
 
   // Filter options based on query
   const filteredOptions = useMemo(() => {
@@ -100,10 +126,10 @@ function SearchableSelect<T = string>({
     const normalizedQuery = query.toLowerCase().trim()
 
     if (filterFn) {
-      return options.filter(opt => filterFn(opt, normalizedQuery))
+      return options.filter((opt) => filterFn(opt, normalizedQuery))
     }
 
-    return options.filter(opt => {
+    return options.filter((opt) => {
       const labelMatch = opt.label.toLowerCase().includes(normalizedQuery)
       const secondaryMatch = opt.secondaryLabel?.toLowerCase().includes(normalizedQuery)
       return labelMatch || secondaryMatch
@@ -151,53 +177,75 @@ function SearchableSelect<T = string>({
     setQuery('')
   }, [])
 
-  const handleSelect = useCallback((option: SearchableSelectOption<T>) => {
-    if (option.disabled) return
-    onChange(option.value)
-    handleClose()
-  }, [onChange, handleClose])
-
-  const handleClear = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    onChange(null)
-    setQuery('')
-  }, [onChange])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        handleOpen()
+  const handleSelect = useCallback(
+    (option: SearchableSelectOption<T>) => {
+      if (option.disabled) return
+      if (isMulti) {
+        const current = (props.value as T[]) || []
+        const next = current.includes(option.value)
+          ? current.filter((v) => v !== option.value)
+          : [...current, option.value]
+        ;(props.onChange as (v: T[]) => void)(next)
+        // Keep the dropdown open for multi-select so the user can pick more.
+      } else {
+        ;(props.onChange as (v: T | null) => void)(option.value)
+        handleClose()
       }
-      return
-    }
+    },
+    [isMulti, props, handleClose]
+  )
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setHighlightedIndex(prev =>
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setHighlightedIndex(prev => prev > 0 ? prev - 1 : 0)
-        break
-      case 'Enter':
-        e.preventDefault()
-        if (filteredOptions[highlightedIndex]) {
-          handleSelect(filteredOptions[highlightedIndex])
+  const handleClear = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (isMulti) {
+        ;(props.onChange as (v: T[]) => void)([])
+      } else {
+        ;(props.onChange as (v: T | null) => void)(null)
+      }
+      setQuery('')
+    },
+    [isMulti, props]
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!isOpen) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          handleOpen()
         }
-        break
-      case 'Escape':
-        e.preventDefault()
-        handleClose()
-        break
-      case 'Tab':
-        handleClose()
-        break
-    }
-  }, [isOpen, filteredOptions, highlightedIndex, handleOpen, handleClose, handleSelect])
+        return
+      }
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setHighlightedIndex((prev) =>
+            prev < filteredOptions.length - 1 ? prev + 1 : prev
+          )
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0))
+          break
+        case 'Enter':
+          e.preventDefault()
+          if (filteredOptions[highlightedIndex]) {
+            handleSelect(filteredOptions[highlightedIndex])
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          handleClose()
+          break
+        case 'Tab':
+          handleClose()
+          break
+      }
+    },
+    [isOpen, filteredOptions, highlightedIndex, handleOpen, handleClose, handleSelect]
+  )
 
   // Default option renderer
   const defaultRenderOption = (
@@ -222,16 +270,59 @@ function SearchableSelect<T = string>({
     </div>
   )
 
+  // ─── Trigger label ───────────────────────────────────────────
+  const renderTriggerContent = () => {
+    if (loading) {
+      return (
+        <span className="flex items-center gap-2 text-gray-400">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+          {loadingText}
+        </span>
+      )
+    }
+
+    if (isMulti) {
+      const count = selectedSet!.size
+      if (count === 0) return <span className="text-gray-400">{placeholder}</span>
+      // Show first label + "+N" overflow when more than one
+      const firstSelected = options.find((opt) => selectedSet!.has(opt.value))
+      return (
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="block truncate text-gray-900">
+            {firstSelected?.label || `${count} selected`}
+          </span>
+          {count > 1 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold flex-shrink-0">
+              +{count - 1}
+            </span>
+          )}
+        </div>
+      )
+    }
+
+    if (selectedOption) {
+      return (
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex-1 min-w-0">
+            <span className="block truncate text-gray-900">{selectedOption.label}</span>
+            {selectedOption.secondaryLabel && (
+              <span className="block truncate text-xs text-gray-500">{selectedOption.secondaryLabel}</span>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return <span className="text-gray-400">{placeholder}</span>
+  }
+
+  const showClearButton =
+    clearable && !disabled && (isMulti ? selectedSet!.size > 0 : Boolean(selectedOption))
+
   return (
-    <div
-      ref={containerRef}
-      className={`relative ${className}`}
-    >
+    <div ref={containerRef} className={`relative ${className}`}>
       {label && (
-        <label
-          htmlFor={componentId}
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
+        <label htmlFor={componentId} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
@@ -257,27 +348,11 @@ function SearchableSelect<T = string>({
           ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'}
         `}
       >
-        {loading ? (
-          <span className="flex items-center gap-2 text-gray-400">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-            {loadingText}
-          </span>
-        ) : selectedOption ? (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex-1 min-w-0">
-              <span className="block truncate text-gray-900">{selectedOption.label}</span>
-              {selectedOption.secondaryLabel && (
-                <span className="block truncate text-xs text-gray-500">{selectedOption.secondaryLabel}</span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <span className="text-gray-400">{placeholder}</span>
-        )}
+        {renderTriggerContent()}
 
         {/* Right side icons */}
         <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
-          {clearable && selectedOption && !disabled && (
+          {showClearButton && (
             <button
               type="button"
               onClick={handleClear}
@@ -350,6 +425,7 @@ function SearchableSelect<T = string>({
             id={`${componentId}-listbox`}
             role="listbox"
             aria-label={label || 'Options'}
+            aria-multiselectable={isMulti}
             className="max-h-60 overflow-y-auto py-1 scroll-smooth"
           >
             {filteredOptions.length === 0 ? (
@@ -361,7 +437,7 @@ function SearchableSelect<T = string>({
               </li>
             ) : (
               filteredOptions.map((option, index) => {
-                const isSelected = option.value === value
+                const isSelected = isOptionSelected(option)
                 const isHighlighted = index === highlightedIndex
 
                 return (
@@ -411,9 +487,7 @@ function SearchableSelect<T = string>({
       )}
 
       {/* Error Message */}
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

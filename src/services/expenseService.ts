@@ -1,6 +1,6 @@
 // Expense Service - API calls for expense management
 
-import apiClient from './apiClient'
+import apiClient, { getAuthHeaders } from './apiClient'
 import type {
   Expense,
   ExpenseResponse,
@@ -16,6 +16,10 @@ import type {
   ExpenseTotals,
   BulkExpensePayload,
   BulkImportExpensesResponse,
+  BulkUpdateExpensesResponse,
+  BulkDeleteExpensesResponse,
+  ExportExpensesResult,
+  PaymentStatus,
   ExpenseLineItemsResponse,
   ExpenseLineItemResponse,
   CreateExpenseLineItemPayload,
@@ -23,36 +27,57 @@ import type {
 } from './types/expense'
 
 /**
- * Get all expenses for a user with optional filters
- * @param filters - Filter options (userId required, others optional)
- * @returns Promise with expenses array
+ * Build the URLSearchParams for the expense filter contract. Shared by
+ * getExpenses() and exportExpenses() so both endpoints see identical filters.
  */
-export async function getExpenses(filters: ExpenseFilters): Promise<ExpensesResponse> {
+function buildExpenseFilterParams(filters: ExpenseFilters): URLSearchParams {
   const params = new URLSearchParams()
   params.append('userId', filters.userId)
 
-  if (filters.propertyId) {
-    params.append('propertyId', filters.propertyId)
+  // Single-value back-compat
+  if (filters.propertyId) params.append('propertyId', filters.propertyId)
+  if (filters.bookingId) params.append('bookingId', filters.bookingId)
+  if (filters.category) params.append('category', filters.category)
+  if (filters.paymentStatus) params.append('paymentStatus', filters.paymentStatus)
+
+  // Multi-value
+  if (filters.propertyIds && filters.propertyIds.length > 0) {
+    params.append('propertyIds', filters.propertyIds.join(','))
   }
-  if (filters.bookingId) {
-    params.append('bookingId', filters.bookingId)
+  if (filters.categories && filters.categories.length > 0) {
+    params.append('categories', filters.categories.join(','))
   }
-  if (filters.category) {
-    params.append('category', filters.category)
+  if (filters.paymentStatuses && filters.paymentStatuses.length > 0) {
+    params.append('paymentStatuses', filters.paymentStatuses.join(','))
   }
-  if (filters.startDate) {
-    params.append('startDate', filters.startDate)
+  if (filters.qbSyncStatuses && filters.qbSyncStatuses.length > 0) {
+    params.append('qbSyncStatuses', filters.qbSyncStatuses.join(','))
   }
-  if (filters.endDate) {
-    params.append('endDate', filters.endDate)
+  if (filters.receiptStatuses && filters.receiptStatuses.length > 0) {
+    params.append('receiptStatuses', filters.receiptStatuses.join(','))
   }
+  if (filters.hasReceipt !== undefined) {
+    params.append('hasReceipt', String(filters.hasReceipt))
+  }
+  if (filters.search) params.append('search', filters.search)
+
+  // Common
+  if (filters.startDate) params.append('startDate', filters.startDate)
+  if (filters.endDate) params.append('endDate', filters.endDate)
   if (filters.isReimbursable !== undefined) {
     params.append('isReimbursable', filters.isReimbursable.toString())
   }
-  if (filters.paymentStatus) {
-    params.append('paymentStatus', filters.paymentStatus)
-  }
 
+  return params
+}
+
+/**
+ * Get all expenses for a user with optional filters.
+ * Single-value (`propertyId`) and multi-value (`propertyIds`) filters are both
+ * accepted; the backend merges them.
+ */
+export async function getExpenses(filters: ExpenseFilters): Promise<ExpensesResponse> {
+  const params = buildExpenseFilterParams(filters)
   return apiClient<ExpensesResponse>(`/expenses?${params.toString()}`)
 }
 
@@ -196,6 +221,99 @@ export async function bulkImportExpenses(
     method: 'POST',
     body: { userId, expenses },
   })
+}
+
+/**
+ * Bulk-update payment status across N expenses (per-row, no transaction
+ * around the loop — partial failure semantics).
+ */
+export async function bulkUpdateExpenses(
+  expenseIds: string[],
+  patch: { paymentStatus: PaymentStatus }
+): Promise<BulkUpdateExpensesResponse> {
+  return apiClient<BulkUpdateExpensesResponse, { expenseIds: string[]; patch: typeof patch }>(
+    '/expenses/bulk-update',
+    { method: 'POST', body: { expenseIds, patch } }
+  )
+}
+
+/**
+ * Bulk-delete N expenses (per-row, partial failure semantics).
+ */
+export async function bulkDeleteExpenses(
+  expenseIds: string[]
+): Promise<BulkDeleteExpensesResponse> {
+  return apiClient<BulkDeleteExpensesResponse, { expenseIds: string[] }>(
+    '/expenses/bulk-delete',
+    { method: 'POST', body: { expenseIds } }
+  )
+}
+
+/**
+ * Trigger a CSV/XLSX download of the current expense filter set, OR of an
+ * explicit set of expense IDs. Uses raw fetch (apiClient is JSON-only) and
+ * the Supabase access token from getAuthHeaders().
+ *
+ * Throws on non-2xx with a friendly message (413 → row-cap exceeded).
+ */
+export async function exportExpenses(opts: {
+  format: 'csv' | 'xlsx'
+  userId: string
+  filters?: ExpenseFilters       // mutually exclusive with expenseIds
+  expenseIds?: string[]
+}): Promise<ExportExpensesResult> {
+  const { format, userId, filters, expenseIds } = opts
+
+  let params: URLSearchParams
+  if (expenseIds && expenseIds.length > 0) {
+    params = new URLSearchParams()
+    params.append('userId', userId)
+    params.append('expenseIds', expenseIds.join(','))
+  } else if (filters) {
+    params = buildExpenseFilterParams({ ...filters, userId })
+  } else {
+    params = new URLSearchParams()
+    params.append('userId', userId)
+  }
+  params.append('format', format)
+
+  const headers = await getAuthHeaders()
+  const url = `${process.env.NEXT_PUBLIC_BASE_URL}/expenses/export?${params.toString()}`
+  const response = await fetch(url, { headers })
+
+  if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error('Export exceeds the 10,000-row limit. Narrow your filters and try again.')
+    }
+    let message = `Export failed (${response.status})`
+    try {
+      const body = await response.json()
+      if (body && typeof body.message === 'string') message = body.message
+    } catch {
+      /* ignore non-JSON body */
+    }
+    throw new Error(message)
+  }
+
+  // Parse the filename out of Content-Disposition so the OS download lands on
+  // the right name. Fall back to a generic name if the header is missing.
+  const cd = response.headers.get('Content-Disposition') || ''
+  const match = cd.match(/filename="?([^";]+)"?/i)
+  const filename = match ? match[1] : `expenses.${format}`
+
+  const rowCount = Number(response.headers.get('X-Row-Count') || '0') || 0
+
+  const blob = await response.blob()
+  const objectUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(objectUrl)
+
+  return { rowCount, filename }
 }
 
 /**

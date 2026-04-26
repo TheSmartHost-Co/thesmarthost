@@ -49,6 +49,18 @@ export type PaymentMethod = 'cash' | 'credit_card' | 'debit_card' | 'bank_transf
 export type PaymentStatus = 'pending' | 'paid' | 'reimbursed' | 'cancelled'
 
 /**
+ * QuickBooks sync status (column already exists on `expenses`).
+ */
+export type QbSyncStatus = 'pending' | 'synced' | 'failed'
+
+/**
+ * Receipt status (mirrors receipts.status). Surfaced on the expense row via
+ * the LEFT JOIN in selectExpensesByFilters so the UI can filter / display it
+ * without a second round-trip.
+ */
+export type ReceiptStatus = 'pending' | 'matched' | 'failed' | 'applied' | 'archived'
+
+/**
  * Recurring frequency options
  */
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually'
@@ -121,6 +133,8 @@ export interface Expense {
   isTaxDeductible: boolean
   paymentMethod?: PaymentMethod
   paymentStatus: PaymentStatus
+  qbSyncStatus?: QbSyncStatus | null
+  receiptStatus?: ReceiptStatus | null
   isRecurring: boolean
   recurringFrequency?: RecurringFrequency
   recurringEndDate?: string
@@ -209,17 +223,62 @@ export interface UpdateExpensePayload {
 }
 
 /**
- * Filter options for expense queries
+ * Filter options for expense queries.
+ * Single-value fields stay back-compat with existing callers; the array-valued
+ * counterparts power the new multi-select filter bar. Backend `parseExpenseFilters`
+ * accepts either form.
  */
 export interface ExpenseFilters {
   userId: string
+  // Back-compat single-value
   propertyId?: string
   bookingId?: string
   category?: string
+  paymentStatus?: PaymentStatus
+  // Multi-value (new)
+  propertyIds?: string[]
+  categories?: string[]
+  paymentStatuses?: PaymentStatus[]
+  qbSyncStatuses?: QbSyncStatus[]
+  receiptStatuses?: ReceiptStatus[]
+  hasReceipt?: boolean
+  search?: string
+  // Common
   startDate?: string
   endDate?: string
   isReimbursable?: boolean
-  paymentStatus?: PaymentStatus
+}
+
+// ─── Bulk + export response types ──────────────────────────────
+
+export interface BulkExpenseFailure {
+  expenseId: string
+  error: string
+}
+
+export interface BulkUpdateExpensesResponse {
+  status: 'success' | 'failed'
+  data?: {
+    summary: { total: number; updated: number; failed: number }
+    updated: Array<{ expenseId: string }>
+    failed: BulkExpenseFailure[]
+  }
+  message?: string
+}
+
+export interface BulkDeleteExpensesResponse {
+  status: 'success' | 'failed'
+  data?: {
+    summary: { total: number; deleted: number; failed: number }
+    deleted: Array<{ expenseId: string }>
+    failed: BulkExpenseFailure[]
+  }
+  message?: string
+}
+
+export interface ExportExpensesResult {
+  rowCount: number
+  filename: string
 }
 
 /**

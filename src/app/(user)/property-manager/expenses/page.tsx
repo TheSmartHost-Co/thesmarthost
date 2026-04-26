@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -8,26 +9,44 @@ import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
-import { getBookings } from '@/services/bookingService'
 import {
   getExpenses,
   getExpenseSummary,
   deleteExpense,
+  bulkUpdateExpenses,
+  exportExpenses,
   formatCurrency,
-  formatExpenseDate
+  formatExpenseDate,
 } from '@/services/expenseService'
+import {
+  getFilterPresets,
+  createFilterPreset,
+  deleteFilterPreset,
+} from '@/services/expenseFilterPresetService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import type { Property } from '@/services/types/property'
-import type { Booking } from '@/services/types/booking'
-import type { Expense, ExpenseTotals, PaymentStatus } from '@/services/types/expense'
+import type {
+  Expense,
+  ExpenseFilters,
+  ExpenseTotals,
+  PaymentStatus,
+  QbSyncStatus,
+  ReceiptStatus,
+} from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
-import { DEFAULT_EXPENSE_CATEGORIES, getCategoryByCode } from '@/services/types/expenseCategories'
+import { getCategoryByCode } from '@/services/types/expenseCategories'
+import type {
+  ExpenseFilterPreset,
+  ExpenseFilterState,
+  HasReceiptFilter,
+  DateRangePreset,
+} from '@/services/types/expenseFilterPreset'
+import {
+  DEFAULT_EXPENSE_FILTER_STATE,
+  resolveDateRange,
+} from '@/services/types/expenseFilterPreset'
 import {
   PlusIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  XMarkIcon,
-  CalendarDaysIcon,
   CurrencyDollarIcon,
   ReceiptPercentIcon,
   DocumentTextIcon,
@@ -39,57 +58,176 @@ import {
   PencilIcon,
   ReceiptRefundIcon,
   CameraIcon,
-  DocumentArrowUpIcon
+  DocumentArrowUpIcon,
+  ArrowDownTrayIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
-import { parseLocalDate } from '@/utils/dateUtils'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
 import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 import BulkImportExpenseModal from '@/components/expense/import/BulkImportExpenseModal'
 import BulkUploadReceiptModal from '@/components/receipt/upload/BulkUploadReceiptModal'
+import BulkDeleteExpensesModal from '@/components/expenses/delete/BulkDeleteExpensesModal'
+import ExpenseStatusBadges from '@/components/expenses/ExpenseStatusBadges'
+import ExpensesFilterBar from '@/components/expenses/filters/ExpensesFilterBar'
+import SavedViewsDropdown from '@/components/expenses/filters/SavedViewsDropdown'
+import SaveFilterPresetDialog from '@/components/expenses/filters/SaveFilterPresetDialog'
+import ColumnsToggle, {
+  loadVisibleColumns,
+  saveVisibleColumns,
+  type ExpenseColumnDef,
+} from '@/components/expenses/filters/ColumnsToggle'
+import BulkActionsToolbar, { type BulkAction } from '@/components/shared/BulkActionsToolbar'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
-const PAYMENT_STATUSES: { value: PaymentStatus | ''; label: string }[] = [
-  { value: '', label: 'All Statuses' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'reimbursed', label: 'Reimbursed' },
-  { value: 'cancelled', label: 'Cancelled' },
+// ─── Column registry ────────────────────────────────────────────
+
+const COLUMN_DEFS: ExpenseColumnDef[] = [
+  { key: 'date',     label: 'Date',     required: true },
+  { key: 'amount',   label: 'Amount',   required: true },
+  { key: 'category', label: 'Category' },
+  { key: 'property', label: 'Property / Booking' },
+  { key: 'vendor',   label: 'Vendor' },
+  { key: 'paidBy',   label: 'Paid By' },
+  { key: 'status',   label: 'Status (payment + QB sync)' },
+  { key: 'receipt',  label: 'Receipt' },
 ]
+const ALL_COLUMN_KEYS = COLUMN_DEFS.map((c) => c.key)
+
+// ─── URL state serialization ────────────────────────────────────
+
+function joinArr(arr: string[]): string | null {
+  return arr.length === 0 ? null : arr.join(',')
+}
+
+function splitArr(value: string | null): string[] {
+  if (!value) return []
+  return value.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
+function stringifyFilters(state: ExpenseFilterState): URLSearchParams {
+  const p = new URLSearchParams()
+  const set = (k: string, v: string | null) => { if (v !== null && v !== '') p.set(k, v) }
+  set('q', state.search)
+  set('properties', joinArr(state.propertyIds))
+  set('categories', joinArr(state.categories))
+  set('paymentStatuses', joinArr(state.paymentStatuses))
+  set('qbSyncStatuses', joinArr(state.qbSyncStatuses))
+  set('receiptStatuses', joinArr(state.receiptStatuses))
+  if (state.hasReceipt !== 'any') p.set('hasReceipt', state.hasReceipt)
+  if (state.dateRange.preset !== 'thisMonth') p.set('preset', state.dateRange.preset)
+  if (state.dateRange.preset === 'custom') {
+    if (state.dateRange.customStart) p.set('start', state.dateRange.customStart)
+    if (state.dateRange.customEnd) p.set('end', state.dateRange.customEnd)
+  }
+  return p
+}
+
+function parseFiltersFromURL(sp: URLSearchParams): ExpenseFilterState {
+  const presetRaw = sp.get('preset') as DateRangePreset | null
+  const validPreset: DateRangePreset = presetRaw && ['thisMonth', 'lastMonth', 'thisQuarter', 'ytd', 'custom'].includes(presetRaw)
+    ? presetRaw
+    : 'thisMonth'
+  const hasReceiptRaw = sp.get('hasReceipt') as HasReceiptFilter | null
+  const hasReceipt: HasReceiptFilter = hasReceiptRaw && ['any', 'yes', 'no'].includes(hasReceiptRaw)
+    ? hasReceiptRaw
+    : 'any'
+
+  return {
+    search: sp.get('q') || '',
+    propertyIds: splitArr(sp.get('properties')),
+    categories: splitArr(sp.get('categories')),
+    paymentStatuses: splitArr(sp.get('paymentStatuses')) as PaymentStatus[],
+    qbSyncStatuses: splitArr(sp.get('qbSyncStatuses')) as QbSyncStatus[],
+    receiptStatuses: splitArr(sp.get('receiptStatuses')) as ReceiptStatus[],
+    hasReceipt,
+    dateRange: {
+      preset: validPreset,
+      customStart: validPreset === 'custom' ? sp.get('start') : null,
+      customEnd: validPreset === 'custom' ? sp.get('end') : null,
+    },
+  }
+}
+
+// ─── Page shell (Suspense for useSearchParams) ──────────────────
 
 export default function ExpensesPage() {
-  const { profile } = useUserStore()
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ExpensesContent />
+    </Suspense>
+  )
+}
+
+// ─── Page content ───────────────────────────────────────────────
+
+function ExpensesContent() {
+  useUserStore() // keep store warm; profile not directly read here
   const { showNotification } = useNotificationStore()
-  const { t } = useTranslation('expenses')
+  useTranslation('expenses')
   usePermissionGuard('expenses')
   const { effectiveUserId, canWrite } = usePermissions()
 
-  // Data state
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Filter state — initialized from URL on mount, synced back on every change
+  const [filterState, setFilterState] = useState<ExpenseFilterState>(() =>
+    parseFiltersFromURL(searchParams)
+  )
+
+  // Data
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [properties, setProperties] = useState<Property[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [totals, setTotals] = useState<ExpenseTotals | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filter state
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedPropertyId, setSelectedPropertyId] = useState('')
-  const [selectedBookingId, setSelectedBookingId] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const [filterStartDate, setFilterStartDate] = useState('')
-  const [filterEndDate, setFilterEndDate] = useState('')
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState<PaymentStatus | ''>('')
-  const [showFilterPopover, setShowFilterPopover] = useState(false)
-  const filterPopoverRef = useRef<HTMLDivElement>(null)
+  // Bulk-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
 
-  // Pagination state
+  // Saved views
+  const [presets, setPresets] = useState<ExpenseFilterPreset[]>([])
+  const [presetsLoading, setPresetsLoading] = useState(false)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [saveDialogError, setSaveDialogError] = useState<string | null>(null)
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(ALL_COLUMN_KEYS)
+  // Hydrate from localStorage AFTER mount to avoid SSR mismatch
+  useEffect(() => {
+    setVisibleColumns(loadVisibleColumns(ALL_COLUMN_KEYS))
+  }, [])
+  useEffect(() => {
+    saveVisibleColumns(visibleColumns)
+  }, [visibleColumns])
+
+  // Pagination (client-side, like before)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  // Modal state
+  // Modal state for existing flows
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewerModal, setShowViewerModal] = useState(false)
   const [showCategoriesModal, setShowCategoriesModal] = useState(false)
@@ -98,257 +236,248 @@ export default function ExpensesPage() {
   const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
   const [selectedExpenseId, setSelectedExpenseId] = useState('')
 
-  // Load initial data
+  // ─── URL sync (debounced) ─────────────────────────────────────
+  const urlSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (effectiveUserId) {
-      loadData()
-    }
+    if (urlSyncTimer.current) clearTimeout(urlSyncTimer.current)
+    urlSyncTimer.current = setTimeout(() => {
+      const next = stringifyFilters(filterState).toString()
+      router.replace(next ? `?${next}` : '?', { scroll: false })
+    }, 300)
+    return () => { if (urlSyncTimer.current) clearTimeout(urlSyncTimer.current) }
+  }, [filterState, router])
+
+  // ─── Compose API filters from filter state ────────────────────
+  const buildApiFilters = useCallback(
+    (state: ExpenseFilterState): ExpenseFilters => {
+      const { startDate, endDate } = resolveDateRange(state.dateRange)
+      return {
+        userId: effectiveUserId!,
+        propertyIds: state.propertyIds.length > 0 ? state.propertyIds : undefined,
+        categories: state.categories.length > 0 ? state.categories : undefined,
+        paymentStatuses: state.paymentStatuses.length > 0 ? state.paymentStatuses : undefined,
+        qbSyncStatuses: state.qbSyncStatuses.length > 0 ? state.qbSyncStatuses : undefined,
+        receiptStatuses: state.receiptStatuses.length > 0 ? state.receiptStatuses : undefined,
+        hasReceipt: state.hasReceipt === 'yes' ? true : state.hasReceipt === 'no' ? false : undefined,
+        search: state.search.trim() || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }
+    },
+    [effectiveUserId]
+  )
+
+  // ─── Initial load (properties + categories + presets) ─────────
+  useEffect(() => {
+    if (!effectiveUserId) return
+    (async () => {
+      try {
+        const [propertiesRes, categoriesRes] = await Promise.all([
+          getProperties(effectiveUserId),
+          getCategoriesByUserId(effectiveUserId),
+        ])
+        if (propertiesRes.status === 'success') setProperties(propertiesRes.data || [])
+        if (categoriesRes.status === 'success') setCategories(categoriesRes.data || [])
+      } catch (err) {
+        console.error('Error loading static data:', err)
+      }
+    })()
+
+    setPresetsLoading(true)
+    getFilterPresets()
+      .then((res) => {
+        if (res.status === 'success') setPresets(res.data)
+      })
+      .catch((err) => {
+        console.error('Error loading filter presets:', err)
+      })
+      .finally(() => setPresetsLoading(false))
   }, [effectiveUserId])
 
-  // Reload expenses when filters change
-  useEffect(() => {
-    if (effectiveUserId) {
-      loadExpenses()
-    }
-  }, [selectedPropertyId, selectedBookingId, selectedCategory, filterStartDate, filterEndDate, filterPaymentStatus])
-
-  // Load bookings when property changes
-  useEffect(() => {
-    if (selectedPropertyId && effectiveUserId) {
-      loadBookingsForProperty(selectedPropertyId)
-    } else {
-      setBookings([])
-      setSelectedBookingId('')
-    }
-  }, [selectedPropertyId, effectiveUserId])
-
-  // Close filter popover when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
-        setShowFilterPopover(false)
-      }
-    }
-
-    if (showFilterPopover) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showFilterPopover])
-
-  const loadData = async () => {
+  // ─── Load expenses + totals on filter change ──────────────────
+  const loadExpenses = useCallback(async () => {
     if (!effectiveUserId) return
-
     setLoading(true)
     setError(null)
-
     try {
-      const [propertiesRes, categoriesRes, expensesRes, summaryRes] = await Promise.all([
-        getProperties(effectiveUserId),
-        getCategoriesByUserId(effectiveUserId),
-        getExpenses({ userId: effectiveUserId }),
-        getExpenseSummary(effectiveUserId, 'category'),
-      ])
-
-      if (propertiesRes.status === 'success') {
-        setProperties(propertiesRes.data || [])
-      }
-
-      if (categoriesRes.status === 'success') {
-        setCategories(categoriesRes.data || [])
-      }
-
-      if (expensesRes.status === 'success') {
-        setExpenses(expensesRes.data || [])
-      } else {
-        setError(expensesRes.message || 'Failed to load expenses')
-      }
-
-      if (summaryRes.status === 'success') {
-        setTotals(summaryRes.data.totals)
-      }
-    } catch (err) {
-      console.error('Error loading data:', err)
-      setError('Failed to load data')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadExpenses = async () => {
-    if (!effectiveUserId) return
-
-    try {
+      const apiFilters = buildApiFilters(filterState)
+      const { startDate, endDate } = resolveDateRange(filterState.dateRange)
       const [expensesRes, summaryRes] = await Promise.all([
-        getExpenses({
-          userId: effectiveUserId,
-          propertyId: selectedPropertyId || undefined,
-          bookingId: selectedBookingId || undefined,
-          category: selectedCategory || undefined,
-          startDate: filterStartDate || undefined,
-          endDate: filterEndDate || undefined,
-          paymentStatus: filterPaymentStatus || undefined,
-        }),
+        getExpenses(apiFilters),
+        // Summary only supports a single propertyId today — pass it only if exactly one is selected.
         getExpenseSummary(
           effectiveUserId,
           'category',
-          selectedPropertyId || undefined,
-          filterStartDate || undefined,
-          filterEndDate || undefined
+          filterState.propertyIds.length === 1 ? filterState.propertyIds[0] : undefined,
+          startDate || undefined,
+          endDate || undefined
         ),
       ])
 
       if (expensesRes.status === 'success') {
         setExpenses(expensesRes.data || [])
+        setSelectedIds(new Set())
         setCurrentPage(1)
       } else {
-        showNotification(expensesRes.message || 'Failed to load expenses', 'error')
+        setError(expensesRes.message || 'Failed to load expenses')
       }
-
       if (summaryRes.status === 'success') {
         setTotals(summaryRes.data.totals)
       }
     } catch (err) {
       console.error('Error loading expenses:', err)
-      showNotification('Failed to load expenses', 'error')
+      setError(err instanceof Error ? err.message : 'Failed to load expenses')
+    } finally {
+      setLoading(false)
     }
+  }, [effectiveUserId, filterState, buildApiFilters])
+
+  useEffect(() => {
+    if (effectiveUserId) loadExpenses()
+  }, [effectiveUserId, loadExpenses])
+
+  // ─── Saved views ──────────────────────────────────────────────
+  const handleLoadPreset = (preset: ExpenseFilterPreset) => {
+    setFilterState(preset.filters)
+    showNotification(`Loaded view "${preset.name}"`, 'success')
   }
 
-  const loadBookingsForProperty = async (propertyId: string) => {
-    if (!effectiveUserId) return
-
+  const handleDeletePreset = async (preset: ExpenseFilterPreset) => {
     try {
-      const res = await getBookings({ userId: effectiveUserId, propertyId })
+      const res = await deleteFilterPreset(preset.id)
       if (res.status === 'success') {
-        setBookings(res.data || [])
+        setPresets((prev) => prev.filter((p) => p.id !== preset.id))
+        showNotification(`Deleted view "${preset.name}"`, 'success')
+      } else {
+        showNotification(res.message || 'Failed to delete view', 'error')
       }
     } catch (err) {
-      console.error('Error loading bookings:', err)
+      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
     }
   }
 
-  const handleViewExpense = (expenseId: string) => {
-    setSelectedExpenseId(expenseId)
+  const handleSavePreset = async (name: string) => {
+    setSaveDialogError(null)
+    try {
+      const res = await createFilterPreset({ name, filters: filterState })
+      if (res.status === 'success') {
+        setPresets((prev) => [...prev, res.data].sort((a, b) => a.sortOrder - b.sortOrder))
+        showNotification(`Saved view "${name}"`, 'success')
+        setShowSaveDialog(false)
+      } else {
+        setSaveDialogError(res.message || 'Failed to save view')
+      }
+    } catch (err) {
+      // Surface the 409 / network error inline rather than as a toast so the
+      // user can fix the name without retyping.
+      setSaveDialogError(err instanceof Error ? err.message : 'Network error')
+    }
+  }
+
+  // ─── Bulk actions ─────────────────────────────────────────────
+  const markPaymentStatus = async (status: PaymentStatus) => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const res = await bulkUpdateExpenses(ids, { paymentStatus: status })
+      if (res.status === 'success' && res.data) {
+        const { summary } = res.data
+        showNotification(
+          summary.failed === 0
+            ? `Marked ${summary.updated} as ${status}`
+            : `Marked ${summary.updated} as ${status}, ${summary.failed} failed`,
+          summary.failed === 0 ? 'success' : 'info'
+        )
+        loadExpenses()
+      } else {
+        showNotification(res.message || 'Bulk update failed', 'error')
+      }
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const exportSelectedRows = async (format: 'csv' | 'xlsx') => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0 || !effectiveUserId) return
+    setBulkBusy(true)
+    try {
+      const result = await exportExpenses({ format, userId: effectiveUserId, expenseIds: ids })
+      showNotification(`Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'}`, 'success')
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const exportCurrent = async (format: 'csv' | 'xlsx') => {
+    if (!effectiveUserId) return
+    try {
+      const result = await exportExpenses({ format, userId: effectiveUserId, filters: buildApiFilters(filterState) })
+      showNotification(`Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'}`, 'success')
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+    }
+  }
+
+  /**
+   * Bulk actions registry. Adding a new action (e.g. "Send to QuickBooks" in
+   * Next 3) is literally one new entry in this array — that's the registry.
+   */
+  const bulkActions: BulkAction[] = [
+    { label: 'Mark as paid',      icon: CheckCircleIcon,    onClick: () => markPaymentStatus('paid'),    disabled: bulkBusy },
+    { label: 'Mark as pending',   icon: ClockIcon,          onClick: () => markPaymentStatus('pending'), disabled: bulkBusy },
+    { label: 'Export CSV',        icon: ArrowDownTrayIcon,  onClick: () => exportSelectedRows('csv'),    disabled: bulkBusy },
+    { label: 'Export XLSX',       icon: ArrowDownTrayIcon,  onClick: () => exportSelectedRows('xlsx'),   disabled: bulkBusy },
+    { label: 'Delete',            icon: TrashIcon,          variant: 'danger', onClick: () => setShowBulkDeleteModal(true), disabled: bulkBusy },
+    // Next 3 — QuickBooks: literally one new line here.
+    // { label: 'Send to QuickBooks', icon: ArrowUpTrayIcon, onClick: () => qbSendBulk(Array.from(selectedIds)) },
+  ]
+
+  // ─── Row actions ──────────────────────────────────────────────
+  const handleViewExpense = (id: string) => {
+    setSelectedExpenseId(id)
     setShowViewerModal(true)
   }
-
-  const handleExpenseAdded = (expense: Expense) => {
-    setExpenses(prev => [expense, ...prev])
-    loadExpenses() // Refresh to get updated totals
-  }
-
-  const handleExpenseUpdated = () => {
-    loadExpenses()
-  }
-
-  const handleExpenseDeleted = (expenseId: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== expenseId))
-    loadExpenses() // Refresh to get updated totals
-  }
-
-  const handleCategoryUpdate = () => {
-    if (effectiveUserId) {
-      getCategoriesByUserId(effectiveUserId).then(res => {
-        if (res.status === 'success') {
-          setCategories(res.data || [])
-        }
-      })
-    }
-  }
-
-  const clearFilters = () => {
-    setSelectedPropertyId('')
-    setSelectedBookingId('')
-    setSelectedCategory('')
-    setFilterStartDate('')
-    setFilterEndDate('')
-    setFilterPaymentStatus('')
-    setCurrentPage(1)
-  }
-
-  const getExpenseActions = (expense: Expense): ActionItem[] => [
-    {
-      label: 'View Details',
-      icon: EyeIcon,
-      onClick: () => handleViewExpense(expense.id),
-      variant: 'default'
-    },
-    {
-      label: 'Edit',
-      icon: PencilIcon,
-      onClick: () => handleViewExpense(expense.id),
-      variant: 'default'
-    },
+  const getRowActions = (expense: Expense): ActionItem[] => [
+    { label: 'View Details', icon: EyeIcon,    onClick: () => handleViewExpense(expense.id) },
+    { label: 'Edit',         icon: PencilIcon, onClick: () => handleViewExpense(expense.id) },
     {
       label: 'Delete',
       icon: TrashIcon,
+      variant: 'danger',
       onClick: async () => {
         if (!confirm('Are you sure you want to delete this expense?')) return
         if (!effectiveUserId) return
         const res = await deleteExpense(expense.id, effectiveUserId)
         if (res.status === 'success') {
           showNotification('Expense deleted', 'success')
-          handleExpenseDeleted(expense.id)
+          loadExpenses()
         } else {
           showNotification(res.message || 'Failed to delete expense', 'error')
         }
       },
-      variant: 'danger'
     },
   ]
 
-  const getCategoryLabel = (code: string | undefined) => {
-    if (!code) return null
-    const catInfo = getCategoryByCode(code, categories)
-    return catInfo?.label || code
-  }
-
-  const getCategoryColor = (code: string | undefined) => {
-    if (!code) return '#6B7280'
-    const catInfo = getCategoryByCode(code, categories)
-    return catInfo?.colorHex || '#6B7280'
-  }
-
-  const getPaymentStatusBadge = (status: PaymentStatus) => {
-    const colors: Record<PaymentStatus, string> = {
-      paid: 'bg-green-100 text-green-700',
-      pending: 'bg-yellow-100 text-yellow-700',
-      reimbursed: 'bg-blue-100 text-blue-700',
-      cancelled: 'bg-gray-100 text-gray-500',
-    }
-    return colors[status] || 'bg-gray-100 text-gray-500'
-  }
-
-  // Filter by search term (client-side)
-  const filteredExpenses = expenses.filter(expense => {
-    if (!searchTerm) return true
-    const searchLower = searchTerm.toLowerCase()
-    return (
-      expense.vendorName?.toLowerCase().includes(searchLower) ||
-      expense.description?.toLowerCase().includes(searchLower) ||
-      expense.category?.toLowerCase().includes(searchLower) ||
-      expense.propertyName?.toLowerCase().includes(searchLower)
-    )
-  })
-
-  // Pagination
-  const totalItems = filteredExpenses.length
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  // ─── Pagination derived state ─────────────────────────────────
+  const totalItems = expenses.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const paginatedExpenses = filteredExpenses.slice(startIndex, endIndex)
+  const paginatedExpenses = expenses.slice(startIndex, endIndex)
 
-  // Active filters count
-  const activeFiltersCount = [
-    selectedPropertyId !== '',
-    selectedBookingId !== '',
-    selectedCategory !== '',
-    filterStartDate !== '',
-    filterEndDate !== '',
-    filterPaymentStatus !== '',
-  ].filter(Boolean).length
+  // ─── Stats (computed from the FULL expenses list, ignoring column visibility) ─
+  const pendingExpenses = useMemo(() => expenses.filter((e) => e.paymentStatus === 'pending'), [expenses])
+  const pendingTotal = useMemo(
+    () => pendingExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+    [pendingExpenses]
+  )
 
-  // Stats cards
   const statCards = [
     {
       label: 'Total Expenses',
@@ -358,7 +487,7 @@ export default function ExpensesPage() {
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
       iconColor: 'text-blue-600',
-      borderColor: 'border-blue-100'
+      borderColor: 'border-blue-100',
     },
     {
       label: 'Reimbursable',
@@ -368,7 +497,7 @@ export default function ExpensesPage() {
       bgColor: 'bg-purple-50',
       iconBg: 'bg-purple-100',
       iconColor: 'text-purple-600',
-      borderColor: 'border-purple-100'
+      borderColor: 'border-purple-100',
     },
     {
       label: 'Tax Deductible',
@@ -378,49 +507,42 @@ export default function ExpensesPage() {
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',
       iconColor: 'text-green-600',
-      borderColor: 'border-green-100'
+      borderColor: 'border-green-100',
     },
     {
       label: 'Pending',
-      value: formatCurrency(
-        expenses.filter(e => e.paymentStatus === 'pending').reduce((sum, e) => sum + e.amount, 0)
-      ),
-      subValue: `${expenses.filter(e => e.paymentStatus === 'pending').length} pending`,
+      value: formatCurrency(pendingTotal),
+      subValue: `${pendingExpenses.length} pending`,
       icon: ClockIcon,
       bgColor: 'bg-amber-50',
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
-      borderColor: 'border-amber-100'
-    }
+      borderColor: 'border-amber-100',
+    },
   ]
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-            <p className="text-gray-500 mt-1">Track and manage property expenses</p>
-          </div>
-        </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading expenses...</p>
-          </div>
-        </div>
-      </div>
-    )
+  // ─── Display helpers ──────────────────────────────────────────
+  const getCategoryLabel = (code: string | undefined) => {
+    if (!code) return null
+    return getCategoryByCode(code, categories)?.label || code
+  }
+  const getCategoryColor = (code: string | undefined) => {
+    if (!code) return '#6B7280'
+    return getCategoryByCode(code, categories)?.colorHex || '#6B7280'
   }
 
-  if (error) {
+  const showCol = (key: string) => visibleColumns.includes(key)
+
+  // ─── Bulk-select header checkbox helpers ──────────────────────
+  const allOnPageSelected = paginatedExpenses.length > 0 && paginatedExpenses.every((e) => selectedIds.has(e.id))
+  const someOnPageSelected = paginatedExpenses.some((e) => selectedIds.has(e.id)) && !allOnPageSelected
+
+  // ─── Render ───────────────────────────────────────────────────
+  if (error && expenses.length === 0) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-            <p className="text-gray-500 mt-1">Track and manage property expenses</p>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
           <div className="flex items-center gap-3">
@@ -445,13 +567,13 @@ export default function ExpensesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
           <p className="text-gray-500 mt-1">Track and manage property expenses</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canWrite('expenses') && (
             <motion.button
               onClick={() => setShowCategoriesModal(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-colors"
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-colors"
             >
               <Cog6ToothIcon className="h-4 w-4 mr-2" />
               Categories
@@ -462,7 +584,7 @@ export default function ExpensesPage() {
               onClick={() => setShowBulkImportModal(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-500/20 transition-colors"
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-colors"
             >
               <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
               Import CSV
@@ -473,7 +595,7 @@ export default function ExpensesPage() {
               onClick={() => setShowBulkReceiptsModal(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-700 shadow-md shadow-fuchsia-500/20 transition-colors"
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-700 shadow-md transition-colors"
             >
               <DocumentTextIcon className="h-4 w-4 mr-2" />
               Add from Receipts
@@ -484,7 +606,7 @@ export default function ExpensesPage() {
               onClick={() => setShowScanModal(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-colors"
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-md transition-colors"
             >
               <CameraIcon className="h-4 w-4 mr-2" />
               Scan Receipt
@@ -495,7 +617,7 @@ export default function ExpensesPage() {
               onClick={() => setShowCreateModal(true)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-colors"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
               Add Expense
@@ -511,7 +633,7 @@ export default function ExpensesPage() {
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: index * 0.05 }}
             className={`${stat.bgColor} border ${stat.borderColor} rounded-2xl p-5 hover:shadow-md transition-shadow`}
           >
             <div className="flex items-center justify-between">
@@ -528,350 +650,253 @@ export default function ExpensesPage() {
         ))}
       </div>
 
-      {/* Search, Filters & Table */}
+      {/* Filter bar + saved views + columns + export */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <ExpensesFilterBar
+          state={filterState}
+          onChange={setFilterState}
+          properties={properties}
+          categories={categories}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <SavedViewsDropdown
+            presets={presets}
+            loading={presetsLoading}
+            onLoad={handleLoadPreset}
+            onDelete={handleDeletePreset}
+            onSaveCurrent={() => { setSaveDialogError(null); setShowSaveDialog(true) }}
+          />
+          <ColumnsToggle columns={COLUMN_DEFS} visibleKeys={visibleColumns} onChange={setVisibleColumns} />
+          {/* Export split-button: CSV / XLSX */}
+          <div className="flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => exportCurrent('csv')}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export CSV
+            </button>
+            <div className="w-px h-6 bg-gray-200" />
+            <button
+              type="button"
+              onClick={() => exportCurrent('xlsx')}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export XLSX
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk actions toolbar */}
+      {canWrite('expenses') && (
+        <BulkActionsToolbar
+          selectedCount={selectedIds.size}
+          actions={bulkActions}
+          onClear={() => setSelectedIds(new Set())}
+          itemNoun="expense"
+        />
+      )}
+
+      {/* Table */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.15 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
       >
-        {/* Search and Filters */}
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                placeholder="Search by vendor, description, category..."
-              />
-            </div>
-
-            {/* Filter Button with Popover */}
-            <div className="relative" ref={filterPopoverRef}>
-              <motion.button
-                onClick={() => setShowFilterPopover(!showFilterPopover)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              >
-                <FunnelIcon className="h-4 w-4 mr-2" />
-                Filters
-                {activeFiltersCount > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </motion.button>
-
-              {showFilterPopover && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
-                >
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-base font-semibold text-gray-900">Filters</h3>
-                      <button
-                        onClick={() => setShowFilterPopover(false)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Property Filter */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Property</label>
-                        <select
-                          value={selectedPropertyId}
-                          onChange={(e) => setSelectedPropertyId(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                        >
-                          <option value="">All Properties</option>
-                          {properties.map((property) => (
-                            <option key={property.id} value={property.id}>
-                              {property.listingName}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Booking Filter (dependent on property) */}
-                      {selectedPropertyId && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Booking</label>
-                          <select
-                            value={selectedBookingId}
-                            onChange={(e) => setSelectedBookingId(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                          >
-                            <option value="">All Bookings</option>
-                            {bookings.map((booking) => (
-                              <option key={booking.id} value={booking.id}>
-                                {booking.guestName} - {parseLocalDate(booking.checkInDate).toLocaleDateString()}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Category Filter */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                        <select
-                          value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                        >
-                          <option value="">All Categories</option>
-                          <optgroup label="Default Categories">
-                            {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                              <option key={cat.code} value={cat.code}>
-                                {cat.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                          {categories.length > 0 && (
-                            <optgroup label="Custom Categories">
-                              {categories.map((cat) => (
-                                <option key={cat.id} value={cat.code}>
-                                  {cat.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </select>
-                      </div>
-
-                      {/* Payment Status Filter */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
-                        <select
-                          value={filterPaymentStatus}
-                          onChange={(e) => setFilterPaymentStatus(e.target.value as PaymentStatus | '')}
-                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                        >
-                          {PAYMENT_STATUSES.map((status) => (
-                            <option key={status.value} value={status.value}>
-                              {status.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Date Range */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                          <div className="relative">
-                            <CalendarDaysIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              type="date"
-                              value={filterStartDate}
-                              onChange={(e) => setFilterStartDate(e.target.value)}
-                              className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                          <div className="relative">
-                            <CalendarDaysIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              type="date"
-                              value={filterEndDate}
-                              onChange={(e) => setFilterEndDate(e.target.value)}
-                              className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Clear Filters */}
-                    {activeFiltersCount > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-100">
-                        <button
-                          onClick={clearFilters}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          Clear all filters
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
         <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50/50">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
-                  Date
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
-                  Amount
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px]">
-                  Category
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[180px]">
-                  Property / Booking
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[150px]">
-                  Vendor
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
-                  Paid By
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[80px]">
-                  Receipt
-                </th>
+                {canWrite('expenses') && (
+                  <th className="px-4 py-4 text-left w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible expenses"
+                      checked={allOnPageSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someOnPageSelected
+                      }}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(new Set(paginatedExpenses.map((x) => x.id)))
+                        } else {
+                          setSelectedIds(new Set())
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                  </th>
+                )}
+                {showCol('date') && <Th>Date</Th>}
+                {showCol('amount') && <Th>Amount</Th>}
+                {showCol('category') && <Th>Category</Th>}
+                {showCol('property') && <Th>Property / Booking</Th>}
+                {showCol('vendor') && <Th>Vendor</Th>}
+                {showCol('paidBy') && <Th>Paid By</Th>}
+                {showCol('status') && <Th>Status</Th>}
+                {showCol('receipt') && <Th>Receipt</Th>}
                 <th className="sticky right-0 bg-gray-50/95 backdrop-blur-sm px-6 py-4 min-w-[60px] shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {paginatedExpenses.map((expense, index) => (
-                <motion.tr
-                  key={expense.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
-                  onClick={() => handleViewExpense(expense.id)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{formatExpenseDate(expense.expenseDate)}</span>
+              {loading && expenses.length === 0 ? (
+                <tr>
+                  <td colSpan={visibleColumns.length + 2} className="px-6 py-16 text-center text-sm text-gray-500">
+                    Loading expenses…
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(expense.amount, expense.currency)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {expense.category ? (
-                      <span
-                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
-                        style={{
-                          backgroundColor: getCategoryColor(expense.category) + '20',
-                          color: getCategoryColor(expense.category)
-                        }}
-                      >
-                        {getCategoryLabel(expense.category)}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-700">
-                        Needs Category
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      {expense.propertyName ? (
-                        <div className="flex items-center gap-2">
-                          <BuildingOfficeIcon className="w-4 h-4 text-gray-400" />
-                          <div>
-                            <div className="text-sm text-gray-900 truncate max-w-[150px]">{expense.propertyName}</div>
-                            {expense.bookingGuestName && (
-                              <div className="text-xs text-gray-500">{expense.bookingGuestName}</div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">General expense</span>
+                </tr>
+              ) : (
+                paginatedExpenses.map((expense, index) => {
+                  const isSelected = selectedIds.has(expense.id)
+                  return (
+                    <motion.tr
+                      key={expense.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                      className={`hover:bg-blue-50/50 cursor-pointer transition-colors group ${
+                        isSelected ? 'bg-purple-50/50' : ''
+                      }`}
+                      onClick={() => handleViewExpense(expense.id)}
+                    >
+                      {canWrite('expenses') && (
+                        <td className="px-4 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select expense ${expense.id}`}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev)
+                                if (e.target.checked) next.add(expense.id)
+                                else next.delete(expense.id)
+                                return next
+                              })
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          />
+                        </td>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-700 truncate max-w-[140px] block">
-                      {expense.vendorName || '—'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-700 truncate max-w-[120px] block">
-                      {expense.paidByName || '—'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusBadge(expense.paymentStatus)}`}>
-                      {PAYMENT_STATUSES.find(s => s.value === expense.paymentStatus)?.label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {expense.receiptPath ? (
-                      <span className="inline-flex items-center text-green-600">
-                        <DocumentTextIcon className="w-4 h-4" />
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td
-                    className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <TableActionsDropdown
-                      actions={getExpenseActions(expense)}
-                      itemId={expense.id}
-                    />
-                  </td>
-                </motion.tr>
-              ))}
+                      {showCol('date') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">{formatExpenseDate(expense.expenseDate)}</span>
+                        </td>
+                      )}
+                      {showCol('amount') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(expense.amount, expense.currency)}
+                          </span>
+                        </td>
+                      )}
+                      {showCol('category') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {expense.category ? (
+                            <span
+                              className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
+                              style={{
+                                backgroundColor: getCategoryColor(expense.category) + '20',
+                                color: getCategoryColor(expense.category),
+                              }}
+                            >
+                              {getCategoryLabel(expense.category)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-700">
+                              Needs Category
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      {showCol('property') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {expense.propertyName ? (
+                            <div className="flex items-center gap-2">
+                              <BuildingOfficeIcon className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <div className="text-sm text-gray-900 truncate max-w-[150px]">{expense.propertyName}</div>
+                                {expense.bookingGuestName && (
+                                  <div className="text-xs text-gray-500">{expense.bookingGuestName}</div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">General expense</span>
+                          )}
+                        </td>
+                      )}
+                      {showCol('vendor') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700 truncate max-w-[140px] block">
+                            {expense.vendorName || '—'}
+                          </span>
+                        </td>
+                      )}
+                      {showCol('paidBy') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700 truncate max-w-[120px] block">
+                            {expense.paidByName || '—'}
+                          </span>
+                        </td>
+                      )}
+                      {showCol('status') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <ExpenseStatusBadges
+                            paymentStatus={expense.paymentStatus}
+                            qbSyncStatus={expense.qbSyncStatus}
+                            layout="stacked"
+                          />
+                        </td>
+                      )}
+                      {showCol('receipt') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {expense.receiptPath ? (
+                            <span className="inline-flex items-center text-green-600">
+                              <DocumentTextIcon className="w-4 h-4" />
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      )}
+                      <td
+                        className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TableActionsDropdown actions={getRowActions(expense)} itemId={expense.id} />
+                      </td>
+                    </motion.tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
 
-          {/* Empty State */}
-          {filteredExpenses.length === 0 && (
+          {/* Empty state */}
+          {!loading && expenses.length === 0 && (
             <div className="text-center py-16 px-4">
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <CurrencyDollarIcon className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">No expenses found</h3>
               <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                {searchTerm || activeFiltersCount > 0
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by adding your first expense.'}
+                Try adjusting your filters, or add your first expense.
               </p>
-              {!searchTerm && activeFiltersCount === 0 && (
-                <motion.button
-                  onClick={() => setShowCreateModal(true)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
-                >
-                  <PlusIcon className="h-5 w-5 mr-2" />
-                  Add Your First Expense
-                </motion.button>
-              )}
             </div>
           )}
         </div>
 
         {/* Pagination */}
-        {filteredExpenses.length > 0 && (
+        {expenses.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <p className="text-sm text-gray-500">
-                  Showing <span className="font-medium text-gray-700">{startIndex + 1}</span> to{' '}
+                  Showing <span className="font-medium text-gray-700">{Math.min(startIndex + 1, totalItems)}</span> to{' '}
                   <span className="font-medium text-gray-700">{Math.min(endIndex, totalItems)}</span> of{' '}
                   <span className="font-medium text-gray-700">{totalItems}</span> expenses
                 </p>
@@ -888,49 +913,27 @@ export default function ExpensesPage() {
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
                 </div>
               </div>
 
-              {/* Page Numbers */}
               {totalPages > 1 && (
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let pageNum: number
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
+                  <span className="px-2 text-sm text-gray-500">
+                    {currentPage} / {totalPages}
+                  </span>
                   <button
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>
@@ -945,21 +948,27 @@ export default function ExpensesPage() {
       <CreateExpenseModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onAdd={handleExpenseAdded}
+        onAdd={() => loadExpenses()}
       />
 
       <ExpenseViewerModal
         isOpen={showViewerModal}
         onClose={() => setShowViewerModal(false)}
         expenseId={selectedExpenseId}
-        onExpenseUpdated={handleExpenseUpdated}
-        onExpenseDeleted={handleExpenseDeleted}
+        onExpenseUpdated={() => loadExpenses()}
+        onExpenseDeleted={() => loadExpenses()}
       />
 
       <ExpenseCategoriesModal
         isOpen={showCategoriesModal}
         onClose={() => setShowCategoriesModal(false)}
-        onCategoryUpdate={handleCategoryUpdate}
+        onCategoryUpdate={() => {
+          if (effectiveUserId) {
+            getCategoriesByUserId(effectiveUserId).then((res) => {
+              if (res.status === 'success') setCategories(res.data || [])
+            })
+          }
+        }}
       />
 
       <ScanReceiptModal
@@ -981,6 +990,32 @@ export default function ExpensesPage() {
         onComplete={() => loadExpenses()}
         source="bulk_expense"
       />
+
+      <BulkDeleteExpensesModal
+        isOpen={showBulkDeleteModal}
+        onClose={() => setShowBulkDeleteModal(false)}
+        expenseIds={Array.from(selectedIds)}
+        onDeleted={() => {
+          setSelectedIds(new Set())
+          loadExpenses()
+        }}
+      />
+
+      <SaveFilterPresetDialog
+        isOpen={showSaveDialog}
+        onClose={() => { setShowSaveDialog(false); setSaveDialogError(null) }}
+        onSave={handleSavePreset}
+        errorMessage={saveDialogError}
+      />
     </div>
+  )
+}
+
+// ─── Tiny presentational helper ─────────────────────────────────
+function Th({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      {children}
+    </th>
   )
 }
