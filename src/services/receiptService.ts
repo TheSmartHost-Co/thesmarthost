@@ -15,23 +15,35 @@ import type {
   ReceiptLineItemsResponse,
   ReceiptLineItemResponse,
   MatchSuggestionsResponse,
+  BulkBatchInitPayload,
+  BulkBatchInitResponse,
+  BulkApplyPayload,
+  BulkApplyResponse,
+  RescanReceiptResponse,
+  BulkDeletePayload,
+  BulkDeleteResponse,
 } from './types/receipt'
 
 /**
  * Upload a receipt image + trigger OCR.
  * When autoApplyOptions is provided, the receipt is immediately applied to create
  * an expense (and optionally a supply list) in a single call.
+ *
+ * Pass `batchId` (from initBulkBatch) to associate the upload with a bulk batch
+ * for telemetry — does not change semantics.
  */
 export function uploadReceipt(
   file: File,
   propertyId?: string,
   supplyListId?: string,
-  autoApplyOptions?: AutoApplyOptions
+  autoApplyOptions?: AutoApplyOptions,
+  batchId?: string
 ): Promise<UploadReceiptResponse | AutoApplyReceiptResponse> {
   const formData = new FormData()
   formData.append('receipt', file)
   if (propertyId) formData.append('propertyId', propertyId)
   if (supplyListId) formData.append('supplyListId', supplyListId)
+  if (batchId) formData.append('batchId', batchId)
 
   if (autoApplyOptions) {
     formData.append('autoApply', 'true')
@@ -183,4 +195,55 @@ export function deleteReceiptLineItem(
     `/receipts/${receiptId}/line-items/${lineItemId}`,
     { method: 'DELETE' }
   )
+}
+
+// --- Bulk Upload ---
+
+/**
+ * Open a new bulk-upload batch. Returns a batchId to attach to subsequent
+ * uploadReceipt() calls so the backend can group + count them.
+ */
+export function initBulkBatch(
+  payload?: BulkBatchInitPayload
+): Promise<BulkBatchInitResponse> {
+  return apiClient<BulkBatchInitResponse, BulkBatchInitPayload>(
+    '/receipts/bulk-init',
+    { method: 'POST', body: payload || {} }
+  )
+}
+
+/**
+ * Re-run OCR on a receipt whose previous OCR attempt failed. The file stays
+ * in storage — much faster than re-uploading.
+ */
+export function rescanReceipt(receiptId: string): Promise<RescanReceiptResponse> {
+  return apiClient<RescanReceiptResponse>(`/receipts/${receiptId}/rescan`, {
+    method: 'POST',
+  })
+}
+
+/**
+ * Apply N receipts to create N expenses in one round-trip. Per-receipt
+ * transactionality: a failure on receipt #7 does NOT roll back receipts #1-6.
+ */
+export function bulkApplyReceipts(
+  payload: BulkApplyPayload
+): Promise<BulkApplyResponse> {
+  return apiClient<BulkApplyResponse, BulkApplyPayload>('/receipts/bulk-apply', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+/**
+ * Delete N receipts in one round-trip. Per-receipt transactionality —
+ * applied receipts cascade to expense + supply list (matches single delete).
+ */
+export function bulkDeleteReceipts(
+  receiptIds: string[]
+): Promise<BulkDeleteResponse> {
+  return apiClient<BulkDeleteResponse, BulkDeletePayload>('/receipts/bulk-delete', {
+    method: 'POST',
+    body: { receiptIds },
+  })
 }

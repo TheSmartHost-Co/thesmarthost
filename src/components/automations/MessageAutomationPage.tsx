@@ -12,6 +12,7 @@ import {
   ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import {
   getMessageLog,
   getMessageLogCounts,
@@ -45,6 +46,8 @@ export default function MessageAutomationPage() {
 }
 
 function MessageAutomationContent() {
+  usePermissionGuard('automation_message')
+
   const searchParams = useSearchParams()
   const { showNotification } = useNotificationStore()
 

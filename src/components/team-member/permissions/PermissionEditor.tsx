@@ -19,6 +19,7 @@ import {
   CurrencyDollarIcon,
   CogIcon,
   ShieldCheckIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,16 @@ const SECTIONS: PermissionSection[] = [
     label: 'Financial',
     icon: CurrencyDollarIcon,
     keys: ['expenses', 'receipts', 'analytics'],
+  },
+  {
+    label: 'AI Automations',
+    icon: BoltIcon,
+    keys: [
+      'automation_dashboard',
+      'automation_review_nudge',
+      'automation_guest_review',
+      'automation_message',
+    ],
   },
   {
     label: 'System',

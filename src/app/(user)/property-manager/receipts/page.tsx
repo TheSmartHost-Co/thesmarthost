@@ -26,8 +26,10 @@ import { getProperties } from '@/services/propertyService'
 import type { UploadedReceipt, ReceiptStatus, ReceiptSearchParams } from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
+import BulkUploadReceiptModal from '@/components/receipt/upload/BulkUploadReceiptModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 import DeleteReceiptModal from '@/components/receipt/delete/DeleteReceiptModal'
+import BulkDeleteReceiptsModal from '@/components/receipt/delete/BulkDeleteReceiptsModal'
 import ReceiptGalleryCard from '@/components/receipt/ReceiptGalleryCard'
 import PropertyChip from '@/components/receipt/PropertyChip'
 import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
@@ -103,6 +105,9 @@ function ReceiptsContent() {
 
   // Modals
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -314,13 +319,22 @@ function ReceiptsContent() {
           <p className="text-sm text-gray-500 mt-0.5">{t('receiptSubtitle')}</p>
         </div>
         {canWrite('receipts') && (
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
-          >
-            <CameraIcon className="w-4 h-4" />
-            Scan Receipt
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowBulkUploadModal(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-xl hover:bg-purple-700 transition-colors shadow-sm w-full sm:w-auto"
+            >
+              <DocumentTextIcon className="w-4 h-4" />
+              Bulk Upload
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
+            >
+              <CameraIcon className="w-4 h-4" />
+              Scan Receipt
+            </button>
+          </div>
         )}
       </div>
 
@@ -450,7 +464,9 @@ function ReceiptsContent() {
           {/* View toggle */}
           <div className="flex border border-gray-200 rounded-lg overflow-hidden">
             <button
-              onClick={() => setViewMode('table')}
+              onClick={() => {
+                setViewMode('table')
+              }}
               className={`p-2 transition-colors ${
                 viewMode === 'table' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
               }`}
@@ -459,7 +475,10 @@ function ReceiptsContent() {
               <ListBulletIcon className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setViewMode('gallery')}
+              onClick={() => {
+                setViewMode('gallery')
+                setSelectedIds(new Set())
+              }}
               className={`p-2 transition-colors ${
                 viewMode === 'gallery' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
               }`}
@@ -568,6 +587,31 @@ function ReceiptsContent() {
 
           {/* Desktop: table or gallery based on toggle */}
           {viewMode === 'table' ? (
+            <>
+              {/* Bulk-action toolbar — visible when ≥1 row is selected (table view only) */}
+              {selectedIds.size > 0 && canWrite('receipts') && (
+                <div className="hidden md:flex items-center justify-between gap-3 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl mb-3">
+                  <div className="text-sm text-purple-900">
+                    <span className="font-semibold">{selectedIds.size}</span>{' '}
+                    receipt{selectedIds.size === 1 ? '' : 's'} selected
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={() => setShowBulkDeleteModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                      Delete {selectedIds.size}
+                    </button>
+                  </div>
+                </div>
+              )}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -577,6 +621,33 @@ function ReceiptsContent() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-4 py-4 text-left w-10">
+                        {canWrite('receipts') && receipts.length > 0 && (
+                          <input
+                            type="checkbox"
+                            aria-label="Select all visible receipts"
+                            checked={
+                              receipts.length > 0 &&
+                              receipts.every((r) => selectedIds.has(r.id))
+                            }
+                            ref={(el) => {
+                              if (el) {
+                                const someSelected = receipts.some((r) => selectedIds.has(r.id))
+                                const allSelected = receipts.every((r) => selectedIds.has(r.id))
+                                el.indeterminate = someSelected && !allSelected
+                              }
+                            }}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedIds(new Set(receipts.map((r) => r.id)))
+                              } else {
+                                setSelectedIds(new Set())
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          />
+                        )}
+                      </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12" />
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</th>
@@ -590,6 +661,7 @@ function ReceiptsContent() {
                   <tbody className="divide-y divide-gray-100">
                     {receipts.map((receipt) => {
                       const status = statusConfig[receipt.status]
+                      const isSelected = selectedIds.has(receipt.id)
                       return (
                         <tr
                           key={receipt.id}
@@ -599,8 +671,31 @@ function ReceiptsContent() {
                           }}
                           className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${
                             receipt.status === 'archived' ? 'opacity-60' : ''
-                          }`}
+                          } ${isSelected ? 'bg-purple-50/50' : ''}`}
                         >
+                          {/* Selection checkbox */}
+                          <td
+                            className="px-4 py-4 w-10"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {canWrite('receipts') && (
+                              <input
+                                type="checkbox"
+                                aria-label={`Select receipt ${receipt.originalName}`}
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  setSelectedIds((prev) => {
+                                    const next = new Set(prev)
+                                    if (e.target.checked) next.add(receipt.id)
+                                    else next.delete(receipt.id)
+                                    return next
+                                  })
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                              />
+                            )}
+                          </td>
+
                           {/* Thumbnail */}
                           <td className="px-6 py-4">
                             <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -702,6 +797,7 @@ function ReceiptsContent() {
                 )}
               </div>
             </motion.div>
+            </>
           ) : (
             <motion.div
               initial={{ opacity: 0 }}
@@ -776,6 +872,25 @@ function ReceiptsContent() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onUploaded={handleUploaded}
+      />
+
+      <BulkUploadReceiptModal
+        isOpen={showBulkUploadModal}
+        onClose={() => setShowBulkUploadModal(false)}
+        onComplete={() => {
+          fetchData()
+        }}
+        source="bulk_upload"
+      />
+
+      <BulkDeleteReceiptsModal
+        isOpen={showBulkDeleteModal}
+        onClose={() => setShowBulkDeleteModal(false)}
+        receipts={receipts.filter((r) => selectedIds.has(r.id))}
+        onDeleted={() => {
+          setSelectedIds(new Set())
+          fetchData()
+        }}
       />
 
       {selectedReceiptId && (

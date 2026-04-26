@@ -23,6 +23,11 @@ export const ROUTE_PERMISSION_MAP: Record<string, PermissionKey> = {
   '/property-manager/client-portal': 'client_portal',
   '/property-manager/whats-new': 'whats_new',
   '/property-manager/settings': 'settings',
+  '/property-manager/ai-automations': 'automation_dashboard',
+  '/property-manager/ai-automations/dashboard': 'automation_dashboard',
+  '/property-manager/ai-automations/review-nudge': 'automation_review_nudge',
+  '/property-manager/ai-automations/guest-review': 'automation_guest_review',
+  '/property-manager/ai-automations/message-automation': 'automation_message',
 }
 
 // Maps sidebar item hrefs to permission keys (same data, different index)

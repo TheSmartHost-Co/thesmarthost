@@ -103,6 +103,7 @@ export interface UpdateReceiptPayload {
   total?: number
   paymentMethod?: string
   description?: string
+  propertyId?: string
 }
 
 export interface CreateLineItemPayload {
@@ -283,4 +284,87 @@ export interface ConfirmedMapping {
   receiptLineItemId: string
   supplyListItemId: string | null
   action: 'existing' | 'new'
+}
+
+// --- Bulk Upload Types ---
+
+export type BulkBatchSource = 'bulk_upload' | 'bulk_expense'
+
+export interface BulkBatchInitPayload {
+  source?: BulkBatchSource
+  expectedCount?: number
+}
+
+export interface BulkBatchInitResponse {
+  status: 'success' | 'failed'
+  data: {
+    batchId: string
+    source: BulkBatchSource
+    expectedCount: number | null
+    createdAt: string
+  }
+  message?: string
+}
+
+// One assignment in a bulk-apply call. Matches ApplyReceiptPayload but with a
+// few fields optional (vendorName/category default server-side).
+export interface BulkApplyAssignment {
+  propertyId: string
+  expenseDate: string
+  vendorName?: string
+  category?: string
+  paymentMethod?: string
+  paidByType?: PaidByType
+  paidById?: string | null
+  subtotal?: number
+  taxGst?: number | null
+  taxPst?: number | null
+  taxHst?: number | null
+  taxTotal?: number
+  supplyList?: { mode: 'none' | 'new' | 'existing' }
+}
+
+export interface BulkApplyPayload {
+  receiptIds: string[]
+  assignments: Record<string, BulkApplyAssignment>
+}
+
+export interface BulkApplySummary {
+  total: number
+  applied: number
+  failed: number
+}
+
+export interface BulkApplyResponse {
+  status: 'success' | 'failed'
+  data: {
+    summary: BulkApplySummary
+    applied: { receiptId: string; expenseId: string }[]
+    failed: { receiptId: string; error: string }[]
+  }
+  message?: string
+}
+
+export interface RescanReceiptResponse {
+  status: 'success' | 'failed'
+  data: {
+    receipt: ReceiptDetail
+    lineItems: ReceiptLineItem[]
+    signedUrl: string | null
+  }
+  message?: string
+}
+
+export interface BulkDeletePayload {
+  receiptIds: string[]
+}
+
+export interface BulkDeleteResponse {
+  status: 'success' | 'failed'
+  data: {
+    summary: { total: number; deleted: number; failed: number }
+    deleted: { receiptId: string }[]
+    failed: { receiptId: string; error: string }[]
+  }
+  message?: string
 }

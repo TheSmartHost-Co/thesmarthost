@@ -20,6 +20,10 @@ export const PERMISSION_KEYS = [
   'client_portal',
   'whats_new',
   'settings',
+  'automation_dashboard',
+  'automation_review_nudge',
+  'automation_guest_review',
+  'automation_message',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -48,6 +52,10 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   client_portal: 'Client Portal',
   whats_new: "What's New",
   settings: 'Settings',
+  automation_dashboard: 'AI Automations: Dashboard',
+  automation_review_nudge: 'AI Automations: Review Nudge',
+  automation_guest_review: 'AI Automations: Guest Review',
+  automation_message: 'AI Automations: Messaging',
 }
 
 // Default permissions for new team members (deny by default)
@@ -72,6 +80,10 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   client_portal: 'none',
   whats_new: 'read',
   settings: 'none',
+  automation_dashboard: 'none',
+  automation_review_nudge: 'none',
+  automation_guest_review: 'none',
+  automation_message: 'none',
 }
 
 // Preset templates for common team member roles
@@ -106,6 +118,10 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       client_portal: 'read-write',
       whats_new: 'read',
       settings: 'none',
+      automation_dashboard: 'read-write',
+      automation_review_nudge: 'read-write',
+      automation_guest_review: 'read-write',
+      automation_message: 'read-write',
     },
   },
   reports_only: {
@@ -132,6 +148,10 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       client_portal: 'none',
       whats_new: 'read',
       settings: 'none',
+      automation_dashboard: 'none',
+      automation_review_nudge: 'none',
+      automation_guest_review: 'none',
+      automation_message: 'none',
     },
   },
   read_only: {
@@ -158,6 +178,10 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       client_portal: 'read',
       whats_new: 'read',
       settings: 'none',
+      automation_dashboard: 'read',
+      automation_review_nudge: 'read',
+      automation_guest_review: 'read',
+      automation_message: 'read',
     },
   },
   operations: {
@@ -184,6 +208,10 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       client_portal: 'none',
       whats_new: 'read',
       settings: 'none',
+      automation_dashboard: 'read-write',
+      automation_review_nudge: 'read-write',
+      automation_guest_review: 'read-write',
+      automation_message: 'read-write',
     },
   },
   custom: {

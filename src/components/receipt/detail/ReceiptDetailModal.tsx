@@ -155,6 +155,11 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const [saving, setSaving] = useState(false)
   const [showTaxes, setShowTaxes] = useState(false)
 
+  // Inline property editor (View tab) — quick-assign without going to Edit
+  const [editingProperty, setEditingProperty] = useState(false)
+  const [propertyDraft, setPropertyDraft] = useState<string | null>(null)
+  const [savingProperty, setSavingProperty] = useState(false)
+
   // Apply form state
   const [applyPropertyId, setApplyPropertyId] = useState('')
   const [applyCategory, setApplyCategory] = useState('')
@@ -499,6 +504,48 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
     }
   }
 
+  // --- Inline property quick-assign (View tab) ---
+  const canEditProperty =
+    !readOnly &&
+    !!receipt &&
+    (receipt.status === 'pending' || receipt.status === 'matched' || receipt.status === 'failed')
+
+  const beginEditProperty = () => {
+    if (!canEditProperty) return
+    setPropertyDraft(receipt?.propertyId || null)
+    setEditingProperty(true)
+  }
+
+  const cancelEditProperty = () => {
+    setEditingProperty(false)
+    setPropertyDraft(null)
+  }
+
+  const saveProperty = async () => {
+    if (!receipt || !propertyDraft) return
+    if (propertyDraft === receipt.propertyId) {
+      cancelEditProperty()
+      return
+    }
+    setSavingProperty(true)
+    try {
+      const res = await updateReceipt(receipt.id, { propertyId: propertyDraft })
+      if (res.status === 'success') {
+        showNotification('Property assigned', 'success')
+        await fetchReceipt()
+        onUpdated()
+        cancelEditProperty()
+      } else {
+        showNotification(res.message || 'Failed to assign property', 'error')
+      }
+    } catch (err) {
+      console.error('Save property error:', err)
+      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+    } finally {
+      setSavingProperty(false)
+    }
+  }
+
   // --- Archive ---
   const handleDelete = async () => {
     if (!receipt) return
@@ -707,10 +754,52 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           <div>
             <span className="text-xs font-medium text-gray-500">Property</span>
             <div className="mt-0.5">
-              {receipt ? (
-                <PropertyChip receipt={receipt} linkedExpense={receipt.expense} size="md" />
-              ) : (
+              {!receipt ? (
                 <p className="text-sm text-gray-900">—</p>
+              ) : editingProperty ? (
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 max-w-[260px]">
+                    <SearchableSelect
+                      options={properties.map((p) => ({
+                        value: p.id,
+                        label: p.listingName || p.address || 'Unnamed Property',
+                        secondaryLabel: p.address || undefined,
+                      }))}
+                      value={propertyDraft}
+                      onChange={(v) => setPropertyDraft(v)}
+                      placeholder="Select property…"
+                      clearable={false}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveProperty}
+                    disabled={savingProperty || !propertyDraft}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingProperty ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditProperty}
+                    disabled={savingProperty}
+                    className="px-2 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : canEditProperty ? (
+                <button
+                  type="button"
+                  onClick={beginEditProperty}
+                  title={receipt.propertyName ? 'Click to change property' : 'Click to assign a property'}
+                  className="group inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+                >
+                  <PropertyChip receipt={receipt} linkedExpense={receipt.expense} size="md" />
+                  <PencilIcon className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              ) : (
+                <PropertyChip receipt={receipt} linkedExpense={receipt.expense} size="md" />
               )}
             </div>
           </div>

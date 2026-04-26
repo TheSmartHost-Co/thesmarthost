@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BoltIcon, CogIcon, ArrowPathIcon, PlayIcon, ChatBubbleLeftRightIcon, StarIcon, ArrowLeftIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissionGuard } from '@/hooks/usePermissionGuard'
+import type { PermissionKey } from '@/constants/permissionTemplates'
 import {
   getAutomationTasks,
   getAutomationTaskCounts,
@@ -46,6 +48,12 @@ export default function AIAutomationsPage({ automationType }: { automationType?:
 }
 
 function AIAutomationsContent({ fixedType }: { fixedType?: AutomationType }) {
+  const guardKey: PermissionKey =
+    fixedType === 'review_nudge' ? 'automation_review_nudge'
+    : fixedType === 'guest_review' ? 'automation_guest_review'
+    : 'automation_dashboard'
+  usePermissionGuard(guardKey)
+
   const searchParams = useSearchParams()
   const { showNotification } = useNotificationStore()
   const [tasks, setTasks] = useState<AutomationTask[]>([])

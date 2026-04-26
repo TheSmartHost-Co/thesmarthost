@@ -47,6 +47,7 @@ import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
 import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 import BulkImportExpenseModal from '@/components/expense/import/BulkImportExpenseModal'
+import BulkUploadReceiptModal from '@/components/receipt/upload/BulkUploadReceiptModal'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 const PAYMENT_STATUSES: { value: PaymentStatus | ''; label: string }[] = [
@@ -94,6 +95,7 @@ export default function ExpensesPage() {
   const [showCategoriesModal, setShowCategoriesModal] = useState(false)
   const [showScanModal, setShowScanModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
+  const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
   const [selectedExpenseId, setSelectedExpenseId] = useState('')
 
   // Load initial data
@@ -464,6 +466,17 @@ export default function ExpensesPage() {
             >
               <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
               Import CSV
+            </motion.button>
+          )}
+          {canWrite('expenses') && (
+            <motion.button
+              onClick={() => setShowBulkReceiptsModal(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-700 shadow-md shadow-fuchsia-500/20 transition-colors"
+            >
+              <DocumentTextIcon className="h-4 w-4 mr-2" />
+              Add from Receipts
             </motion.button>
           )}
           {canWrite('expenses') && (
@@ -960,6 +973,13 @@ export default function ExpensesPage() {
         onClose={() => setShowBulkImportModal(false)}
         onImportComplete={() => loadExpenses()}
         properties={properties}
+      />
+
+      <BulkUploadReceiptModal
+        isOpen={showBulkReceiptsModal}
+        onClose={() => setShowBulkReceiptsModal(false)}
+        onComplete={() => loadExpenses()}
+        source="bulk_expense"
       />
     </div>
   )
