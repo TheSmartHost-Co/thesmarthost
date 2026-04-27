@@ -68,7 +68,7 @@ import {
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
-import QbMappingModal from '@/components/quickbooks/QbMappingModal'
+import QbIntegrationModal from '@/components/quickbooks/QbIntegrationModal'
 import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 import BulkImportExpenseModal from '@/components/expense/import/BulkImportExpenseModal'
 import BulkUploadReceiptModal from '@/components/receipt/upload/BulkUploadReceiptModal'
@@ -249,7 +249,7 @@ function ExpensesContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewerModal, setShowViewerModal] = useState(false)
   const [showCategoriesModal, setShowCategoriesModal] = useState(false)
-  const [showQbMappingModal, setShowQbMappingModal] = useState(false)
+  const [showQbIntegrationModal, setShowQbIntegrationModal] = useState(false)
   const [showScanModal, setShowScanModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
@@ -648,9 +648,9 @@ function ExpensesContent() {
             const isExpired = qbConnection.status === 'expired'
             return (
               <motion.button
-                onClick={() => { if (!isExpired) setShowQbMappingModal(true) }}
+                onClick={() => { if (!isExpired) setShowQbIntegrationModal(true) }}
                 disabled={isExpired}
-                title={isExpired ? 'Reconnect QuickBooks to manage mappings' : undefined}
+                title={isExpired ? 'Reconnect QuickBooks to manage settings' : undefined}
                 whileHover={!isExpired ? { scale: 1.02 } : undefined}
                 whileTap={!isExpired ? { scale: 0.98 } : undefined}
                 className={`inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition-colors ${
@@ -660,7 +660,7 @@ function ExpensesContent() {
                 }`}
               >
                 <LinkIcon className="h-4 w-4 mr-2" />
-                QB Mappings
+                QuickBooks Integration
               </motion.button>
             )
           })()}
@@ -1056,9 +1056,9 @@ function ExpensesContent() {
         }}
       />
 
-      <QbMappingModal
-        isOpen={showQbMappingModal}
-        onClose={() => setShowQbMappingModal(false)}
+      <QbIntegrationModal
+        isOpen={showQbIntegrationModal}
+        onClose={() => setShowQbIntegrationModal(false)}
         isConnected={!!qbConnection?.connected && qbConnection.status !== 'expired'}
       />
 
