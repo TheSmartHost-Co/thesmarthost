@@ -5,7 +5,7 @@ import type { PaymentStatus, QbSyncStatus, ReceiptStatus } from './expense'
  * preset CHOICE (not resolved dates), so "Last month" re-resolves correctly
  * each time the saved view is loaded.
  */
-export type DateRangePreset = 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'ytd' | 'custom'
+export type DateRangePreset = 'allTime' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'ytd' | 'custom'
 
 /**
  * Tri-state for the "Has receipt?" filter.
@@ -99,6 +99,8 @@ export function resolveDateRange(
 ): { startDate: string | null; endDate: string | null } {
   const now = new Date()
   switch (range.preset) {
+    case 'allTime':
+      return { startDate: null, endDate: null }
     case 'thisMonth': {
       const start = new Date(now.getFullYear(), now.getMonth(), 1)
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)

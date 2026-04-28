@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   TrashIcon,
   CameraIcon,
+  ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline'
 import NeedsReceiptBadge from '@/components/shared/NeedsReceiptBadge'
 
@@ -106,6 +107,14 @@ export default function SupplyHubListCard({
               <span className="text-[10px] text-gray-400">+{remaining} more</span>
             )}
           </div>
+          {sl.notes && (
+            <div className="flex items-start gap-1 mb-1" title={sl.notes}>
+              <ChatBubbleLeftEllipsisIcon className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+              <p className="text-[11px] italic text-gray-600 line-clamp-2">
+                {sl.notes}
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-[10px] text-gray-400">
             {sl.submitterName && (
               <span className="truncate">by {sl.submitterName}</span>

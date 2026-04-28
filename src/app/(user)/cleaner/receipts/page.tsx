@@ -11,6 +11,7 @@ import {
   XMarkIcon,
   BuildingOfficeIcon,
   CalendarIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -340,6 +341,10 @@ export default function CleanerReceiptsPage() {
                           <span className="inline-flex items-center gap-1 flex-shrink-0">
                             <CalendarIcon className="w-3 h-3" />
                             {formatDate(receipt.expenseDate || receipt.createdAt)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 flex-shrink-0 text-gray-400">
+                            <ArrowUpTrayIcon className="w-3 h-3" />
+                            {formatDate(receipt.createdAt)}
                           </span>
                           {receipt.uploaderName && receipt.uploadedBy !== profile?.id && (
                             <span className="text-gray-400 truncate">by {receipt.uploaderName}</span>

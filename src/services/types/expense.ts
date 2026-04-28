@@ -66,14 +66,6 @@ export type ReceiptStatus = 'pending' | 'matched' | 'failed' | 'applied' | 'arch
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually'
 
 /**
- * OCR extracted field with confidence score
- */
-export interface OcrField<T> {
-  value: T | null
-  confidence: number
-}
-
-/**
  * OCR confidence scores for expense fields
  */
 export interface OcrConfidence {
@@ -87,23 +79,6 @@ export interface OcrConfidence {
   total?: number
   description?: number
   paymentMethod?: number
-}
-
-/**
- * OCR extracted receipt data
- */
-export interface OcrReceiptData {
-  vendorName: OcrField<string>
-  expenseDate: OcrField<string>
-  subtotal: OcrField<number>
-  taxGst: OcrField<number>
-  taxPst: OcrField<number>
-  taxHst: OcrField<number>
-  taxTotal: OcrField<number>
-  total: OcrField<number>
-  description: OcrField<string>
-  paymentMethod: OcrField<string>
-  lineItems: OcrField<Array<{ name: string; quantity: number; price: number }>>
 }
 
 /**
@@ -174,7 +149,6 @@ export interface CreateExpensePayload {
   category?: string
   vendorName?: string
   description?: string
-  receipt?: File
   isReimbursable?: boolean
   isTaxDeductible?: boolean
   paymentMethod?: PaymentMethod
@@ -357,43 +331,11 @@ export interface ExpenseSummaryResponse {
 }
 
 /**
- * API response for receipt download
- */
-export interface ExpenseDownloadResponse {
-  status: 'success' | 'failed'
-  data: {
-    downloadUrl: string
-    originalName: string
-    mimeType: string
-    expiresIn: number
-  }
-  message?: string
-}
-
-/**
  * API response for delete operations
  */
 export interface DeleteExpenseResponse {
   status: 'success' | 'failed'
   message: string
-}
-
-/**
- * API response for receipt operations
- */
-export interface ReceiptOperationResponse {
-  status: 'success' | 'failed'
-  data?: Expense
-  message?: string
-}
-
-/**
- * API response for OCR scan receipt
- */
-export interface ScanReceiptResponse {
-  status: 'success' | 'failed'
-  data?: OcrReceiptData
-  message?: string
 }
 
 // ============================================================================

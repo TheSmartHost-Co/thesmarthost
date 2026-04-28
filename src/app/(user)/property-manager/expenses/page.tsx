@@ -132,7 +132,7 @@ function stringifyFilters(state: ExpenseFilterState): URLSearchParams {
 
 function parseFiltersFromURL(sp: URLSearchParams): ExpenseFilterState {
   const presetRaw = sp.get('preset') as DateRangePreset | null
-  const validPreset: DateRangePreset = presetRaw && ['thisMonth', 'lastMonth', 'thisQuarter', 'ytd', 'custom'].includes(presetRaw)
+  const validPreset: DateRangePreset = presetRaw && ['allTime', 'thisMonth', 'lastMonth', 'thisQuarter', 'ytd', 'custom'].includes(presetRaw)
     ? presetRaw
     : 'thisMonth'
   const hasReceiptRaw = sp.get('hasReceipt') as HasReceiptFilter | null
@@ -1065,7 +1065,11 @@ function ExpensesContent() {
       <ScanReceiptModal
         isOpen={showScanModal}
         onClose={() => setShowScanModal(false)}
-        onExpenseCreated={() => loadExpenses()}
+        onExpenseCreated={(expenseId: string) => {
+          loadExpenses()
+          setSelectedExpenseId(expenseId)
+          setShowViewerModal(true)
+        }}
       />
 
       <BulkImportExpenseModal

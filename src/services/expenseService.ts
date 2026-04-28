@@ -6,10 +6,7 @@ import type {
   ExpenseResponse,
   ExpensesResponse,
   ExpenseSummaryResponse,
-  ExpenseDownloadResponse,
   DeleteExpenseResponse,
-  ReceiptOperationResponse,
-  ScanReceiptResponse,
   CreateExpensePayload,
   UpdateExpensePayload,
   ExpenseFilters,
@@ -92,93 +89,12 @@ export async function getExpenseById(id: string, userId: string): Promise<Expens
 }
 
 /**
- * Create a new expense (with optional receipt)
- * @param data - Expense creation payload
- * @returns Promise with created expense
+ * Create a new expense (JSON body, no file upload)
  */
 export async function createExpense(data: CreateExpensePayload): Promise<ExpenseResponse> {
-  // Use FormData for file upload support
-  const formData = new FormData()
-  formData.append('userId', data.userId)
-  formData.append('expenseDate', data.expenseDate)
-  formData.append('amount', data.amount.toString())
-
-  if (data.category) {
-    formData.append('category', data.category)
-  }
-  if (data.propertyId) {
-    formData.append('propertyId', data.propertyId)
-  }
-  if (data.bookingId) {
-    formData.append('bookingId', data.bookingId)
-  }
-  if (data.currency) {
-    formData.append('currency', data.currency)
-  }
-  if (data.vendorName) {
-    formData.append('vendorName', data.vendorName)
-  }
-  if (data.description) {
-    formData.append('description', data.description)
-  }
-  if (data.receipt) {
-    formData.append('receipt', data.receipt)
-  }
-  if (data.isReimbursable !== undefined) {
-    formData.append('isReimbursable', data.isReimbursable.toString())
-  }
-  if (data.isTaxDeductible !== undefined) {
-    formData.append('isTaxDeductible', data.isTaxDeductible.toString())
-  }
-  if (data.paymentMethod) {
-    formData.append('paymentMethod', data.paymentMethod)
-  }
-  if (data.paymentStatus) {
-    formData.append('paymentStatus', data.paymentStatus)
-  }
-  if (data.isRecurring !== undefined) {
-    formData.append('isRecurring', data.isRecurring.toString())
-  }
-  if (data.recurringFrequency) {
-    formData.append('recurringFrequency', data.recurringFrequency)
-  }
-  if (data.recurringEndDate) {
-    formData.append('recurringEndDate', data.recurringEndDate)
-  }
-  if (data.parentExpenseId) {
-    formData.append('parentExpenseId', data.parentExpenseId)
-  }
-  if (data.subtotal !== undefined) {
-    formData.append('subtotal', data.subtotal.toString())
-  }
-  if (data.taxGst !== undefined) {
-    formData.append('taxGst', data.taxGst.toString())
-  }
-  if (data.taxPst !== undefined) {
-    formData.append('taxPst', data.taxPst.toString())
-  }
-  if (data.taxHst !== undefined) {
-    formData.append('taxHst', data.taxHst.toString())
-  }
-  if (data.taxTotal !== undefined) {
-    formData.append('taxTotal', data.taxTotal.toString())
-  }
-  if (data.ocrProcessed !== undefined) {
-    formData.append('ocrProcessed', data.ocrProcessed.toString())
-  }
-  if (data.ocrConfidence) {
-    formData.append('ocrConfidence', JSON.stringify(data.ocrConfidence))
-  }
-
-  // Use fetch directly for FormData (apiClient might not handle it correctly)
-  return fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/expenses`, {
+  return apiClient<ExpenseResponse, CreateExpensePayload>('/expenses', {
     method: 'POST',
-    body: formData,
-  }).then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    return response.json()
+    body: data,
   })
 }
 
@@ -317,61 +233,6 @@ export async function exportExpenses(opts: {
 }
 
 /**
- * Upload or replace receipt for an existing expense
- * @param expenseId - Expense ID
- * @param userId - User ID for ownership validation
- * @param receipt - Receipt file to upload
- * @returns Promise with updated expense
- */
-export async function uploadReceipt(
-  expenseId: string,
-  userId: string,
-  receipt: File
-): Promise<ReceiptOperationResponse> {
-  const formData = new FormData()
-  formData.append('userId', userId)
-  formData.append('receipt', receipt)
-
-  return fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/expenses/${expenseId}/receipt`, {
-    method: 'POST',
-    body: formData,
-  }).then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    return response.json()
-  })
-}
-
-/**
- * Remove receipt from an expense (keeps expense, removes file)
- * @param expenseId - Expense ID
- * @param userId - User ID for ownership validation
- * @returns Promise with result
- */
-export async function deleteReceipt(
-  expenseId: string,
-  userId: string
-): Promise<ReceiptOperationResponse> {
-  return apiClient<ReceiptOperationResponse>(`/expenses/${expenseId}/receipt?userId=${userId}`, {
-    method: 'DELETE',
-  })
-}
-
-/**
- * Get download URL for expense receipt
- * @param expenseId - Expense ID
- * @param userId - User ID for ownership validation
- * @returns Promise with download URL details
- */
-export async function getReceiptDownloadUrl(
-  expenseId: string,
-  userId: string
-): Promise<ExpenseDownloadResponse> {
-  return apiClient<ExpenseDownloadResponse>(`/expenses/${expenseId}/download?userId=${userId}`)
-}
-
-/**
  * Get expense summary with totals and breakdown
  * @param userId - User ID
  * @param groupBy - Group breakdown by 'category' or 'property'
@@ -407,64 +268,6 @@ export async function getExpenseSummary(
 // ============================================================================
 // Helper Functions (Client-side calculations)
 // ============================================================================
-
-/**
- * Download expense receipt file
- * @param expenseId - Expense ID
- * @param userId - User ID for ownership validation
- * @param filename - Optional custom filename
- */
-export async function downloadReceipt(
-  expenseId: string,
-  userId: string,
-  filename?: string
-): Promise<void> {
-  try {
-    const response = await getReceiptDownloadUrl(expenseId, userId)
-    if (response.status === 'success') {
-      // Fetch the file and trigger browser download
-      const fileResponse = await fetch(response.data.downloadUrl)
-      const blob = await fileResponse.blob()
-
-      // Create object URL and trigger download
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename || response.data.originalName
-      document.body.appendChild(link)
-      link.click()
-
-      // Clean up
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    }
-  } catch (error) {
-    console.error('Download failed:', error)
-    throw error
-  }
-}
-
-/**
- * Get receipt URL for preview
- * @param expenseId - Expense ID
- * @param userId - User ID for ownership validation
- * @returns Promise with signed URL for preview
- */
-export async function getReceiptPreviewUrl(
-  expenseId: string,
-  userId: string
-): Promise<string> {
-  try {
-    const response = await getReceiptDownloadUrl(expenseId, userId)
-    if (response.status === 'success') {
-      return response.data.downloadUrl
-    }
-    throw new Error('Failed to get preview URL')
-  } catch (error) {
-    console.error('Preview URL failed:', error)
-    throw error
-  }
-}
 
 /**
  * Calculate expense totals from expenses array (client-side)
@@ -605,41 +408,6 @@ export function formatExpenseDate(
 ): string {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString('en-CA', options)
-}
-
-// ============================================================================
-// OCR Functions
-// ============================================================================
-
-/**
- * Scan a receipt image using OCR and extract expense data
- * @param receipt - Receipt image file (JPG, PNG, GIF, WEBP, or PDF)
- * @returns Promise with extracted receipt data including confidence scores
- */
-export async function scanReceipt(receipt: File): Promise<ScanReceiptResponse> {
-  const formData = new FormData()
-  formData.append('receipt', receipt)
-
-  return fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/expenses/scan-receipt`, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include'
-  }).then(async response => {
-    const data = await response.json()
-    if (!response.ok) {
-      return {
-        status: 'failed' as const,
-        message: data.message || `HTTP error! status: ${response.status}`
-      }
-    }
-    return data
-  }).catch(error => {
-    console.error('Scan receipt error:', error)
-    return {
-      status: 'failed' as const,
-      message: error.message || 'Failed to scan receipt'
-    }
-  })
 }
 
 // ============================================================================

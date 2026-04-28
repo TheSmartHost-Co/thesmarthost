@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '@/components/shared/modal'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
+import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
 import { createExpense } from '@/services/expenseService'
+import { searchReceipts, applyReceipt } from '@/services/receiptService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
@@ -12,8 +14,9 @@ import { getCleaners } from '@/services/cleanerService'
 import { getTeamMembers } from '@/services/teamMemberService'
 import { getUserProfile } from '@/services/profileService'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { formatCurrency } from '@/services/expenseService'
 import type { CreateExpensePayload, Expense, PaymentMethod, PaymentStatus } from '@/services/types/expense'
-import type { PaidByType } from '@/services/types/receipt'
+import type { PaidByType, UploadedReceipt } from '@/services/types/receipt'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { getCategoryByCode } from '@/services/types/expenseCategories'
 import type { Property } from '@/services/types/property'
@@ -21,11 +24,7 @@ import type { Booking } from '@/services/types/booking'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
-import {
-  CloudArrowUpIcon,
-  DocumentTextIcon,
-  XMarkIcon
-} from '@heroicons/react/24/outline'
+import { DocumentTextIcon } from '@heroicons/react/24/outline'
 
 interface CreateExpenseModalProps {
   isOpen: boolean
@@ -82,9 +81,10 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [taxHst, setTaxHst] = useState('')
   const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
 
-  // Receipt state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
+  // Receipt picker state
+  const [selectedReceipt, setSelectedReceipt] = useState<UploadedReceipt | null>(null)
+  const [availableReceipts, setAvailableReceipts] = useState<UploadedReceipt[]>([])
+  const [loadingReceipts, setLoadingReceipts] = useState(false)
 
   // Paid By state
   const [paidById, setPaidById] = useState<string | null>(null)
@@ -143,6 +143,15 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     if (!effectiveUserId) return
 
     setLoading(true)
+    // Load unlinked matched receipts for the picker
+    setLoadingReceipts(true)
+    searchReceipts({ status: 'matched', linked: 'false', limit: 100 })
+      .then(res => {
+        if (res.status === 'success') setAvailableReceipts(res.data || [])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingReceipts(false))
+
     try {
       const [propertiesRes, categoriesRes, tmRes, clRes] = await Promise.all([
         getProperties(effectiveUserId),
@@ -245,7 +254,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setPaymentMethod('credit_card')
     setQbEntityType('')
     setPaymentStatus('paid')
-    setSelectedFile(null)
+    setSelectedReceipt(null)
     setSubtotal('')
     setTaxGst('')
     setTaxPst('')
@@ -255,47 +264,34 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setPaidByType('PROPERTY-MANAGER')
   }
 
-  const handleFileSelect = (file: File) => {
-    // Validate file type
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain'
-    ]
+  // Receipt picker options
+  const receiptOptions: SearchableSelectOption<string>[] = useMemo(() => {
+    return availableReceipts.map(r => ({
+      value: r.id,
+      label: r.vendorName || r.originalName,
+      secondaryLabel: [
+        r.total != null ? formatCurrency(r.total) : null,
+        r.expenseDate ? parseLocalDate(r.expenseDate).toLocaleDateString() : null,
+      ].filter(Boolean).join(' · '),
+    }))
+  }, [availableReceipts])
 
-    if (!allowedTypes.includes(file.type)) {
-      showNotification('Invalid file type. Allowed: JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, TXT', 'error')
+  const handleReceiptSelect = (receiptId: string | null) => {
+    if (!receiptId) {
+      setSelectedReceipt(null)
       return
     }
+    const receipt = availableReceipts.find(r => r.id === receiptId)
+    if (!receipt) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('File size too large. Maximum: 5MB', 'error')
-      return
-    }
+    setSelectedReceipt(receipt)
 
-    setSelectedFile(file)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      handleFileSelect(files[0])
-    }
+    // Auto-populate form fields from receipt OCR data
+    if (receipt.vendorName) setVendorName(receipt.vendorName)
+    if (receipt.total != null) setAmount(String(receipt.total))
+    if (receipt.expenseDate) setExpenseDate(receipt.expenseDate)
+    if (receipt.subtotal != null) setSubtotal(String(receipt.subtotal))
+    if (receipt.propertyId) setPropertyId(receipt.propertyId)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -328,41 +324,68 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       const hst = parseFloat(taxHst) || 0
       const taxTotal = gst + pst + hst
 
-      const payload: CreateExpensePayload = {
-        userId: effectiveUserId!,
-        propertyId: propertyId || undefined,
-        bookingId: bookingId || undefined,
-        expenseDate,
-        amount: parsedAmount,
-        currency,
-        category: category || undefined,
-        vendorName: vendorName.trim() || undefined,
-        description: description.trim() || undefined,
-        receipt: selectedFile || undefined,
-        isReimbursable,
-        isTaxDeductible,
-        paymentMethod,
-        paymentStatus,
-        subtotal: parseFloat(subtotal) || undefined,
-        taxGst: gst || undefined,
-        taxPst: pst || undefined,
-        taxHst: hst || undefined,
-        taxTotal: taxTotal || undefined,
-        paidById,
-        paidByType,
-        qbEntityType: qbEntityType || undefined,
-      }
+      const localName = peopleOptions.find(o => o.value === paidById)?.label?.replace(/\s*\(You\)\s*$/, '') ?? null
 
-      const response = await createExpense(payload)
-      if (response.status === 'success') {
-        showNotification('Expense created successfully', 'success')
-        // Backend RETURNING * doesn't run the JOIN, so paidByName is null on create.
-        // Patch it locally from the picker label so the parent list renders the name immediately.
-        const localName = peopleOptions.find(o => o.value === paidById)?.label?.replace(/\s*\(You\)\s*$/, '') ?? null
-        onAdd({ ...response.data, paidByName: response.data.paidByName ?? localName })
-        onClose()
+      if (selectedReceipt) {
+        // Apply receipt → creates expense from receipt
+        const response = await applyReceipt(selectedReceipt.id, {
+          propertyId: propertyId || selectedReceipt.propertyId || '',
+          expenseDate: expenseDate || new Date().toISOString().split('T')[0],
+          vendorName: vendorName.trim() || selectedReceipt.vendorName || '',
+          category: category || '',
+          paymentMethod,
+          paidByType,
+          paidById,
+          subtotal: parseFloat(subtotal) || 0,
+          taxGst: gst || null,
+          taxPst: pst || null,
+          taxHst: hst || null,
+          taxTotal: taxTotal || 0,
+          supplyList: { mode: 'none' },
+        })
+
+        if (response.status === 'success') {
+          showNotification('Expense created from receipt!', 'success')
+          const expenseData = response.data.expense as unknown as Expense
+          onAdd({ ...expenseData, paidByName: expenseData.paidByName ?? localName })
+          onClose()
+        } else {
+          showNotification(response.message || 'Failed to apply receipt', 'error')
+        }
       } else {
-        showNotification(response.message || 'Failed to create expense', 'error')
+        // Direct expense creation (no receipt)
+        const payload: CreateExpensePayload = {
+          userId: effectiveUserId!,
+          propertyId: propertyId || undefined,
+          bookingId: bookingId || undefined,
+          expenseDate,
+          amount: parsedAmount,
+          currency,
+          category: category || undefined,
+          vendorName: vendorName.trim() || undefined,
+          description: description.trim() || undefined,
+          isReimbursable,
+          isTaxDeductible,
+          paymentMethod,
+          paymentStatus,
+          subtotal: parseFloat(subtotal) || undefined,
+          taxGst: gst || undefined,
+          taxPst: pst || undefined,
+          taxHst: hst || undefined,
+          taxTotal: taxTotal || undefined,
+          paidById,
+          paidByType,
+          qbEntityType: qbEntityType || undefined,
+        }
+
+        const response = await createExpense(payload)
+        if (response.status === 'success') {
+          showNotification('Expense created successfully', 'success')
+          onAdd({ ...response.data, paidByName: response.data.paidByName ?? localName })
+          onClose()
+        } else {
+          showNotification(response.message || 'Failed to create expense', 'error')
+        }
       }
     } catch (error) {
       console.error('Error creating expense:', error)
@@ -684,53 +707,47 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
             )}
           </div>
 
-          {/* Receipt Upload */}
+          {/* Link Receipt (Optional) */}
           <div>
-            <label className="block text-sm font-medium mb-2">Receipt (Optional)</label>
-            <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                isDragOver
-                  ? 'border-blue-400 bg-blue-50'
-                  : selectedFile
-                    ? 'border-green-400 bg-green-50'
-                    : 'border-gray-300 hover:border-gray-400'
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              {selectedFile ? (
-                <div className="space-y-2">
-                  <DocumentTextIcon className="mx-auto h-8 w-8 text-green-600" />
-                  <p className="text-sm font-medium text-green-700">{selectedFile.name}</p>
-                  <p className="text-xs text-gray-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFile(null)}
-                    className="cursor-pointer text-xs text-red-600 hover:text-red-800"
-                  >
-                    Remove file
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <CloudArrowUpIcon className="mx-auto h-8 w-8 text-gray-400" />
-                  <p className="text-sm text-gray-600">
-                    Drag and drop your receipt here, or{' '}
-                    <label className="text-blue-600 hover:text-blue-800 cursor-pointer">
-                      click to browse
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt"
-                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+            <label className="block text-sm font-medium mb-1">Link Receipt (Optional)</label>
+            <SearchableSelect
+              options={receiptOptions}
+              value={selectedReceipt?.id ?? null}
+              onChange={handleReceiptSelect}
+              placeholder="Select a scanned receipt to link..."
+              emptyText="No unlinked receipts available"
+              loading={loadingReceipts}
+              loadingText="Loading receipts..."
+              clearable
+              renderOption={(option, isSelected, isHighlighted) => {
+                const receipt = availableReceipts.find(r => r.id === option.value)
+                return (
+                  <div className={`flex items-center gap-3 px-3 py-2 ${isHighlighted ? 'bg-blue-50' : ''} ${isSelected ? 'bg-blue-100' : ''}`}>
+                    <div className="w-10 h-10 rounded border border-gray-200 overflow-hidden flex-shrink-0 bg-gray-50 flex items-center justify-center">
+                      <ReceiptThumbnail
+                        signedUrl={receipt?.signedUrl}
+                        mimeType={receipt?.mimeType}
+                        originalName={receipt?.originalName}
+                        imgClassName="w-10 h-10 object-cover"
+                        pdfRenderWidth={80}
+                        fallback={<DocumentTextIcon className="w-5 h-5 text-gray-400" />}
                       />
-                    </label>
-                  </p>
-                  <p className="text-xs text-gray-500">JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, TXT (max 5MB)</p>
-                </div>
-              )}
-            </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{option.label}</p>
+                      {option.secondaryLabel && (
+                        <p className="text-xs text-gray-500 truncate">{option.secondaryLabel}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              }}
+            />
+            {selectedReceipt && (
+              <p className="mt-1 text-xs text-blue-600">
+                Fields auto-populated from receipt. You can edit them before creating.
+              </p>
+            )}
           </div>
 
           {/* Form Buttons */}

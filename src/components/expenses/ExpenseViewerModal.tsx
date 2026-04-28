@@ -8,10 +8,6 @@ import {
   getExpenseById,
   updateExpense,
   deleteExpense,
-  uploadReceipt,
-  deleteReceipt,
-  getReceiptPreviewUrl,
-  downloadReceipt,
   formatCurrency,
   formatExpenseDate,
   getExpenseLineItems,
@@ -22,10 +18,7 @@ import {
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
 import { getProperties } from '@/services/propertyService'
 import { getBookings } from '@/services/bookingService'
-import { getSupplyListById } from '@/services/supplyListService'
 import type { SupplyList } from '@/services/types/supplyList'
-import { getReceiptLineItems } from '@/services/receiptService'
-import type { ReceiptLineItem } from '@/services/types/receipt'
 import type {
   Expense,
   ExpenseLineItem,
@@ -51,20 +44,14 @@ import { usePermissions } from '@/hooks/usePermissions'
 import {
   PencilIcon,
   TrashIcon,
-  ArrowDownTrayIcon,
   ArrowUpTrayIcon,
-  CloudArrowUpIcon,
-  DocumentTextIcon,
   XMarkIcon,
-  EyeIcon,
-  PhotoIcon,
   BuildingOfficeIcon,
   CalendarIcon,
   CurrencyDollarIcon,
   TagIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClipboardDocumentListIcon,
   LinkIcon,
   UserIcon,
   PlusIcon
@@ -88,7 +75,7 @@ interface ExpenseViewerModalProps {
   zIndex?: number
 }
 
-type ModalMode = 'view' | 'edit' | 'receipt' | 'line-items' | 'related'
+type ModalMode = 'view' | 'edit' | 'line-items' | 'related'
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'credit_card', label: 'Credit Card' },
@@ -119,8 +106,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [expense, setExpense] = useState<Expense | null>(null)
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<ModalMode>('view')
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
-  const [loadingReceipt, setLoadingReceipt] = useState(false)
   const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
   const [showSendToQbModal, setShowSendToQbModal] = useState(false)
 
@@ -154,19 +139,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [peopleOptions, setPeopleOptions] = useState<SearchableSelectOption<string>[]>([])
   const [peopleTypeMap, setPeopleTypeMap] = useState<Record<string, PaidByType>>({})
 
-  // Receipt upload state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [uploadingReceipt, setUploadingReceipt] = useState(false)
-
-  // Supply list origin state
-  const [supplyLineItems, setSupplyLineItems] = useState<ReceiptLineItem[]>([])
-  const [supplyLineItemsLoading, setSupplyLineItemsLoading] = useState(false)
-  const [lineItemsExpanded, setLineItemsExpanded] = useState(true)
-  const [showSupplyListModal, setShowSupplyListModal] = useState(false)
-  const [supplyListProjectId, setSupplyListProjectId] = useState('')
-  const [supplyListProjectName, setSupplyListProjectName] = useState('')
-
   // Expense line items state
   const [expenseLineItems, setExpenseLineItems] = useState<ExpenseLineItem[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(false)
@@ -191,7 +163,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   useEffect(() => {
     if (isOpen && expenseId && effectiveUserId) {
       setMode('view')
-      setReceiptUrl(null)
       fetchExpense()
       loadReferenceData()
     }
@@ -229,20 +200,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         initializeEditForm(response.data)
         // Use nested lineItems from API if available
         setExpenseLineItems(response.data.lineItems || [])
-        // Fetch receipt line items if this expense came from a receipt
-        if (response.data.receiptId) {
-          setSupplyLineItemsLoading(true)
-          try {
-            const liRes = await getReceiptLineItems(response.data.receiptId)
-            if (liRes.status === 'success') setSupplyLineItems(liRes.data || [])
-          } catch {
-            // Non-critical, silently fail
-          } finally {
-            setSupplyLineItemsLoading(false)
-          }
-        } else {
-          setSupplyLineItems([])
-        }
       } else {
         showNotification(response.message || 'Failed to load expense', 'error')
       }
@@ -354,26 +311,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     }
   }
 
-  const handleModeSwitch = async (newMode: ModalMode) => {
-    if (newMode === 'receipt' && expense?.receiptPath && !receiptUrl) {
-      await loadReceiptPreview()
-    }
+  const handleModeSwitch = (newMode: ModalMode) => {
     setMode(newMode)
-  }
-
-  const loadReceiptPreview = async () => {
-    if (!effectiveUserId || !expenseId) return
-
-    setLoadingReceipt(true)
-    try {
-      const url = await getReceiptPreviewUrl(expenseId, effectiveUserId)
-      setReceiptUrl(url)
-    } catch (error) {
-      console.error('Error loading receipt:', error)
-      showNotification('Error loading receipt preview', 'error')
-    } finally {
-      setLoadingReceipt(false)
-    }
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -463,87 +402,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     }
   }
 
-  const handleDownloadReceipt = async () => {
-    if (!effectiveUserId || !expense) return
-
-    try {
-      await downloadReceipt(expense.id, effectiveUserId)
-      showNotification('Download started', 'success')
-    } catch (error) {
-      console.error('Error downloading receipt:', error)
-      showNotification('Error downloading receipt', 'error')
-    }
-  }
-
-  const handleFileSelect = (file: File) => {
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain'
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      showNotification('Invalid file type', 'error')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('File size too large. Maximum: 5MB', 'error')
-      return
-    }
-
-    setSelectedFile(file)
-  }
-
-  const handleUploadReceipt = async () => {
-    if (!effectiveUserId || !expense || !selectedFile) return
-
-    setUploadingReceipt(true)
-    try {
-      const response = await uploadReceipt(expense.id, effectiveUserId, selectedFile)
-      if (response.status === 'success' && response.data) {
-        showNotification('Receipt uploaded successfully', 'success')
-        setExpense(response.data)
-        setSelectedFile(null)
-        // Reload preview
-        const url = await getReceiptPreviewUrl(expense.id, effectiveUserId)
-        setReceiptUrl(url)
-        onExpenseUpdated?.()
-      } else {
-        showNotification(response.message || 'Failed to upload receipt', 'error')
-      }
-    } catch (error) {
-      console.error('Error uploading receipt:', error)
-      showNotification('Error uploading receipt', 'error')
-    } finally {
-      setUploadingReceipt(false)
-    }
-  }
-
-  const handleDeleteReceipt = async () => {
-    if (!effectiveUserId || !expense) return
-
-    if (!confirm('Remove the receipt from this expense?')) return
-
-    try {
-      const response = await deleteReceipt(expense.id, effectiveUserId)
-      if (response.status === 'success') {
-        showNotification('Receipt removed successfully', 'success')
-        setExpense(prev => prev ? { ...prev, receiptPath: undefined, receiptOriginalName: undefined, receiptMimeType: undefined } : null)
-        setReceiptUrl(null)
-        setMode('view')
-        onExpenseUpdated?.()
-      } else {
-        showNotification(response.message || 'Failed to remove receipt', 'error')
-      }
-    } catch (error) {
-      console.error('Error removing receipt:', error)
-      showNotification('Error removing receipt', 'error')
-    }
-  }
-
   // --- Expense Line Item Handlers ---
   const handleCreateLineItem = async (data: CreateExpenseLineItemPayload) => {
     if (!expense || !effectiveUserId) return
@@ -625,7 +483,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     return colors[status] || 'bg-gray-100 text-gray-500'
   }
 
-  const isImageReceipt = expense?.receiptMimeType?.startsWith('image/')
 
   // --- LINE ITEMS TAB ---
   const renderLineItemsMode = () => {
@@ -774,21 +631,12 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               status={expense.receipt.status}
               onClick={() => setStackedReceiptId(expense.receipt!.id)}
             />
-          ) : expense.receiptPath ? (
-            <RelatedEntityCard
-              entityType="receipt"
-              title={expense.receiptOriginalName || 'Receipt attached'}
-              subtitle="Legacy receipt (no detail view)"
-              onClick={() => handleModeSwitch('receipt')}
-            />
           ) : (
             <RelatedEntityCard
               entityType="receipt"
               title=""
               emptyText="No linked receipt"
               onClick={() => {}}
-              onAction={hasWrite ? () => handleModeSwitch('receipt') : undefined}
-              actionLabel="Add Receipt"
             />
           )}
         </div>
@@ -1013,115 +861,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           </div>
         )}
 
-        {/* Supply List Origin */}
-        {expense.receiptId && !hideSupplyListLink && (
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ClipboardDocumentListIcon className="w-5 h-5 text-teal-500" />
-                <span className="text-sm font-medium text-gray-900">Supply List Origin</span>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await getSupplyListById(expense.supplyListId!)
-                    if (res.status === 'success') {
-                      setSupplyListProjectId(res.data.projectId || '')
-                      setSupplyListProjectName(res.data.propertyName || 'Unknown Property')
-                      setShowSupplyListModal(true)
-                    } else {
-                      showNotification('Could not load supply list', 'error')
-                    }
-                  } catch {
-                    showNotification('Error loading supply list', 'error')
-                  }
-                }}
-                className="cursor-pointer inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-800"
-              >
-                View Supply List
-                <ChevronRightIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-            {supplyLineItemsLoading ? (
-              <div className="flex items-center justify-center py-3">
-                <div className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
-              </div>
-            ) : supplyLineItems.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setLineItemsExpanded(!lineItemsExpanded)}
-                  className="cursor-pointer flex items-center justify-between w-full text-sm"
-                >
-                  <div className="flex items-center gap-1 text-gray-700 font-medium">
-                    {lineItemsExpanded ? (
-                      <ChevronDownIcon className="w-4 h-4" />
-                    ) : (
-                      <ChevronRightIcon className="w-4 h-4" />
-                    )}
-                    Line Items ({supplyLineItems.length})
-                  </div>
-                  <span className="text-sm font-medium text-teal-600">
-                    {formatCurrency(supplyLineItems.reduce((sum, li) => sum + li.totalPrice, 0), expense.currency)}
-                  </span>
-                </button>
-
-                {lineItemsExpanded && (
-                  <div className="mt-2 space-y-1.5">
-                    {supplyLineItems.map((li) => (
-                      <div key={li.id} className="flex items-center justify-between text-sm py-1 px-2 bg-gray-50 rounded">
-                        <span className="text-gray-900">{li.name}</span>
-                        <span className="text-gray-600 text-xs">
-                          {li.quantity} × {formatCurrency(li.unitPrice, expense.currency)} = {formatCurrency(li.totalPrice, expense.currency)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Receipt section */}
-        {expense.receiptPath ? (
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <DocumentTextIcon className="w-5 h-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">Receipt Attached</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleModeSwitch('receipt')}
-                  className="cursor-pointer text-sm text-purple-600 hover:text-purple-800 font-medium"
-                >
-                  View Receipt
-                </button>
-                <button
-                  onClick={handleDownloadReceipt}
-                  className="cursor-pointer text-sm text-green-600 hover:text-green-800 font-medium"
-                >
-                  Download
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">{expense.receiptOriginalName}</p>
-          </div>
-        ) : (
-          <div className="border border-dashed border-gray-300 rounded-lg p-4 text-center">
-            <DocumentTextIcon className="mx-auto w-8 h-8 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500 mb-2">No receipt attached</p>
-            {hasWrite && (
-              <button
-                onClick={() => handleModeSwitch('receipt')}
-                className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Add Receipt
-              </button>
-            )}
-          </div>
-        )}
       </div>
     )
   }
@@ -1438,206 +1177,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     )
   }
 
-  const renderReceiptMode = () => {
-    return (
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-black">Receipt</h3>
-          <button
-            onClick={() => setMode('view')}
-            className="cursor-pointer text-gray-400 hover:text-gray-600"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Receipt Preview */}
-        {expense?.receiptPath ? (
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              {loadingReceipt ? (
-                <div className="flex items-center justify-center h-[400px] bg-gray-50">
-                  <div className="text-gray-500">Loading receipt...</div>
-                </div>
-              ) : receiptUrl ? (
-                isImageReceipt ? (
-                  <div className="flex justify-center bg-gray-100 p-4">
-                    <img
-                      src={receiptUrl}
-                      alt="Receipt"
-                      className="max-w-full max-h-[500px] object-contain"
-                    />
-                  </div>
-                ) : (
-                  <iframe
-                    src={receiptUrl}
-                    className="w-full h-[500px]"
-                    title="Receipt Preview"
-                  />
-                )
-              ) : (
-                <div className="flex items-center justify-center h-[400px] bg-gray-50">
-                  <div className="text-center">
-                    <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <p className="text-gray-500">Could not load preview</p>
-                    <button
-                      onClick={handleDownloadReceipt}
-                      className="cursor-pointer mt-2 text-blue-600 hover:text-blue-800"
-                    >
-                      Download instead
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">{expense.receiptOriginalName}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDownloadReceipt}
-                  className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                >
-                  <ArrowDownTrayIcon className="w-4 h-4" />
-                  Download
-                </button>
-                {hasWrite && (
-                  <button
-                    onClick={handleDeleteReceipt}
-                    className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Replace Receipt */}
-            {hasWrite && (
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Replace Receipt</p>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                    isDragOver ? 'border-blue-400 bg-blue-50' : selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300'
-                  }`}
-                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-                  onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    setIsDragOver(false)
-                    const files = Array.from(e.dataTransfer.files)
-                    if (files[0]) handleFileSelect(files[0])
-                  }}
-                >
-                  {selectedFile ? (
-                    <div className="flex items-center justify-center gap-4">
-                      <span className="text-sm text-green-700">{selectedFile.name}</span>
-                      <button
-                        onClick={handleUploadReceipt}
-                        disabled={uploadingReceipt}
-                        className="cursor-pointer px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm"
-                      >
-                        {uploadingReceipt ? 'Uploading...' : 'Upload'}
-                      </button>
-                      <button
-                        onClick={() => setSelectedFile(null)}
-                        className="cursor-pointer text-red-600 hover:text-red-800 text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer text-sm text-gray-600">
-                      Drop a new file or{' '}
-                      <span className="text-blue-600 hover:text-blue-800">browse</span>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt"
-                        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : hasWrite ? (
-          /* No receipt - upload form */
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragOver ? 'border-blue-400 bg-blue-50' : selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300'
-            }`}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
-            onDrop={(e) => {
-              e.preventDefault()
-              setIsDragOver(false)
-              const files = Array.from(e.dataTransfer.files)
-              if (files[0]) handleFileSelect(files[0])
-            }}
-          >
-            {selectedFile ? (
-              <div className="space-y-4">
-                <DocumentTextIcon className="mx-auto h-10 w-10 text-green-600" />
-                <p className="text-sm font-medium text-green-700">{selectedFile.name}</p>
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={handleUploadReceipt}
-                    disabled={uploadingReceipt}
-                    className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                  >
-                    {uploadingReceipt ? 'Uploading...' : 'Upload Receipt'}
-                  </button>
-                  <button
-                    onClick={() => setSelectedFile(null)}
-                    className="cursor-pointer px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <CloudArrowUpIcon className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="text-sm text-gray-600">
-                  Drag and drop your receipt here, or{' '}
-                  <label className="text-blue-600 hover:text-blue-800 cursor-pointer">
-                    click to browse
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt"
-                      onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                    />
-                  </label>
-                </p>
-                <p className="text-xs text-gray-500">JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, TXT (max 5MB)</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <DocumentTextIcon className="mx-auto h-10 w-10 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500">No receipt attached</p>
-          </div>
-        )}
-
-        {/* Back button */}
-        <div className="flex justify-start pt-4">
-          <button
-            onClick={() => setMode('view')}
-            className="cursor-pointer px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-          >
-            Back to Details
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <>
     <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-3xl w-11/12 !overflow-y-hidden flex flex-col" zIndex={zIndex}>
@@ -1647,7 +1186,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           tabs={[
             { key: 'view', label: 'Details' },
             { key: 'edit', label: 'Edit' },
-            { key: 'receipt', label: expense?.receiptPath ? 'Receipt *' : 'Receipt' },
             { key: 'line-items', label: 'Line Items', badge: expenseLineItems.length || undefined, badgeColor: 'bg-teal-500' },
             {
               key: 'related',
@@ -1674,7 +1212,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           <>
             {mode === 'view' && renderViewMode()}
             {mode === 'edit' && renderEditMode()}
-            {mode === 'receipt' && renderReceiptMode()}
             {mode === 'line-items' && renderLineItemsMode()}
             {mode === 'related' && renderRelatedMode()}
           </>
@@ -1726,14 +1263,6 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         onClose={() => setStackedSupplyListId(null)}
         initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
         onSupplyListsChanged={() => fetchExpense()}
-      />
-    )}
-    {showSupplyListModal && supplyListProjectId && (
-      <ViewSupplyListsModal
-        isOpen={showSupplyListModal}
-        onClose={() => setShowSupplyListModal(false)}
-        projectId={supplyListProjectId}
-        projectName={supplyListProjectName}
       />
     )}
     </>

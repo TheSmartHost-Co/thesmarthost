@@ -13,6 +13,7 @@ import {
   CheckCircleIcon,
   TrashIcon,
   ShoppingCartIcon,
+  ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline'
 
 interface SupplyHubTableViewProps {
@@ -119,6 +120,9 @@ export default function SupplyHubTableView({
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
               {t('items')}
             </th>
+            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[220px] max-w-[300px]">
+              {t('notes')}
+            </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[130px]">
               {t('submitterLabel')}
             </th>
@@ -178,6 +182,18 @@ export default function SupplyHubTableView({
                       <p className="text-xs text-teal-600">{purchased}/{sl.items.length} purchased</p>
                     )}
                   </div>
+                </td>
+                <td className="px-6 py-4 align-top max-w-[300px]">
+                  {sl.notes ? (
+                    <div className="flex items-start gap-1.5" title={sl.notes}>
+                      <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm italic text-gray-600 line-clamp-2 whitespace-normal break-words">
+                        {sl.notes}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-300">—</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-sm text-gray-700">{sl.submitterName || '—'}</span>

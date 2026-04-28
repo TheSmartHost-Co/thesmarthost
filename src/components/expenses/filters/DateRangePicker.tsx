@@ -6,6 +6,7 @@ import type { DateRangePreset, ExpenseFilterState } from '@/services/types/expen
 import { resolveDateRange } from '@/services/types/expenseFilterPreset'
 
 const PRESET_CHOICES: { value: DateRangePreset; label: string }[] = [
+  { value: 'allTime',     label: 'All time' },
   { value: 'thisMonth',   label: 'This month' },
   { value: 'lastMonth',   label: 'Last month' },
   { value: 'thisQuarter', label: 'This quarter' },
