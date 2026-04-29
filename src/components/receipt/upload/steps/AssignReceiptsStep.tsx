@@ -6,6 +6,7 @@ import SearchableSelect, {
   SearchableSelectOption,
 } from '@/components/shared/SearchableSelect'
 import Modal from '@/components/shared/modal'
+import ReceiptDetailsPopupModal from '../ReceiptDetailsPopupModal'
 import type { Property } from '@/services/types/property'
 import type { BulkRowState } from '../BulkUploadReceiptModal'
 
@@ -29,6 +30,7 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
   const [bulkProperty, setBulkProperty] = useState<string | null>(null)
   const [bulkMonth, setBulkMonth] = useState('')
   const [previewRow, setPreviewRow] = useState<BulkRowState | null>(null)
+  const [detailsRow, setDetailsRow] = useState<BulkRowState | null>(null)
 
   const propertyOptions: SearchableSelectOption<string>[] = useMemo(
     () =>
@@ -99,9 +101,10 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
 
       {/* Per-row assignment table */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[64px_1fr_220px_140px_120px] gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+        <div className="grid grid-cols-[64px_1fr_120px_220px_140px_120px] gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
           <span></span>
           <span>Receipt</span>
+          <span></span>
           <span>Property</span>
           <span>Month</span>
           <span>Apply as expense</span>
@@ -110,7 +113,7 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
           {visibleRows.map((row) => (
             <div
               key={row.id}
-              className="grid grid-cols-[64px_1fr_220px_140px_120px] gap-3 px-4 py-3 items-center"
+              className="grid grid-cols-[64px_1fr_120px_220px_140px_120px] gap-3 px-4 py-3 items-center"
             >
               <button
                 type="button"
@@ -134,11 +137,22 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
                   {row.extracted?.vendorName || row.file.name}
                 </p>
                 <p className="text-xs text-gray-500">
+                  {row.extracted?.expenseDate || 'No date'}
+                </p>
+              </div>
+              <div className="flex flex-col items-center">
+                <p className="text-base font-semibold text-gray-900 tabular-nums">
                   {row.extracted?.total != null
                     ? `$${Number(row.extracted.total).toFixed(2)}`
-                    : '—'}{' '}
-                  · {row.extracted?.expenseDate || 'No date'}
+                    : '—'}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setDetailsRow(row)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  Details
+                </button>
               </div>
               <SearchableSelect
                 options={propertyOptions}
@@ -228,10 +242,18 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
 
       {incompleteCount > 0 && (
         <p className="text-xs text-amber-700">
-          {incompleteCount} receipt{incompleteCount === 1 ? '' : 's'} still need property
+          {incompleteCount} receipt{incompleteCount === 1 ? '' : 's'} needs property
           and month before you can continue.
         </p>
       )}
+
+      <ReceiptDetailsPopupModal
+        receiptId={detailsRow?.receiptId ?? null}
+        onClose={() => setDetailsRow(null)}
+        fallbackVendorName={detailsRow?.extracted?.vendorName}
+        fallbackTotal={detailsRow?.extracted?.total}
+        fallbackExpenseDate={detailsRow?.extracted?.expenseDate}
+      />
     </div>
   )
 }

@@ -65,6 +65,7 @@ import {
   XMarkIcon,
   LinkIcon,
 } from '@heroicons/react/24/outline'
+import { SiQuickbooks } from 'react-icons/si'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ExpenseCategoriesModal from '@/components/expenses/categories/ExpenseCategoriesModal'
@@ -86,6 +87,7 @@ import BulkActionsToolbar, { type BulkAction } from '@/components/shared/BulkAct
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
 import { bulkSyncExpensesToQb, getConnection as getQbConnection } from '@/services/quickbooksService'
 import type { QbConnection } from '@/services/types/quickbooks'
+import SendToQbModal from '@/components/quickbooks/SendToQbModal'
 
 // ─── Column registry ────────────────────────────────────────────
 
@@ -254,6 +256,7 @@ function ExpensesContent() {
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
   const [selectedExpenseId, setSelectedExpenseId] = useState('')
+  const [sendingExpense, setSendingExpense] = useState<Expense | null>(null)
 
   // ─── URL sync (debounced) ─────────────────────────────────────
   const urlSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -952,7 +955,26 @@ function ExpensesContent() {
                         className="sticky right-0 bg-white group-hover:bg-blue-50/95 backdrop-blur-sm px-6 py-4 whitespace-nowrap text-right shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <TableActionsDropdown actions={getRowActions(expense)} itemId={expense.id} />
+                        <div className="flex items-center justify-end gap-1">
+                          {qbConnection?.connected &&
+                            qbConnection.status !== 'expired' &&
+                            expense.qbSyncStatus !== 'synced' && (
+                              <button
+                                type="button"
+                                onClick={() => setSendingExpense(expense)}
+                                title={
+                                  expense.qbSyncStatus === 'failed'
+                                    ? 'Retry sync to QuickBooks'
+                                    : 'Send to QuickBooks'
+                                }
+                                aria-label="Send to QuickBooks"
+                                className="p-1.5 rounded-lg text-[#2CA01C] hover:text-[#1F7A14] hover:bg-emerald-50 cursor-pointer transition-colors"
+                              >
+                                <SiQuickbooks className="w-5 h-5" />
+                              </button>
+                            )}
+                          <TableActionsDropdown actions={getRowActions(expense)} itemId={expense.id} />
+                        </div>
                       </td>
                     </motion.tr>
                   )
@@ -1102,6 +1124,32 @@ function ExpensesContent() {
         onSave={handleSavePreset}
         errorMessage={saveDialogError}
       />
+
+      {sendingExpense && (
+        <SendToQbModal
+          isOpen={true}
+          onClose={() => setSendingExpense(null)}
+          expenseId={sendingExpense.id}
+          vendorName={sendingExpense.vendorName ?? null}
+          hasReceipt={!!sendingExpense.receiptId || !!sendingExpense.receiptPath}
+          connectionDefaultEntityType={qbConnection?.defaultQbEntityType ?? 'purchase'}
+          categoryCode={sendingExpense.category ?? null}
+          expenseAmount={sendingExpense.amount}
+          propertyId={sendingExpense.propertyId ?? null}
+          primaryOwnerName={sendingExpense.primaryOwnerName ?? null}
+          taxBreakdown={{
+            gst: sendingExpense.taxGst ?? 0,
+            pst: sendingExpense.taxPst ?? 0,
+            hst: sendingExpense.taxHst ?? 0,
+            qst: sendingExpense.taxQst ?? 0,
+          }}
+          expenseDescription={sendingExpense.description}
+          onSynced={() => {
+            setSendingExpense(null)
+            loadExpenses()
+          }}
+        />
+      )}
     </div>
   )
 }

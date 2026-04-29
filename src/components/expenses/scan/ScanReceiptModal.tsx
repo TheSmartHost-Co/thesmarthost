@@ -2,9 +2,15 @@
 
 import React, { useState, useCallback } from 'react'
 import Modal from '@/components/shared/modal'
-import { uploadReceipt } from '@/services/receiptService'
+import { uploadReceipt, checkReceiptDuplicates } from '@/services/receiptService'
+import { computeFileHash } from '@/utils/fileHash'
+import { isBackendError } from '@/services/backendError'
 import { getProperties } from '@/services/propertyService'
-import type { AutoApplyOptions, AutoApplyReceiptResponse } from '@/services/types/receipt'
+import type {
+  AutoApplyOptions,
+  AutoApplyReceiptResponse,
+  DuplicateExistingReceipt,
+} from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -13,7 +19,15 @@ import {
   DocumentTextIcon,
   CameraIcon,
   PhotoIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline'
+
+function formatDate(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 interface ScanReceiptModalProps {
   isOpen: boolean
@@ -35,6 +49,10 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
   const [propertyId, setPropertyId] = useState('')
   const [properties, setProperties] = useState<Property[]>([])
   const [loadedProperties, setLoadedProperties] = useState(false)
+  // When a file's hash matches an existing receipt, we surface a warning + override.
+  // duplicateOf=null means "no duplicate detected" or "user has overridden the warning".
+  const [duplicateOf, setDuplicateOf] = useState<DuplicateExistingReceipt | null>(null)
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
   const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -63,6 +81,8 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
       setIsDragOver(false)
       setError(null)
       setPropertyId('')
+      setDuplicateOf(null)
+      setCheckingDuplicate(false)
     }
   }, [isOpen])
 
@@ -81,6 +101,25 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
     }
     setSelectedFile(file)
     setError(null)
+    setDuplicateOf(null)
+
+    // Pre-flight duplicate check. Hashing in the browser saves Storage egress
+    // and Gemini OCR cost on duplicate uploads — we can warn before the user
+    // even clicks "Scan & Create Expense". Fail-open: any error here just
+    // means the warning banner doesn't show; the server-side ON CONFLICT
+    // is the correctness backstop and will surface a 409 if the file is dup.
+    setCheckingDuplicate(true)
+    computeFileHash(file)
+      .then((hash) => checkReceiptDuplicates([hash]))
+      .then((res) => {
+        if (res.status === 'success' && res.data.duplicates.length > 0) {
+          setDuplicateOf(res.data.duplicates[0].existingReceipt)
+        }
+      })
+      .catch((err) => {
+        console.warn('Duplicate check failed for scan modal:', err)
+      })
+      .finally(() => setCheckingDuplicate(false))
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -101,7 +140,8 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
     setIsDragOver(false)
   }, [])
 
-  const handleScanAndApply = async () => {
+  // forceUpload=true is the "Upload anyway" override path — bypasses backend dedup.
+  const handleScanAndApply = async (forceUpload = false) => {
     if (!selectedFile) return
 
     setStep('processing')
@@ -114,6 +154,8 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
         propertyId || undefined,
         undefined,
         autoApplyOptions,
+        undefined,
+        forceUpload
       )
 
       if (response.status === 'success') {
@@ -127,6 +169,18 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
         setStep('upload')
       }
     } catch (err) {
+      // Server-side ON CONFLICT — the file matched an existing receipt despite
+      // (or because we skipped) the pre-flight check. Surface the same warning UI.
+      if (isBackendError(err) && err.status === 409 && err.body) {
+        const code = (err.body as { code?: unknown }).code
+        if (code === 'RECEIPT_DUPLICATE') {
+          const existing = (err.body as { data?: { existingReceipt?: DuplicateExistingReceipt } }).data
+            ?.existingReceipt
+          if (existing) setDuplicateOf(existing)
+          setStep('upload')
+          return
+        }
+      }
       console.error('Scan & apply error:', err)
       setError('Error processing receipt. Please try again.')
       setStep('upload')
@@ -162,6 +216,24 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
             </div>
           )}
 
+          {duplicateOf && (
+            <div
+              className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm flex items-start gap-3"
+              role="alert"
+            >
+              <DocumentDuplicateIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium">Duplicate detected</p>
+                <p className="text-amber-700 mt-0.5">
+                  This file matches a receipt you&apos;ve already uploaded
+                  {duplicateOf.originalName ? ` as "${duplicateOf.originalName}"` : ''}
+                  {duplicateOf.vendorName ? ` from ${duplicateOf.vendorName}` : ''}
+                  {duplicateOf.createdAt ? ` on ${formatDate(duplicateOf.createdAt)}` : ''}.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* File Drop Zone */}
           <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
@@ -190,7 +262,10 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+                    setSelectedFile(null)
+                    setDuplicateOf(null)
+                  }}
                   className="cursor-pointer ml-2 text-xs text-red-600 hover:text-red-800"
                 >
                   Remove
@@ -244,15 +319,27 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleScanAndApply}
-              disabled={!selectedFile}
-              className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <CameraIcon className="w-5 h-5" />
-              Scan & Create Expense
-            </button>
+            {duplicateOf ? (
+              <button
+                type="button"
+                onClick={() => handleScanAndApply(true)}
+                disabled={!selectedFile}
+                className="cursor-pointer px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <DocumentDuplicateIcon className="w-5 h-5" />
+                Upload anyway
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleScanAndApply(false)}
+                disabled={!selectedFile || checkingDuplicate}
+                className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <CameraIcon className="w-5 h-5" />
+                {checkingDuplicate ? 'Checking…' : 'Scan & Create Expense'}
+              </button>
+            )}
           </div>
         </div>
       )}

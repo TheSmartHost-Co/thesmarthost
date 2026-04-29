@@ -120,6 +120,7 @@ export interface Expense {
   taxGst?: number
   taxPst?: number
   taxHst?: number
+  taxQst?: number
   taxTotal?: number
   ocrProcessed?: boolean
   ocrConfidence?: OcrConfidence
@@ -128,6 +129,12 @@ export interface Expense {
   paidByType?: PaidByType | null
   paidById?: string | null
   paidByName?: string | null
+  // QB-flow context. Populated by GET /expenses/:id (the joined detail query)
+  // and by all create/update responses. SendToQbModal reads these to auto-fill
+  // the rebillable toggle and to match a QBO Customer.
+  isBillable?: boolean
+  primaryOwnerName?: string | null
+  primaryOwnerEmail?: string | null
   createdAt: string
   updatedAt: string
   // Nested related objects (from detail endpoint)
@@ -161,6 +168,7 @@ export interface CreateExpensePayload {
   taxGst?: number
   taxPst?: number
   taxHst?: number
+  taxQst?: number
   taxTotal?: number
   ocrProcessed?: boolean
   ocrConfidence?: OcrConfidence
@@ -195,6 +203,7 @@ export interface UpdateExpensePayload {
   taxGst?: number
   taxPst?: number
   taxHst?: number
+  taxQst?: number
   taxTotal?: number
   paidByType?: PaidByType | null
   paidById?: string | null
@@ -365,6 +374,7 @@ export interface BulkExpensePayload {
   taxGst?: number
   taxPst?: number
   taxHst?: number
+  taxQst?: number
   taxTotal?: number
 }
 

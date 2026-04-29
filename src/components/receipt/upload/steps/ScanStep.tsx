@@ -7,6 +7,7 @@ import {
   ExclamationCircleIcon,
   ClockIcon,
   XCircleIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline'
 import type { BulkRowState } from '../BulkUploadReceiptModal'
 
@@ -17,6 +18,7 @@ interface ScanStepProps {
   failedCount: number
   onRetry: (row: BulkRowState) => void
   onSkip: (id: string) => void
+  onUploadAnyway: (row: BulkRowState) => void
 }
 
 function StatusBadge({ status }: { status: BulkRowState['status'] }) {
@@ -49,6 +51,12 @@ function StatusBadge({ status }: { status: BulkRowState['status'] }) {
       text: 'text-slate-500',
       Icon: XCircleIcon,
     },
+    duplicate: {
+      label: 'Duplicate',
+      bg: 'bg-amber-100',
+      text: 'text-amber-800',
+      Icon: DocumentDuplicateIcon,
+    },
     applying: { label: 'Applying', bg: 'bg-blue-100', text: 'text-blue-700', Icon: ArrowPathIcon },
     applied: {
       label: 'Applied',
@@ -76,6 +84,13 @@ function StatusBadge({ status }: { status: BulkRowState['status'] }) {
   )
 }
 
+function formatDate(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 const ScanStep: React.FC<ScanStepProps> = ({
   rows,
   scanRunning,
@@ -83,6 +98,7 @@ const ScanStep: React.FC<ScanStepProps> = ({
   failedCount,
   onRetry,
   onSkip,
+  onUploadAnyway,
 }) => {
   const total = rows.length
 
@@ -123,7 +139,7 @@ const ScanStep: React.FC<ScanStepProps> = ({
           <div
             key={row.id}
             className={`flex items-center justify-between px-4 py-3 ${
-              row.status === 'skipped' ? 'opacity-50' : ''
+              row.status === 'skipped' || row.status === 'duplicate' ? 'opacity-70' : ''
             }`}
           >
             <div className="min-w-0 flex-1">
@@ -145,6 +161,24 @@ const ScanStep: React.FC<ScanStepProps> = ({
               {row.status === 'failed' && row.errorMessage && (
                 <p className="text-xs text-red-600 truncate">{row.errorMessage}</p>
               )}
+              {row.status === 'duplicate' && row.duplicateOf && (
+                <p
+                  className="text-xs text-amber-700 truncate"
+                  aria-label={`Duplicate of ${row.duplicateOf.originalName}${
+                    row.duplicateOf.vendorName ? ` from ${row.duplicateOf.vendorName}` : ''
+                  }${
+                    row.duplicateOf.createdAt ? ` uploaded ${formatDate(row.duplicateOf.createdAt)}` : ''
+                  }`}
+                >
+                  {row.duplicateOf.source === 'in-batch'
+                    ? `Duplicate of "${row.duplicateOf.originalName}" earlier in this batch`
+                    : `Already uploaded as "${row.duplicateOf.originalName}"${
+                        row.duplicateOf.vendorName ? ` from ${row.duplicateOf.vendorName}` : ''
+                      }${
+                        row.duplicateOf.createdAt ? ` on ${formatDate(row.duplicateOf.createdAt)}` : ''
+                      }`}
+                </p>
+              )}
             </div>
             {row.status === 'failed' && (
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -159,6 +193,16 @@ const ScanStep: React.FC<ScanStepProps> = ({
                   className="px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50 rounded-md"
                 >
                   Skip
+                </button>
+              </div>
+            )}
+            {row.status === 'duplicate' && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => onUploadAnyway(row)}
+                  className="px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-md"
+                >
+                  Upload anyway
                 </button>
               </div>
             )}

@@ -79,6 +79,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const [taxGst, setTaxGst] = useState('')
   const [taxPst, setTaxPst] = useState('')
   const [taxHst, setTaxHst] = useState('')
+  const [taxQst, setTaxQst] = useState('')
   const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
 
   // Receipt picker state
@@ -259,6 +260,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     setTaxGst('')
     setTaxPst('')
     setTaxHst('')
+    setTaxQst('')
     setShowTaxBreakdown(false)
     setPaidById(profile?.id || null)
     setPaidByType('PROPERTY-MANAGER')
@@ -322,7 +324,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       const gst = parseFloat(taxGst) || 0
       const pst = parseFloat(taxPst) || 0
       const hst = parseFloat(taxHst) || 0
-      const taxTotal = gst + pst + hst
+      const qst = parseFloat(taxQst) || 0
+      const taxTotal = gst + pst + hst + qst
 
       const localName = peopleOptions.find(o => o.value === paidById)?.label?.replace(/\s*\(You\)\s*$/, '') ?? null
 
@@ -372,6 +375,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
           taxGst: gst || undefined,
           taxPst: pst || undefined,
           taxHst: hst || undefined,
+          taxQst: qst || undefined,
           taxTotal: taxTotal || undefined,
           paidById,
           paidByType,
@@ -697,10 +701,25 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">QST (9.975%)</label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2 py-1.5 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={taxQst}
+                        onChange={(e) => setTaxQst(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border border-gray-300 rounded-r-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
-                {(parseFloat(taxGst) > 0 || parseFloat(taxPst) > 0 || parseFloat(taxHst) > 0) && (
+                {(parseFloat(taxGst) > 0 || parseFloat(taxPst) > 0 || parseFloat(taxHst) > 0 || parseFloat(taxQst) > 0) && (
                   <div className="text-right text-sm text-gray-600">
-                    Total Tax: <span className="font-medium">${((parseFloat(taxGst) || 0) + (parseFloat(taxPst) || 0) + (parseFloat(taxHst) || 0)).toFixed(2)}</span>
+                    Total Tax: <span className="font-medium">${((parseFloat(taxGst) || 0) + (parseFloat(taxPst) || 0) + (parseFloat(taxHst) || 0) + (parseFloat(taxQst) || 0)).toFixed(2)}</span>
                   </div>
                 )}
               </div>

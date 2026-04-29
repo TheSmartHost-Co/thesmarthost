@@ -17,7 +17,10 @@ import {
   uploadReceipt,
   rescanReceipt,
   bulkApplyReceipts,
+  checkReceiptDuplicates,
 } from '@/services/receiptService'
+import { computeFileHash } from '@/utils/fileHash'
+import { isBackendError } from '@/services/backendError'
 import { getProperties } from '@/services/propertyService'
 import { usePermissions } from '@/hooks/usePermissions'
 import type {
@@ -25,6 +28,7 @@ import type {
   BulkApplyAssignment,
   ScanReceiptOcrData,
   UploadReceiptResponse,
+  DuplicateExistingReceipt,
 } from '@/services/types/receipt'
 import type { Property } from '@/services/types/property'
 import SelectFilesStep from './steps/SelectFilesStep'
@@ -41,6 +45,15 @@ export type BulkRowStatus =
   | 'applied'
   | 'apply-failed'
   | 'skipped'
+  | 'duplicate'
+
+export interface BulkRowDuplicateOf {
+  id?: string                  // Existing receipt ID (only for source='db')
+  originalName: string         // Filename of the duplicate-of receipt
+  createdAt?: string           // When the duplicate-of receipt was uploaded (only for source='db')
+  vendorName?: string | null   // OCR'd vendor on the existing receipt — what the user actually recognizes (only for source='db')
+  source: 'db' | 'in-batch'    // 'db' = matches an existing receipt; 'in-batch' = matches another file in this same drag-drop batch
+}
 
 export interface BulkRowState {
   id: string
@@ -49,6 +62,16 @@ export interface BulkRowState {
   previewUrl?: string
   status: BulkRowStatus
   receiptId?: string
+  /** SHA-256 hash of the file contents — set during handleFilesSelected for the dedup pre-flight. */
+  contentHash?: string
+  /**
+   * When status='duplicate', describes which existing receipt this file duplicates.
+   * When the user clicks "Upload anyway", this is preserved on the row so the UI can
+   * still surface why it was originally flagged.
+   */
+  duplicateOf?: BulkRowDuplicateOf
+  /** When true, the next upload of this row bypasses backend dedup (forceUpload=true). Set by "Upload anyway". */
+  forceUpload?: boolean
   extracted?: {
     vendorName?: string | null
     expenseDate?: string | null
@@ -211,7 +234,7 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
   }, [])
 
   const handleFilesSelected = useCallback(
-    (files: File[]) => {
+    async (files: File[]) => {
       const capped = files.slice(0, MAX_FILES)
       if (files.length > MAX_FILES) {
         showNotification(
@@ -219,14 +242,97 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
           'info'
         )
       }
-      const newRows: BulkRowState[] = capped.map((file) => ({
+      const initialRows: BulkRowState[] = capped.map((file) => ({
         id: crypto.randomUUID(),
         file,
         previewUrl: URL.createObjectURL(file),
         status: 'queued',
         applyAsExpense: true,
       }))
-      setRows(newRows)
+      // Show the rows immediately so the user gets responsive feedback;
+      // the duplicate badges populate in a follow-up state update.
+      setRows(initialRows)
+
+      // Hash all files in parallel — Web Crypto is fast, even for 10MB images.
+      let hashes: string[]
+      try {
+        hashes = await Promise.all(initialRows.map((r) => computeFileHash(r.file)))
+      } catch (err) {
+        // If hashing itself fails, fall through with no dedup. The server-side
+        // ON CONFLICT is the correctness backstop; we just lose the cost saving.
+        console.warn('Failed to compute file hashes for dedup:', err)
+        return
+      }
+
+      // 1. In-batch dedup pass — first occurrence of each hash is kept; later
+      // occurrences are flagged as duplicates of the earlier file in the batch.
+      // Doing this client-side avoids a race where two in-batch dupes both
+      // pass the DB pre-flight (the file isn't in the DB *yet*) and then race
+      // for the INSERT, surfacing the loser as a generic 409.
+      const seen = new Map<string, { id: string; originalName: string }>()
+      const inBatchDupes = new Map<string, BulkRowDuplicateOf>()
+      const survivingHashes: string[] = []
+      initialRows.forEach((row, i) => {
+        const hash = hashes[i]
+        const earlier = seen.get(hash)
+        if (earlier) {
+          inBatchDupes.set(row.id, {
+            originalName: earlier.originalName,
+            source: 'in-batch',
+          })
+        } else {
+          seen.set(hash, { id: row.id, originalName: row.file.name })
+          survivingHashes.push(hash)
+        }
+      })
+
+      // 2. Bulk DB check for survivors. Fail-open if the endpoint errors —
+      // a failed dedup check should never block uploads; the server-side
+      // ON CONFLICT will catch any duplicates that slip through.
+      let dbDupes = new Map<string, DuplicateExistingReceipt>()
+      try {
+        const res = await checkReceiptDuplicates(survivingHashes)
+        if (res.status === 'success') {
+          for (const d of res.data.duplicates) {
+            dbDupes.set(d.hash, d.existingReceipt)
+          }
+        }
+      } catch (err) {
+        console.warn('Duplicate check failed — proceeding with upload, server-side will catch dupes:', err)
+        showNotification(
+          'Could not pre-check for duplicates; uploads will proceed normally.',
+          'info'
+        )
+        dbDupes = new Map()
+      }
+
+      // 3. Apply hash + dedup state to each row in one setRows call.
+      setRows((prev) =>
+        prev.map((row, i) => {
+          const hash = hashes[i]
+          if (!hash) return row
+          const inBatch = inBatchDupes.get(row.id)
+          if (inBatch) {
+            return { ...row, contentHash: hash, status: 'duplicate', duplicateOf: inBatch }
+          }
+          const dbMatch = dbDupes.get(hash)
+          if (dbMatch) {
+            return {
+              ...row,
+              contentHash: hash,
+              status: 'duplicate',
+              duplicateOf: {
+                id: dbMatch.id,
+                originalName: dbMatch.originalName,
+                createdAt: dbMatch.createdAt,
+                vendorName: dbMatch.vendorName,
+                source: 'db',
+              },
+            }
+          }
+          return { ...row, contentHash: hash }
+        })
+      )
     },
     [showNotification]
   )
@@ -249,7 +355,8 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
           undefined,
           undefined,
           undefined,
-          currentBatchId || undefined
+          currentBatchId || undefined,
+          row.forceUpload
         )) as UploadReceiptResponse
         if (res.status !== 'success' || !res.data) {
           updateRow(row.id, {
@@ -277,6 +384,30 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
           expenseMonth: defaultMonthFromDate(extracted.expenseDate),
         })
       } catch (err) {
+        // Server-side ON CONFLICT can return 409 if a race slipped past the
+        // pre-flight check (or if check-duplicates failed open). Map it to
+        // the same `'duplicate'` row state the pre-flight uses, so the user
+        // sees a consistent UI regardless of which layer caught the dup.
+        if (isBackendError(err) && err.status === 409 && err.body) {
+          const code = (err.body as { code?: unknown }).code
+          if (code === 'RECEIPT_DUPLICATE') {
+            const existing = (err.body as { data?: { existingReceipt?: DuplicateExistingReceipt } }).data
+              ?.existingReceipt
+            updateRow(row.id, {
+              status: 'duplicate',
+              duplicateOf: existing
+                ? {
+                    id: existing.id,
+                    originalName: existing.originalName,
+                    createdAt: existing.createdAt,
+                    vendorName: existing.vendorName,
+                    source: 'db',
+                  }
+                : { originalName: row.file.name, source: 'db' },
+            })
+            return
+          }
+        }
         updateRow(row.id, {
           status: 'failed',
           errorMessage: err instanceof Error ? err.message : 'Network error',
@@ -311,11 +442,46 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
 
     // Snapshot the rows that need scanning at this moment. Subsequent state
     // updates by `runUploadForRow` won't reshuffle the in-flight tasks.
+    // Duplicates are excluded — they'll only re-enter the pool if the user
+    // explicitly clicks "Upload anyway" (which sets forceUpload=true).
     const targets = rows.filter((r) => r.status === 'queued' || r.status === 'failed')
     await pool(targets, OCR_CONCURRENCY, (row) => runUploadForRow(row, currentBatchId))
 
     setScanRunning(false)
   }, [batchId, rows, runUploadForRow, scanRunning, showNotification, source])
+
+  // "Upload anyway" override — re-queue a duplicate row with forceUpload=true so
+  // the next upload bypasses backend dedup. The backend stores content_hash=NULL
+  // for the resulting row; future re-uploads still match against the original.
+  const handleUploadAnyway = useCallback(
+    async (row: BulkRowState) => {
+      // Mark the row as queued + forced; reset its scan state so the pool can pick it up.
+      updateRow(row.id, {
+        status: 'queued',
+        forceUpload: true,
+        errorMessage: undefined,
+      })
+      // Kick off a single upload immediately rather than waiting for the user
+      // to navigate steps. A batch is required for the upload — re-use the
+      // existing one or open a new one if the user is still on the scan step.
+      let currentBatchId = batchId
+      if (!currentBatchId) {
+        try {
+          const initRes = await initBulkBatch({ source, expectedCount: rows.length })
+          if (initRes.status === 'success' && initRes.data?.batchId) {
+            currentBatchId = initRes.data.batchId
+            setBatchId(currentBatchId)
+          }
+        } catch {
+          // Fall through — runUploadForRow will surface the error
+        }
+      }
+      // The forceUpload flag must be on the row when the service call runs;
+      // updateRow's batched setRows means we re-derive the row here.
+      await runUploadForRow({ ...row, forceUpload: true }, currentBatchId)
+    },
+    [batchId, rows.length, runUploadForRow, source, updateRow]
+  )
 
   // Retry one specific row (rescan if uploaded, else re-upload).
   const retryRow = useCallback(
@@ -363,11 +529,13 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
   )
 
   // Bulk-assign (top bar in step 3) — apply property/month to every non-skipped scanned row.
+  // Duplicates that haven't been overridden have no receiptId yet, so the apply
+  // step would skip them anyway — excluding here keeps the UI consistent.
   const bulkAssign = useCallback(
     (patch: { propertyId?: string; expenseMonth?: string }) => {
       setRows((prev) =>
         prev.map((r) => {
-          if (r.status === 'skipped' || r.status === 'failed') return r
+          if (r.status === 'skipped' || r.status === 'failed' || r.status === 'duplicate') return r
           return {
             ...r,
             ...(patch.propertyId !== undefined ? { propertyId: patch.propertyId } : {}),
@@ -448,14 +616,21 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
 
       const summary = res.data.summary
       const skippedCount = rows.filter((r) => !r.applyAsExpense || r.status === 'skipped').length
+      const duplicateCount = rows.filter((r) => r.status === 'duplicate').length
+      const parts = [
+        `${summary.applied} applied`,
+        `${summary.failed} failed`,
+        ...(skippedCount ? [`${skippedCount} skipped`] : []),
+        ...(duplicateCount ? [`${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} skipped`] : []),
+      ]
       showNotification(
-        `${summary.applied} applied, ${summary.failed} failed${skippedCount ? `, ${skippedCount} skipped` : ''}`,
+        parts.join(', '),
         summary.failed === 0 ? 'success' : 'info'
       )
       onComplete({
         applied: summary.applied,
         failed: summary.failed,
-        skipped: skippedCount,
+        skipped: skippedCount + duplicateCount,
       })
     } catch (err) {
       showNotification(
@@ -496,7 +671,19 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
   }
 
   const goBack = () => {
-    if (stepIndex > 0) setStep(STEPS[stepIndex - 1].key)
+    if (stepIndex === 0) return
+    // Leaving Review backwards: reset apply-failed rows so the user can fix
+    // assignments and retry. canGoNext + handleApply both filter on 'scanned'.
+    if (step === 'review') {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.status === 'apply-failed'
+            ? { ...r, status: 'scanned' as const, errorMessage: undefined }
+            : r
+        )
+      )
+    }
+    setStep(STEPS[stepIndex - 1].key)
   }
 
   const handleClose = () => {
@@ -598,6 +785,7 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
               failedCount={failedCount}
               onRetry={retryRow}
               onSkip={(id) => updateRow(id, { status: 'skipped' })}
+              onUploadAnyway={handleUploadAnyway}
             />
           )}
           {step === 'assign' && (
@@ -670,18 +858,19 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
             <div>
-              {stepIndex > 0 && step !== 'review' && (
-                <motion.button
-                  type="button"
-                  onClick={goBack}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                  Back
-                </motion.button>
-              )}
+              {stepIndex > 0 &&
+                (step !== 'review' || (!applying && appliedCount === 0)) && (
+                  <motion.button
+                    type="button"
+                    onClick={goBack}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4 mr-2" />
+                    Back
+                  </motion.button>
+                )}
             </div>
             <div className="flex items-center gap-3">
               <button

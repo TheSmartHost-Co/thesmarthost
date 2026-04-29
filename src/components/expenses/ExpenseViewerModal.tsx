@@ -131,6 +131,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [taxGst, setTaxGst] = useState('')
   const [taxPst, setTaxPst] = useState('')
   const [taxHst, setTaxHst] = useState('')
+  const [taxQst, setTaxQst] = useState('')
   const [showTaxBreakdown, setShowTaxBreakdown] = useState(false)
 
   // Paid-by state
@@ -302,8 +303,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     setTaxGst(exp.taxGst?.toString() || '')
     setTaxPst(exp.taxPst?.toString() || '')
     setTaxHst(exp.taxHst?.toString() || '')
+    setTaxQst(exp.taxQst?.toString() || '')
     // Show tax breakdown if any tax field has a value
-    setShowTaxBreakdown(!!(exp.subtotal || exp.taxGst || exp.taxPst || exp.taxHst || exp.taxTotal))
+    setShowTaxBreakdown(!!(exp.subtotal || exp.taxGst || exp.taxPst || exp.taxHst || exp.taxQst || exp.taxTotal))
 
     // Load bookings for property if exists
     if (exp.propertyId && effectiveUserId) {
@@ -333,7 +335,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       const parsedTaxGst = taxGst ? parseFloat(taxGst) : undefined
       const parsedTaxPst = taxPst ? parseFloat(taxPst) : undefined
       const parsedTaxHst = taxHst ? parseFloat(taxHst) : undefined
-      const calculatedTaxTotal = (parsedTaxGst || 0) + (parsedTaxPst || 0) + (parsedTaxHst || 0)
+      const parsedTaxQst = taxQst ? parseFloat(taxQst) : undefined
+      const calculatedTaxTotal =
+        (parsedTaxGst || 0) + (parsedTaxPst || 0) + (parsedTaxHst || 0) + (parsedTaxQst || 0)
 
       const payload: UpdateExpensePayload = {
         userId: effectiveUserId,
@@ -353,6 +357,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         taxGst: parsedTaxGst,
         taxPst: parsedTaxPst,
         taxHst: parsedTaxHst,
+        taxQst: parsedTaxQst,
         taxTotal: calculatedTaxTotal > 0 ? calculatedTaxTotal : undefined,
         paidByType: editPaidByType,
         paidById: editPaidById,
@@ -817,7 +822,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         </div>
 
         {/* Tax Breakdown Display */}
-        {!!(expense.subtotal || expense.taxGst || expense.taxPst || expense.taxHst || expense.taxTotal) && (
+        {!!(expense.subtotal || expense.taxGst || expense.taxPst || expense.taxHst || expense.taxQst || expense.taxTotal) && (
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="text-sm font-medium text-gray-900 mb-3">Tax Breakdown</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -843,6 +848,12 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                 <div>
                   <div className="text-xs text-gray-500">HST</div>
                   <div className="font-medium text-gray-900">{formatCurrency(expense.taxHst, expense.currency)}</div>
+                </div>
+              )}
+              {expense.taxQst !== undefined && expense.taxQst !== null && (
+                <div>
+                  <div className="text-xs text-gray-500">QST (9.975%)</div>
+                  <div className="font-medium text-gray-900">{formatCurrency(expense.taxQst, expense.currency)}</div>
                 </div>
               )}
               {expense.taxTotal !== undefined && expense.taxTotal !== null && (
@@ -1145,9 +1156,20 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">QST (9.975%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={taxQst}
+                    onChange={(e) => setTaxQst(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Total Tax will be calculated automatically from GST + PST + HST
+                Total Tax will be calculated automatically from GST + PST + HST + QST
               </p>
             </div>
           )}
@@ -1238,9 +1260,21 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
           connectionDefaultEntityType={(qbConnection?.defaultQbEntityType as QbEntityType) || 'purchase'}
           categoryCode={expense.category}
           expenseAmount={Number(expense.amount)}
+          propertyId={expense.propertyId || null}
+          primaryOwnerName={expense.primaryOwnerName || null}
+          taxBreakdown={{
+            gst: Number(expense.taxGst || 0),
+            pst: Number(expense.taxPst || 0),
+            hst: Number(expense.taxHst || 0),
+            qst: Number(expense.taxQst || 0),
+          }}
+          expenseDescription={expense.description || ''}
           onSynced={() => {
-            // Refresh the expense so the badge flips to 'synced'.
+            // Refresh the open expense so the local badge + Send-to-QB button
+            // visibility update immediately. Also notify the parent (expenses
+            // page) so its row in the list re-renders without a manual reload.
             fetchExpense()
+            onExpenseUpdated?.()
           }}
         />
       )}

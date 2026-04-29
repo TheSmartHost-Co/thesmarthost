@@ -9,6 +9,7 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
+import { SiQuickbooks } from 'react-icons/si'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   getConnection,
@@ -21,6 +22,8 @@ import type { QbConnection, QbEntityType, QbPaymentAccount } from '@/services/ty
 import ConnectQuickBooksModal from './ConnectQuickBooksModal'
 import DisconnectQuickBooksModal from './DisconnectQuickBooksModal'
 import CategoryMappingTable from './CategoryMappingTable'
+import PropertyClassMappingTable from './PropertyClassMappingTable'
+import TaxCodeMappingTable from './TaxCodeMappingTable'
 
 interface QuickBooksSectionProps {
   canWrite: boolean
@@ -189,11 +192,11 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
     <div className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md text-white text-2xl font-bold">
-            QB
+          <div className="h-14 w-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md text-white">
+            <SiQuickbooks className="w-8 h-8" aria-label="QuickBooks logo" />
           </div>
           <div>
-            <h4 className="text-lg font-semibold text-gray-900">QuickBooks Online</h4>
+            <h4 className="text-lg font-semibold text-gray-900">QuickBooks</h4>
             <p className="text-sm text-gray-500">
               Send expenses directly to your QuickBooks chart of accounts.
             </p>
@@ -363,6 +366,24 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
           <div>
             <h5 className="text-sm font-semibold text-gray-900 mb-2">Category mappings</h5>
             <CategoryMappingTable isConnected={isConnected && !isExpired} />
+          </div>
+
+          <div>
+            <h5 className="text-sm font-semibold text-gray-900 mb-2">Property → QuickBooks Class</h5>
+            <p className="text-xs text-gray-500 mb-2">
+              Tag QuickBooks expenses by property using QBO Classes. SendToQuickBooks auto-fills the
+              Class field from the expense&apos;s property.
+            </p>
+            <PropertyClassMappingTable isConnected={isConnected && !isExpired} />
+          </div>
+
+          <div>
+            <h5 className="text-sm font-semibold text-gray-900 mb-2">Tax to QuickBooks Tax Code</h5>
+            <p className="text-xs text-gray-500 mb-2">
+              Map our GST / PST / HST columns to QuickBooks tax codes so the line tax detail is set
+              correctly on synced expenses.
+            </p>
+            <TaxCodeMappingTable isConnected={isConnected && !isExpired} />
           </div>
         </div>
       )}

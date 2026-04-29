@@ -23,6 +23,14 @@ import type {
   SyncExpenseResponse,
   BulkSyncPayload,
   BulkSyncResponse,
+  QbCustomersResponse,
+  QbClassesResponse,
+  QbTaxCodesResponse,
+  PropertyClassMappingsResponse,
+  PropertyClassMappingResponse,
+  TaxCodeMappingsResponse,
+  TaxCodeMappingResponse,
+  HmTaxKind,
 } from './types/quickbooks'
 
 // Payment-accounts list shares the QbAccountsResponse shape (id/name/type rows).
@@ -93,6 +101,29 @@ export async function getQbPaymentAccounts(): Promise<QbPaymentAccountsResponse>
   return apiClient<QbPaymentAccountsResponse>('/quickbooks/qb-payment-accounts')
 }
 
+/**
+ * List active QBO Customers. Used by SendToQbModal's customer picker.
+ * Cached server-side for 5 minutes; safe to call on every modal open.
+ */
+export async function getQbCustomers(): Promise<QbCustomersResponse> {
+  return apiClient<QbCustomersResponse>('/quickbooks/qb-customers')
+}
+
+/**
+ * List active QBO Classes (cost-center dimension). Used by the property→class
+ * mapping table in settings AND by SendToQbModal's per-send class picker.
+ */
+export async function getQbClasses(): Promise<QbClassesResponse> {
+  return apiClient<QbClassesResponse>('/quickbooks/qb-classes')
+}
+
+/**
+ * List active QBO TaxCodes. Used by the gst/pst/hst → tax-code mapping table.
+ */
+export async function getQbTaxCodes(): Promise<QbTaxCodesResponse> {
+  return apiClient<QbTaxCodesResponse>('/quickbooks/qb-tax-codes')
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Category → account mappings
 // ─────────────────────────────────────────────────────────────────────────
@@ -116,6 +147,54 @@ export async function upsertAccountMapping(
 
 export async function deleteAccountMapping(id: string): Promise<QbDeleteResponse> {
   return apiClient<QbDeleteResponse>(`/quickbooks/account-mappings/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Property → QBO Class mappings (settings table; auto-fills SendToQbModal)
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getPropertyClassMappings(): Promise<PropertyClassMappingsResponse> {
+  return apiClient<PropertyClassMappingsResponse>('/quickbooks/property-class-mappings')
+}
+
+export async function upsertPropertyClassMapping(
+  propertyId: string,
+  qbClassId: string
+): Promise<PropertyClassMappingResponse> {
+  return apiClient<PropertyClassMappingResponse, { propertyId: string; qbClassId: string }>(
+    '/quickbooks/property-class-mappings',
+    { method: 'POST', body: { propertyId, qbClassId } }
+  )
+}
+
+export async function deletePropertyClassMapping(id: string): Promise<QbDeleteResponse> {
+  return apiClient<QbDeleteResponse>(`/quickbooks/property-class-mappings/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// HM tax kind (gst/pst/hst) → QBO TaxCode mappings
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getTaxCodeMappings(): Promise<TaxCodeMappingsResponse> {
+  return apiClient<TaxCodeMappingsResponse>('/quickbooks/tax-code-mappings')
+}
+
+export async function upsertTaxCodeMapping(
+  hmTaxKind: HmTaxKind,
+  qbTaxCodeId: string
+): Promise<TaxCodeMappingResponse> {
+  return apiClient<TaxCodeMappingResponse, { hmTaxKind: HmTaxKind; qbTaxCodeId: string }>(
+    '/quickbooks/tax-code-mappings',
+    { method: 'POST', body: { hmTaxKind, qbTaxCodeId } }
+  )
+}
+
+export async function deleteTaxCodeMapping(id: string): Promise<QbDeleteResponse> {
+  return apiClient<QbDeleteResponse>(`/quickbooks/tax-code-mappings/${id}`, {
     method: 'DELETE',
   })
 }

@@ -47,6 +47,73 @@ export interface QbAccountMapping {
   updatedAt: string | null
 }
 
+/**
+ * QBO Customer entity. Used by SendToQbModal to fill the Customer picker.
+ * Auto-resolution from a property's primary owner client matches by
+ * `displayName` (case-insensitive). If accountants need email/fuzzy matching
+ * later, extend `resolveCustomerId` in services/quickbooksSyncService.js.
+ */
+export interface QbCustomer {
+  id: string
+  displayName: string
+  primaryEmailAddr?: string | null
+  fullyQualifiedName?: string
+}
+
+/**
+ * QBO Class entity — cost-center dimension. We map one-to-one to a property
+ * via property_qb_class_mappings (per-user) so SendToQbModal can auto-fill
+ * the Class field from the expense's property.
+ */
+export interface QbClass {
+  id: string
+  name: string
+  fullyQualifiedName?: string
+}
+
+/**
+ * QBO TaxCode entity. We map our gst/pst/hst columns to TaxCodes per-user
+ * (qb_tax_code_mappings). At sync time the line's TaxCodeRef = the code
+ * mapped to the kind with the largest amount.
+ */
+export interface QbTaxCode {
+  id: string
+  name: string
+  description?: string
+  taxable?: boolean
+}
+
+/**
+ * Persistent property → QBO Class mapping. Keyed by (user_id, property_id).
+ * Frontend fetches via getPropertyClassMappings() and renders in a settings
+ * table parallel to CategoryMappingTable.
+ */
+export interface PropertyClassMapping {
+  id: string
+  propertyId: string
+  propertyName?: string | null
+  propertyAddress?: string | null
+  qbClassId: string
+  qbClassName: string
+  createdAt: string
+  updatedAt: string | null
+}
+
+/**
+ * Persistent HM-tax-kind → QBO-TaxCode mapping. Keyed by (user_id, hmTaxKind).
+ * Four kinds: 'gst', 'pst', 'hst', 'qst'.
+ */
+export type HmTaxKind = 'gst' | 'pst' | 'hst' | 'qst'
+
+export interface TaxCodeMapping {
+  id: string
+  hmTaxKind: HmTaxKind
+  qbTaxCodeId: string
+  qbTaxCodeName: string
+  createdAt: string
+  updatedAt: string | null
+}
+
 // API response wrappers
 export interface QbConnectionResponse {
   status: 'success' | 'failed'
@@ -78,6 +145,19 @@ export interface QbAccountMappingResponse {
   data: QbAccountMapping
 }
 
+// QBO list responses — same envelope shape as QbAccountsResponse.
+export interface QbCustomersResponse { status: 'success' | 'failed'; message?: string; data: QbCustomer[] }
+export interface QbClassesResponse   { status: 'success' | 'failed'; message?: string; data: QbClass[] }
+export interface QbTaxCodesResponse  { status: 'success' | 'failed'; message?: string; data: QbTaxCode[] }
+
+// Property → Class mapping responses
+export interface PropertyClassMappingsResponse { status: 'success' | 'failed'; message?: string; data: PropertyClassMapping[] }
+export interface PropertyClassMappingResponse  { status: 'success' | 'failed'; message?: string; data: PropertyClassMapping }
+
+// Tax-code mapping responses
+export interface TaxCodeMappingsResponse { status: 'success' | 'failed'; message?: string; data: TaxCodeMapping[] }
+export interface TaxCodeMappingResponse  { status: 'success' | 'failed'; message?: string; data: TaxCodeMapping }
+
 // Sync endpoint payloads + responses
 export interface SyncExpensePayload {
   qbEntityType?: QbEntityType
@@ -86,6 +166,14 @@ export interface SyncExpensePayload {
   qbAccountId?: string
   /** Per-send override for the top-level Purchase AccountRef. Ignored for Bills. Transient — does not update connection default. */
   paymentAccountId?: string
+  /** Per-send override for QBO Customer (line-level CustomerRef). Transient — null/empty omits the ref. */
+  customerId?: string | null
+  /** Per-send override for QBO Class (line-level ClassRef). Transient — null/empty omits the ref. */
+  classId?: string | null
+  /** Per-send override for the line's BillableStatus. true → 'Billable', false → 'NotBillable'. */
+  isBillable?: boolean
+  /** Per-send override for the line description / PrivateNote prefix. Transient. */
+  description?: string
 }
 
 export interface SyncExpenseResult {

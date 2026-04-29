@@ -22,6 +22,8 @@ import type {
   RescanReceiptResponse,
   BulkDeletePayload,
   BulkDeleteResponse,
+  CheckDuplicatesPayload,
+  CheckDuplicatesResponse,
 } from './types/receipt'
 
 /**
@@ -31,19 +33,25 @@ import type {
  *
  * Pass `batchId` (from initBulkBatch) to associate the upload with a bulk batch
  * for telemetry — does not change semantics.
+ *
+ * `forceUpload=true` is the "Upload anyway" override path: the backend bypasses
+ * duplicate detection and stores content_hash=NULL for this receipt. Use only
+ * after the user has explicitly chosen to upload despite a duplicate warning.
  */
 export function uploadReceipt(
   file: File,
   propertyId?: string,
   supplyListId?: string,
   autoApplyOptions?: AutoApplyOptions,
-  batchId?: string
+  batchId?: string,
+  forceUpload?: boolean
 ): Promise<UploadReceiptResponse | AutoApplyReceiptResponse> {
   const formData = new FormData()
   formData.append('receipt', file)
   if (propertyId) formData.append('propertyId', propertyId)
   if (supplyListId) formData.append('supplyListId', supplyListId)
   if (batchId) formData.append('batchId', batchId)
+  if (forceUpload) formData.append('forceUpload', 'true')
 
   if (autoApplyOptions) {
     formData.append('autoApply', 'true')
@@ -246,4 +254,22 @@ export function bulkDeleteReceipts(
     method: 'POST',
     body: { receiptIds },
   })
+}
+
+/**
+ * Pre-flight duplicate check for receipt upload. Given an array of SHA-256
+ * hashes, returns which ones already exist as non-archived receipts for the
+ * current user. The bulk upload modal calls this after computing hashes
+ * client-side, then skips the upload entirely for any matching files.
+ *
+ * Cap: 50 hashes per call. Hashes that aren't duplicates are simply omitted
+ * from the response array.
+ */
+export function checkReceiptDuplicates(
+  hashes: string[]
+): Promise<CheckDuplicatesResponse> {
+  return apiClient<CheckDuplicatesResponse, CheckDuplicatesPayload>(
+    '/receipts/check-duplicates',
+    { method: 'POST', body: { hashes } }
+  )
 }

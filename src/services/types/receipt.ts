@@ -368,3 +368,27 @@ export interface BulkDeleteResponse {
   }
   message?: string
 }
+
+// --- Duplicate Detection (migration 027) ---
+
+export interface DuplicateExistingReceipt {
+  id: string
+  originalName: string
+  createdAt: string
+  vendorName?: string | null
+}
+
+export interface DuplicateMatch {
+  hash: string
+  existingReceipt: DuplicateExistingReceipt
+}
+
+export interface CheckDuplicatesPayload {
+  hashes: string[]
+}
+
+export interface CheckDuplicatesResponse {
+  status: 'success' | 'failed'
+  data: { duplicates: DuplicateMatch[] }
+  message?: string
+}
