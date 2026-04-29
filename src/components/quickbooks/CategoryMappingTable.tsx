@@ -170,12 +170,12 @@ export default function CategoryMappingTable({ isConnected }: CategoryMappingTab
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="min-w-full text-sm">
+      <div className="rounded-xl border border-gray-200">
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Expense category</th>
-              <th className="px-4 py-2.5 text-left font-semibold">QuickBooks account</th>
+              <th className="px-4 py-2.5 text-left font-semibold">QuickBooks category</th>
               <th className="px-4 py-2.5 w-12" />
             </tr>
           </thead>
@@ -202,7 +202,7 @@ export default function CategoryMappingTable({ isConnected }: CategoryMappingTab
                           options={accountOptions}
                           value={mapping?.qbAccountId ?? null}
                           onChange={(val) => handleSelect(cat.code, val)}
-                          placeholder="Select a QuickBooks account…"
+                          placeholder="Select a QuickBooks category…"
                         />
                       </div>
                     </td>
