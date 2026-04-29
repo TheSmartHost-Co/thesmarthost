@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePermissions } from './usePermissions'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -15,11 +15,16 @@ export function usePermissionGuard(resource: PermissionKey, level: PermissionLev
   const { canAccess, isTeamMember } = usePermissions()
   const router = useRouter()
   const notify = useNotificationStore(s => s.showNotification)
+  // canAccess is a fresh reference each render; collapse to a primitive so the
+  // effect's dep array compares by value, not identity.
+  const denied = isTeamMember && !canAccess(resource, level)
+  const firedRef = useRef(false)
 
   useEffect(() => {
-    if (isTeamMember && !canAccess(resource, level)) {
-      notify('You don\'t have permission to access this page', 'error')
+    if (denied && !firedRef.current) {
+      firedRef.current = true
+      notify("You don't have permission to access this page", 'error')
       router.replace('/property-manager/dashboard')
     }
-  }, [isTeamMember, resource, level, canAccess, router, notify])
+  }, [denied, notify, router])
 }
