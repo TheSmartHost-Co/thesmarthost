@@ -158,6 +158,52 @@ export interface PropertyClassMappingResponse  { status: 'success' | 'failed'; m
 export interface TaxCodeMappingsResponse { status: 'success' | 'failed'; message?: string; data: TaxCodeMapping[] }
 export interface TaxCodeMappingResponse  { status: 'success' | 'failed'; message?: string; data: TaxCodeMapping }
 
+// ─── Shared QB step types ────────────────────────────────────────
+// Used by both the single-expense SendToQbModal and the bulk SendToQbWizard.
+// The step component is purely controlled — it renders the form and emits
+// QbStepOverrides via onChange. Both flows compute the initial value via
+// computeInitialStepValue() so auto-fill behaviour stays consistent.
+
+/**
+ * Per-expense overrides collected by SendToQbStep.
+ * No expenseId here — the caller threads that externally (the wizard's stepStates,
+ * the modal's expenseId prop). Transient values: never written back to mappings or
+ * connection.
+ */
+export interface QbStepOverrides {
+  qbEntityType: QbEntityType
+  qbAccountId: string
+  /** '' when entity = 'bill' */
+  paymentAccountId: string
+  /** '' = no customer ref */
+  customerId: string
+  /** '' = no class ref */
+  classId: string
+  isBillable: boolean
+  description: string
+  includeReceipt: boolean
+}
+
+/**
+ * Shared QB data SendToQbStep needs to render. Same data drives every step in
+ * a wizard run — fetched once at wizard-open (or modal-open for the single flow)
+ * and passed in as a prop. The single-modal flow assembles this from its 8-call
+ * Promise.all; the wizard gets it from the bulk-sync-preflight response.
+ */
+export interface QbDefaults {
+  qbAccounts: QbAccount[]
+  paymentAccounts: QbPaymentAccount[]
+  qbCustomers: QbCustomer[]
+  qbClasses: QbClass[]
+  accountMappings: QbAccountMapping[]
+  classMappings: PropertyClassMapping[]
+  taxMappings: TaxCodeMapping[]
+  connectionStatus: string | null
+  connectionDefaultEntityType: QbEntityType
+  defaultPaymentAccountId: string | null
+  defaultPaymentAccountName: string | null
+}
+
 // Sync endpoint payloads + responses
 export interface SyncExpensePayload {
   qbEntityType?: QbEntityType
@@ -191,27 +237,95 @@ export interface SyncExpenseResponse {
   data: SyncExpenseResult
 }
 
-export interface BulkSyncPayload {
-  expenseIds: string[]
-  includeReceipts?: boolean
+// ─── Bulk-sync preflight (powers SendToQbWizard) ─────────────────
+// One round-trip that returns:
+//   - per-expense blockers (already_synced, currency_mismatch, etc.)
+//   - the full bundled QB defaults the wizard's per-step form needs
+// Replaces what would otherwise be 8+ separate fetches per wizard open.
+import type { Expense } from './expense'
+
+export type PreflightBlocker =
+  | 'not_owned'
+  | 'already_synced'
+  | 'currency_mismatch'
+  | 'category_unmapped'
+  | 'no_category'
+
+export interface PreflightItem {
+  expenseId: string
+  ok: boolean
+  blockers: PreflightBlocker[]
+  /** Null when blocker = 'not_owned' (the row didn't belong to the user). */
+  expense: Expense | null
 }
 
-export interface BulkSyncSkipped {
+export interface BulkSyncPreflightPayload {
+  expenseIds: string[]
+}
+
+export interface BulkSyncPreflightData {
+  items: PreflightItem[]
+  qbDefaults: QbDefaults
+}
+
+export interface BulkSyncPreflightResponse {
+  status: 'success' | 'failed'
+  message?: string
+  code?: string
+  data: BulkSyncPreflightData
+}
+
+// ─── Bulk-sync (wizard) ──────────────────────────────────────────
+// Each wizard-staged item lands on the wire as one entry in items[].
+// The shape mirrors SyncExpensePayload but adds expenseId so the backend can
+// associate per-row overrides → expenses. The backend translates each item
+// into a QBO Batch API entry (max 30 per call), then runs a multipart-attach
+// phase for items with includeReceipt=true.
+
+export interface BulkSyncItem {
   expenseId: string
-  reason:
-    | 'already_synced'
-    | 'not_owned'
-    | 'currency_mismatch'
-    | 'category_unmapped'
-    | 'no_category'
-    | 'enqueue_failed'
-    | string
+  qbEntityType: QbEntityType
+  qbAccountId: string
+  /** Required for Purchase, ignored for Bill. */
+  paymentAccountId: string | null
+  /** Empty/null = no Customer ref on the line. */
+  customerId: string | null
+  /** Empty/null = no Class ref on the line. */
+  classId: string | null
+  isBillable: boolean
+  description: string
+  includeReceipt: boolean
+}
+
+export interface BulkSyncPayload {
+  items: BulkSyncItem[]
+}
+
+export interface BulkSyncSyncedItem {
+  expenseId: string
+  qbEntityId: string
+  qbEntityType: QbEntityType
+  attached: boolean
+}
+
+export interface BulkSyncFailedItem {
+  expenseId: string
+  /**
+   * Failure reason. Plain codes for our own pre-validation:
+   *   'not_owned' | 'already_synced' | 'currency_mismatch'
+   *   'missing_qb_account' | 'missing_payment_account' | 'vendor_resolution_failed'
+   * Prefix-coded reasons from QBO + DB:
+   *   'qbo_validation:<code>:<msg>' — per-row QBO Fault (rendered verbatim)
+   *   'qbo_batch_error:<msg>'       — whole batch call failed
+   *   'db_write_failed:<msg>'       — entity created in QBO but DB persist failed
+   */
+  reason: string
 }
 
 export interface BulkSyncResult {
-  enqueued: number
-  enqueuedIds: string[]
-  skipped: BulkSyncSkipped[]
+  summary: { total: number; synced: number; failed: number }
+  synced: BulkSyncSyncedItem[]
+  failed: BulkSyncFailedItem[]
 }
 
 export interface BulkSyncResponse {

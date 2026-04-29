@@ -85,9 +85,12 @@ import ColumnsToggle, {
 } from '@/components/expenses/filters/ColumnsToggle'
 import BulkActionsToolbar, { type BulkAction } from '@/components/shared/BulkActionsToolbar'
 import TableActionsDropdown, { ActionItem } from '@/components/shared/TableActionsDropdown'
-import { bulkSyncExpensesToQb, getConnection as getQbConnection } from '@/services/quickbooksService'
+import { getConnection as getQbConnection } from '@/services/quickbooksService'
 import type { QbConnection } from '@/services/types/quickbooks'
 import SendToQbModal from '@/components/quickbooks/SendToQbModal'
+import SendToQbWizard from '@/components/quickbooks/SendToQbWizard/SendToQbWizard'
+
+const QB_WIZARD_MAX_SELECTION = 50
 
 // ─── Column registry ────────────────────────────────────────────
 
@@ -216,6 +219,11 @@ function ExpensesContent() {
 
   // QuickBooks connection (drives the visibility of the Send-to-QB bulk action).
   const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
+
+  // Bulk-send wizard state (replaces the old fire-and-forget bulk-sync flow —
+  // the wizard walks the user through each expense's QB fields before submitting).
+  const [showQbWizard, setShowQbWizard] = useState(false)
+  const [qbWizardExpenseIds, setQbWizardExpenseIds] = useState<string[]>([])
   useEffect(() => {
     let cancelled = false
     getQbConnection()
@@ -436,44 +444,22 @@ function ExpensesContent() {
     }
   }
 
-  const sendSelectedToQuickbooks = async () => {
+  // Opens the bulk-send wizard. Each step in the wizard mirrors the per-row
+  // SendToQbModal so the user picks Customer/Class/Tax/etc. for every expense
+  // before any QBO call fires. The actual sync happens in a single batch
+  // request when the user hits "Send All".
+  const openQbWizard = () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
-    setBulkBusy(true)
-    try {
-      const res = await bulkSyncExpensesToQb({ expenseIds: ids, includeReceipts: true })
-      if (res.status === 'success') {
-        const { enqueued, skipped } = res.data
-        if (enqueued > 0) {
-          showNotification(
-            skipped.length > 0
-              ? `Queued ${enqueued} for QuickBooks (${skipped.length} skipped)`
-              : `Queued ${enqueued} for QuickBooks`,
-            skipped.length > 0 ? 'info' : 'success'
-          )
-        } else {
-          showNotification(
-            skipped.length > 0
-              ? `Nothing queued — all ${skipped.length} expenses skipped (e.g. unmapped category)`
-              : 'No expenses to queue',
-            'error'
-          )
-        }
-        // Refresh so qb_sync_status flips visible for items that pre-flighted as already_synced
-        loadExpenses()
-        setSelectedIds(new Set())
-      } else {
-        if (res.code === 'connection_inactive') {
-          showNotification('Connect QuickBooks first (Settings → Integrations)', 'error')
-        } else {
-          showNotification(res.message || 'Failed to send to QuickBooks', 'error')
-        }
-      }
-    } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
-    } finally {
-      setBulkBusy(false)
+    if (ids.length > QB_WIZARD_MAX_SELECTION) {
+      showNotification(
+        `Select ${QB_WIZARD_MAX_SELECTION} or fewer expenses to send at once`,
+        'error'
+      )
+      return
     }
+    setQbWizardExpenseIds(ids)
+    setShowQbWizard(true)
   }
 
   const exportCurrent = async (format: 'csv' | 'xlsx') => {
@@ -500,7 +486,7 @@ function ExpensesContent() {
       ? [{
           label: 'Send to QuickBooks',
           icon: ArrowUpTrayIcon,
-          onClick: () => sendSelectedToQuickbooks(),
+          onClick: () => openQbWizard(),
           disabled: bulkBusy,
         } as BulkAction]
       : []),
@@ -1146,6 +1132,23 @@ function ExpensesContent() {
           expenseDescription={sendingExpense.description}
           onSynced={() => {
             setSendingExpense(null)
+            loadExpenses()
+          }}
+        />
+      )}
+
+      {showQbWizard && (
+        <SendToQbWizard
+          isOpen={showQbWizard}
+          expenseIds={qbWizardExpenseIds}
+          onClose={() => {
+            setShowQbWizard(false)
+            setQbWizardExpenseIds([])
+          }}
+          onComplete={() => {
+            setShowQbWizard(false)
+            setQbWizardExpenseIds([])
+            setSelectedIds(new Set())
             loadExpenses()
           }}
         />

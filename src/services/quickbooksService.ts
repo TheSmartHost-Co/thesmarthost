@@ -31,6 +31,8 @@ import type {
   TaxCodeMappingsResponse,
   TaxCodeMappingResponse,
   HmTaxKind,
+  BulkSyncPreflightPayload,
+  BulkSyncPreflightResponse,
 } from './types/quickbooks'
 
 // Payment-accounts list shares the QbAccountsResponse shape (id/name/type rows).
@@ -219,6 +221,21 @@ export async function bulkSyncExpensesToQb(
 ): Promise<BulkSyncResponse> {
   return apiClient<BulkSyncResponse, BulkSyncPayload>(
     '/expenses/bulk-sync-to-quickbooks',
+    { method: 'POST', body: payload }
+  )
+}
+
+/**
+ * One-shot preflight for the bulk SendToQbWizard. Returns per-row blockers
+ * (already_synced, currency_mismatch, etc.) AND the bundled QB defaults
+ * (accounts, customers, classes, mappings, connection state) the wizard's
+ * per-step form needs. Replaces 8+ separate fetches with one round-trip.
+ */
+export async function bulkSyncPreflight(
+  payload: BulkSyncPreflightPayload
+): Promise<BulkSyncPreflightResponse> {
+  return apiClient<BulkSyncPreflightResponse, BulkSyncPreflightPayload>(
+    '/expenses/bulk-sync-preflight',
     { method: 'POST', body: payload }
   )
 }
