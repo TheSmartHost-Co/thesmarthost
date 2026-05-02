@@ -24,6 +24,8 @@ interface ChecklistItemRowProps {
   isUploading: boolean
   isToggling: boolean
   readOnly?: boolean
+  // Blob URL for optimistic photo preview while upload is in flight.
+  optimisticPhotoUrl?: string
 }
 
 export default function ChecklistItemRow({
@@ -35,6 +37,7 @@ export default function ChecklistItemRow({
   isUploading,
   isToggling,
   readOnly,
+  optimisticPhotoUrl,
 }: ChecklistItemRowProps) {
   const { t } = useTranslation('cleanerPortal')
   const [imageError, setImageError] = useState(false)
@@ -81,7 +84,12 @@ export default function ChecklistItemRow({
 
   const handleOptionSelect = (inputRef: React.RefObject<HTMLInputElement | null>) => {
     setIsDropdownOpen(false)
-    setTimeout(() => inputRef.current?.click(), 50)
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.value = '' // iOS Safari caches the previous selection — reset so retaking the same photo fires onChange
+        inputRef.current.click()
+      }
+    }, 100)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,7 +141,18 @@ export default function ChecklistItemRow({
       {/* Zone B: Photo area — does NOT toggle */}
       {item.requiresPhoto && (
         <div className="flex-shrink-0 p-4 pl-0" onClick={(e) => e.stopPropagation()}>
-          {item.photoUrl ? (
+          {optimisticPhotoUrl ? (
+            <div className="relative">
+              <img
+                src={optimisticPhotoUrl}
+                alt={t('uploadedPhoto')}
+                className="w-20 h-20 object-cover rounded-lg border border-purple-200 opacity-60"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            </div>
+          ) : item.photoUrl ? (
             <div className="inline-flex flex-col gap-1">
               <div className="relative inline-flex items-end gap-2">
                 <div className="relative group">
@@ -255,7 +274,7 @@ export default function ChecklistItemRow({
 
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
               <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/heic" onChange={handleFileChange} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif" onChange={handleFileChange} className="hidden" />
             </div>
           )}
         </div>

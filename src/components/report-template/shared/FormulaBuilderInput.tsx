@@ -8,12 +8,20 @@ import {
   validateFormulaSyntax,
   validateTableColumn as validateTableColumnLocal,
   validateAggregateField,
+  validateSumIfFormula,
+  validateIfFormula,
 } from '@/utils/formulaValidator'
+import { getFormulaContext } from '@/utils/formulaContext'
+import type { FormulaContextKind } from '@/utils/formulaContext'
+import ContextualPillBar from './ContextualPillBar'
+import type { Pill, PillGroup } from './ContextualPillBar'
+import FormulaHelpPanel from './FormulaHelpPanel'
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   ChevronDownIcon,
   InformationCircleIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline'
 
 // Operators for search term extraction
@@ -55,6 +63,9 @@ const EMPTY_TABLE_SECTIONS: { name: string; logicalName: string; columns: string
 // All supported functions (hardcoded, no API dependency)
 const FUNCTIONS = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'SUMIF', 'AVGIF', 'COUNTIF', 'MINIF', 'MAXIF']
 
+// Comparison operators for SUMIF/IF conditional arguments
+const COMPARISON_OPERATORS = ['=', '!=', '<', '>', '<=', '>=']
+
 // Get the search term (text after the last operator)
 const getSearchTerm = (text: string): string => {
   let lastOperatorIndex = -1
@@ -88,6 +99,10 @@ interface FormulaBuilderInputProps {
   tableSections?: { name: string; logicalName: string; columns: string[] }[]
   // Data source columns from parent (cached from API) - if provided, skips internal fetch
   externalDataSourceColumns?: DataSourceColumn[]
+  // External error from batch validation (shown in amber)
+  externalError?: string | null
+  // Section mode for help panel context
+  sectionMode?: 'header' | 'field' | 'table'
 }
 
 const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
@@ -103,8 +118,11 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
   dataSource,
   tableSections = EMPTY_TABLE_SECTIONS,
   externalDataSourceColumns,
+  externalError,
+  sectionMode,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [validationState, setValidationState] = useState<{
     valid: boolean | null
     error: string | null
@@ -173,40 +191,234 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     return getSearchTerm(textBeforeCursor)
   }, [value, cursorPosition])
 
-  // Filter suggestions based on search term for inline tags
-  const filteredSuggestions = useMemo(() => {
-    const term = searchTerm.toLowerCase()
+  // Compute formula context for context-aware pills
+  const formulaContext = useMemo(() => {
+    return getFormulaContext(value, cursorPosition)
+  }, [value, cursorPosition])
 
-    // Functions (hardcoded)
-    const functions = FUNCTIONS
-      .filter((f) => f.toLowerCase().includes(term))
-      .slice(0, 4)
+  // Whether we're in calculated column mode (uses {ref} syntax, not bare column names)
+  const isCalculatedMode = validationMode === 'table' && columnType === 'calculated'
 
-    // Columns from data source
-    const columns = effectiveDataSourceColumns
-      .filter((c) => c.name.toLowerCase().includes(term) || c.formula.toLowerCase().includes(term))
-      .slice(0, 4)
+  // If calculated mode is toggled on while Columns tab is active, switch to Functions
+  useEffect(() => {
+    if (isCalculatedMode && activeTab === 'columns') {
+      setActiveTab('functions')
+    }
+  }, [isCalculatedMode, activeTab])
 
-    // Fields from allSections
-    const fields: { insertValue: string; displayName: string; logicalName: string; sectionName?: string }[] = []
-    allSections.forEach((section) => {
-      section.fields.forEach((field) => {
-        if (field.name.toLowerCase().includes(term) || field.logicalName.toLowerCase().includes(term)) {
-          const isSameSection = section.sectionId === currentSectionId
-          fields.push({
-            insertValue: isSameSection
+  // Build context-aware pill groups based on formula context
+  const pillGroups = useMemo((): PillGroup[] => {
+    const term = formulaContext.partialText.toLowerCase()
+    const groups: PillGroup[] = []
+
+    // Helper: build function pills
+    const functionPills = (): Pill[] =>
+      FUNCTIONS
+        .filter(f => f.toLowerCase().includes(term))
+        .slice(0, 5)
+        .map(f => ({
+          kind: 'function' as const,
+          label: `${f}()`,
+          insertText: `${f}()`,
+          description: FUNCTION_DESCRIPTIONS[f],
+          isFunctionWithParens: true,
+        }))
+
+    // Helper: build bare column pills (for non-calculated contexts: field-mode SUM(col), direct columns)
+    const bareColumnPills = (types?: string[]): Pill[] =>
+      effectiveDataSourceColumns
+        .filter(c => {
+          if (types && !types.includes(c.columnType)) return false
+          return c.name.toLowerCase().includes(term) || c.formula.toLowerCase().includes(term)
+        })
+        .slice(0, 5)
+        .map(c => ({
+          kind: 'column' as const,
+          label: c.formula,
+          insertText: c.formula,
+          description: c.name,
+        }))
+
+    // Helper: build {logicalName} ref pills for calculated columns
+    // In calculated mode, {refs} resolve against other columns in the SAME table section
+    // by their logicalName (snake_case), NOT against raw data source fields
+    const sameTableColumnRefPills = (): Pill[] =>
+      sectionColumns
+        .filter(colName => colName.toLowerCase().includes(term))
+        .slice(0, 8)
+        .map(colName => ({
+          kind: 'field_ref' as const,
+          label: `{${colName}}`,
+          insertText: `{${colName}}`,
+          description: `Column: ${colName}`,
+        }))
+
+    // Helper: build cross-section field ref pills
+    const fieldRefPills = (): Pill[] => {
+      const pills: Pill[] = []
+      allSections.forEach(section => {
+        section.fields.forEach(field => {
+          if (field.name.toLowerCase().includes(term) || field.logicalName.toLowerCase().includes(term)) {
+            const isSameSection = section.sectionId === currentSectionId
+            const insertValue = isSameSection
               ? `{${field.logicalName}}`
-              : `{${section.sectionLogicalName}.${field.logicalName}}`,
-            displayName: field.name,
-            logicalName: field.logicalName,
-            sectionName: isSameSection ? undefined : section.sectionName,
-          })
-        }
+              : `{${section.sectionLogicalName}.${field.logicalName}}`
+            pills.push({
+              kind: 'field_ref' as const,
+              label: insertValue,
+              insertText: insertValue,
+              description: isSameSection ? field.name : `${section.sectionName}: ${field.name}`,
+            })
+          }
+        })
       })
-    })
+      return pills.slice(0, 5)
+    }
 
-    return { functions, columns, fields: fields.slice(0, 4) }
-  }, [searchTerm, effectiveDataSourceColumns, allSections, currentSectionId])
+    // Helper: build comparison operator pills
+    const compareOpPills = (): Pill[] =>
+      COMPARISON_OPERATORS.map(op => ({
+        kind: 'compare_op' as const,
+        label: `'${op}'`,
+        insertText: `'${op}'`,
+        description: `Comparison: ${op}`,
+      }))
+
+    // Helper: arithmetic operator pills
+    const arithmeticPills = (): Pill[] =>
+      ['+', '-', '*', '/'].map(op => ({
+        kind: 'arithmetic_op' as const,
+        label: op,
+        insertText: op,
+        description: `Operator: ${op}`,
+      }))
+
+    // Helper: section name pills (for brace refs)
+    const sectionNamePills = (): Pill[] =>
+      allSections
+        .filter(s => s.sectionLogicalName.toLowerCase().includes(term) || s.sectionName.toLowerCase().includes(term))
+        .slice(0, 5)
+        .map(s => ({
+          kind: 'field_ref' as const,
+          label: s.sectionLogicalName,
+          insertText: `${s.sectionLogicalName}.`,
+          description: s.sectionName,
+        }))
+
+    // Helper: field pills from a specific section
+    const sectionFieldPills = (sectionLogicalName: string): Pill[] => {
+      const section = allSections.find(s => s.sectionLogicalName === sectionLogicalName)
+      if (!section) return []
+      return section.fields
+        .filter(f => f.logicalName.toLowerCase().includes(term) || f.name.toLowerCase().includes(term))
+        .slice(0, 5)
+        .map(f => ({
+          kind: 'field_ref' as const,
+          label: f.logicalName,
+          insertText: f.logicalName,
+          description: f.name,
+        }))
+    }
+
+    // Build groups based on context kind
+    const ctx = formulaContext.kind
+
+    // In calculated table column mode, columns are always shown as {refs}, never bare
+    // In field mode (aggregates), columns inside SUM()/AVG() are bare names
+    // In IF() for calculated columns, condition field is bare, but true/false exprs use {refs}
+
+    switch (ctx) {
+      case 'function_arg':
+        // Inside SUM(/AVG( etc — bare column names for field-mode, same-table {refs} for calculated
+        if (isCalculatedMode) {
+          groups.push({ pills: sameTableColumnRefPills(), color: 'purple', label: 'Columns' })
+        } else {
+          groups.push({ pills: bareColumnPills(), color: 'gray' })
+        }
+        groups.push({ pills: fieldRefPills(), color: 'purple' })
+        break
+
+      case 'sumif_column':
+        // SUMIF arg 0: the column to aggregate — always bare (even in field mode, this is SUM column name)
+        groups.push({ pills: bareColumnPills(['numeric', 'currency']), color: 'gray', label: 'Column' })
+        break
+
+      case 'sumif_filter_field':
+        // SUMIF arg 1: field to filter on — bare name
+        groups.push({ pills: bareColumnPills(), color: 'gray', label: 'Filter by' })
+        break
+
+      case 'sumif_operator':
+        groups.push({ pills: compareOpPills(), color: 'amber', label: 'Operator' })
+        break
+
+      case 'sumif_value':
+        // SUMIF arg 3: comparison value — no pills, user types the value
+        break
+
+      case 'if_condition_field':
+        // IF arg 0: bare field name (not a {ref} — per spec)
+        groups.push({ pills: bareColumnPills(), color: 'gray', label: 'Condition' })
+        break
+
+      case 'if_operator':
+        groups.push({ pills: compareOpPills(), color: 'amber', label: 'Operator' })
+        break
+
+      case 'if_value':
+        // IF arg 2: comparison value — no pills, user types
+        break
+
+      case 'if_true_expr':
+      case 'if_false_expr':
+        // IF true/false expressions use same-table {logicalName} refs in calculated mode
+        if (isCalculatedMode) {
+          groups.push({ pills: sameTableColumnRefPills(), color: 'purple', label: 'Columns' })
+        } else {
+          groups.push({ pills: bareColumnPills(), color: 'gray' })
+        }
+        groups.push({ pills: fieldRefPills(), color: 'purple' })
+        groups.push({ pills: arithmeticPills(), color: 'green' })
+        break
+
+      case 'brace_ref_section':
+        groups.push({ pills: sectionNamePills(), color: 'purple', label: 'Sections' })
+        break
+
+      case 'brace_ref_field':
+        if (formulaContext.sectionHint) {
+          groups.push({ pills: sectionFieldPills(formulaContext.sectionHint), color: 'purple', label: 'Fields' })
+        }
+        break
+
+      default:
+        // Default context — what shows when cursor is at top level
+        if (isCalculatedMode) {
+          // Calculated columns: {logicalName} refs to other columns in same table, IF(), arithmetic
+          // NO bare data source columns, NO SUM/AVG aggregate functions
+          groups.push({ pills: sameTableColumnRefPills(), color: 'purple', label: 'Columns' })
+          groups.push({ pills: fieldRefPills(), color: 'purple' })
+          const ifPill: Pill = {
+            kind: 'function' as const,
+            label: 'IF()',
+            insertText: 'IF()',
+            description: 'Conditional: IF(field, op, value, trueExpr, falseExpr)',
+            isFunctionWithParens: true,
+          }
+          groups.push({ pills: [ifPill], color: 'blue', label: 'Functions' })
+          groups.push({ pills: arithmeticPills(), color: 'green' })
+        } else {
+          // Field-mode or non-calculated: show everything
+          groups.push({ pills: functionPills(), color: 'blue' })
+          groups.push({ pills: bareColumnPills(), color: 'gray' })
+          groups.push({ pills: fieldRefPills(), color: 'purple' })
+          groups.push({ pills: arithmeticPills(), color: 'green' })
+        }
+        break
+    }
+
+    return groups
+  }, [formulaContext, effectiveDataSourceColumns, allSections, currentSectionId, isCalculatedMode, sectionColumns])
 
   // Handle tag click - insert at cursor position, replacing any partial text
   const handleTagClick = (insertText: string, isFunctionWithParens: boolean = false) => {
@@ -275,6 +487,18 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
     }, 0)
   }
 
+  // Handle pill click from ContextualPillBar
+  const handlePillClick = (pill: Pill) => {
+    if (pill.kind === 'arithmetic_op') {
+      handleOperatorClick(pill.insertText)
+    } else if (pill.kind === 'compare_op') {
+      // Insert comparison operators directly at cursor (with quotes already in insertText)
+      insertAtCursor(pill.insertText)
+    } else {
+      handleTagClick(pill.insertText, pill.isFunctionWithParens)
+    }
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -304,36 +528,52 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
 
     validationTimeoutRef.current = setTimeout(() => {
       try {
+        let resultError: string | null = null
+        let resultValid = true
+
         if (validationMode === 'table') {
           // Table mode: validate column formula against available columns (use formula field)
-          const result = validateTableColumnLocal(value, availableColumnFormulas, sectionColumns)
-          setValidationState({
-            valid: result.valid,
-            error: result.error || null,
-            checking: false,
-            suggestions: undefined,
-          })
+          const result = validateTableColumnLocal(value, availableColumnFormulas, sectionColumns, columnType)
+          resultValid = result.valid
+          resultError = result.error || null
+
+          // Additional IF() validation for calculated columns
+          if (resultValid && /\bIF\s*\(/i.test(value)) {
+            const ifResult = validateIfFormula(value, availableColumnFormulas)
+            if (!ifResult.valid) {
+              resultValid = false
+              resultError = ifResult.error || null
+            }
+          }
         } else {
           // Field mode: validate aggregate formula that references table sections
           if (tableSections.length > 0) {
             const result = validateAggregateField(value, tableSections)
-            setValidationState({
-              valid: result.valid,
-              error: result.error || null,
-              checking: false,
-              suggestions: undefined,
-            })
+            resultValid = result.valid
+            resultError = result.error || null
           } else {
             // Basic syntax validation only
             const result = validateFormulaSyntax(value)
-            setValidationState({
-              valid: result.valid,
-              error: result.error || null,
-              checking: false,
-              suggestions: undefined,
-            })
+            resultValid = result.valid
+            resultError = result.error || null
+          }
+
+          // Additional SUMIF/AVGIF validation for field mode
+          if (resultValid && /\b(SUMIF|AVGIF|COUNTIF|MINIF|MAXIF)\s*\(/i.test(value)) {
+            const sumifResult = validateSumIfFormula(value)
+            if (!sumifResult.valid) {
+              resultValid = false
+              resultError = sumifResult.error || null
+            }
           }
         }
+
+        setValidationState({
+          valid: resultValid,
+          error: resultError,
+          checking: false,
+          suggestions: undefined,
+        })
       } catch (err) {
         console.error('Formula validation error:', err)
         setValidationState({
@@ -459,6 +699,17 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
             <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
           ) : null}
 
+          {/* Help toggle */}
+          <button
+            type="button"
+            onClick={() => setShowHelp(!showHelp)}
+            disabled={disabled}
+            className={`p-1 rounded transition-colors disabled:opacity-50 ${showHelp ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-400'}`}
+            title="Formula syntax reference"
+          >
+            <QuestionMarkCircleIcon className="w-4 h-4" />
+          </button>
+
           {/* Dropdown toggle */}
           <button
             type="button"
@@ -493,65 +744,22 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
         </div>
       )}
 
-      {/* Inline Suggestions - Always visible when not disabled */}
+      {/* External error from batch validation */}
+      {externalError && validationState.valid !== false && (
+        <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+          <ExclamationCircleIcon className="w-3.5 h-3.5 shrink-0" />
+          {externalError}
+        </p>
+      )}
+
+      {/* Context-Aware Suggestion Pills */}
       {!disabled && (
-        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-          {/* Functions - Blue */}
-          {filteredSuggestions.functions.map((func) => (
-            <button
-              key={func}
-              type="button"
-              onClick={() => handleTagClick(`${func}()`, true)}
-              className="px-2 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 rounded border border-blue-200 font-mono transition-colors"
-              title={`Insert ${func} function`}
-            >
-              {func}()
-            </button>
-          ))}
+        <ContextualPillBar groups={pillGroups} onPillClick={handlePillClick} />
+      )}
 
-          {/* Columns - Gray */}
-          {filteredSuggestions.columns.map((col) => (
-            <button
-              key={col.formula}
-              type="button"
-              onClick={() => handleTagClick(col.formula)}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 rounded border border-gray-200 font-mono transition-colors"
-              title={col.name}
-            >
-              {col.formula}
-            </button>
-          ))}
-
-          {/* Field References - Purple */}
-          {filteredSuggestions.fields.map((field) => (
-            <button
-              key={field.insertValue}
-              type="button"
-              onClick={() => handleTagClick(field.insertValue)}
-              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded border border-purple-200 font-mono transition-colors"
-              title={field.sectionName ? `From ${field.sectionName}` : 'Same section field'}
-            >
-              {field.insertValue}
-            </button>
-          ))}
-
-          {/* Divider and operator shortcuts */}
-          {(filteredSuggestions.functions.length > 0 ||
-            filteredSuggestions.columns.length > 0 ||
-            filteredSuggestions.fields.length > 0) && (
-            <span className="text-xs text-gray-400 mx-1">|</span>
-          )}
-          {['+', '-', '*', '/'].map((op) => (
-            <button
-              key={op}
-              type="button"
-              onClick={() => handleOperatorClick(op)}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 rounded border border-gray-200 font-mono transition-colors"
-            >
-              {op}
-            </button>
-          ))}
-        </div>
+      {/* Help Panel */}
+      {showHelp && (
+        <FormulaHelpPanel sectionMode={sectionMode || (validationMode === 'table' ? 'table' : 'field')} />
       )}
 
       {/* Dropdown - Full browsing mode (chevron click) */}
@@ -570,17 +778,19 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
             >
               Functions
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('columns')}
-              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                activeTab === 'columns'
-                  ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Columns
-            </button>
+            {!isCalculatedMode && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('columns')}
+                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                  activeTab === 'columns'
+                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Columns
+              </button>
+            )}
             {hasFieldsToShow && (
               <button
                 type="button"
@@ -608,7 +818,8 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                   </div>
                 ) : (
                   <>
-                    {FUNCTIONS.map((funcName) => (
+                    {/* In calculated mode, only show IF(). Aggregate functions don't apply to per-row calculations. */}
+                    {(isCalculatedMode ? ['IF'] : FUNCTIONS).map((funcName) => (
                       <button
                         key={funcName}
                         type="button"
@@ -616,10 +827,12 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                       >
                         <div className="font-mono text-sm text-blue-700">
-                          {funcName}({funcName === 'COUNT' ? '' : 'column'})
+                          {funcName}({funcName === 'COUNT' ? '' : funcName === 'IF' ? "field, 'op', 'val', trueExpr, falseExpr" : 'column'})
                         </div>
                         <div className="text-xs text-gray-500">
-                          {FUNCTION_DESCRIPTIONS[funcName] || `Conditional ${funcName.replace('IF', '').toLowerCase()}`}
+                          {funcName === 'IF'
+                            ? 'Per-row conditional expression'
+                            : FUNCTION_DESCRIPTIONS[funcName] || `Conditional ${funcName.replace('IF', '').toLowerCase()}`}
                         </div>
                         {/* Syntax hint for IF functions */}
                         {funcName.endsWith('IF') && FUNCTION_SYNTAX[funcName] && (
@@ -629,12 +842,22 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
                             </span>
                           </div>
                         )}
+                        {funcName === 'IF' && (
+                          <div className="mt-1">
+                            <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                              IF(platform, &apos;=&apos;, &apos;Airbnb&apos;, &#123;mgmtFee&#125; * 1.1, &#123;mgmtFee&#125;)
+                            </span>
+                          </div>
+                        )}
                       </button>
                     ))}
                     <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-1 text-xs text-gray-600">
                         <InformationCircleIcon className="w-4 h-4" />
-                        <span>Tip: Use +, -, *, / for arithmetic</span>
+                        {isCalculatedMode
+                          ? <span>Tip: Use {'{columnName}'} to reference columns, +, -, *, / for arithmetic</span>
+                          : <span>Tip: Use +, -, *, / for arithmetic</span>
+                        }
                       </div>
                     </div>
                   </>
@@ -642,8 +865,8 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
               </div>
             )}
 
-            {/* Columns Tab */}
-            {activeTab === 'columns' && (
+            {/* Columns Tab — only shown for non-calculated modes (bare camelCase column names) */}
+            {activeTab === 'columns' && !isCalculatedMode && (
               <div className="p-2 space-y-1">
                 {loadingColumns ? (
                   <div className="flex items-center justify-center py-4">
@@ -671,7 +894,30 @@ const FormulaBuilderInput: React.FC<FormulaBuilderInputProps> = ({
             {/* Fields Tab - Grouped by section with logical names */}
             {activeTab === 'fields' && (
               <div className="p-2 space-y-3">
-                {allSections.length === 0 ? (
+                {/* In calculated mode, show same-table columns first */}
+                {isCalculatedMode && sectionColumns.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1">
+                      <span className="text-xs font-semibold text-purple-600 uppercase">Same-Table Columns</span>
+                      <span className="text-xs text-gray-400 ml-1">(use in {'{braces}'})</span>
+                    </div>
+                    {sectionColumns.map((colName) => (
+                      <button
+                        key={colName}
+                        type="button"
+                        onClick={() => { handleFieldClick(`{${colName}}`); }}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-900">{colName}</span>
+                          <span className="font-mono text-xs text-purple-600">{`{${colName}}`}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {allSections.length === 0 && !isCalculatedMode ? (
                   <p className="text-xs text-gray-500 px-3 py-2">
                     No sections available. Create sections and fields to reference them.
                   </p>

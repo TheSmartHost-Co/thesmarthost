@@ -80,6 +80,7 @@ interface TableColumnListProps {
   changeStatus?: { [fieldId: string]: ChangeInfo }
   dataSource?: DataSource
   dataSourceColumns?: DataSourceColumn[]
+  fieldErrors?: Record<string, string>
 }
 
 const TableColumnList: React.FC<TableColumnListProps> = ({
@@ -94,6 +95,7 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
   changeStatus,
   dataSource = 'booking',
   dataSourceColumns = [],
+  fieldErrors,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingColumn, setIsAddingColumn] = useState(false)
@@ -448,6 +450,7 @@ const TableColumnList: React.FC<TableColumnListProps> = ({
                   changeInfo={changeStatus?.[field.id]}
                   dataSourceColumns={dataSourceColumns}
                   dataSource={dataSource}
+                  externalError={fieldErrors?.[field.id]}
                 />
               ))}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronUpDownIcon, MagnifyingGlassIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 
@@ -95,7 +95,8 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxRef = useRef<HTMLUListElement>(null)
 
-  const componentId = id || `searchable-select-${Math.random().toString(36).slice(2, 9)}`
+  const reactId = useId()
+  const componentId = id || `searchable-select-${reactId}`
 
   const isMulti = props.multiSelect === true
 

@@ -9,18 +9,7 @@ import {
   PhotoIcon,
   ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
-
-export const ALLOWED_PHOTO_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-]
-export const MAX_PHOTO_SIZE = 20 * 1024 * 1024
-export const MAX_PHOTOS_PER_UPLOAD = 10
+import { isValidPhotoFile, MAX_PHOTOS_PER_UPLOAD } from '@/services/cleaningProjectService'
 
 interface WalkthroughUploadMenuProps {
   onSelect: (files: File[]) => void
@@ -106,13 +95,7 @@ export default function WalkthroughUploadMenu({
     const validFiles: File[] = []
     for (let i = 0; i < Math.min(fileList.length, MAX_PHOTOS_PER_UPLOAD); i++) {
       const file = fileList[i]
-      // Some browsers return empty mime type for HEIC — fall back to extension check
-      const isAllowedType =
-        ALLOWED_PHOTO_TYPES.includes(file.type) ||
-        /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(file.name)
-      if (!isAllowedType) continue
-      if (file.size > MAX_PHOTO_SIZE) continue
-      validFiles.push(file)
+      if (isValidPhotoFile(file).ok) validFiles.push(file)
     }
 
     if (validFiles.length > 0) {

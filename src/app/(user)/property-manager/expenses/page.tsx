@@ -13,6 +13,7 @@ import {
   getExpenses,
   getExpenseSummary,
   deleteExpense,
+  detachReceipt,
   bulkUpdateExpenses,
   exportExpenses,
   formatCurrency,
@@ -32,6 +33,7 @@ import type {
   PaymentStatus,
   QbSyncStatus,
   ReceiptStatus,
+  AttachReceiptResponse,
 } from '@/services/types/expense'
 import type { ExpenseCategory } from '@/services/types/expenseCategories'
 import { getCategoryByCode } from '@/services/types/expenseCategories'
@@ -89,6 +91,8 @@ import { getConnection as getQbConnection } from '@/services/quickbooksService'
 import type { QbConnection } from '@/services/types/quickbooks'
 import SendToQbModal from '@/components/quickbooks/SendToQbModal'
 import SendToQbWizard from '@/components/quickbooks/SendToQbWizard/SendToQbWizard'
+import AttachReceiptModal from '@/components/expenses/attach/AttachReceiptModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 
 const QB_WIZARD_MAX_SELECTION = 50
 
@@ -192,7 +196,7 @@ export default function ExpensesPage() {
 function ExpensesContent() {
   useUserStore() // keep store warm; profile not directly read here
   const { showNotification } = useNotificationStore()
-  useTranslation('expenses')
+  const { t } = useTranslation('expenses')
   usePermissionGuard('expenses')
   const { effectiveUserId, canWrite } = usePermissions()
 
@@ -265,6 +269,12 @@ function ExpensesContent() {
   const [showBulkReceiptsModal, setShowBulkReceiptsModal] = useState(false)
   const [selectedExpenseId, setSelectedExpenseId] = useState('')
   const [sendingExpense, setSendingExpense] = useState<Expense | null>(null)
+
+  // Attach/detach receipt state
+  const [showAttachModal, setShowAttachModal] = useState(false)
+  const [attachTargetExpenseId, setAttachTargetExpenseId] = useState('')
+  const [receiptDetailId, setReceiptDetailId] = useState<string | null>(null)
+  const [ocrDiffData, setOcrDiffData] = useState<AttachReceiptResponse['data'] | null>(null)
 
   // ─── URL sync (debounced) ─────────────────────────────────────
   const urlSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -500,6 +510,35 @@ function ExpensesContent() {
   const getRowActions = (expense: Expense): ActionItem[] => [
     { label: 'View Details', icon: EyeIcon,    onClick: () => handleViewExpense(expense.id) },
     { label: 'Edit',         icon: PencilIcon, onClick: () => handleViewExpense(expense.id) },
+    // Attach or detach receipt depending on current state
+    ...(expense.receiptId
+      ? [{
+          label: t('detachReceipt'),
+          icon: XMarkIcon,
+          onClick: async () => {
+            if (!confirm(t('confirmDetachReceipt'))) return
+            try {
+              const res = await detachReceipt(expense.id)
+              if (res.status === 'success') {
+                showNotification(t('receiptDetached'), 'success')
+                loadExpenses()
+              } else {
+                showNotification(res.message || 'Failed to detach receipt', 'error')
+              }
+            } catch (err) {
+              showNotification(err instanceof Error ? err.message : 'Error detaching receipt', 'error')
+            }
+          },
+        }]
+      : [{
+          label: t('attachReceipt'),
+          icon: LinkIcon,
+          onClick: () => {
+            setAttachTargetExpenseId(expense.id)
+            setShowAttachModal(true)
+          },
+        }]
+    ),
     {
       label: 'Delete',
       icon: TrashIcon,
@@ -927,11 +966,15 @@ function ExpensesContent() {
                         </td>
                       )}
                       {showCol('receipt') && (
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {expense.receiptPath ? (
-                            <span className="inline-flex items-center text-green-600">
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          {expense.receiptId ? (
+                            <button
+                              onClick={() => setReceiptDetailId(expense.receiptId!)}
+                              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                            >
                               <DocumentTextIcon className="w-4 h-4" />
-                            </span>
+                              {t('viewReceipt')}
+                            </button>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
@@ -1046,10 +1089,15 @@ function ExpensesContent() {
 
       <ExpenseViewerModal
         isOpen={showViewerModal}
-        onClose={() => setShowViewerModal(false)}
+        onClose={() => { setShowViewerModal(false); setOcrDiffData(null) }}
         expenseId={selectedExpenseId}
-        onExpenseUpdated={() => loadExpenses()}
+        onExpenseUpdated={() => { setOcrDiffData(null); loadExpenses() }}
         onExpenseDeleted={() => loadExpenses()}
+        ocrDiffData={ocrDiffData ? { receipt: ocrDiffData.receipt, receiptLineItems: ocrDiffData.receiptLineItems } : undefined}
+        onAttachReceipt={() => {
+          setAttachTargetExpenseId(selectedExpenseId)
+          setShowAttachModal(true)
+        }}
       />
 
       <ExpenseCategoriesModal
@@ -1151,6 +1199,30 @@ function ExpensesContent() {
             setSelectedIds(new Set())
             loadExpenses()
           }}
+        />
+      )}
+
+      <AttachReceiptModal
+        isOpen={showAttachModal}
+        onClose={() => setShowAttachModal(false)}
+        expenseId={attachTargetExpenseId}
+        onAttached={(data) => {
+          setOcrDiffData(data)
+          loadExpenses()
+          // Open the viewer in edit mode so user sees OCR diff hints
+          setSelectedExpenseId(data.expense.id)
+          setShowViewerModal(true)
+        }}
+      />
+
+      {receiptDetailId && (
+        <ReceiptDetailModal
+          isOpen={!!receiptDetailId}
+          onClose={() => setReceiptDetailId(null)}
+          receiptId={receiptDetailId}
+          properties={properties}
+          onUpdated={() => loadExpenses()}
+          onDeleted={() => { setReceiptDetailId(null); loadExpenses() }}
         />
       )}
     </div>

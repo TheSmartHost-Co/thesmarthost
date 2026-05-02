@@ -71,6 +71,7 @@ interface TableColumnItemProps {
   changeInfo?: ChangeInfo
   dataSourceColumns?: DataSourceColumn[]
   dataSource?: DataSource
+  externalError?: string
 }
 
 const TableColumnItem: React.FC<TableColumnItemProps> = ({
@@ -85,6 +86,7 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
   changeInfo,
   dataSourceColumns = [],
   dataSource = 'booking',
+  externalError,
 }) => {
   const [editName, setEditName] = useState(field.name)
   const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
@@ -458,6 +460,8 @@ const TableColumnItem: React.FC<TableColumnItemProps> = ({
                 sectionColumns={currentSectionColumnNames}
                 dataSource={dataSource}
                 externalDataSourceColumns={dataSourceColumns}
+                externalError={externalError}
+                sectionMode="table"
               />
             </div>
           )}

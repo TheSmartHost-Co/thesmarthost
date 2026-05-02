@@ -26,8 +26,12 @@ import type {
   CreateExpenseLineItemPayload,
   UpdateExpenseLineItemPayload,
   PaymentMethod,
-  PaymentStatus
+  PaymentStatus,
+  AttachReceiptData,
+  AttachReceiptLineItem,
+  AttachReceiptResponse,
 } from '@/services/types/expense'
+import { detachReceipt } from '@/services/expenseService'
 import type { PaidByType } from '@/services/types/receipt'
 import { getCleaners } from '@/services/cleanerService'
 import { getTeamMembers } from '@/services/teamMemberService'
@@ -73,6 +77,10 @@ interface ExpenseViewerModalProps {
   onExpenseDeleted?: (expenseId: string) => void
   hideSupplyListLink?: boolean
   zIndex?: number
+  /** OCR diff data from a just-attached receipt. Shows hints in edit mode. */
+  ocrDiffData?: { receipt: AttachReceiptData; receiptLineItems: AttachReceiptLineItem[] } | null
+  /** Callback to open the AttachReceiptModal from the related tab */
+  onAttachReceipt?: () => void
 }
 
 type ModalMode = 'view' | 'edit' | 'line-items' | 'related'
@@ -102,6 +110,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   onExpenseDeleted,
   hideSupplyListLink = false,
   zIndex,
+  ocrDiffData,
+  onAttachReceipt,
 }) => {
   const [expense, setExpense] = useState<Expense | null>(null)
   const [loading, setLoading] = useState(false)
@@ -156,6 +166,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [bookings, setBookings] = useState<Booking[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
 
+  const { t } = useTranslation('expenses')
   const { profile } = useUserStore()
   const showNotification = useNotificationStore((state) => state.showNotification)
   const { canWrite, effectiveUserId } = usePermissions()
@@ -163,11 +174,21 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   useEffect(() => {
     if (isOpen && expenseId && effectiveUserId) {
-      setMode('view')
+      // If OCR diff data is provided (just attached a receipt), open in edit mode
+      setMode(ocrDiffData ? 'edit' : 'view')
       fetchExpense()
       loadReferenceData()
     }
   }, [isOpen, expenseId, effectiveUserId])
+
+  // When OCR diff data arrives while the viewer is already open (e.g. attach from Related tab),
+  // switch to edit mode and re-fetch the expense to reflect the newly linked receipt.
+  useEffect(() => {
+    if (isOpen && ocrDiffData && effectiveUserId) {
+      setMode('edit')
+      fetchExpense()
+    }
+  }, [ocrDiffData])
 
   // Pull QB connection state once when the modal opens; drives visibility of
   // the "Send to QuickBooks" header button.
@@ -626,7 +647,31 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
         {/* Linked Receipt */}
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">Receipt</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-gray-500">Receipt</p>
+            {expense.receipt && hasWrite && (
+              <button
+                onClick={async () => {
+                  if (!confirm(t('confirmDetachReceipt'))) return
+                  try {
+                    const res = await detachReceipt(expense.id)
+                    if (res.status === 'success') {
+                      showNotification(t('receiptDetached'), 'success')
+                      fetchExpense()
+                      onExpenseUpdated?.()
+                    } else {
+                      showNotification(res.message || 'Failed to detach receipt', 'error')
+                    }
+                  } catch (err) {
+                    showNotification(err instanceof Error ? err.message : 'Error detaching receipt', 'error')
+                  }
+                }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium cursor-pointer"
+              >
+                {t('detachReceipt')}
+              </button>
+            )}
+          </div>
           {expense.receipt ? (
             <RelatedEntityCard
               entityType="receipt"
@@ -642,6 +687,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               title=""
               emptyText="No linked receipt"
               onClick={() => {}}
+              onAction={onAttachReceipt}
+              actionLabel={hasWrite ? t('attachReceipt') : undefined}
             />
           )}
         </div>
@@ -876,6 +923,52 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
     )
   }
 
+  // OCR diff hint — shows receipt value beneath a field when it differs.
+  // One-time only: shown when ocrDiffData is present (cleared after save).
+  const OcrHint = ({ receiptValue, currentValue, onApply, format }: {
+    receiptValue: string | number | null | undefined
+    currentValue: string
+    onApply: (value: string) => void
+    format?: 'currency' | 'date'
+  }) => {
+    if (!ocrDiffData || receiptValue == null || receiptValue === '') return null
+    const receiptStr = String(receiptValue)
+    // Normalize for comparison — treat numeric equivalence (e.g. "0" vs "", "5.00" vs "5")
+    const normalCurrent = currentValue.trim()
+    const normalReceipt = receiptStr.trim()
+    // Numeric-aware equality check for currency fields
+    if (format === 'currency') {
+      const numCurrent = parseFloat(normalCurrent) || 0
+      const numReceipt = parseFloat(normalReceipt) || 0
+      if (numCurrent === numReceipt) return null
+    } else {
+      if (normalCurrent === normalReceipt) return null
+    }
+    // Format display value
+    let displayValue = normalReceipt
+    if (format === 'currency' && !isNaN(Number(normalReceipt))) {
+      displayValue = `$${parseFloat(normalReceipt).toFixed(2)}`
+    } else if (format === 'date' && normalReceipt) {
+      try {
+        displayValue = new Date(normalReceipt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      } catch { /* keep raw */ }
+    }
+    return (
+      <div className="mt-1 flex items-center gap-2 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+        <span className="text-xs text-blue-700 flex-1 break-words leading-relaxed">
+          {t('receiptSuggestion')} <span className="font-semibold">{displayValue}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => onApply(format === 'date' ? normalReceipt.split('T')[0] : normalReceipt)}
+          className="text-xs font-medium text-blue-600 hover:text-blue-800 cursor-pointer whitespace-nowrap flex-shrink-0"
+        >
+          {t('applyValue')}
+        </button>
+      </div>
+    )
+  }
+
   const renderEditMode = () => {
     if (!expense) return null
 
@@ -954,6 +1047,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                 className="w-full border border-l-0 border-gray-300 rounded-r-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <OcrHint receiptValue={ocrDiffData?.receipt.total} currentValue={amount} onApply={setAmount} format="currency" />
           </div>
 
           <div>
@@ -965,6 +1059,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               onChange={(e) => setExpenseDate(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <OcrHint receiptValue={ocrDiffData?.receipt.expenseDate} currentValue={expenseDate} onApply={setExpenseDate} format="date" />
           </div>
 
           <div>
@@ -995,6 +1090,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               onChange={(e) => setVendorName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <OcrHint receiptValue={ocrDiffData?.receipt.vendorName} currentValue={vendorName} onApply={setVendorName} />
           </div>
 
           <div>
@@ -1005,6 +1101,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <OcrHint receiptValue={ocrDiffData?.receipt.description} currentValue={description} onApply={setDescription} />
           </div>
         </div>
 
@@ -1021,6 +1118,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
             </select>
+            <OcrHint receiptValue={ocrDiffData?.receipt.paymentMethod} currentValue={paymentMethod} onApply={(v) => setPaymentMethod(v as PaymentMethod)} />
           </div>
 
           <div>
@@ -1122,6 +1220,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     placeholder="0.00"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <OcrHint receiptValue={ocrDiffData?.receipt.subtotal} currentValue={subtotal} onApply={setSubtotal} format="currency" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">GST (5%)</label>
@@ -1133,6 +1232,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     placeholder="0.00"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <OcrHint receiptValue={ocrDiffData?.receipt.taxGst} currentValue={taxGst} onApply={setTaxGst} format="currency" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">PST</label>
@@ -1144,6 +1244,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     placeholder="0.00"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <OcrHint receiptValue={ocrDiffData?.receipt.taxPst} currentValue={taxPst} onApply={setTaxPst} format="currency" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">HST</label>
@@ -1155,6 +1256,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                     placeholder="0.00"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <OcrHint receiptValue={ocrDiffData?.receipt.taxHst} currentValue={taxHst} onApply={setTaxHst} format="currency" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">QST (9.975%)</label>

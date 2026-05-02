@@ -55,5 +55,24 @@
   "allowedFileTypes": "JPEG, PNG, WebP, or PDF up to 10MB",
   "uploadAndProcess": "Upload & Process",
   "processingReceipt": "Processing receipt...",
-  "extractingDataWithOcr": "Extracting data with OCR. This may take a few seconds."
+  "extractingDataWithOcr": "Extracting data with OCR. This may take a few seconds.",
+
+  "viewReceipt": "View Receipt",
+  "attachReceipt": "Attach Receipt",
+  "detachReceipt": "Detach Receipt",
+  "chooseExisting": "Choose Existing",
+  "uploadNew": "Upload New",
+  "attachReceiptDescription": "Link a receipt to this expense",
+  "noMatchedReceipts": "No available receipts",
+  "noMatchedReceiptsHint": "Upload a new receipt or scan one from the receipts page",
+  "searchReceiptsByVendor": "Search by vendor...",
+  "selectReceipt": "Select",
+  "attaching": "Attaching...",
+  "receiptAttached": "Receipt attached successfully",
+  "receiptDetached": "Receipt detached successfully",
+  "confirmDetachReceipt": "Detach this receipt? The expense keeps its values, and the receipt becomes available for reuse.",
+  "receiptSuggestion": "Receipt says:",
+  "applyValue": "Apply",
+  "importLineItems": "Import {{count}} line items from receipt",
+  "lineItemsImported": "Line items imported successfully"
 }

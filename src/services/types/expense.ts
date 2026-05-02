@@ -453,3 +453,63 @@ export interface ExpenseLineItemsResponse {
   data: ExpenseLineItem[]
   message?: string
 }
+
+// ============================================================================
+// ATTACH / DETACH RECEIPT TYPES
+// ============================================================================
+
+/**
+ * Receipt summary returned by the attach endpoint.
+ * Contains OCR-extracted fields for diff comparison against the expense.
+ */
+export interface AttachReceiptData {
+  id: string
+  vendorName: string | null
+  expenseDate: string | null
+  subtotal: number | null
+  taxGst: number | null
+  taxPst: number | null
+  taxHst: number | null
+  taxTotal: number | null
+  total: number | null
+  paymentMethod: string | null
+  description: string | null
+  originalName: string
+  status: string
+  propertyId: string | null
+}
+
+/**
+ * Receipt line item returned by the attach endpoint.
+ */
+export interface AttachReceiptLineItem {
+  id: string
+  receiptId: string
+  name: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  sortOrder: number
+}
+
+/**
+ * Response from POST /api/expenses/:id/attach-receipt
+ */
+export interface AttachReceiptResponse {
+  status: 'success' | 'failed'
+  data: {
+    expense: Expense
+    receipt: AttachReceiptData
+    receiptLineItems: AttachReceiptLineItem[]
+  }
+  message?: string
+}
+
+/**
+ * Response from POST /api/expenses/:id/detach-receipt
+ */
+export interface DetachReceiptResponse {
+  status: 'success' | 'failed'
+  data: Expense
+  message?: string
+}

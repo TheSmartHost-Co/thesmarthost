@@ -15,6 +15,7 @@ interface ChecklistContentProps {
   onViewPhoto: (url: string) => void
   uploadingItems: Set<string>
   togglingItems: Set<string>
+  optimisticItemPhotos: Map<string, string>
   readOnly: boolean
 }
 
@@ -27,6 +28,7 @@ export default function ChecklistContent({
   onViewPhoto,
   uploadingItems,
   togglingItems,
+  optimisticItemPhotos,
   readOnly,
 }: ChecklistContentProps) {
   const { t } = useTranslation('cleanerPortal')
@@ -118,6 +120,7 @@ export default function ChecklistContent({
           onViewPhoto={onViewPhoto}
           uploadingItems={uploadingItems}
           togglingItems={togglingItems}
+          optimisticItemPhotos={optimisticItemPhotos}
           readOnly={readOnly}
           sectionRef={setRoomRef(roomName)}
         />

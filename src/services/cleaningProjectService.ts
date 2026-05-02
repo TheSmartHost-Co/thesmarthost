@@ -387,6 +387,36 @@ export function calculateActualDuration(
 }
 
 // =============================================
+// PHOTO UPLOAD VALIDATION (shared by checklist + walkthrough flows)
+// =============================================
+
+export const ALLOWED_PHOTO_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+] as const
+
+export const MAX_PHOTO_SIZE = 20 * 1024 * 1024
+export const MAX_PHOTOS_PER_UPLOAD = 10
+const PHOTO_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i
+
+// Some iOS versions return empty/incorrect MIME for HEIC files — fall back to extension.
+export type PhotoValidationResult = { ok: true } | { ok: false; reason: 'type' | 'size' }
+
+export function isValidPhotoFile(file: File): PhotoValidationResult {
+  const typeOk =
+    (ALLOWED_PHOTO_TYPES as readonly string[]).includes(file.type) ||
+    PHOTO_EXT_RE.test(file.name)
+  if (!typeOk) return { ok: false, reason: 'type' }
+  if (file.size > MAX_PHOTO_SIZE) return { ok: false, reason: 'size' }
+  return { ok: true }
+}
+
+// =============================================
 // PROJECT CHECKLIST ITEMS
 // =============================================
 

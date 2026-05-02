@@ -20,8 +20,9 @@ import {
   deleteWalkthroughPhoto,
   getStartBlockReason,
   getMissingGroupsFromError,
+  isValidPhotoFile,
 } from '@/services/cleaningProjectService'
-import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough } from '@/services/types/cleaningProject'
+import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, WalkthroughPhoto } from '@/services/types/cleaningProject'
 import type { WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
 import { targetKey, type OptimisticPhoto } from '@/components/walkthrough/WalkthroughAccordion'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
@@ -86,6 +87,8 @@ export default function ChecklistModal({
   const [loading, setLoading] = useState(true)
   const [uploadingItems, setUploadingItems] = useState<Set<string>>(new Set())
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set())
+  // Blob URLs shown in place of item.photoUrl while an upload is in flight, keyed by itemId.
+  const [optimisticItemPhotos, setOptimisticItemPhotos] = useState<Map<string, string>>(new Map())
   const [completing, setCompleting] = useState(false)
 
   // Walkthrough state
@@ -260,17 +263,25 @@ export default function ChecklistModal({
   }
 
   const handlePhotoUpload = async (itemId: string, file: File) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
-    if (!allowedTypes.includes(file.type)) {
-      showNotification(t('invalidFileType'), 'error')
-      return
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      showNotification(t('fileTooLarge'), 'error')
+    if (uploadingItems.has(itemId)) return // mirrors handleToggleItem's re-entrancy guard
+
+    const validation = isValidPhotoFile(file)
+    if (!validation.ok) {
+      showNotification(t(validation.reason === 'size' ? 'fileTooLarge' : 'invalidFileType'), 'error')
       return
     }
 
+    // Optimistic preview: blob URL shown in the row's photo slot until the server responds.
+    const blobUrl = URL.createObjectURL(file)
+    setOptimisticItemPhotos(prev => {
+      const next = new Map(prev)
+      const prior = prev.get(itemId)
+      if (prior) URL.revokeObjectURL(prior) // avoid leaking when a replacement upload happens
+      next.set(itemId, blobUrl)
+      return next
+    })
     setUploadingItems(prev => new Set(prev).add(itemId))
+
     try {
       const res = await uploadProjectChecklistItemPhoto(project.id, itemId, file)
       if (res.status === 'success') {
@@ -280,7 +291,6 @@ export default function ChecklistModal({
         if (hadNoPhoto) {
           setProgress(prev => prev ? { ...prev, photosUploaded: prev.photosUploaded + 1 } : prev)
         }
-        showNotification(t('photoUploaded'), 'success')
       } else {
         showNotification(res.message || t('failedToUploadPhoto'), 'error')
       }
@@ -288,6 +298,12 @@ export default function ChecklistModal({
       console.error('Error uploading photo:', err)
       showNotification(t('errorUploadingPhoto'), 'error')
     } finally {
+      setOptimisticItemPhotos(prev => {
+        const next = new Map(prev)
+        next.delete(itemId)
+        return next
+      })
+      URL.revokeObjectURL(blobUrl)
       setUploadingItems(prev => {
         const next = new Set(prev)
         next.delete(itemId)
@@ -300,29 +316,38 @@ export default function ChecklistModal({
     const item = items.find(i => i.id === itemId)
     if (!item?.photoUrl) return
 
-    setUploadingItems(prev => new Set(prev).add(itemId))
+    // Capture only the photo fields so a rollback preserves any concurrent
+    // toggle changes to this or other items.
+    const photoSnapshot = {
+      photoUrl: item.photoUrl,
+      photoTakenAt: item.photoTakenAt,
+      photoUploadedAt: item.photoUploadedAt,
+    }
+
+    setItems(prev => prev.map(i =>
+      i.id === itemId ? { ...i, photoUrl: null, photoTakenAt: null, photoUploadedAt: null } : i
+    ))
+    if (item.requiresPhoto) {
+      setProgress(prev => prev ? { ...prev, photosUploaded: Math.max(0, prev.photosUploaded - 1) } : prev)
+    }
+
+    const rollback = () => {
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...photoSnapshot } : i))
+      if (item.requiresPhoto) {
+        setProgress(prev => prev ? { ...prev, photosUploaded: prev.photosUploaded + 1 } : prev)
+      }
+    }
+
     try {
       const res = await deleteProjectChecklistItemPhoto(project.id, itemId)
-      if (res.status === 'success') {
-        setItems(prev => prev.map(i =>
-          i.id === itemId ? { ...i, photoUrl: null, photoTakenAt: null, photoUploadedAt: null } : i
-        ))
-        if (item.requiresPhoto) {
-          setProgress(prev => prev ? { ...prev, photosUploaded: Math.max(0, prev.photosUploaded - 1) } : prev)
-        }
-        showNotification(t('photoDeleted'), 'success')
-      } else {
+      if (res.status !== 'success') {
+        rollback()
         showNotification(res.message || t('failedToDeletePhoto'), 'error')
       }
     } catch (err) {
       console.error('Error deleting photo:', err)
+      rollback()
       showNotification(t('errorDeletingPhoto'), 'error')
-    } finally {
-      setUploadingItems(prev => {
-        const next = new Set(prev)
-        next.delete(itemId)
-        return next
-      })
     }
   }
 
@@ -383,16 +408,33 @@ export default function ChecklistModal({
   }
 
   const handleWalkthroughDeletePhoto = async (photoId: string) => {
+    if (!walkthrough) return
+
+    // Optimistic: filter the photo out of every bucket it could live in.
+    const stripPhoto = (photos: WalkthroughPhoto[]) => photos.filter(p => p.id !== photoId)
+    setWalkthrough(prev => prev && ({
+      ...prev,
+      freeformPhotos: stripPhoto(prev.freeformPhotos),
+      orphanedGroups: prev.orphanedGroups.map(g => ({ ...g, photos: stripPhoto(g.photos) })),
+      effectiveTemplate: {
+        ...prev.effectiveTemplate,
+        groups: prev.effectiveTemplate.groups.map(g => ({
+          ...g,
+          photos: stripPhoto(g.photos),
+          items: g.items.map(it => ({ ...it, photos: stripPhoto(it.photos) })),
+        })),
+      },
+    }))
+
     try {
       const res = await deleteWalkthroughPhoto(project.id, photoId)
-      if (res.status === 'success') {
-        showNotification(t('photoDeleted'), 'success')
-        await fetchWalkthrough(true)
-      } else {
+      if (res.status !== 'success') {
+        await fetchWalkthrough(true) // server is source of truth on failure — avoids stale snapshot if a concurrent upload resolved
         showNotification(res.message || t('failedToDeletePhoto'), 'error')
       }
     } catch (err) {
       console.error('Error deleting walkthrough photo:', err)
+      await fetchWalkthrough(true)
       showNotification(t('errorDeletingPhoto'), 'error')
     }
   }
@@ -519,6 +561,7 @@ export default function ChecklistModal({
             onViewPhoto={setViewingImage}
             uploadingItems={uploadingItems}
             togglingItems={togglingItems}
+            optimisticItemPhotos={optimisticItemPhotos}
             readOnly={readOnly}
           />
         ) : activeTab === 'walkthrough' ? (

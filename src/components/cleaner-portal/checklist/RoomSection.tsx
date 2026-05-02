@@ -16,6 +16,7 @@ interface RoomSectionProps {
   onViewPhoto: (url: string) => void
   uploadingItems: Set<string>
   togglingItems: Set<string>
+  optimisticItemPhotos: Map<string, string>
   readOnly?: boolean
   sectionRef?: (el: HTMLDivElement | null) => void
 }
@@ -31,6 +32,7 @@ export default function RoomSection({
   onViewPhoto,
   uploadingItems,
   togglingItems,
+  optimisticItemPhotos,
   readOnly,
   sectionRef,
 }: RoomSectionProps) {
@@ -85,6 +87,7 @@ export default function RoomSection({
                   onViewPhoto={onViewPhoto}
                   isUploading={uploadingItems.has(item.id)}
                   isToggling={togglingItems.has(item.id)}
+                  optimisticPhotoUrl={optimisticItemPhotos.get(item.id)}
                   readOnly={readOnly}
                 />
               ))}

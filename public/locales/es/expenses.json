@@ -55,5 +55,24 @@
   "allowedFileTypes": "JPEG, PNG, WebP o PDF hasta 10MB",
   "uploadAndProcess": "Subir y procesar",
   "processingReceipt": "Procesando recibo...",
-  "extractingDataWithOcr": "Extrayendo datos con OCR. Esto puede tardar unos segundos."
+  "extractingDataWithOcr": "Extrayendo datos con OCR. Esto puede tardar unos segundos.",
+
+  "viewReceipt": "Ver recibo",
+  "attachReceipt": "Adjuntar recibo",
+  "detachReceipt": "Desvincular recibo",
+  "chooseExisting": "Elegir existente",
+  "uploadNew": "Subir nuevo",
+  "attachReceiptDescription": "Vincular un recibo a este gasto",
+  "noMatchedReceipts": "No hay recibos disponibles",
+  "noMatchedReceiptsHint": "Sube un nuevo recibo o escanea uno desde la pagina de recibos",
+  "searchReceiptsByVendor": "Buscar por proveedor...",
+  "selectReceipt": "Seleccionar",
+  "attaching": "Adjuntando...",
+  "receiptAttached": "Recibo adjuntado exitosamente",
+  "receiptDetached": "Recibo desvinculado exitosamente",
+  "confirmDetachReceipt": "Desvincular este recibo? El gasto mantiene sus valores y el recibo queda disponible para reutilizar.",
+  "receiptSuggestion": "El recibo dice:",
+  "applyValue": "Aplicar",
+  "importLineItems": "Importar {{count}} items del recibo",
+  "lineItemsImported": "Items importados exitosamente"
 }

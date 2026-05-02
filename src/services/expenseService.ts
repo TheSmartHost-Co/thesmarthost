@@ -21,6 +21,8 @@ import type {
   ExpenseLineItemResponse,
   CreateExpenseLineItemPayload,
   UpdateExpenseLineItemPayload,
+  AttachReceiptResponse,
+  DetachReceiptResponse,
 } from './types/expense'
 
 /**
@@ -408,6 +410,45 @@ export function formatExpenseDate(
 ): string {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString('en-CA', options)
+}
+
+// ============================================================================
+// ATTACH / DETACH RECEIPT
+// ============================================================================
+
+/**
+ * Attach a receipt to an expense.
+ * Mode A: pass { receiptId } to link an existing matched receipt.
+ * Mode B: pass a File to upload a new receipt and attach it.
+ */
+export async function attachReceipt(
+  expenseId: string,
+  input: { receiptId: string } | File
+): Promise<AttachReceiptResponse> {
+  if (input instanceof File) {
+    const formData = new FormData()
+    formData.append('receipt', input)
+    return apiClient<AttachReceiptResponse, FormData>(`/expenses/${expenseId}/attach-receipt`, {
+      method: 'POST',
+      body: formData,
+    })
+  }
+  return apiClient<AttachReceiptResponse, { receiptId: string }>(`/expenses/${expenseId}/attach-receipt`, {
+    method: 'POST',
+    body: input,
+  })
+}
+
+/**
+ * Detach a receipt from an expense.
+ * The receipt reverts to "matched" status and becomes available for reuse.
+ */
+export async function detachReceipt(
+  expenseId: string
+): Promise<DetachReceiptResponse> {
+  return apiClient<DetachReceiptResponse>(`/expenses/${expenseId}/detach-receipt`, {
+    method: 'POST',
+  })
 }
 
 // ============================================================================

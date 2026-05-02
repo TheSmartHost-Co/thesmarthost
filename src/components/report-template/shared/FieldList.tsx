@@ -67,6 +67,7 @@ interface SortableFieldItemProps {
   changeInfo?: ChangeInfo
   tableSections?: { name: string; logicalName: string; columns: string[] }[]
   availableColumnsCache?: { booking: DataSourceColumn[]; expense: DataSourceColumn[] }
+  externalError?: string
 }
 
 const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
@@ -81,6 +82,7 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
   changeInfo,
   tableSections = [],
   availableColumnsCache,
+  externalError,
 }) => {
   const [editName, setEditName] = useState(field.name)
   const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
@@ -288,6 +290,8 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({
               currentSectionId={currentSectionId}
               tableSections={tableSections}
               externalDataSourceColumns={availableColumnsCache?.booking}
+              externalError={externalError}
+              sectionMode="field"
             />
           </div>
 
@@ -351,6 +355,8 @@ interface FieldListProps {
   tableSections?: { name: string; logicalName: string; columns: string[] }[]
   // Cached columns from parent for validation
   availableColumnsCache?: { booking: DataSourceColumn[]; expense: DataSourceColumn[] }
+  // Batch validation errors per field
+  fieldErrors?: Record<string, string>
 }
 
 const FieldList: React.FC<FieldListProps> = ({
@@ -365,6 +371,7 @@ const FieldList: React.FC<FieldListProps> = ({
   changeStatus,
   tableSections = [],
   availableColumnsCache,
+  fieldErrors,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingField, setIsAddingField] = useState(false)
@@ -595,6 +602,7 @@ const FieldList: React.FC<FieldListProps> = ({
                   changeInfo={changeStatus?.[field.id]}
                   tableSections={tableSections}
                   availableColumnsCache={availableColumnsCache}
+                  externalError={fieldErrors?.[field.id]}
                 />
               ))}
 

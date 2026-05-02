@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CloudArrowUpIcon,
@@ -10,10 +10,21 @@ import {
   XMarkIcon,
   ArrowPathIcon,
   InformationCircleIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  ClipboardDocumentIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { CheckIcon } from '@heroicons/react/24/solid'
 import { Property } from '@/services/types/property'
+import { parseCsvText } from '@/utils/csvParser'
+
+type InputMode = 'file' | 'paste'
+
+const PASTE_PLACEHOLDER = `Paste rows from Excel, Google Sheets, or any CSV. Example:
+
+reservation_id,guest_name,check_in,check_out,total,platform,listing
+HM-1042,Jane Smith,2026-02-14,2026-02-18,820.00,Airbnb,Downtown Loft
+HM-1043,Carlos Diaz,2026-02-19,2026-02-22,615.50,VRBO,Riverside Suite`
 
 interface UploadStepProps {
   onNext?: () => void
@@ -46,6 +57,10 @@ const UploadStep: React.FC<UploadStepProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [inputMode, setInputMode] = useState<InputMode>('file')
+  const [pastedText, setPastedText] = useState('')
+  const [pasteError, setPasteError] = useState<string | null>(null)
+  const [isParsingPaste, setIsParsingPaste] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -126,10 +141,105 @@ const UploadStep: React.FC<UploadStepProps> = ({
   }
 
   const handleRemoveFile = () => {
+    setPastedText('')
+    setPasteError(null)
     if (onFileUploaded) {
       onFileUploaded(null)
     }
   }
+
+  const handleModeSwitch = (newMode: InputMode) => {
+    if (newMode === inputMode) return
+    setInputMode(newMode)
+    setPastedText('')
+    setPasteError(null)
+    setIsParsingPaste(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    if (uploadedFile && onFileUploaded) {
+      onFileUploaded(null)
+    }
+  }
+
+  const processPastedText = (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) {
+      setPasteError(null)
+      if (uploadedFile && onFileUploaded) {
+        onFileUploaded(null)
+      }
+      return
+    }
+
+    const maxSize = config?.maxFileSize || 10 * 1024 * 1024
+    const byteSize = new Blob([text]).size
+    if (byteSize > maxSize) {
+      setPasteError(`Pasted text is too large (${(byteSize / 1024 / 1024).toFixed(1)}MB). Limit is ${(maxSize / 1024 / 1024).toFixed(0)}MB.`)
+      if (uploadedFile && onFileUploaded) {
+        onFileUploaded(null)
+      }
+      return
+    }
+
+    try {
+      const csvData = parseCsvText(text)
+      if (csvData.totalRows === 0) {
+        setPasteError('Pasted text has no data rows. Make sure the first row is column headers and there is at least one row of data below it.')
+        if (uploadedFile && onFileUploaded) {
+          onFileUploaded(null)
+        }
+        return
+      }
+
+      setPasteError(null)
+      const syntheticFile = new File([text], 'pasted-bookings.csv', { type: 'text/csv' })
+      if (onFileUploaded) {
+        onFileUploaded({
+          file: syntheticFile,
+          name: syntheticFile.name,
+          size: syntheticFile.size,
+          type: syntheticFile.type,
+          detectedFormat: 'CSV' as const,
+          uploadedAt: new Date(),
+        })
+      }
+    } catch (err) {
+      setPasteError(err instanceof Error ? err.message : 'Failed to parse pasted text')
+      if (uploadedFile && onFileUploaded) {
+        onFileUploaded(null)
+      }
+    }
+  }
+
+  const handleClearPastedText = () => {
+    setPastedText('')
+    setPasteError(null)
+    if (uploadedFile && onFileUploaded) {
+      onFileUploaded(null)
+    }
+  }
+
+  // Auto-parse pasted text with debounce
+  useEffect(() => {
+    if (inputMode !== 'paste') return
+    if (!pastedText) {
+      setIsParsingPaste(false)
+      return
+    }
+
+    setIsParsingPaste(true)
+    const timeoutId = setTimeout(() => {
+      processPastedText(pastedText)
+      setIsParsingPaste(false)
+    }, 300)
+
+    return () => {
+      clearTimeout(timeoutId)
+      setIsParsingPaste(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pastedText, inputMode])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -178,7 +288,38 @@ const UploadStep: React.FC<UploadStepProps> = ({
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: 0.3 }}
           >
-            {/* File Upload Area */}
+            {/* Mode Toggle Tabs */}
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('file')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                    inputMode === 'file'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <CloudArrowUpIcon className="w-4 h-4" />
+                  Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('paste')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                    inputMode === 'paste'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <ClipboardDocumentIcon className="w-4 h-4" />
+                  Paste Text
+                </button>
+              </div>
+            </div>
+
+            {inputMode === 'file' ? (
+            /* File Upload Area */
             <div
               className={`
                 relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer
@@ -286,8 +427,66 @@ const UploadStep: React.FC<UploadStepProps> = ({
                 )}
               </AnimatePresence>
             </div>
+            ) : (
+              /* Paste Text Area */
+              <div className="space-y-3">
+                <div
+                  className={`relative rounded-2xl border-2 transition-colors ${
+                    pasteError
+                      ? 'border-red-300 bg-red-50/40'
+                      : uploadedFile
+                      ? 'border-emerald-300 bg-emerald-50/40'
+                      : 'border-gray-200 bg-gray-50/40 focus-within:border-blue-400 focus-within:bg-white'
+                  }`}
+                >
+                  <textarea
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    placeholder={PASTE_PLACEHOLDER}
+                    rows={12}
+                    spellCheck={false}
+                    className="w-full bg-transparent p-5 pr-12 text-sm font-mono text-gray-800 placeholder:text-gray-400 resize-y rounded-2xl focus:outline-none"
+                  />
+                  {pastedText && (
+                    <button
+                      type="button"
+                      onClick={handleClearPastedText}
+                      className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white rounded-lg transition-colors"
+                      title="Clear"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
 
-            {/* Help Cards */}
+                <div className="flex items-center justify-between text-xs">
+                  <p className="text-gray-500">
+                    First row should contain column headers. Tab-separated (from spreadsheets) and comma-separated both work.
+                  </p>
+                  {isParsingPaste ? (
+                    <span className="flex items-center gap-1.5 text-gray-500 flex-shrink-0 ml-3">
+                      <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                      Parsing…
+                    </span>
+                  ) : uploadedFile && !pasteError ? (
+                    <span className="flex items-center gap-1.5 text-emerald-600 font-medium flex-shrink-0 ml-3">
+                      <CheckCircleIcon className="w-3.5 h-3.5" />
+                      Parsed
+                    </span>
+                  ) : null}
+                </div>
+
+                {pasteError && (
+                  <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700">{pasteError}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Help Cards (file mode only) */}
+            {inputMode === 'file' && (
             <div className="grid md:grid-cols-2 gap-4 mt-8">
               {/* Excel Conversion Help */}
               <motion.div
@@ -347,6 +546,7 @@ const UploadStep: React.FC<UploadStepProps> = ({
                 </div>
               </motion.div>
             </div>
+            )}
           </motion.div>
         ) : (
           /* File Uploaded Successfully */
@@ -368,7 +568,9 @@ const UploadStep: React.FC<UploadStepProps> = ({
                   <CheckIcon className="w-7 h-7 text-white" />
                 </motion.div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-emerald-900">File uploaded successfully</h3>
+                  <h3 className="text-lg font-semibold text-emerald-900">
+                    {uploadedFile?.name === 'pasted-bookings.csv' ? 'Pasted data parsed successfully' : 'File uploaded successfully'}
+                  </h3>
                   <div className="mt-3 flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 px-3 py-2 bg-white/60 rounded-lg border border-emerald-100">
                       <DocumentIcon className="w-5 h-5 text-emerald-600" />

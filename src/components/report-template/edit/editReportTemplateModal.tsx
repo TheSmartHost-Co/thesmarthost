@@ -23,6 +23,9 @@ import type {
 } from '@/services/types/reportTemplate'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { validateTemplateBatch } from '@/utils/formulaValidator'
+import type { FieldValidationError } from '@/utils/formulaValidator'
+import ValidationSummaryPanel from '../shared/ValidationSummaryPanel'
 import SectionList from '../shared/SectionList'
 import FieldList from '../shared/FieldList'
 import TableColumnList from '../shared/TableColumnList'
@@ -108,6 +111,13 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   const [headerVariablesLoading, setHeaderVariablesLoading] = useState(false)
   const [headerVariablesError, setHeaderVariablesError] = useState<string | null>(null)
 
+  // Batch validation state
+  const [batchErrors, setBatchErrors] = useState<FieldValidationError[]>([])
+  const [batchWarnings, setBatchWarnings] = useState<FieldValidationError[]>([])
+  const [showValidationSummary, setShowValidationSummary] = useState(false)
+  const [legacyWarnings, setLegacyWarnings] = useState<FieldValidationError[]>([])
+  const [showLegacyWarnings, setShowLegacyWarnings] = useState(true)
+
   const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -129,6 +139,28 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
 
     return false
   }, [localTemplate, originalTemplate, assignedPropertyIds, originalPropertyIds])
+
+  // Build fieldErrorsMap from batch validation errors
+  const fieldErrorsMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const e of batchErrors) {
+      if (e.fieldId) {
+        map[e.fieldId] = e.errors.join('; ')
+      }
+    }
+    return map
+  }, [batchErrors])
+
+  // Extract all valid header variable keys
+  const allHeaderVariableKeys = useMemo(() => {
+    const keys: string[] = ['logo'] // logo is frontend-injected
+    for (const category of headerVariables) {
+      for (const v of category.variables) {
+        keys.push(v.key)
+      }
+    }
+    return keys
+  }, [headerVariables])
 
   // Compute detailed change summary
   const changeSummary = useMemo<ChangeSummary | null>(() => {
@@ -343,9 +375,28 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         setHeaderVariablesError(headerVarsRes.message || 'Failed to load header variables')
       }
       setHeaderVariablesLoading(false)
+
+      // Check for legacy warnings on the original template
+      if (template) {
+        const columnsCache = {
+          booking: bookingRes.status === 'success' ? bookingRes.data.columns : [],
+          expense: expenseRes.status === 'success' ? expenseRes.data.columns : [],
+        }
+        const headerKeys = ['logo']
+        if (headerVarsRes.status === 'success') {
+          for (const cat of headerVarsRes.data) {
+            for (const v of cat.variables) headerKeys.push(v.key)
+          }
+        }
+        const legacyResult = validateTemplateBatch(template, columnsCache, headerKeys)
+        if (legacyResult.warnings.length > 0) {
+          setLegacyWarnings(legacyResult.warnings)
+          setShowLegacyWarnings(true)
+        }
+      }
     }
     loadColumns()
-  }, [isOpen])
+  }, [isOpen, template])
 
   // Initialize local state when modal opens or template changes
   useEffect(() => {
@@ -407,6 +458,24 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
   // Save all changes via batch API
   const handleSave = async () => {
     if (!effectiveUserId || !localTemplate) return
+
+    // Pre-save validation gate
+    const validationResult = validateTemplateBatch(
+      localTemplate,
+      availableColumnsCache,
+      allHeaderVariableKeys
+    )
+    if (!validationResult.valid) {
+      setBatchErrors(validationResult.errors)
+      setBatchWarnings(validationResult.warnings)
+      setShowValidationSummary(true)
+      showNotification('Please fix validation errors before saving', 'error')
+      return
+    }
+    // Clear any previous errors on successful validation
+    setBatchErrors([])
+    setBatchWarnings([])
+    setShowValidationSummary(false)
 
     setSaving(true)
     try {
@@ -819,7 +888,36 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
           </div>
 
           {/* Right panel - Fields */}
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto relative">
+            {/* Legacy warnings banner */}
+            {legacyWarnings.length > 0 && showLegacyWarnings && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">
+                      This template contains {legacyWarnings.length} formula{legacyWarnings.length !== 1 ? 's' : ''} that may need updating
+                    </p>
+                    <ul className="mt-1 text-xs text-amber-700 space-y-0.5">
+                      {legacyWarnings.slice(0, 3).map((w, i) => (
+                        <li key={i}>{w.fieldName}: {w.warnings.join('; ')}</li>
+                      ))}
+                      {legacyWarnings.length > 3 && (
+                        <li>...and {legacyWarnings.length - 3} more</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLegacyWarnings(false)}
+                  className="text-amber-600 hover:text-amber-800 shrink-0"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {selectedSection ? (
               <div className="h-full">
                 <div className="mb-4">
@@ -861,6 +959,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     headerVariables={headerVariables}
                     headerVariablesLoading={headerVariablesLoading}
                     headerVariablesError={headerVariablesError}
+                    fieldErrors={fieldErrorsMap}
                   />
                 ) : selectedSection.sectionMode === 'table' ? (
                   <TableColumnList
@@ -874,6 +973,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
                     dataSource={selectedSection.dataSource || 'booking'}
                     dataSourceColumns={availableColumnsCache[selectedSection.dataSource || 'booking']}
+                    fieldErrors={fieldErrorsMap}
                   />
                 ) : (
                   <FieldList
@@ -887,6 +987,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     changeStatus={changeSummary?.sections[selectedSectionId!]?.fields}
                     tableSections={tableSectionsForValidation}
                     availableColumnsCache={availableColumnsCache}
+                    fieldErrors={fieldErrorsMap}
                   />
                 )}
               </div>
@@ -906,6 +1007,16 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
                     : 'Click on a section in the left panel to view and edit its fields.'}
                 </p>
               </div>
+            )}
+
+            {/* Validation Summary Panel */}
+            {showValidationSummary && batchErrors.length > 0 && (
+              <ValidationSummaryPanel
+                errors={batchErrors}
+                warnings={batchWarnings}
+                onDismiss={() => setShowValidationSummary(false)}
+                onNavigateToSection={(sectionId) => setSelectedSectionId(sectionId)}
+              />
             )}
           </div>
         </div>

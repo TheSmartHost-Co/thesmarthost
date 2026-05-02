@@ -135,6 +135,7 @@ interface SortableHeaderFieldProps {
   headerVariables: HeaderVariableCategory[]
   headerVariablesLoading?: boolean
   headerVariablesError?: string | null
+  externalError?: string
 }
 
 const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
@@ -149,6 +150,7 @@ const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
   headerVariables,
   headerVariablesLoading,
   headerVariablesError,
+  externalError,
 }) => {
   const [editName, setEditName] = useState(field.name)
   const [editLogicalName, setEditLogicalName] = useState(field.logicalName || toLogicalName(field.name))
@@ -338,6 +340,12 @@ const SortableHeaderField: React.FC<SortableHeaderFieldProps> = ({
                 {validationError}
               </p>
             )}
+            {externalError && !validationError && (
+              <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+                <ExclamationCircleIcon className="w-3 h-3" />
+                {externalError}
+              </p>
+            )}
           </div>
 
           {/* Variable picker */}
@@ -383,6 +391,7 @@ interface HeaderFieldListProps {
   headerVariables: HeaderVariableCategory[]
   headerVariablesLoading?: boolean
   headerVariablesError?: string | null
+  fieldErrors?: Record<string, string>
 }
 
 const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
@@ -396,6 +405,7 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
   headerVariables,
   headerVariablesLoading,
   headerVariablesError,
+  fieldErrors,
 }) => {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null)
   const [isAddingField, setIsAddingField] = useState(false)
@@ -627,6 +637,7 @@ const HeaderFieldList: React.FC<HeaderFieldListProps> = ({
                   headerVariables={headerVariables}
                   headerVariablesLoading={headerVariablesLoading}
                   headerVariablesError={headerVariablesError}
+                  externalError={fieldErrors?.[field.id]}
                 />
               ))}
 

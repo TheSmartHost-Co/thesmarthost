@@ -3,7 +3,13 @@
  * Validates header fields, table columns, and aggregate field formulas
  */
 
-import type { ColumnType } from '@/services/types/reportTemplate'
+import type {
+  ColumnType,
+  TotalsFunction,
+  FullReportTemplate,
+  DataSourceColumn,
+  ReportFieldFormat,
+} from '@/services/types/reportTemplate'
 
 export interface ValidationResult {
   valid: boolean
@@ -121,15 +127,17 @@ export function validateTableColumn(
       bracedRefs.push(bracedMatch[1])
     }
 
-    if (bracedRefs.length === 0) {
-      return { valid: false, error: 'Calculated columns must reference other columns using {braces}, e.g. {nightlyRate} + {cleaningFee}' }
+    // IF() formulas may not have {refs} outside the true/false expressions — allow if IF() is present
+    if (bracedRefs.length === 0 && !/\bIF\s*\(/i.test(formula)) {
+      return { valid: false, error: 'Calculated columns must reference other columns using {braces}, e.g. {mgmt_fee} + {cleaning_fee}' }
     }
 
-    // Validate braced references against available columns and same-section columns
-    const allValidRefs = new Set([...availableColumns, ...sectionColumns])
-    const unknownColumns = bracedRefs.filter(col => !allValidRefs.has(col))
+    // Validate braced references against same-section column logicalNames (snake_case)
+    // Calculated column {refs} resolve against rowContext keyed by col.logicalName, NOT raw data source fields
+    const validRefs = new Set(sectionColumns)
+    const unknownColumns = bracedRefs.filter(col => !validRefs.has(col))
     if (unknownColumns.length > 0) {
-      return { valid: false, error: `Unknown column(s): ${unknownColumns.join(', ')}` }
+      return { valid: false, error: `Unknown column(s): ${unknownColumns.join(', ')}. Use the logical name (snake_case) of other columns in this table section.` }
     }
 
     // Check that formula only contains valid characters ({refs}, numbers, operators, parens, whitespace)
@@ -339,4 +347,538 @@ export function getFormulaSuggestions(
   }
 
   return suggestions
+}
+
+// ============================================
+// Conditional Aggregate Validation (SUMIF, AVGIF, etc.)
+// ============================================
+
+const CONDITIONAL_FUNCTION_PATTERN = /\b(SUMIF|AVGIF|COUNTIF|MINIF|MAXIF)\s*\(/gi
+const VALID_OPERATORS = new Set(['=', '!=', '<', '>', '<=', '>='])
+
+/**
+ * Parse a function call's arguments from a formula string, respecting nested parens and quotes.
+ * Returns null if the function is not found or args can't be parsed.
+ */
+function parseFunctionArgs(formula: string, funcName: string): string[] | null {
+  const pattern = new RegExp(`\\b${funcName}\\s*\\(`, 'i')
+  const match = pattern.exec(formula)
+  if (!match) return null
+
+  const start = match.index + match[0].length
+  let depth = 1
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  const args: string[] = []
+  let current = ''
+
+  for (let i = start; i < formula.length; i++) {
+    const ch = formula[i]
+
+    if (ch === "'" && !inDoubleQuote) { inSingleQuote = !inSingleQuote; current += ch; continue }
+    if (ch === '"' && !inSingleQuote) { inDoubleQuote = !inDoubleQuote; current += ch; continue }
+    if (inSingleQuote || inDoubleQuote) { current += ch; continue }
+
+    if (ch === '(') { depth++; current += ch; continue }
+    if (ch === ')') {
+      depth--
+      if (depth === 0) {
+        args.push(current.trim())
+        return args
+      }
+      current += ch
+      continue
+    }
+    if (ch === ',' && depth === 1) {
+      args.push(current.trim())
+      current = ''
+      continue
+    }
+    current += ch
+  }
+
+  // Unclosed paren — return what we have (partial input)
+  if (current.trim()) args.push(current.trim())
+  return args
+}
+
+/**
+ * Extract a quoted string value, stripping surrounding quotes.
+ * Accepts both single and double quotes.
+ */
+function unquote(s: string): string | null {
+  const trimmed = s.trim()
+  if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+      (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+    return trimmed.slice(1, -1)
+  }
+  return null
+}
+
+/**
+ * Validate SUMIF/AVGIF/COUNTIF/MINIF/MAXIF formula structure.
+ * Expects: FUNC(column, filterField, 'operator', 'value')
+ */
+export function validateSumIfFormula(formula: string): ValidationResult {
+  const funcNames = ['SUMIF', 'AVGIF', 'COUNTIF', 'MINIF', 'MAXIF']
+  const errors: string[] = []
+
+  for (const funcName of funcNames) {
+    const pattern = new RegExp(`\\b${funcName}\\s*\\(`, 'i')
+    if (!pattern.test(formula)) continue
+
+    const args = parseFunctionArgs(formula, funcName)
+    if (!args) continue
+
+    if (args.length < 4) {
+      errors.push(`${funcName} requires 4 arguments: ${funcName}(column, filterField, 'operator', 'value')`)
+      continue
+    }
+    if (args.length > 4) {
+      errors.push(`${funcName} has too many arguments (expected 4, got ${args.length})`)
+      continue
+    }
+
+    // Validate arg 0: column name (should be a bare identifier)
+    if (!args[0] || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(args[0])) {
+      errors.push(`${funcName} first argument must be a column name (e.g., totalPayout)`)
+    }
+
+    // Validate arg 1: filter field (should be a bare identifier)
+    if (!args[1] || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(args[1])) {
+      errors.push(`${funcName} second argument must be a field name to filter on (e.g., platform)`)
+    }
+
+    // Validate arg 2: operator (must be a quoted valid operator)
+    const operator = unquote(args[2])
+    if (operator === null) {
+      errors.push(`${funcName} operator (3rd argument) must be quoted, e.g. '=' or "="`)
+    } else if (!VALID_OPERATORS.has(operator)) {
+      errors.push(`${funcName} operator must be one of: =, !=, <, >, <=, >= (got '${operator}')`)
+    }
+
+    // Validate arg 3: value (must be quoted)
+    if (args[3] && unquote(args[3]) === null) {
+      errors.push(`${funcName} value (4th argument) must be quoted, e.g. 'Airbnb' or "Airbnb"`)
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, error: errors[0], warnings: errors.length > 1 ? errors.slice(1) : undefined }
+  }
+  return { valid: true }
+}
+
+// ============================================
+// IF() Validation for calculated columns
+// ============================================
+
+/**
+ * Validate IF() formula structure in calculated table columns.
+ * Expects: IF(conditionField, 'operator', 'value', trueExpr, falseExpr)
+ * No nested IF() support.
+ */
+export function validateIfFormula(formula: string, availableColumns: string[] = []): ValidationResult {
+  if (!/\bIF\s*\(/i.test(formula)) {
+    return { valid: true }
+  }
+
+  // Check for nested IF
+  const ifCount = (formula.match(/\bIF\s*\(/gi) || []).length
+  if (ifCount > 1) {
+    return { valid: false, error: 'Nested IF() is not supported. Use a single IF() expression.' }
+  }
+
+  const args = parseFunctionArgs(formula, 'IF')
+  if (!args) {
+    return { valid: false, error: 'Could not parse IF() arguments' }
+  }
+
+  if (args.length < 5) {
+    return {
+      valid: false,
+      error: `IF() requires 5 arguments: IF(conditionField, 'operator', 'value', trueExpr, falseExpr) — got ${args.length}`,
+    }
+  }
+  if (args.length > 5) {
+    return { valid: false, error: `IF() has too many arguments (expected 5, got ${args.length})` }
+  }
+
+  // Arg 0: conditionField — bare identifier (not a {ref})
+  const condField = args[0]
+  if (!condField || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(condField)) {
+    return { valid: false, error: 'IF() first argument must be a bare field name (e.g., platform), not a {reference}' }
+  }
+  if (availableColumns.length > 0 && !availableColumns.includes(condField)) {
+    return { valid: false, error: `IF() condition field '${condField}' is not a valid column` }
+  }
+
+  // Arg 1: operator — quoted
+  const operator = unquote(args[1])
+  if (operator === null) {
+    return { valid: false, error: "IF() operator (2nd argument) must be quoted, e.g. '='" }
+  }
+  if (!VALID_OPERATORS.has(operator)) {
+    return { valid: false, error: `IF() operator must be one of: =, !=, <, >, <=, >= (got '${operator}')` }
+  }
+
+  // Arg 2: value — quoted
+  if (unquote(args[2]) === null) {
+    return { valid: false, error: "IF() value (3rd argument) must be quoted, e.g. 'Airbnb'" }
+  }
+
+  // Args 3 & 4: trueExpr and falseExpr — must contain valid {refs} or numbers/operators
+  // Light validation: just check they're non-empty and have valid characters
+  for (const [idx, label] of [[3, 'true expression'], [4, 'false expression']] as const) {
+    const expr = args[idx]
+    if (!expr) {
+      return { valid: false, error: `IF() ${label} (argument ${idx + 1}) cannot be empty` }
+    }
+  }
+
+  return { valid: true }
+}
+
+// ============================================
+// Cross-Section Reference Type Validation
+// ============================================
+
+/**
+ * Type info for a field, used for cross-section ref type checking
+ */
+export interface FieldTypeInfo {
+  format: ReportFieldFormat
+  columnType?: ColumnType
+}
+
+/**
+ * Validate that SUM/AVG/MIN/MAX wrapping cross-section references only reference
+ * numeric/currency fields, not text or date fields.
+ *
+ * @param formula - The formula string
+ * @param sectionFieldTypes - Map of 'sectionLogicalName.fieldLogicalName' → field type info
+ */
+export function validateCrossSectionRefTypes(
+  formula: string,
+  sectionFieldTypes: Map<string, FieldTypeInfo>
+): ValidationResult {
+  // Find patterns like SUM({section.field}), AVG({section.field}), etc.
+  const wrapperPattern = /\b(SUM|AVG|MIN|MAX)\s*\(\s*\{([^}]+)\}\s*\)/gi
+  const errors: string[] = []
+  let match
+
+  while ((match = wrapperPattern.exec(formula)) !== null) {
+    const funcName = match[1]
+    const ref = match[2]
+
+    if (!ref.includes('.')) continue // Same-section ref — skip type check here
+
+    const typeInfo = sectionFieldTypes.get(ref)
+    if (!typeInfo) continue // Unknown ref — will be caught by ref validation
+
+    const isNumeric = typeInfo.format === 'currency' || typeInfo.format === 'numeric' ||
+                      typeInfo.columnType === 'currency' || typeInfo.columnType === 'numeric' ||
+                      typeInfo.columnType === 'calculated'
+
+    if (!isNumeric) {
+      errors.push(`Cannot use ${funcName}() on text/date field {${ref}} — only numeric or currency fields can be aggregated`)
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, error: errors.join('; ') }
+  }
+  return { valid: true }
+}
+
+// ============================================
+// Name Uniqueness Validation
+// ============================================
+
+/**
+ * Helper to convert display name to logical name (snake_case)
+ */
+function toLogicalName(displayName: string): string {
+  return displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+/**
+ * Validate that names are unique within a scope (case-insensitive).
+ * Also checks for logical name collisions.
+ *
+ * @param names - Array of display names to check
+ * @param label - Context label for error messages (e.g., 'Section name', 'Field name in "Financials"')
+ */
+export function validateNameUniqueness(names: string[], label: string): ValidationResult {
+  // Check display name duplicates (case-insensitive)
+  const seenDisplay = new Map<string, string>() // lowercase → original
+  for (const name of names) {
+    const lower = name.toLowerCase().trim()
+    if (!lower) continue
+    if (seenDisplay.has(lower)) {
+      return { valid: false, error: `Duplicate ${label}: "${name}"` }
+    }
+    seenDisplay.set(lower, name)
+  }
+
+  // Check logical name collisions
+  const seenLogical = new Map<string, string>() // logicalName → displayName
+  for (const name of names) {
+    if (!name.trim()) continue
+    const logical = toLogicalName(name)
+    if (!logical) continue
+    if (seenLogical.has(logical)) {
+      const other = seenLogical.get(logical)!
+      if (other.toLowerCase() !== name.toLowerCase()) {
+        return {
+          valid: false,
+          error: `${label}s "${name}" and "${other}" produce the same formula reference "${logical}" — rename one to avoid conflicts`,
+        }
+      }
+    }
+    seenLogical.set(logical, name)
+  }
+
+  return { valid: true }
+}
+
+// ============================================
+// Totals Function Restriction
+// ============================================
+
+/**
+ * Validate that a totals function is appropriate for the column type.
+ * SUM/AVG only valid on currency/numeric/calculated columns.
+ */
+export function validateTotalsFunction(
+  totalsFunction: TotalsFunction | undefined | null,
+  columnType: ColumnType | undefined
+): ValidationResult {
+  if (!totalsFunction || totalsFunction === 'NONE') {
+    return { valid: true }
+  }
+
+  // COUNT is valid on any type
+  if (totalsFunction === 'COUNT') {
+    return { valid: true }
+  }
+
+  // SUM/AVG require numeric-like columns
+  if (totalsFunction === 'SUM' || totalsFunction === 'AVG') {
+    if (columnType === 'text' || columnType === 'date') {
+      return {
+        valid: false,
+        error: `${totalsFunction} totals are only available for numeric, currency, or calculated columns (current type: ${columnType})`,
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
+// ============================================
+// Batch Template Validation
+// ============================================
+
+export interface FieldValidationError {
+  sectionId: string
+  sectionName: string
+  fieldId: string
+  fieldName: string
+  errors: string[]
+  warnings: string[]
+}
+
+export interface BatchValidationResult {
+  valid: boolean
+  errors: FieldValidationError[]
+  warnings: FieldValidationError[]
+}
+
+/**
+ * Validate an entire template before saving — runs all validation rules across
+ * all sections and fields. Returns blocking errors and advisory warnings.
+ *
+ * @param template - The full template with sections and fields
+ * @param availableColumnsCache - Cached columns per data source from the API
+ * @param headerVariableKeys - Valid header variable keys from the API
+ */
+export function validateTemplateBatch(
+  template: FullReportTemplate,
+  availableColumnsCache: { booking: DataSourceColumn[]; expense: DataSourceColumn[] },
+  headerVariableKeys: string[]
+): BatchValidationResult {
+  const allErrors: FieldValidationError[] = []
+  const allWarnings: FieldValidationError[] = []
+
+  const sections = template.sections || []
+
+  // 1. Section name uniqueness
+  const sectionNames = sections.map(s => s.name).filter(Boolean)
+  const sectionUniqueness = validateNameUniqueness(sectionNames, 'Section name')
+  if (!sectionUniqueness.valid && sectionUniqueness.error) {
+    allErrors.push({
+      sectionId: '',
+      sectionName: 'Template',
+      fieldId: '',
+      fieldName: 'Sections',
+      errors: [sectionUniqueness.error],
+      warnings: [],
+    })
+  }
+
+  // Build cross-section field type map for type-aware ref validation
+  const sectionFieldTypes = new Map<string, FieldTypeInfo>()
+  for (const section of sections) {
+    for (const field of (section.fields || [])) {
+      const key = `${section.logicalName}.${field.logicalName}`
+      sectionFieldTypes.set(key, {
+        format: field.format,
+        columnType: field.columnType,
+      })
+    }
+  }
+
+  // Build table sections info for aggregate field validation
+  const tableSectionsInfo = sections
+    .filter(s => s.sectionMode === 'table' || s.sectionMode === 'field')
+    .map(s => ({
+      name: s.name,
+      logicalName: s.logicalName,
+      columns: (s.fields || []).map(f => f.logicalName),
+    }))
+
+  // 2. Validate each section's fields
+  for (const section of sections) {
+    const fields = section.fields || []
+
+    // Field name uniqueness within section
+    const fieldNames = fields.map(f => f.name).filter(Boolean)
+    const fieldUniqueness = validateNameUniqueness(fieldNames, `Field name in "${section.name}"`)
+    if (!fieldUniqueness.valid && fieldUniqueness.error) {
+      allErrors.push({
+        sectionId: section.id,
+        sectionName: section.name,
+        fieldId: '',
+        fieldName: 'Fields',
+        errors: [fieldUniqueness.error],
+        warnings: [],
+      })
+    }
+
+    // Get available columns for this section's data source
+    const dataSource = section.dataSource || 'booking'
+    const dsColumns = availableColumnsCache[dataSource] || []
+    const dsColumnFormulas = dsColumns.map(c => c.formula)
+
+    for (const field of fields) {
+      const formula = field.formula?.trim()
+      if (!formula) continue // Skip empty formulas (mid-creation)
+
+      const fieldErrors: string[] = []
+      const fieldWarnings: string[] = []
+
+      // --- Header section validation ---
+      if (section.sectionMode === 'header') {
+        const result = validateHeaderField(formula, headerVariableKeys)
+        if (!result.valid && result.error) fieldErrors.push(result.error)
+      }
+
+      // --- Field section validation ---
+      else if (section.sectionMode === 'field') {
+        // Syntax check
+        const syntax = validateFormulaSyntax(formula)
+        if (!syntax.valid && syntax.error) {
+          fieldErrors.push(syntax.error)
+        } else {
+          // Aggregate field references
+          const aggResult = validateAggregateField(formula, tableSectionsInfo)
+          if (!aggResult.valid && aggResult.error) fieldErrors.push(aggResult.error)
+
+          // SUMIF/AVGIF validation
+          if (/\b(SUMIF|AVGIF|COUNTIF|MINIF|MAXIF)\s*\(/i.test(formula)) {
+            const sumifResult = validateSumIfFormula(formula)
+            if (!sumifResult.valid && sumifResult.error) fieldErrors.push(sumifResult.error)
+          }
+
+          // Cross-section ref type validation
+          const typeResult = validateCrossSectionRefTypes(formula, sectionFieldTypes)
+          if (!typeResult.valid && typeResult.error) fieldErrors.push(typeResult.error)
+
+          // Legacy SUM(expenses) warning
+          if (/\bSUM\s*\(\s*expenses\s*\)/i.test(formula)) {
+            fieldWarnings.push(
+              'SUM(expenses) is a legacy shorthand. Consider using SUM({expense_section.amount}) with a cross-section reference instead.'
+            )
+          }
+        }
+      }
+
+      // --- Table section validation ---
+      else if (section.sectionMode === 'table') {
+        const isCalculated = field.columnType === 'calculated'
+
+        if (!isCalculated) {
+          // Direct column: validate it's a known field from the data source
+          const colResult = validateTableColumn(formula, dsColumnFormulas, [], field.columnType)
+          if (!colResult.valid && colResult.error) fieldErrors.push(colResult.error)
+        } else {
+          // Calculated column
+          const sectionColumnNames = fields
+            .filter(f => f.id !== field.id)
+            .map(f => f.logicalName)
+
+          const calcResult = validateTableColumn(formula, dsColumnFormulas, sectionColumnNames, 'calculated')
+          if (!calcResult.valid && calcResult.error) fieldErrors.push(calcResult.error)
+
+          // IF() validation
+          if (/\bIF\s*\(/i.test(formula)) {
+            const ifResult = validateIfFormula(formula, dsColumnFormulas)
+            if (!ifResult.valid && ifResult.error) fieldErrors.push(ifResult.error)
+          }
+
+          // SUMIF in calculated columns
+          if (/\b(SUMIF|AVGIF|COUNTIF|MINIF|MAXIF)\s*\(/i.test(formula)) {
+            const sumifResult = validateSumIfFormula(formula)
+            if (!sumifResult.valid && sumifResult.error) fieldErrors.push(sumifResult.error)
+          }
+        }
+
+        // Totals function restriction
+        const totalsResult = validateTotalsFunction(field.totalsFunction, field.columnType)
+        if (!totalsResult.valid && totalsResult.error) fieldErrors.push(totalsResult.error)
+      }
+
+      // Collect results
+      if (fieldErrors.length > 0) {
+        allErrors.push({
+          sectionId: section.id,
+          sectionName: section.name,
+          fieldId: field.id,
+          fieldName: field.name,
+          errors: fieldErrors,
+          warnings: fieldWarnings,
+        })
+      }
+      if (fieldWarnings.length > 0) {
+        allWarnings.push({
+          sectionId: section.id,
+          sectionName: section.name,
+          fieldId: field.id,
+          fieldName: field.name,
+          errors: [],
+          warnings: fieldWarnings,
+        })
+      }
+    }
+  }
+
+  return {
+    valid: allErrors.length === 0,
+    errors: allErrors,
+    warnings: allWarnings,
+  }
 }
