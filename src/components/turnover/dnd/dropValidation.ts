@@ -35,25 +35,6 @@ export function validateProjectDrop(
 }
 
 /**
- * Validate a project drop in cleaner view — only reassignment (same date) is allowed.
- */
-export function validateCleanerViewDrop(
-  projectData: ProjectDragData,
-  targetDate: string,
-  sourceDate: string,
-): InvalidDropInfo | null {
-  if (targetDate !== sourceDate) {
-    return {
-      itemName: projectData.project.propertyName || 'Cleaning',
-      targetDate,
-      reason: 'date_change_not_allowed',
-      boundaryDate: sourceDate,
-    }
-  }
-  return null
-}
-
-/**
  * Validate a booking drop. Returns InvalidDropInfo if invalid, null if valid.
  */
 export function validateBookingDrop(

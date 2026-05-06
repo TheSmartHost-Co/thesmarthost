@@ -63,37 +63,40 @@ export default function ConfirmDragModal({
     }
 
     const project = (pendingDrop.item as ProjectDragData).project
-    const isReassign = pendingDrop.targetCleanerId !== undefined
+    const dateChanged = pendingDrop.sourceDate !== pendingDrop.targetDate
+    const cleanerChanged =
+      pendingDrop.targetCleanerId !== undefined &&
+      (pendingDrop.targetCleanerId || null) !== (pendingDrop.sourceCleanerId || null)
 
-    if (isReassign) {
-      const cleanerName = pendingDrop.targetCleanerName || (pendingDrop.targetCleanerId ? 'another cleaner' : 'Unassigned')
-      return (
-        <div className="space-y-2">
-          <p className="text-gray-700">
-            Reassign cleaning for <span className="font-semibold">{project.propertyName || 'property'}</span>
-          </p>
+    let header: string
+    if (dateChanged && cleanerChanged) {
+      header = t('rescheduleAndReassignCleaning', { property: project.propertyName || 'property' })
+    } else if (cleanerChanged) {
+      header = t('reassignCleaning', { property: project.propertyName || 'property' })
+    } else {
+      header = t('rescheduleCleaning', { property: project.propertyName || 'property' })
+    }
+
+    const sourceCleanerName = pendingDrop.sourceCleanerName || t('unassigned')
+    const targetCleanerName = pendingDrop.targetCleanerName || (pendingDrop.targetCleanerId ? 'another cleaner' : t('unassigned'))
+
+    return (
+      <div className="space-y-2">
+        <p className="text-gray-700">{header}</p>
+        {dateChanged && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span className="bg-gray-100 px-2 py-1 rounded">{formatDate(pendingDrop.sourceDate)}</span>
             <span>&rarr;</span>
             <span className="bg-blue-50 px-2 py-1 rounded text-blue-700 font-medium">{formatDate(pendingDrop.targetDate)}</span>
           </div>
-          <p className="text-sm text-gray-500">
-            Assigned to: <span className="font-medium text-indigo-600">{cleanerName}</span>
-          </p>
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-2">
-        <p className="text-gray-700">
-          Reschedule cleaning for <span className="font-semibold">{project.propertyName || 'property'}</span>
-        </p>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className="bg-gray-100 px-2 py-1 rounded">{formatDate(pendingDrop.sourceDate)}</span>
-          <span>&rarr;</span>
-          <span className="bg-blue-50 px-2 py-1 rounded text-blue-700 font-medium">{formatDate(pendingDrop.targetDate)}</span>
-        </div>
+        )}
+        {cleanerChanged && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="bg-gray-100 px-2 py-1 rounded">{sourceCleanerName}</span>
+            <span>&rarr;</span>
+            <span className="bg-indigo-50 px-2 py-1 rounded text-indigo-700 font-medium">{targetCleanerName}</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -155,10 +158,6 @@ export function InvalidDropModal({ isOpen, info, onClose }: InvalidDropModalProp
     case 'booking_overlap':
       message = `This date range overlaps with ${info.conflictingBookingName || 'another booking'}'s booking.`
       title = 'Booking Conflict'
-      break
-    case 'date_change_not_allowed':
-      message = 'Rescheduling is not available in the cleaner view. Switch to the property view to reschedule cleanings.'
-      title = 'Reassignment Only'
       break
   }
 

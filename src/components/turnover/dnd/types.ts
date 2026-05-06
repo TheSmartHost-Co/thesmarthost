@@ -21,10 +21,11 @@ export type DragItem = ProjectDragData | BookingDragData
 export interface PendingDrop {
   item: DragItem
   targetDate: string
-  targetCleanerId?: string | null  // only for cleaner reassign
+  targetCleanerId?: string | null  // only set when drop landed on a cleaner row
   targetCleanerName?: string | null
   sourceDate: string
   sourceCleanerId?: string | null
+  sourceCleanerName?: string | null
 }
 
 export type ActivatedItem = { type: 'project'; id: string } | { type: 'booking'; id: string } | null
@@ -32,7 +33,7 @@ export type ActivatedItem = { type: 'project'; id: string } | { type: 'booking';
 export interface InvalidDropInfo {
   itemName: string
   targetDate: string
-  reason: 'before_checkout' | 'after_checkin' | 'past_date' | 'booking_overlap' | 'date_change_not_allowed'
+  reason: 'before_checkout' | 'after_checkin' | 'past_date' | 'booking_overlap'
   boundaryDate: string
   conflictingBookingName?: string
 }

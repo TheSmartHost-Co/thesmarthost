@@ -1002,9 +1002,12 @@ export default function TurnoverCalendar({
     try {
       if (pendingDrop.item.type === 'project') {
         const project = (pendingDrop.item as ProjectDragData).project
-        const isReassign = pendingDrop.targetCleanerId !== undefined
+        const dateChanged = pendingDrop.sourceDate !== pendingDrop.targetDate
+        const cleanerChanged =
+          pendingDrop.targetCleanerId !== undefined &&
+          (pendingDrop.targetCleanerId || null) !== (pendingDrop.sourceCleanerId || null)
 
-        // Reschedule date
+        // Reschedule date (always safe — backend treats same-date as no-op)
         const dateRes = await rescheduleProjectDate(project.id, {
           projectDate: pendingDrop.targetDate,
         })
@@ -1017,7 +1020,7 @@ export default function TurnoverCalendar({
         let updatedProject = dateRes.data
 
         // Then reassign cleaner if changed
-        if (isReassign && pendingDrop.targetCleanerId !== pendingDrop.sourceCleanerId) {
+        if (cleanerChanged) {
           if (pendingDrop.targetCleanerId) {
             const assignRes = await assignCleanerToProject(project.id, {
               cleanerId: pendingDrop.targetCleanerId,
@@ -1044,7 +1047,13 @@ export default function TurnoverCalendar({
           pendingDrop.targetDate
         )
         refreshStats()
-        showNotification(isReassign ? 'Project reassigned' : 'Project rescheduled', 'success')
+        const successKey =
+          dateChanged && cleanerChanged
+            ? 'projectRescheduledAndReassigned'
+            : cleanerChanged
+              ? 'cleanerReassigned'
+              : 'projectRescheduled'
+        showNotification(t(successKey), 'success')
       } else if (pendingDrop.item.type === 'booking') {
         const bookingData = pendingDrop.item as BookingDragData
         const res = await rescheduleBookingDates(bookingData.booking.id, {

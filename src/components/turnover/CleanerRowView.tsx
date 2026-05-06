@@ -9,7 +9,7 @@ import type { Cleaner } from '@/services/types/cleaner'
 import type { ZoomLevel, CalendarSizeConfig } from './TurnoverCalendar'
 import { NORMAL_SIZE_CONFIG } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
-import { validateProjectDrop, validateCleanerViewDrop } from './dnd/dropValidation'
+import { validateProjectDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
 import DraggableProject from './dnd/DraggableProject'
 import CalendarDragOverlay from './dnd/CalendarDragOverlay'
@@ -383,14 +383,7 @@ export default function CleanerRowView({
     const project = projectData.project
     const sourceDate = toLocalDateStr(project.projectDate)
 
-    // Cleaner view: block date changes (reassignment only)
-    const dateChangeInvalid = validateCleanerViewDrop(projectData, targetDate, sourceDate)
-    if (dateChangeInvalid) {
-      onInvalidDrop?.(dateChangeInvalid)
-      return
-    }
-
-    // Constraint validation
+    // Constraint validation (past date, booking-window guards)
     const invalid = validateProjectDrop(projectData, targetDate)
     if (invalid) {
       onInvalidDrop?.(invalid)
@@ -401,6 +394,7 @@ export default function CleanerRowView({
     const targetRowId = resolveDropRow()
     const targetCleanerId = targetRowId === 'unassigned' ? null : (targetRowId || null)
     const sourceCleanerId = project.cleanerId || null
+    const sourceCleanerKey = sourceCleanerId || 'unassigned'
 
     // No-op if same date and same cleaner
     if (targetDate === sourceDate && targetCleanerId === sourceCleanerId) return
@@ -413,6 +407,7 @@ export default function CleanerRowView({
         targetCleanerName: targetRowId ? cleanerNameById.get(targetRowId) || null : null,
         sourceDate,
         sourceCleanerId,
+        sourceCleanerName: cleanerNameById.get(sourceCleanerKey) || null,
       })
     }
   }, [allDates, expandedDate, slotWidth, scrollOffsetRef, timelineRef, onPendingDrop, onInvalidDrop, isDraggingRef, resolveDropRow, cleanerNameById, cleanupPointerListener])
