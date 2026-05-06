@@ -470,6 +470,7 @@ export interface AttachReceiptData {
   taxGst: number | null
   taxPst: number | null
   taxHst: number | null
+  taxQst: number | null
   taxTotal: number | null
   total: number | null
   paymentMethod: string | null
