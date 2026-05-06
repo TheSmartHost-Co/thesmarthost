@@ -61,7 +61,8 @@ import {
   PlusIcon
 } from '@heroicons/react/24/outline'
 import SendToQbModal from '@/components/quickbooks/SendToQbModal'
-import { getConnection as getQbConnection } from '@/services/quickbooksService'
+import { getConnection as getQbConnection, resetQbSyncForExpense } from '@/services/quickbooksService'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import type { QbConnection, QbEntityType } from '@/services/types/quickbooks'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
@@ -118,6 +119,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [mode, setMode] = useState<ModalMode>('view')
   const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
   const [showSendToQbModal, setShowSendToQbModal] = useState(false)
+  // True while the resend-reset PATCH is in flight (footer button disables itself
+  // and we auto-open SendToQbModal on success).
+  const [resending, setResending] = useState(false)
 
   // Edit form state
   const [propertyId, setPropertyId] = useState('')
@@ -403,6 +407,37 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       showNotification('Error updating expense', 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // Wipe the qb_entity_id link so the next sync creates a fresh QBO entity.
+  // Used when the user has deleted the Bill/Purchase in QBO directly. After
+  // the reset succeeds we re-fetch the expense (so `qbSyncStatus !== 'synced'`
+  // and the regular Send-to-QB flow becomes available again) and immediately
+  // open the SendToQbModal so resending is one click, not two.
+  const handleResendToQb = async () => {
+    if (!expense) return
+    const proceed = confirm(
+      'Resend this expense to QuickBooks?\n\n' +
+      'This unlinks it from the previous Bill/Purchase and creates a new one. ' +
+      'Only do this if you deleted the original entity in QuickBooks — ' +
+      'otherwise you\'ll end up with a duplicate.'
+    )
+    if (!proceed) return
+    setResending(true)
+    try {
+      const res = await resetQbSyncForExpense(expense.id)
+      if (res.status === 'success') {
+        await fetchExpense()
+        onExpenseUpdated?.()
+        setShowSendToQbModal(true)
+      } else {
+        showNotification(res.message || 'Failed to reset QuickBooks link', 'error')
+      }
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Error resending to QuickBooks', 'error')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -1343,7 +1378,25 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       </div>
 
       {/* Modal Footer */}
-      <div className="flex-shrink-0 flex justify-end px-6 py-4 border-t border-gray-200">
+      <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-t border-gray-200">
+        {/* Subtle resend affordance — only when the expense is already synced
+            and the user has a working QBO connection. Sits on the left so it
+            reads as a meta-action, distinct from the primary Close button. */}
+        {expense
+          && hasWrite
+          && expense.qbSyncStatus === 'synced'
+          && qbConnection?.connected
+          && qbConnection.status !== 'expired' ? (
+          <button
+            onClick={handleResendToQb}
+            disabled={resending}
+            className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Reset the QuickBooks link and resend (use if you deleted the entity in QBO)"
+          >
+            <ArrowPathIcon className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
+            {resending ? 'Resetting…' : 'Resend to QuickBooks'}
+          </button>
+        ) : <span />}
         <button
           onClick={onClose}
           className="cursor-pointer px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"

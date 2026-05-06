@@ -216,6 +216,18 @@ export async function syncExpenseToQb(
   )
 }
 
+/**
+ * Clears the qb_entity_id link on an already-synced expense so it can be
+ * re-sent. Used when the user has deleted the Bill/Purchase in QBO directly
+ * and needs to re-create it from this app. After this resolves, the regular
+ * `syncExpenseToQb` flow will create a fresh QBO entity.
+ */
+export async function resetQbSyncForExpense(
+  expenseId: string
+): Promise<{ status: 'success'; data: { expenseId: string; qbSyncStatus: string } } | { status: 'failed'; message: string; code?: string }> {
+  return apiClient(`/expenses/${expenseId}/reset-qb-sync`, { method: 'POST' })
+}
+
 export async function bulkSyncExpensesToQb(
   payload: BulkSyncPayload
 ): Promise<BulkSyncResponse> {
