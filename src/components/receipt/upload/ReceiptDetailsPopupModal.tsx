@@ -108,7 +108,7 @@ const ReceiptDetailsPopupModal: React.FC<ReceiptDetailsPopupModalProps> = ({
                 <span className="text-gray-500">Subtotal</span>
                 <span className="text-gray-900 tabular-nums">{fmt(detail.subtotal)}</span>
               </div>
-              {(detail.taxGst || detail.taxPst || detail.taxHst) && (
+              {(detail.taxGst || detail.taxPst || detail.taxHst || detail.taxQst) && (
                 <>
                   {detail.taxGst ? (
                     <div className="flex justify-between text-xs">
@@ -126,6 +126,12 @@ const ReceiptDetailsPopupModal: React.FC<ReceiptDetailsPopupModalProps> = ({
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-400 pl-2">HST</span>
                       <span className="text-gray-600 tabular-nums">{fmt(detail.taxHst)}</span>
+                    </div>
+                  ) : null}
+                  {detail.taxQst ? (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 pl-2">QST</span>
+                      <span className="text-gray-600 tabular-nums">{fmt(detail.taxQst)}</span>
                     </div>
                   ) : null}
                 </>

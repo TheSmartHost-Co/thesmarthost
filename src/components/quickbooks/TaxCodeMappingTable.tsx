@@ -49,11 +49,27 @@ export default function TaxCodeMappingTable({ isConnected }: TaxCodeMappingTable
 
   const taxCodeOptions: SearchableSelectOption<string>[] = useMemo(
     () =>
-      taxCodes.map((t) => ({
-        value: t.id,
-        label: t.name,
-        secondaryLabel: t.description,
-      })),
+      taxCodes.map((t) => {
+        // Composite codes (rates.length > 1) bundle multiple rates — e.g.
+        // "GST/QST QC" → "Composite • GST 5%, QST 9.975%". Sync auto-promotes
+        // multi-tax expenses to a composite, so flagging them here helps users
+        // recognize one when picking.
+        const rateNames = (t.rates ?? [])
+          .map((r) => r.name)
+          .filter((n): n is string => Boolean(n))
+        const isComposite = rateNames.length > 1
+        const rateSuffix = isComposite
+          ? `Composite • ${rateNames.join(', ')}`
+          : rateNames[0] ?? null
+        const secondaryLabel = [t.description, rateSuffix]
+          .filter(Boolean)
+          .join(' — ') || undefined
+        return {
+          value: t.id,
+          label: t.name,
+          secondaryLabel,
+        }
+      }),
     [taxCodes]
   )
 

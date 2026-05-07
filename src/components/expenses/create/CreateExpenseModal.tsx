@@ -343,6 +343,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
           taxGst: gst || null,
           taxPst: pst || null,
           taxHst: hst || null,
+          taxQst: qst || null,
           taxTotal: taxTotal || 0,
           supplyList: { mode: 'none' },
         })

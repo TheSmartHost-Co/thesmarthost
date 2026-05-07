@@ -486,6 +486,9 @@ export default function ScanSupplyReceiptModal({
     taxGst,
     taxPst,
     taxHst,
+    // QST isn't tracked as a UI input here; null lets the backend fall through
+    // to the receipt's stored tax_qst (OCR'd at scan time).
+    taxQst: null,
     taxTotal,
     supplyList: {
       mode: supplyListMode,

@@ -81,6 +81,10 @@ export interface QbTaxCode {
   name: string
   description?: string
   taxable?: boolean
+  // Underlying TaxRate breakdown from the code's PurchaseTaxRateList. Composite
+  // codes (e.g. "GST/QST QC") have rates.length > 1 — surface this in the UI so
+  // users can pick a code that covers all the kinds on a multi-tax receipt.
+  rates?: Array<{ id: string; name: string | null }>
 }
 
 /**

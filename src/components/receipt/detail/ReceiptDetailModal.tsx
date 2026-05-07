@@ -90,6 +90,7 @@ interface EditFormState {
   taxGst: string
   taxPst: string
   taxHst: string
+  taxQst: string
   taxTotal: string
   total: string
   manualSubtotal: boolean
@@ -146,7 +147,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   // Edit form state
   const [editForm, setEditForm] = useState<EditFormState>({
     vendorName: '', description: '', expenseDate: '', paymentMethod: 'credit_card',
-    subtotal: '', taxGst: '', taxPst: '', taxHst: '', taxTotal: '', total: '',
+    subtotal: '', taxGst: '', taxPst: '', taxHst: '', taxQst: '', taxTotal: '', total: '',
     manualSubtotal: false, manualTaxTotal: false, manualTotal: false,
   })
   const [editLineItems, setEditLineItems] = useState<EditLineItem[]>([])
@@ -228,6 +229,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       taxGst: receipt.taxGst != null ? String(receipt.taxGst) : '',
       taxPst: receipt.taxPst != null ? String(receipt.taxPst) : '',
       taxHst: receipt.taxHst != null ? String(receipt.taxHst) : '',
+      taxQst: receipt.taxQst != null ? String(receipt.taxQst) : '',
       taxTotal: receipt.taxTotal != null ? String(receipt.taxTotal) : '',
       total: receipt.total != null ? String(receipt.total) : '',
       manualSubtotal: false, manualTaxTotal: false, manualTotal: false,
@@ -241,7 +243,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       manualTotal: false,
     })))
     setDeletedLineItemIds([])
-    if (receipt.taxGst || receipt.taxPst || receipt.taxHst) setShowTaxes(true)
+    if (receipt.taxGst || receipt.taxPst || receipt.taxHst || receipt.taxQst) setShowTaxes(true)
   }
 
   const handleTabSwitch = async (newTab: Tab) => {
@@ -341,12 +343,13 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         if (!prev.manualTotal) {
           next.total = String(Math.round((p(value) + p(prev.taxTotal)) * 100) / 100)
         }
-      } else if (field === 'taxGst' || field === 'taxPst' || field === 'taxHst') {
+      } else if (field === 'taxGst' || field === 'taxPst' || field === 'taxHst' || field === 'taxQst') {
         next.manualTaxTotal = false
         const gst = field === 'taxGst' ? p(value) : p(prev.taxGst)
         const pst = field === 'taxPst' ? p(value) : p(prev.taxPst)
         const hst = field === 'taxHst' ? p(value) : p(prev.taxHst)
-        const newTaxTotal = Math.round((gst + pst + hst) * 100) / 100
+        const qst = field === 'taxQst' ? p(value) : p(prev.taxQst)
+        const newTaxTotal = Math.round((gst + pst + hst + qst) * 100) / 100
         next.taxTotal = String(newTaxTotal)
         if (!prev.manualTotal) {
           next.total = String(Math.round((p(next.subtotal) + newTaxTotal) * 100) / 100)
@@ -452,6 +455,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       if (String(p(editForm.taxGst)) !== String(p(receipt.taxGst))) headerPayload.taxGst = editForm.taxGst ? p(editForm.taxGst) : null
       if (String(p(editForm.taxPst)) !== String(p(receipt.taxPst))) headerPayload.taxPst = editForm.taxPst ? p(editForm.taxPst) : null
       if (String(p(editForm.taxHst)) !== String(p(receipt.taxHst))) headerPayload.taxHst = editForm.taxHst ? p(editForm.taxHst) : null
+      if (String(p(editForm.taxQst)) !== String(p(receipt.taxQst))) headerPayload.taxQst = editForm.taxQst ? p(editForm.taxQst) : null
       if (String(p(editForm.taxTotal)) !== String(p(receipt.taxTotal))) headerPayload.taxTotal = p(editForm.taxTotal)
       if (String(p(editForm.total)) !== String(p(receipt.total))) headerPayload.total = p(editForm.total)
 
@@ -597,6 +601,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
     taxGst: receipt?.taxGst ? p(receipt.taxGst) : null,
     taxPst: receipt?.taxPst ? p(receipt.taxPst) : null,
     taxHst: receipt?.taxHst ? p(receipt.taxHst) : null,
+    taxQst: receipt?.taxQst ? p(receipt.taxQst) : null,
     taxTotal: p(receipt?.taxTotal),
     supplyList: {
       mode: applySupplyMode,
@@ -812,11 +817,12 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       {/* Totals */}
       <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
         <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="text-gray-900 tabular-nums">{fmt(receipt?.subtotal)}</span></div>
-        {(receipt?.taxGst || receipt?.taxPst || receipt?.taxHst) && (
+        {(receipt?.taxGst || receipt?.taxPst || receipt?.taxHst || receipt?.taxQst) && (
           <>
             {receipt?.taxGst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">GST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxGst)}</span></div> : null}
             {receipt?.taxPst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">PST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxPst)}</span></div> : null}
             {receipt?.taxHst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">HST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxHst)}</span></div> : null}
+            {receipt?.taxQst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">QST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxQst)}</span></div> : null}
           </>
         )}
         <div className="flex justify-between text-sm"><span className="text-gray-500">Tax Total</span><span className="text-gray-900 tabular-nums">{fmt(receipt?.taxTotal)}</span></div>
@@ -926,6 +932,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
               { label: 'GST', key: 'taxGst' as const },
               { label: 'PST', key: 'taxPst' as const },
               { label: 'HST', key: 'taxHst' as const },
+              { label: 'QST', key: 'taxQst' as const },
             ].map(({ label, key }) => (
               <div key={key} className="flex items-center justify-between">
                 <label className="text-xs text-gray-400">{label}</label>

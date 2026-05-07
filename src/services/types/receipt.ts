@@ -68,6 +68,7 @@ export interface ReceiptDetail extends UploadedReceipt {
   taxGst: number | null
   taxPst: number | null
   taxHst: number | null
+  taxQst: number | null
   paymentMethod: string | null
   ocrRaw: Record<string, unknown> | null
   matchPreview: Record<string, unknown>[] | null
@@ -99,6 +100,7 @@ export interface UpdateReceiptPayload {
   taxGst?: number | null
   taxPst?: number | null
   taxHst?: number | null
+  taxQst?: number | null
   taxTotal?: number
   total?: number
   paymentMethod?: string
@@ -132,6 +134,7 @@ export interface ApplyReceiptPayload {
   taxGst: number | null
   taxPst: number | null
   taxHst: number | null
+  taxQst: number | null
   taxTotal: number
   supplyList: {
     mode: 'none' | 'new' | 'existing'
@@ -154,6 +157,7 @@ export interface AutoApplyOptions {
   taxGst?: number | null
   taxPst?: number | null
   taxHst?: number | null
+  taxQst?: number | null
   taxTotal?: number
   supplyList?: {
     mode: 'none' | 'new' | 'existing'
@@ -241,6 +245,7 @@ export interface ScanReceiptOcrData {
   taxGst: OcrDataField<number>
   taxPst: OcrDataField<number>
   taxHst: OcrDataField<number>
+  taxQst: OcrDataField<number>
   taxTotal: OcrDataField<number>
   lineItems: {
     name: OcrDataField<string>
@@ -320,6 +325,7 @@ export interface BulkApplyAssignment {
   taxGst?: number | null
   taxPst?: number | null
   taxHst?: number | null
+  taxQst?: number | null
   taxTotal?: number
   supplyList?: { mode: 'none' | 'new' | 'existing' }
 }

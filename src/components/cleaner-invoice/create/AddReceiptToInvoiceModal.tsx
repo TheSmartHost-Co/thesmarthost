@@ -229,6 +229,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
         taxGst: null,
         taxPst: null,
         taxHst: null,
+        taxQst: null,
         taxTotal: selectedReceipt.taxTotal ? parseFloat(String(selectedReceipt.taxTotal)) : 0,
         supplyList: { mode: 'none' },
       }

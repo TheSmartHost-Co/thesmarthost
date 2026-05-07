@@ -143,6 +143,13 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
   // forceUpload=true is the "Upload anyway" override path — bypasses backend dedup.
   const handleScanAndApply = async (forceUpload = false) => {
     if (!selectedFile) return
+    // autoApply requires a property server-side: an expense can't be created
+    // without one. Guard here so we surface a friendlier message than the raw
+    // 400 — and don't burn an OCR call we know will fail.
+    if (!propertyId) {
+      setError('Please select a property before scanning.')
+      return
+    }
 
     setStep('processing')
     setError(null)
@@ -151,7 +158,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
       const autoApplyOptions: AutoApplyOptions = { autoApply: true }
       const response = await uploadReceipt(
         selectedFile,
-        propertyId || undefined,
+        propertyId,
         undefined,
         autoApplyOptions,
         undefined,
@@ -293,17 +300,18 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
             )}
           </div>
 
-          {/* Property Selector */}
+          {/* Property Selector — required: the auto-applied expense is
+              attached to this property, so we can't proceed without one. */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Property (optional)
+              Property <span className="text-red-500">*</span>
             </label>
             <select
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">No property</option>
+              <option value="">Select a property…</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.listingName}</option>
               ))}
@@ -323,7 +331,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleScanAndApply(true)}
-                disabled={!selectedFile}
+                disabled={!selectedFile || !propertyId}
                 className="cursor-pointer px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <DocumentDuplicateIcon className="w-5 h-5" />
@@ -333,7 +341,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleScanAndApply(false)}
-                disabled={!selectedFile || checkingDuplicate}
+                disabled={!selectedFile || !propertyId || checkingDuplicate}
                 className="cursor-pointer px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <CameraIcon className="w-5 h-5" />
