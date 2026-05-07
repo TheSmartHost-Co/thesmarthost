@@ -10,6 +10,10 @@ export interface TeamMember {
   phone?: string | null
   status: 'invited' | 'active' | 'inactive'
   permissions: Permissions
+  // Time-sheet wage settings (added 2026-05)
+  hourlyRate?: number | null
+  weeklyMaxHours?: number | null
+  currency?: string                       // ISO 4217; defaults to 'CAD'
   lastActiveAt?: string | null
   createdAt: string
   updatedAt?: string | null
@@ -22,14 +26,21 @@ export interface CreateTeamMemberPayload {
   email: string
   phone?: string
   permissions: Permissions
+  hourlyRate?: number | null
+  weeklyMaxHours?: number | null
+  currency?: string
 }
 
-// Update payload
+// Update payload. Wage fields use COALESCE on the backend, so omit to leave
+// unchanged. Pass `0` to "clear" a rate.
 export interface UpdateTeamMemberPayload {
   name?: string
   phone?: string | null
   status?: 'active' | 'inactive'
   permissions?: Permissions
+  hourlyRate?: number | null
+  weeklyMaxHours?: number | null
+  currency?: string
 }
 
 // API responses

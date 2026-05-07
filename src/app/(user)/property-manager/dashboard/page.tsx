@@ -48,6 +48,7 @@ import CreateClientModal from '@/components/client/create/createClientModal'
 import CreatePropertyModal from '@/components/property/create/createPropertyModal'
 import CreateCleanerModal from '@/components/cleaner/create/createCleanerModal'
 import CreateTeamMemberModal from '@/components/team-member/create/CreateTeamMemberModal'
+import ClockInCard from '@/components/dashboard/ClockInCard'
 import CreateProjectModal from '@/components/turnover/create/CreateProjectModal'
 import ScanReceiptModal from '@/components/expenses/scan/ScanReceiptModal'
 
@@ -58,7 +59,7 @@ export default function DashboardPage() {
   const { showNotification } = useNotificationStore()
   const cleanerEarningsStore = useCleanerEarningsStore()
   usePermissionGuard('dashboard')
-  const { effectiveUserId, canWrite } = usePermissions()
+  const { effectiveUserId, canWrite, isTeamMember } = usePermissions()
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
@@ -287,6 +288,9 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Time Sheet card (team members only) ── */}
+      {isTeamMember && <ClockInCard />}
 
       {/* ── Metrics Grid (full width) ── */}
       {loadingMetrics ? (

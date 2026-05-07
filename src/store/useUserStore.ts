@@ -16,6 +16,7 @@
     preferredLanguage?: 'en' | 'fr' | 'es' | null
     pmUserId?: string | null       // PM's userId (for team members, used in API calls)
     permissions?: Permissions | null // Page-level permissions (for team members)
+    timezone?: string | null       // PM's IANA timezone (e.g. 'America/Toronto'). Inherited by team members.
   }
 
   interface UserStore {

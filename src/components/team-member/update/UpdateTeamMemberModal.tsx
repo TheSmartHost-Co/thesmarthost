@@ -28,6 +28,9 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
   const [phone, setPhone] = useState('')
   const [status, setStatus] = useState<'active' | 'inactive'>('active')
   const [permissions, setPermissions] = useState<Permissions>({ ...DEFAULT_PERMISSIONS })
+  const [hourlyRate, setHourlyRate] = useState('')
+  const [weeklyMaxHours, setWeeklyMaxHours] = useState('')
+  const [currency, setCurrency] = useState('CAD')
   const [loading, setLoading] = useState(false)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -39,6 +42,9 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
       setPhone(member.phone || '')
       setStatus(member.status === 'inactive' ? 'inactive' : 'active')
       setPermissions(member.permissions ? { ...member.permissions } : { ...DEFAULT_PERMISSIONS })
+      setHourlyRate(member.hourlyRate != null ? String(member.hourlyRate) : '')
+      setWeeklyMaxHours(member.weeklyMaxHours != null ? String(member.weeklyMaxHours) : '')
+      setCurrency(member.currency || 'CAD')
       setLoading(false)
     }
   }, [isOpen, member])
@@ -59,11 +65,23 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
     setLoading(true)
 
     try {
+      // Wage fields use COALESCE on the backend, so omitting (undefined) leaves
+      // them unchanged. We always send them so the PM's edits stick.
+      const parseNum = (v: string): number | null => {
+        const t = v.trim()
+        if (!t) return null
+        const n = Number(t)
+        return Number.isFinite(n) && n >= 0 ? n : null
+      }
+
       const payload: UpdateTeamMemberPayload = {
         name: trimmedName,
         phone: trimmedPhone || null,
         status,
         permissions,
+        hourlyRate: parseNum(hourlyRate),
+        weeklyMaxHours: parseNum(weeklyMaxHours),
+        currency: currency.trim() || 'CAD',
       }
 
       const res = await updateTeamMember(member.id, payload)
@@ -155,6 +173,50 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
               {t('pendingInvitationWarning')}
             </p>
           )}
+        </div>
+
+        {/* Wage settings (Time Sheet) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hourly rate</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+              placeholder="25.00"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Weekly max hrs</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={weeklyMaxHours}
+              onChange={(e) => setWeeklyMaxHours(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+              placeholder="20"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+            >
+              <option value="CAD">CAD</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="PHP">PHP</option>
+              <option value="AUD">AUD</option>
+              <option value="MXN">MXN</option>
+            </select>
+          </div>
         </div>
 
         {/* Permissions */}

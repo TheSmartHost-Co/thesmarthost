@@ -26,6 +26,9 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [permissions, setPermissions] = useState<Permissions>({ ...DEFAULT_PERMISSIONS })
+  const [hourlyRate, setHourlyRate] = useState('')
+  const [weeklyMaxHours, setWeeklyMaxHours] = useState('')
+  const [currency, setCurrency] = useState('CAD')
   const [loading, setLoading] = useState(false)
 
   const { effectiveUserId } = usePermissions()
@@ -38,6 +41,9 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
       setEmail('')
       setPhone('')
       setPermissions({ ...DEFAULT_PERMISSIONS })
+      setHourlyRate('')
+      setWeeklyMaxHours('')
+      setCurrency('CAD')
       setLoading(false)
     }
   }, [isOpen])
@@ -74,12 +80,22 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
     setLoading(true)
 
     try {
+      const parseNum = (v: string): number | null => {
+        const t = v.trim()
+        if (!t) return null
+        const n = Number(t)
+        return Number.isFinite(n) && n >= 0 ? n : null
+      }
+
       const payload: CreateTeamMemberPayload = {
         userId: effectiveUserId,
         name: trimmedName,
         email: trimmedEmail,
         phone: trimmedPhone || undefined,
         permissions,
+        hourlyRate: parseNum(hourlyRate),
+        weeklyMaxHours: parseNum(weeklyMaxHours),
+        currency: currency.trim() || 'CAD',
       }
 
       const res = await createTeamMember(payload)
@@ -152,6 +168,51 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
             placeholder={t('phonePlaceholder')}
           />
         </div>
+
+        {/* Wage settings (Time Sheet) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hourly rate</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+              placeholder="25.00"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Weekly max hrs</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={weeklyMaxHours}
+              onChange={(e) => setWeeklyMaxHours(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+              placeholder="20"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+            >
+              <option value="CAD">CAD</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="PHP">PHP</option>
+              <option value="AUD">AUD</option>
+              <option value="MXN">MXN</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 -mt-2">All optional — set later if you don&rsquo;t know yet.</p>
 
         {/* Permissions */}
         <div>
