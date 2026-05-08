@@ -490,6 +490,38 @@ function ReceiptsContent() {
         </div>
       </div>
 
+      {/* Top pagination — desktop only, mirrors bottom controls */}
+      {receipts.length > 0 && totalPages > 1 && (
+        <div className="hidden md:flex items-center justify-between px-1">
+          <p className="text-sm text-gray-500">
+            Showing <span className="font-medium">{receipts.length}</span>
+            {totalCount > receipts.length && (
+              <> of <span className="font-medium">{totalCount}</span></>
+            )}{' '}
+            receipts
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span className="px-2 text-xs text-gray-500">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       {receipts.length > 0 ? (
         <>
