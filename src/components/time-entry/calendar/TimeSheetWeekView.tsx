@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import type { TimeEntry } from '@/services/types/timeEntry'
 import { isoDateInTz, formatLocalTime } from '@/lib/datetime'
-import { formatHours } from '@/lib/format'
+import { formatHours, formatMoney } from '@/lib/format'
 
 interface TimeSheetWeekViewProps {
   entries: TimeEntry[]
@@ -323,6 +323,14 @@ const TimeSheetWeekView: React.FC<TimeSheetWeekViewProps> = ({
                   const leftPct  = p.lane * widthPct
                   const cls = blockClasses(p.entry, colorByMember)
                   const hours = p.durationMinutes / 60
+                  // Earnings shown when both hours and rate are known (rate snapshot
+                  // is null until the PM configures the team member's hourly rate).
+                  const earned = (p.entry.hoursWorked != null && p.entry.hourlyRateAtEntry != null)
+                    ? p.entry.hoursWorked * p.entry.hourlyRateAtEntry
+                    : null
+                  const earnedLabel = earned != null
+                    ? formatMoney(earned, p.entry.currencyAtEntry || 'CAD')
+                    : null
                   return (
                     <button
                       key={p.entry.id}
@@ -335,9 +343,14 @@ const TimeSheetWeekView: React.FC<TimeSheetWeekViewProps> = ({
                         left:   `calc(${leftPct}% + 1px)`,
                         width:  `calc(${widthPct}% - 2px)`,
                       }}
-                      title={`${formatLocalTime(p.entry.startedAt)} – ${formatLocalTime(p.entry.endedAt!)} · ${formatHours(hours)} · ${p.entry.status}`}
+                      title={`${formatLocalTime(p.entry.startedAt)} – ${formatLocalTime(p.entry.endedAt!)} · ${formatHours(hours)}${earnedLabel ? ` · ${earnedLabel}` : ''} · ${p.entry.status}`}
                     >
-                      <div className="text-xs font-semibold leading-tight tabular-nums">{hours.toFixed(2)}h</div>
+                      <div className="text-xs font-semibold leading-tight tabular-nums truncate">
+                        {hours.toFixed(2)}h
+                        {earnedLabel && (
+                          <span className="ml-1 font-normal opacity-90">· {earnedLabel}</span>
+                        )}
+                      </div>
                       {colorByMember && p.entry.teamMemberName && (
                         <div className="text-[11px] leading-tight truncate">{p.entry.teamMemberName}</div>
                       )}

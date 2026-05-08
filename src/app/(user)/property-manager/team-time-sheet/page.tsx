@@ -315,6 +315,9 @@ function TeamTimeSheetPageInner() {
               const kindBadge = isOverCap ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
               const kindLabel = isOverCap ? 'Over cap' : 'Submission'
               const checked = selectedPending.has(e.id)
+              const earned = (e.hoursWorked != null && e.hourlyRateAtEntry != null)
+                ? e.hoursWorked * e.hourlyRateAtEntry
+                : null
               return (
                 <div key={e.id} className="px-5 py-4 flex flex-wrap items-center gap-4">
                   <input
@@ -332,6 +335,14 @@ function TeamTimeSheetPageInner() {
                     <div className="mt-1 text-sm text-gray-600">
                       {formatInTz(e.startedAt, summary.pmTimezone)} → {formatInTz(e.endedAt, summary.pmTimezone)}
                       <span className="ml-2 font-medium text-gray-900">{formatHours(e.hoursWorked)}</span>
+                      {earned != null && (
+                        <span className="ml-2 font-semibold text-emerald-700 tabular-nums">
+                          {formatMoney(earned, e.currencyAtEntry || 'CAD')}
+                        </span>
+                      )}
+                      {earned == null && e.hoursWorked != null && (
+                        <span className="ml-2 italic text-gray-400">Rate pending</span>
+                      )}
                     </div>
                     {e.pendingReason && (
                       <div className="mt-1 text-sm italic text-gray-700">&ldquo;{e.pendingReason}&rdquo;</div>
@@ -390,7 +401,9 @@ function TeamTimeSheetPageInner() {
               ) : summary.rows.map((r) => {
                 const totalHours = r.hoursApproved + r.hoursPending
                 const pct = r.weeklyMaxHours ? Math.min(100, (totalHours / r.weeklyMaxHours) * 100) : 0
-                const barColor = r.isOverCap ? 'bg-rose-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'
+                // No red tier — over-cap routes through PM approval, so the bar
+                // maxes out at amber rather than signalling a violation.
+                const barColor = pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'
                 return (
                   <tr
                     key={r.teamMemberId}

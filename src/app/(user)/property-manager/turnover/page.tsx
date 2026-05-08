@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import {
+  ArrowPathIcon,
   CalendarDaysIcon,
   ExclamationCircleIcon,
   PlusIcon,
@@ -17,6 +18,7 @@ import { getCleaners } from '@/services/cleanerService'
 import type { Property } from '@/services/types/property'
 import type { Cleaner } from '@/services/types/cleaner'
 import TurnoverCalendar from '@/components/turnover/TurnoverCalendar'
+import SyncCleaningModal from '@/components/cleaning-project/sync/SyncCleaningModal'
 import { useDeepLink, type DeepLinkResult, type DeepLinkSection } from '@/hooks/useDeepLink'
 
 /**
@@ -26,9 +28,13 @@ import { useDeepLink, type DeepLinkResult, type DeepLinkSection } from '@/hooks/
 function TurnoverCalendarWithDeepLink({
   properties,
   cleaners,
+  refreshKey,
+  forcedProjectId,
 }: {
   properties: Property[]
   cleaners: Cleaner[]
+  refreshKey: number
+  forcedProjectId: string | null
 }) {
   const [calendarReady, setCalendarReady] = useState(false)
   const [deepLink, setDeepLink] = useState<DeepLinkResult>({
@@ -45,9 +51,10 @@ function TurnoverCalendarWithDeepLink({
 
   return (
     <TurnoverCalendar
+      key={refreshKey}
       initialProperties={properties}
       initialCleaners={cleaners}
-      deepLinkProjectId={deepLink.projectId}
+      deepLinkProjectId={forcedProjectId ?? deepLink.projectId}
       deepLinkSection={deepLink.section}
       deepLinkView={deepLink.view}
       onCalendarReady={() => setCalendarReady(true)}
@@ -66,6 +73,31 @@ export default function TurnoverPage() {
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncOpen, setSyncOpen] = useState(false)
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0)
+  const [forcedProjectId, setForcedProjectId] = useState<string | null>(null)
+
+  const handleSyncComplete = useCallback(
+    (createdCount: number) => {
+      if (createdCount > 0) {
+        showNotification(
+          `Created ${createdCount} cleaning project${createdCount === 1 ? '' : 's'}`,
+          'success'
+        )
+        // Clear before bump so the post-sync remount doesn't re-open a stale project.
+        setForcedProjectId(null)
+        setCalendarRefreshKey((k) => k + 1)
+      }
+    },
+    [showNotification]
+  )
+
+  const handleOpenProjectFromSync = useCallback((projectId: string) => {
+    setSyncOpen(false)
+    setForcedProjectId(projectId)
+    // Remount the calendar so its deep-link effect fires for the new projectId.
+    setCalendarRefreshKey((k) => k + 1)
+  }, [])
 
   // Fetch properties and cleaners on mount
   useEffect(() => {
@@ -243,12 +275,27 @@ export default function TurnoverPage() {
   }
 
   return (
-    <div className="space-y-2 sm:space-y-3">
+    <div className="space-y-2 sm:space-y-3 pt-4 sm:pt-6">
       {/* Header - compact inline */}
-      <div className="flex items-baseline gap-2">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('title')}</h1>
-        <span className="text-sm text-gray-400 hidden sm:inline">—</span>
-        <p className="text-sm text-gray-400 hidden sm:block">{t('subtitle')}</p>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('title')}</h1>
+          <span className="text-sm text-gray-400 hidden sm:inline">—</span>
+          <p className="text-sm text-gray-400 hidden sm:block">{t('subtitle')}</p>
+        </div>
+        {canWrite('turnover') && (
+          <motion.button
+            type="button"
+            onClick={() => setSyncOpen(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Sync Cleaning</span>
+            <span className="sm:hidden">Sync</span>
+          </motion.button>
+        )}
       </div>
 
       {/* Calendar with deep-link support (Suspense required for useSearchParams) */}
@@ -256,8 +303,21 @@ export default function TurnoverPage() {
         <TurnoverCalendarWithDeepLink
           properties={properties}
           cleaners={cleaners}
+          refreshKey={calendarRefreshKey}
+          forcedProjectId={forcedProjectId}
         />
       </Suspense>
+
+      {effectiveUserId && (
+        <SyncCleaningModal
+          isOpen={syncOpen}
+          onClose={() => setSyncOpen(false)}
+          userId={effectiveUserId}
+          properties={properties}
+          onSyncComplete={handleSyncComplete}
+          onOpenProject={handleOpenProjectFromSync}
+        />
+      )}
     </div>
   )
 }

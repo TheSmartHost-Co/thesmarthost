@@ -30,6 +30,11 @@ import type {
   WalkthroughPhotoDeleteResponse,
   WalkthroughUploadOptions,
   CompleteProjectMissingGroupsError,
+  // Sync (backfill)
+  SyncPreviewPayload,
+  SyncPreviewResponse,
+  SyncApplyPayload,
+  SyncApplyResponse,
 } from './types/cleaningProject'
 
 /**
@@ -750,4 +755,30 @@ export async function downloadWalkthroughPhotoWatermarked(
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(blobUrl)
+}
+
+// =============================================
+// SYNC CLEANING (BACKFILL)
+// =============================================
+
+/**
+ * Preview missing cleaning projects in a date range across local DB + PMS pulls.
+ * Returns annotated candidates: each tagged 'new' / 'duplicate' / 'not_managed' / 'unmapped'.
+ */
+export function previewCleaningSync(payload: SyncPreviewPayload): Promise<SyncPreviewResponse> {
+  return apiClient<SyncPreviewResponse, SyncPreviewPayload>(
+    '/cleaning-projects/sync/preview',
+    { method: 'POST', body: payload }
+  )
+}
+
+/**
+ * Apply a chosen subset of preview candidates — creates cleaning projects with source='backfill'.
+ * Per-item failures don't abort the batch; results array reports each candidate's outcome.
+ */
+export function applyCleaningSync(payload: SyncApplyPayload): Promise<SyncApplyResponse> {
+  return apiClient<SyncApplyResponse, SyncApplyPayload>(
+    '/cleaning-projects/sync/apply',
+    { method: 'POST', body: payload }
+  )
 }

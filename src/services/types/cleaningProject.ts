@@ -411,3 +411,83 @@ export interface ProjectPhotosResponse {
   }
   message?: string
 }
+
+// =============================================
+// SYNC CLEANING (BACKFILL)
+// =============================================
+
+export type SyncDateField = 'checkin' | 'checkout'
+export type SyncSource = 'local' | 'pms'
+export type SyncCandidateStatus = 'new' | 'duplicate' | 'not_managed' | 'unmapped'
+export type SyncOutcome = 'created' | 'skipped' | 'failed'
+
+export interface SyncCandidate {
+  key: string
+  propertyId: string | null
+  propertyName: string | null
+  projectDate: string            // YYYY-MM-DD
+  checkInDate: string | null
+  checkOutDate: string | null
+  guestName: string | null
+  reservationCode: string | null
+  guestCount: number | null
+  checkoutTime: string | null
+  source: SyncSource
+  pmsProvider: 'hostaway' | 'hospitable' | string | null
+  externalListingId?: string | null
+  previousBookingId: string | null
+  rawWebhookData: { data: Record<string, unknown> } | null
+  status: SyncCandidateStatus
+  existingProjectId: string | null
+  existingProjectStatus: string | null
+}
+
+export interface SyncStats {
+  new: number
+  duplicate: number
+  notManaged: number
+  unmapped: number
+}
+
+export interface SyncPreviewPayload {
+  userId: string
+  startDate: string  // YYYY-MM-DD
+  endDate: string    // YYYY-MM-DD
+  dateField: SyncDateField
+  propertyIds?: string[]
+  sources: SyncSource[]
+}
+
+export interface SyncPreviewResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    stats: SyncStats
+    candidates: SyncCandidate[]
+    warnings: string[]
+    dateRange: { startDate: string; endDate: string; dateField: SyncDateField }
+    sources: SyncSource[]
+  }
+}
+
+export interface SyncApplyPayload {
+  userId: string
+  candidates: SyncCandidate[]
+}
+
+export interface SyncApplyResultItem {
+  key: string
+  outcome: SyncOutcome
+  projectId?: string
+  reason?: string
+  existingProjectId?: string | null
+}
+
+export interface SyncApplyResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data: {
+    results: SyncApplyResultItem[]
+    summary: { created: number; skipped: number; failed: number; total: number }
+  }
+}
