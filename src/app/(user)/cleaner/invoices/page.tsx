@@ -14,6 +14,7 @@ import {
   TrashIcon,
   PaperAirplaneIcon,
   EyeIcon,
+  PencilIcon,
   CurrencyDollarIcon,
   DocumentArrowDownIcon,
 } from '@heroicons/react/24/outline'
@@ -438,6 +439,15 @@ export default function CleanerInvoicesPage() {
                       >
                         <EyeIcon className="h-4 w-4 text-gray-400" />
                       </button>
+                      {isEditable && (
+                        <button
+                          onClick={() => handleViewInvoice(invoice)}
+                          className="p-2 rounded-lg hover:bg-amber-100 transition-colors"
+                          title={t('edit')}
+                        >
+                          <PencilIcon className="h-4 w-4 text-amber-600" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleGeneratePDF(invoice)}
                         className="p-2 rounded-lg hover:bg-blue-100 transition-colors"
