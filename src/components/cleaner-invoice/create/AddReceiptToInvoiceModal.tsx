@@ -286,7 +286,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
         <option value="">{t('selectProperty')}</option>
         {properties.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.listingName || p.internalName || p.address}
+            {p.address}
           </option>
         ))}
       </select>
@@ -559,10 +559,10 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
                           </p>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-gray-400">{formatDate(receipt.createdAt)}</span>
-                            {receipt.propertyName && (
+                            {receipt.propertyId && (
                               <>
                                 <span className="text-[10px] text-gray-300">&middot;</span>
-                                <span className="text-[10px] text-gray-400 truncate">{receipt.propertyName}</span>
+                                <span className="text-[10px] text-gray-400 truncate">{properties.find((p) => p.id === receipt.propertyId)?.address || receipt.propertyName}</span>
                               </>
                             )}
                           </div>

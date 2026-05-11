@@ -309,7 +309,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const initializeEditForm = (exp: Expense) => {
     setPropertyId(exp.propertyId || '')
     setBookingId(exp.bookingId || '')
-    setExpenseDate(exp.expenseDate.split('T')[0])
+    setExpenseDate(exp.expenseDate ? exp.expenseDate.split('T')[0] : '')
     setAmount(exp.amount.toString())
     setCurrency(exp.currency)
     setCategory(exp.category || '')
@@ -1037,7 +1037,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
             >
               <option value="">No property</option>
               {properties.map((p) => (
-                <option key={p.id} value={p.id}>{p.listingName}</option>
+                <option key={p.id} value={p.id}>{[p.address, p.postalCode].filter(Boolean).join(', ')}</option>
               ))}
             </select>
           </div>

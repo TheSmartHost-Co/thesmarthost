@@ -49,25 +49,35 @@ export function getInvoiceSummary(
 export function getAvailableProjects(
   cleanerId: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  propertyId?: string,
+  search?: string
 ): Promise<AvailableProjectsResponse> {
   const params = new URLSearchParams()
   params.append('cleanerId', cleanerId)
   if (startDate) params.append('startDate', startDate)
   if (endDate) params.append('endDate', endDate)
+  if (propertyId) params.append('propertyId', propertyId)
+  if (search) params.append('search', search)
   return apiClient<AvailableProjectsResponse>(`/cleaner-invoices/available-projects?${params.toString()}`)
 }
 
-// Get reimbursable expenses available for invoicing
+// Get expenses available for invoicing
 export function getAvailableExpenses(
   cleanerId: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  propertyId?: string,
+  category?: string,
+  search?: string
 ): Promise<AvailableExpensesResponse> {
   const params = new URLSearchParams()
   params.append('cleanerId', cleanerId)
   if (startDate) params.append('startDate', startDate)
   if (endDate) params.append('endDate', endDate)
+  if (propertyId) params.append('propertyId', propertyId)
+  if (category) params.append('category', category)
+  if (search) params.append('search', search)
   return apiClient<AvailableExpensesResponse>(`/cleaner-invoices/available-expenses?${params.toString()}`)
 }
 

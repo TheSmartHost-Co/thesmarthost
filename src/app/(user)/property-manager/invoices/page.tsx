@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
@@ -16,6 +16,9 @@ import {
   ArrowPathIcon,
   ArchiveBoxIcon,
   TrashIcon,
+  PlusIcon,
+  ArrowRightIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
@@ -37,8 +40,12 @@ import type {
 import { INVOICE_STATUS_INFO } from '@/services/types/cleanerInvoice'
 import ViewInvoiceModal from '@/components/cleaner-invoice/view/ViewInvoiceModal'
 import DeleteInvoiceModal from '@/components/cleaner-invoice/delete/DeleteInvoiceModal'
+import CreateInvoiceModal from '@/components/cleaner-invoice/create/CreateInvoiceModal'
+import Modal from '@/components/shared/modal'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
+import { getCleaners } from '@/services/cleanerService'
+import type { Cleaner } from '@/services/types/cleaner'
 
 const statusConfig: Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }> = {
   draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
@@ -66,6 +73,27 @@ const STATUS_ICONS: Record<InvoiceStatus, React.ComponentType<{ className?: stri
   rejected: ExclamationCircleIcon,
   paid: CurrencyDollarIcon,
   archived: ArchiveBoxIcon,
+}
+
+// Avatar color palette for cleaner picker rows — keyed by cleaner.id hash for stable hues
+const AVATAR_PALETTE = [
+  { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  { bg: 'bg-blue-100',    text: 'text-blue-700' },
+  { bg: 'bg-amber-100',   text: 'text-amber-700' },
+  { bg: 'bg-rose-100',    text: 'text-rose-700' },
+  { bg: 'bg-purple-100',  text: 'text-purple-700' },
+  { bg: 'bg-cyan-100',    text: 'text-cyan-700' },
+] as const
+
+function getAvatarColor(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
+function getInitial(cleaner: Cleaner) {
+  const source = (cleaner.name || cleaner.email || '?').trim()
+  return source.charAt(0).toUpperCase() || '?'
 }
 
 export default function PMInvoicesPage() {
@@ -104,6 +132,40 @@ function PMInvoicesContent() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CleanerInvoice | null>(null)
 
+  // Create-on-behalf flow state
+  const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  const [showCleanerPicker, setShowCleanerPicker] = useState(false)
+  const [pickedCleanerId, setPickedCleanerId] = useState<string | null>(null)
+  const [selectedCleaner, setSelectedCleaner] = useState<Cleaner | null>(null)
+  const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false)
+  const [cleanerSearch, setCleanerSearch] = useState('')
+
+  const visibleCleaners = useMemo(() => {
+    const q = cleanerSearch.trim().toLowerCase()
+    if (!q) return cleaners
+    return cleaners.filter((c) =>
+      (c.name?.toLowerCase().includes(q)) ||
+      (c.email?.toLowerCase().includes(q))
+    )
+  }, [cleaners, cleanerSearch])
+
+  const closeCleanerPicker = useCallback(() => {
+    setShowCleanerPicker(false)
+    setPickedCleanerId(null)
+    setCleanerSearch('')
+  }, [])
+
+  const confirmCleanerPick = useCallback((cleanerId: string | null) => {
+    const id = cleanerId || pickedCleanerId
+    if (!id) return
+    const c = cleaners.find((x) => x.id === id)
+    if (!c) return
+    setSelectedCleaner(c)
+    setShowCleanerPicker(false)
+    setShowCreateInvoiceModal(true)
+    setCleanerSearch('')
+  }, [cleaners, pickedCleanerId])
+
   // Track which invoices have current PDF files (keyed by invoice ID)
   const [invoicePDFs, setInvoicePDFs] = useState<Map<string, { fileId: string; filePath: string }>>(new Map())
 
@@ -130,6 +192,14 @@ function PMInvoicesContent() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Fetch cleaners for the create-on-behalf picker
+  useEffect(() => {
+    if (!effectiveUserId) return
+    getCleaners(effectiveUserId).then((res) => {
+      if (res.status === 'success') setCleaners(res.data)
+    }).catch(() => { /* non-fatal: picker just won't have options */ })
+  }, [effectiveUserId])
 
   // Auto-enable includeArchived when filtering by archived
   useEffect(() => {
@@ -321,11 +391,18 @@ function PMInvoicesContent() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('invoicesTitle')}</h1>
           <p className="text-sm text-gray-500 mt-1">{t('invoicesSubtitle')}</p>
         </div>
+        <button
+          onClick={() => setShowCleanerPicker(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors cursor-pointer whitespace-nowrap"
+        >
+          <PlusIcon className="h-5 w-5" />
+          New Invoice
+        </button>
       </div>
 
       {/* Summary Stats */}
@@ -602,6 +679,147 @@ function PMInvoicesContent() {
           onClose={() => { setShowDeleteModal(false); setDeleteTarget(null) }}
           invoice={deleteTarget}
           onDeleted={fetchData}
+        />
+      )}
+
+      {/* Cleaner Picker — Step 1 of create-on-behalf */}
+      <Modal
+        isOpen={showCleanerPicker}
+        onClose={closeCleanerPicker}
+        style="max-w-2xl !w-11/12"
+      >
+        {/* Header */}
+        <div className="flex items-start gap-3 p-6 pb-4 border-b border-gray-100 pr-12">
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <BanknotesIcon className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-gray-900">Create Invoice for Cleaner</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Pick which cleaner this invoice is for.</p>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="px-6 pt-4 pb-3">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={cleanerSearch}
+              onChange={(e) => setCleanerSearch(e.target.value)}
+              placeholder="Search by name or email..."
+              className="w-full pl-9 pr-9 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              autoFocus
+            />
+            {cleanerSearch && (
+              <button
+                onClick={() => setCleanerSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <XMarkIcon className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="px-6 pb-4 overflow-y-auto" style={{ maxHeight: '24rem' }}>
+          {visibleCleaners.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <BanknotesIcon className="h-12 w-12 text-gray-300 mb-2" />
+              <p className="text-sm font-semibold text-gray-700">
+                {cleaners.length === 0 ? 'No cleaners yet' : 'No matches'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {cleaners.length === 0
+                  ? 'Add a cleaner to your account first.'
+                  : 'Try a different name or email.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {visibleCleaners.map((c) => {
+                const selected = pickedCleanerId === c.id
+                const colors = getAvatarColor(c.id)
+                const hasEmail = !!c.email && c.email !== c.name
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setPickedCleanerId(c.id)}
+                    onDoubleClick={() => confirmCleanerPick(c.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer text-left ${
+                      selected
+                        ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-200'
+                        : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center font-semibold text-sm flex-shrink-0`}>
+                      {getInitial(c)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {c.name || c.email || 'Unnamed cleaner'}
+                      </p>
+                      {hasEmail && (
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{c.email}</p>
+                      )}
+                    </div>
+                    {selected && (
+                      <CheckCircleIcon className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 p-6 pt-4 border-t border-gray-100">
+          <p className="text-xs text-gray-500">
+            {cleanerSearch.trim()
+              ? `${visibleCleaners.length} of ${cleaners.length} cleaners`
+              : `${cleaners.length} ${cleaners.length === 1 ? 'cleaner' : 'cleaners'}`}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={closeCleanerPicker}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!pickedCleanerId}
+              onClick={() => confirmCleanerPick(null)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              Continue
+              <ArrowRightIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create Invoice Modal — Step 2 of create-on-behalf */}
+      {selectedCleaner && (
+        <CreateInvoiceModal
+          isOpen={showCreateInvoiceModal}
+          onClose={() => {
+            setShowCreateInvoiceModal(false)
+            setSelectedCleaner(null)
+            setPickedCleanerId(null)
+          }}
+          cleaner={selectedCleaner}
+          onCreated={(invoice) => {
+            setShowCreateInvoiceModal(false)
+            setSelectedCleaner(null)
+            setPickedCleanerId(null)
+            fetchData()
+            setSelectedInvoiceId(invoice.id)
+            setShowViewModal(true)
+          }}
         />
       )}
     </div>

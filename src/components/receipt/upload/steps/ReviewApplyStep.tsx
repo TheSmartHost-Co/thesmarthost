@@ -70,7 +70,7 @@ const ReviewApplyStep: React.FC<ReviewApplyStepProps> = ({
           {rows.map((row) => {
             const property = row.propertyId ? propertyById.get(row.propertyId) : null
             const propertyLabel = property
-              ? property.listingName || property.address || 'Unnamed'
+              ? property.address || 'Unnamed'
               : '—'
             return (
               <div

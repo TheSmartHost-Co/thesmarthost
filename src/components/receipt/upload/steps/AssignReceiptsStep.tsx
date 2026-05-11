@@ -36,8 +36,7 @@ const AssignReceiptsStep: React.FC<AssignReceiptsStepProps> = ({
     () =>
       properties.map((p) => ({
         value: p.id,
-        label: p.listingName || p.address || 'Unnamed Property',
-        secondaryLabel: p.address || undefined,
+        label: p.address || 'Unnamed Property',
       })),
     [properties]
   )

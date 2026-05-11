@@ -216,6 +216,18 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
               <p className="text-sm text-gray-600">Number of Nights</p>
               <p className="text-base font-medium text-gray-900">{booking.numNights} {booking.numNights === 1 ? 'night' : 'nights'}</p>
             </div>
+            {(booking.numGuests != null && booking.numGuests > 0) && (
+              <div>
+                <p className="text-sm text-gray-600">Number of Guests</p>
+                <p className="text-base font-medium text-gray-900">{booking.numGuests} {booking.numGuests === 1 ? 'guest' : 'guests'}</p>
+              </div>
+            )}
+            {booking.hasPets && (
+              <div>
+                <p className="text-sm text-gray-600">Pets</p>
+                <p className="text-base font-medium text-gray-900">Yes</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

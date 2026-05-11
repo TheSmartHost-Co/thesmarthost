@@ -418,7 +418,7 @@ function ReceiptsContent() {
                     <option value="">All Properties</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.listingName || p.address || p.id}
+                        {p.address || p.id}
                       </option>
                     ))}
                   </select>
@@ -534,6 +534,7 @@ function ReceiptsContent() {
                   <ReceiptGalleryCard
                     key={receipt.id}
                     receipt={receipt}
+                    properties={properties}
                     onOpen={(id) => {
                       setSelectedReceiptId(id)
                       setShowDetailModal(true)
@@ -573,7 +574,7 @@ function ReceiptsContent() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{receipt.vendorName || 'Unknown'}</p>
                         <div className="mt-1">
-                          <PropertyChip receipt={receipt} size="sm" />
+                          <PropertyChip receipt={receipt} properties={properties} size="sm" />
                         </div>
                       </div>
                       {/* Amount + Status */}
@@ -755,7 +756,7 @@ function ReceiptsContent() {
 
                           {/* Property */}
                           <td className="px-6 py-4">
-                            <PropertyChip receipt={receipt} size="sm" />
+                            <PropertyChip receipt={receipt} properties={properties} size="sm" />
                           </td>
 
                           {/* Date */}
@@ -846,6 +847,7 @@ function ReceiptsContent() {
                 <ReceiptGalleryCard
                   key={receipt.id}
                   receipt={receipt}
+                  properties={properties}
                   onOpen={(id) => {
                     setSelectedReceiptId(id)
                     setShowDetailModal(true)

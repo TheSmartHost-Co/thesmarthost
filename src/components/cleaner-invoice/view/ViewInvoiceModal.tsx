@@ -143,9 +143,9 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     ? 'p-6 max-w-5xl !w-11/12 !max-h-[85vh]'
     : 'p-6 max-w-3xl !w-11/12 !max-h-[85vh]'
 
-  // Cleaner can edit draft/rejected, PM can also edit pending
+  // Cleaner can edit draft/rejected. PM has full admin edit access at any status.
   const isEditable = role === 'pm'
-    ? invoice?.status === 'pending'
+    ? !!invoice
     : (invoice?.status === 'draft' || invoice?.status === 'rejected')
 
   // Fetch invoice data

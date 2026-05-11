@@ -96,7 +96,7 @@ export interface AvailableProject {
   cleanerPropertyDurationMinutes?: number | null
 }
 
-// Available reimbursable expense for invoice generation
+// Available expense for invoice generation
 export interface AvailableExpense {
   id: string
   propertyId: string | null
@@ -108,6 +108,7 @@ export interface AvailableExpense {
   receiptId: string | null
   paidById: string
   paidByType: string
+  isReimbursable?: boolean
   createdAt: string
   propertyName: string | null
   propertyAddress: string | null
@@ -129,14 +130,37 @@ export interface InvoiceSummary {
   paidTotal: number
 }
 
+// Extra item payload for inline charges at creation time
+export interface ExtraItemPayload {
+  description: string
+  amount: number
+  propertyId: string
+  category?: string
+  vendorName?: string
+  expenseDate?: string
+  paymentMethod?: string
+  paidByType?: string
+  paidById?: string
+  isTaxable?: boolean
+  isReimbursable?: boolean
+  subtotal?: number
+  taxGst?: number
+  taxPst?: number
+  taxHst?: number
+  taxQst?: number
+  taxTotal?: number
+}
+
 // Payloads
 export interface CreateInvoicePayload {
   cleanerId: string
-  periodStart: string
-  periodEnd: string
-  projectIds?: string[]  // Optional — if provided, only these projects are included
-  expenseIds?: string[]  // Optional — reimbursable expense IDs to include
-  itemOverrides?: Record<string, { durationMinutes?: number; amount?: number; isTaxable?: boolean }>  // Optional per-project overrides
+  periodStart?: string
+  periodEnd?: string
+  projectIds?: string[]
+  expenseIds?: string[]
+  receiptIds?: string[]
+  extraItems?: ExtraItemPayload[]
+  itemOverrides?: Record<string, { durationMinutes?: number; amount?: number; isTaxable?: boolean }>
   taxHstEnabled?: boolean
   taxGstEnabled?: boolean
   taxQstEnabled?: boolean

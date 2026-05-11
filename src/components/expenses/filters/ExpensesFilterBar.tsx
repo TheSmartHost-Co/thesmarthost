@@ -78,8 +78,7 @@ export default function ExpensesFilterBar({
 
   const propertyOptions: SearchableSelectOption<string>[] = properties.map((p) => ({
     value: p.id,
-    label: p.listingName || p.address || p.id,
-    secondaryLabel: p.address,
+    label: [p.address, p.postalCode].filter(Boolean).join(', ') || p.id,
   }))
 
   // Category options come straight from the API-fetched list. The backend

@@ -17,6 +17,7 @@ import {
   PencilIcon,
   CurrencyDollarIcon,
   DocumentArrowDownIcon,
+  ShieldExclamationIcon,
 } from '@heroicons/react/24/outline'
 import { ArrowRightIcon } from '@heroicons/react/24/solid'
 import { useUserStore } from '@/store/useUserStore'
@@ -39,6 +40,8 @@ import type {
 } from '@/services/types/cleanerInvoice'
 import CreateInvoiceModal from '@/components/cleaner-invoice/create/CreateInvoiceModal'
 import ViewInvoiceModal from '@/components/cleaner-invoice/view/ViewInvoiceModal'
+import Modal from '@/components/shared/modal'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // Labels resolved inside the component via t()
 const STATUS_FILTER_KEYS: { value: InvoiceStatus | 'all'; labelKey: string }[] = [
@@ -62,6 +65,7 @@ const statusConfigBase: Record<InvoiceStatus, { labelKey: string; bg: string; te
 export default function CleanerInvoicesPage() {
   const { t } = useTranslation('cleanerPortal')
   const { profile } = useUserStore()
+  const { isPM } = usePermissions()
   const showNotification = useNotificationStore((state) => state.showNotification)
 
   const [cleaner, setCleaner] = useState<Cleaner | null>(null)
@@ -77,6 +81,7 @@ export default function CleanerInvoicesPage() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [showDeletePermissionModal, setShowDeletePermissionModal] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<CleanerInvoice | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -143,6 +148,10 @@ export default function CleanerInvoicesPage() {
   }
 
   const handleDeleteInvoice = async (invoice: CleanerInvoice) => {
+    if (!isPM) {
+      setShowDeletePermissionModal(true)
+      return
+    }
     if (!confirm(t('deleteInvoiceConfirm', { number: invoice.invoiceNumber }))) return
 
     try {
@@ -574,6 +583,30 @@ export default function CleanerInvoicesPage() {
           onUpdated={handleInvoiceUpdated}
         />
       )}
+
+      <Modal
+        isOpen={showDeletePermissionModal}
+        onClose={() => setShowDeletePermissionModal(false)}
+        style="max-w-md p-6"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+            <ShieldExclamationIcon className="w-6 h-6 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {t('deletePermissionTitle')}
+          </h3>
+          <p className="text-sm text-gray-600 mb-6 max-w-sm">
+            {t('deletePermissionMessage')}
+          </p>
+          <button
+            onClick={() => setShowDeletePermissionModal(false)}
+            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors cursor-pointer"
+          >
+            {t('gotIt')}
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

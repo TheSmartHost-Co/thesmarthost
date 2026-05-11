@@ -313,7 +313,7 @@ const ScanReceiptModal: React.FC<ScanReceiptModalProps> = ({
             >
               <option value="">Select a property…</option>
               {properties.map((p) => (
-                <option key={p.id} value={p.id}>{p.listingName}</option>
+                <option key={p.id} value={p.id}>{p.address}</option>
               ))}
             </select>
           </div>

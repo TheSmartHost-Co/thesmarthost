@@ -54,6 +54,10 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
   const [taxesCollected, setTaxesCollected] = useState(booking.taxesCollected?.toString() || '')
   const [cohostFee, setCohostFee] = useState(booking.cohostFee?.toString() || '')
 
+  // Guest info
+  const [numGuests, setNumGuests] = useState(booking.numGuests?.toString() || '')
+  const [hasPets, setHasPets] = useState(booking.hasPets || false)
+
   // State
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(false)
@@ -106,6 +110,8 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
       setRentCollected(booking.rentCollected?.toString() || '')
       setTaxesCollected(booking.taxesCollected?.toString() || '')
       setCohostFee(booking.cohostFee?.toString() || '')
+      setNumGuests(booking.numGuests?.toString() || '')
+      setHasPets(booking.hasPets || false)
     }
   }, [isOpen, booking])
 
@@ -199,6 +205,8 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
         rentCollected: parseCurrency(rentCollected),
         taxesCollected: parseCurrency(taxesCollected),
         cohostFee: parseCurrency(cohostFee),
+        numGuests: parseCurrency(numGuests),
+        hasPets,
       }
 
       const res = await updateBooking(booking.id, payload)
@@ -341,6 +349,32 @@ const UpdateBookingModal: React.FC<UpdateBookingModalProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Will be calculated from check-in date + nights if not provided"
               />
+            </div>
+          </div>
+
+          {/* Guest Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Number of Guests</label>
+              <input
+                type="number"
+                min="1"
+                value={numGuests}
+                onChange={(e) => setNumGuests(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 2"
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer pb-2">
+                <input
+                  type="checkbox"
+                  checked={hasPets}
+                  onChange={(e) => setHasPets(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium">Has Pets</span>
+              </label>
             </div>
           </div>
         </div>

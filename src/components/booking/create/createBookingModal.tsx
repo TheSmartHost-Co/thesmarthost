@@ -53,6 +53,10 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   const [taxesCollected, setTaxesCollected] = useState('')
   const [cohostFee, setCohostFee] = useState('')
 
+  // Guest info
+  const [numGuests, setNumGuests] = useState('')
+  const [hasPets, setHasPets] = useState(false)
+
   // Properties data
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(false)
@@ -166,6 +170,8 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
       setRentCollected('')
       setTaxesCollected('')
       setCohostFee('')
+      setNumGuests('')
+      setHasPets(false)
     }
   }, [isOpen])
 
@@ -243,6 +249,8 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
         rentCollected: parseOptionalNumber(rentCollected),
         taxesCollected: parseOptionalNumber(taxesCollected),
         cohostFee: parseOptionalNumber(cohostFee),
+        numGuests: parseOptionalNumber(numGuests),
+        hasPets,
         ...(csvUploadId && { csv_upload_id: csvUploadId }),
       }
 
@@ -386,6 +394,32 @@ const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., Downtown Condo"
               />
+            </div>
+          </div>
+
+          {/* Guest Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Number of Guests</label>
+              <input
+                type="number"
+                min="1"
+                value={numGuests}
+                onChange={(e) => setNumGuests(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 2"
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer pb-2">
+                <input
+                  type="checkbox"
+                  checked={hasPets}
+                  onChange={(e) => setHasPets(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium">Has Pets</span>
+              </label>
             </div>
           </div>
         </div>

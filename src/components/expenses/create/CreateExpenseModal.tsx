@@ -108,8 +108,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
   const propertyOptions: SearchableSelectOption<string>[] = useMemo(() => {
     return properties.map(property => ({
       value: property.id,
-      label: property.listingName || property.address,
-      secondaryLabel: property.listingName ? property.address : undefined,
+      label: [property.address, property.postalCode].filter(Boolean).join(', '),
     }))
   }, [properties])
 

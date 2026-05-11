@@ -725,7 +725,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
       sectionId: selectedSectionId,
       name: data.name,
       logicalName: data.logicalName,
-      formula: data.formula || '',
+      formula: data.sourceColumn || data.formula || '',
       format: data.format || 'text',
       displayOrder: section?.fields?.length || 0,
       // Table mode properties

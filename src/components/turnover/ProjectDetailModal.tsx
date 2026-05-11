@@ -901,12 +901,6 @@ export default function ProjectDetailModal({
                     <span>Est. {formatDuration(project.estimatedDurationMinutes)}</span>
                   </div>
                 )}
-                {project.guestCount && (
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                    <UserGroupIcon className="w-4 h-4 text-gray-400" />
-                    <span>{project.guestCount} guests</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -963,6 +957,17 @@ export default function ProjectDetailModal({
                               )}
                             </>
                           )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {project.previousBookingNumGuests != null && project.previousBookingNumGuests > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <UserGroupIcon className="w-3.5 h-3.5 text-gray-400" />
+                                <span>{project.previousBookingNumGuests} guest{project.previousBookingNumGuests !== 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                            {project.previousBookingHasPets && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded">🐾 Pet</span>
+                            )}
+                          </div>
                         </div>
                         <div className="mt-2 flex justify-end">
                           {loadingBookingId === project.previousBookingId ? (
@@ -1006,6 +1011,17 @@ export default function ProjectDetailModal({
                               )}
                             </>
                           )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {project.nextBookingNumGuests != null && project.nextBookingNumGuests > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <UserGroupIcon className="w-3.5 h-3.5 text-gray-400" />
+                                <span>{project.nextBookingNumGuests} guest{project.nextBookingNumGuests !== 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                            {project.nextBookingHasPets && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded">🐾 Pet</span>
+                            )}
+                          </div>
                         </div>
                         <div className="mt-2 flex justify-end">
                           {loadingBookingId === project.nextBookingId ? (

@@ -3,6 +3,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UploadedReceipt, ReceiptStatus } from '@/services/types/receipt'
+import type { Property } from '@/services/types/property'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
 import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
@@ -21,12 +22,14 @@ interface ReceiptGalleryCardProps {
   receipt: UploadedReceipt
   onOpen: (id: string) => void
   actions: ActionItem[]
+  properties?: Property[]
 }
 
 const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
   receipt,
   onOpen,
   actions,
+  properties,
 }) => {
   const { t } = useTranslation('expenses')
   const status = statusConfig[receipt.status] || statusConfig.pending
@@ -106,7 +109,7 @@ const ReceiptGalleryCard: React.FC<ReceiptGalleryCardProps> = ({
           <p className="text-xs text-gray-400 flex-shrink-0">
             {formatDate(receipt.expenseDate || receipt.createdAt)}
           </p>
-          <PropertyChip receipt={receipt} size="sm" />
+          <PropertyChip receipt={receipt} properties={properties} size="sm" />
         </div>
 
         {/* Quick actions */}

@@ -66,6 +66,7 @@ import {
   CheckCircleIcon,
   XMarkIcon,
   LinkIcon,
+  ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline'
 import { SiQuickbooks } from 'react-icons/si'
 import CreateExpenseModal from '@/components/expenses/create/CreateExpenseModal'
@@ -896,7 +897,16 @@ function ExpensesContent() {
                       )}
                       {showCol('date') && (
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">{formatExpenseDate(expense.expenseDate)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-900">{formatExpenseDate(expense.expenseDate)}</span>
+                            {expense.description && (
+                              <ChatBubbleLeftEllipsisIcon
+                                className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors flex-shrink-0"
+                                title={expense.description}
+                                aria-label={`Note: ${expense.description}`}
+                              />
+                            )}
+                          </div>
                         </td>
                       )}
                       {showCol('amount') && (
