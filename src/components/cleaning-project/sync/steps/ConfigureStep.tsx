@@ -2,7 +2,13 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarDaysIcon, BuildingOfficeIcon, CloudIcon, ServerStackIcon } from '@heroicons/react/24/outline'
+import {
+  CalendarDaysIcon,
+  BuildingOfficeIcon,
+  CloudIcon,
+  ServerStackIcon,
+  CurrencyDollarIcon,
+} from '@heroicons/react/24/outline'
 import type { Property } from '@/services/types/property'
 import type { SyncDateField, SyncSource } from '@/services/types/cleaningProject'
 
@@ -14,6 +20,7 @@ export interface ConfigureFormState {
   dateField: SyncDateField
   propertyIds: string[]
   sources: SyncSource[]
+  createBookings: boolean
 }
 
 interface ConfigureStepProps {
@@ -234,6 +241,68 @@ const ConfigureStep: React.FC<ConfigureStepProps> = ({ config, properties, onCha
             </button>
           </div>
         )}
+      </section>
+
+      {/* Create booking too — only meaningful when PMS pull is in scope */}
+      <section>
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-gray-200 bg-white">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <CurrencyDollarIcon className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <label
+              htmlFor="sync-create-bookings"
+              className={`flex items-center justify-between gap-3 ${
+                config.sources.includes('pms') ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+              }`}
+              title={
+                config.sources.includes('pms')
+                  ? undefined
+                  : 'Enable "PMS pull" above to use this option'
+              }
+            >
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  Also create booking records
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  For PMS-pulled cleanings, also create the underlying booking with rent, fees,
+                  and taxes from Hostaway. Useful when you want this date range to appear in
+                  your financial reports.
+                </p>
+              </div>
+              <button
+                id="sync-create-bookings"
+                type="button"
+                role="switch"
+                aria-checked={config.createBookings}
+                disabled={!config.sources.includes('pms')}
+                onClick={() =>
+                  config.sources.includes('pms') &&
+                  onChange({ ...config, createBookings: !config.createBookings })
+                }
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  config.createBookings && config.sources.includes('pms')
+                    ? 'bg-emerald-500'
+                    : 'bg-gray-200'
+                } disabled:cursor-not-allowed`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    config.createBookings && config.sources.includes('pms')
+                      ? 'translate-x-5'
+                      : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </label>
+            {config.createBookings && config.sources.includes('pms') && (
+              <p className="text-[11px] text-emerald-700 mt-2">
+                Hostaway candidates only. Hospitable candidates still create the cleaning project alone.
+              </p>
+            )}
+          </div>
+        </div>
       </section>
 
       {validationError && (

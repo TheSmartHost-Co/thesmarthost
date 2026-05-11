@@ -60,6 +60,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
     dateField: 'checkout',
     propertyIds: properties.map((p) => p.id),
     sources: ['local', 'pms'],
+    createBookings: false,
   }))
 
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -93,6 +94,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
       dateField: 'checkout',
       propertyIds: properties.map((p) => p.id),
       sources: ['local', 'pms'],
+      createBookings: false,
     })
     setPreviewLoading(false)
     setPreviewError(null)
@@ -170,7 +172,11 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
     for (let i = 0; i < chosen.length; i += APPLY_BATCH_SIZE) {
       const batch = chosen.slice(i, i + APPLY_BATCH_SIZE)
       try {
-        const res = await applyCleaningSync({ userId, candidates: batch })
+        const res = await applyCleaningSync({
+          userId,
+          candidates: batch,
+          createBookings: config.createBookings,
+        })
         if (res.status === 'success') {
           allResults.push(...res.data.results)
         } else {
@@ -193,7 +199,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
       onSyncComplete(created)
     }
     setStep('done')
-  }, [candidates, selectedKeys, userId, showNotification, onSyncComplete])
+  }, [candidates, selectedKeys, userId, config.createBookings, showNotification, onSyncComplete])
 
   if (!isOpen || !mounted) return null
 

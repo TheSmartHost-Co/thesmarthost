@@ -21,10 +21,13 @@ const DoneStep: React.FC<DoneStepProps> = ({ results, candidates, onClose, onOpe
     return m
   }, [candidates])
 
+  // A "created" result might have a projectId, a bookingId, or both.
+  // We show it whenever at least one record was created.
   const createdResults = useMemo(
-    () => results.filter((r): r is SyncApplyResultItem & { projectId: string } => r.outcome === 'created' && !!r.projectId),
+    () => results.filter((r) => r.outcome === 'created' && (!!r.projectId || !!r.bookingId)),
     [results]
   )
+  const anyBookings = useMemo(() => createdResults.some((r) => !!r.bookingId), [createdResults])
   const failuresAndSkips = useMemo(() => results.filter((r) => r.outcome !== 'created'), [results])
 
   const summary = {
@@ -67,19 +70,23 @@ const DoneStep: React.FC<DoneStepProps> = ({ results, candidates, onClose, onOpe
             onClick={() => setShowCreated((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-emerald-800 bg-emerald-50/50 hover:bg-emerald-50"
           >
-            <span>New cleaning projects ({createdResults.length})</span>
+            <span>
+              {anyBookings ? 'Created records' : 'New cleaning projects'} ({createdResults.length})
+            </span>
             <ChevronDownIcon className={`w-4 h-4 transition-transform ${showCreated ? 'rotate-180' : ''}`} />
           </button>
           {showCreated && (
             <ul className="max-h-64 overflow-y-auto border-t border-emerald-100 divide-y divide-emerald-50 bg-white">
               {createdResults.map((r) => {
                 const c = candidateMap.get(r.key)
-                const clickable = !!onOpenProject
+                const hasProject = !!r.projectId
+                const hasBooking = !!r.bookingId
+                const clickable = !!onOpenProject && hasProject
                 return (
                   <li key={r.key}>
                     <button
                       type="button"
-                      onClick={() => clickable && onOpenProject!(r.projectId)}
+                      onClick={() => clickable && onOpenProject!(r.projectId!)}
                       disabled={!clickable}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                         clickable ? 'hover:bg-emerald-50 cursor-pointer' : 'cursor-default'
@@ -94,9 +101,21 @@ const DoneStep: React.FC<DoneStepProps> = ({ results, candidates, onClose, onOpe
                           {c?.guestName ? ` · ${c.guestName}` : ''}
                         </p>
                       </div>
-                      {clickable && (
-                        <ArrowTopRightOnSquareIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      )}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {hasProject && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            cleaning
+                          </span>
+                        )}
+                        {hasBooking && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            + booking
+                          </span>
+                        )}
+                        {clickable && (
+                          <ArrowTopRightOnSquareIcon className="w-4 h-4 text-emerald-600" />
+                        )}
+                      </div>
                     </button>
                   </li>
                 )

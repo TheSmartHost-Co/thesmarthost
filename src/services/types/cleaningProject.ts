@@ -473,12 +473,14 @@ export interface SyncPreviewResponse {
 export interface SyncApplyPayload {
   userId: string
   candidates: SyncCandidate[]
+  createBookings?: boolean   // When true, also creates bookings for Hostaway PMS candidates
 }
 
 export interface SyncApplyResultItem {
   key: string
   outcome: SyncOutcome
-  projectId?: string
+  projectId?: string | null
+  bookingId?: string | null
   reason?: string
   existingProjectId?: string | null
 }
