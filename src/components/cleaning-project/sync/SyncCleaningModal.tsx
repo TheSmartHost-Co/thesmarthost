@@ -60,7 +60,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
     dateField: 'checkout',
     propertyIds: properties.map((p) => p.id),
     sources: ['local', 'pms'],
-    createBookings: false,
+    createBookings: true,
   }))
 
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -94,7 +94,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
       dateField: 'checkout',
       propertyIds: properties.map((p) => p.id),
       sources: ['local', 'pms'],
-      createBookings: false,
+      createBookings: true,
     })
     setPreviewLoading(false)
     setPreviewError(null)
