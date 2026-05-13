@@ -69,6 +69,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
   const [stats, setStats] = useState<SyncStats>({ new: 0, duplicate: 0, notManaged: 0, unmapped: 0 })
   const [warnings, setWarnings] = useState<string[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [overrideKeys, setOverrideKeys] = useState<Set<string>>(new Set())
 
   const [applyProgress, setApplyProgress] = useState({ done: 0, total: 0 })
   const [applyResults, setApplyResults] = useState<SyncApplyResultItem[]>([])
@@ -102,6 +103,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
     setStats({ new: 0, duplicate: 0, notManaged: 0, unmapped: 0 })
     setWarnings([])
     setSelectedKeys(new Set())
+    setOverrideKeys(new Set())
     setApplyProgress({ done: 0, total: 0 })
     setApplyResults([])
   }, [properties])
@@ -144,6 +146,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
       setWarnings(res.data.warnings || [])
       // Default-select all candidates with status='new'
       setSelectedKeys(new Set(res.data.candidates.filter((c) => c.status === 'new').map((c) => c.key)))
+      setOverrideKeys(new Set()) // fresh preview clears any prior override selections
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to preview sync'
       setPreviewError(msg)
@@ -159,7 +162,16 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
   }, [runPreview])
 
   const handleApply = useCallback(async () => {
-    const chosen = candidates.filter((c) => selectedKeys.has(c.key) && c.status === 'new' && c.propertyId)
+    // A candidate is "chosen" if it's either a normal selection (status='new')
+    // OR an explicit override on a duplicate row.
+    const chosen = candidates
+      .filter((c) => {
+        if (!c.propertyId) return false
+        if (overrideKeys.has(c.key)) return true
+        return selectedKeys.has(c.key) && c.status === 'new'
+      })
+      .map((c) => ({ ...c, override: overrideKeys.has(c.key) || undefined }))
+
     if (chosen.length === 0) {
       showNotification('Select at least one candidate to apply', 'info')
       return
@@ -199,7 +211,7 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
       onSyncComplete(created)
     }
     setStep('done')
-  }, [candidates, selectedKeys, userId, config.createBookings, showNotification, onSyncComplete])
+  }, [candidates, selectedKeys, overrideKeys, userId, config.createBookings, showNotification, onSyncComplete])
 
   if (!isOpen || !mounted) return null
 
@@ -308,6 +320,8 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
                   stats={stats}
                   warnings={warnings}
                   selectedKeys={selectedKeys}
+                  overrideKeys={overrideKeys}
+                  createBookings={config.createBookings}
                   onToggleKey={(key) => {
                     setSelectedKeys((prev) => {
                       const next = new Set(prev)
@@ -316,6 +330,36 @@ const SyncCleaningModal: React.FC<SyncCleaningModalProps> = ({
                       return next
                     })
                   }}
+                  onMarkOverride={(key) => {
+                    setOverrideKeys((prev) => new Set(prev).add(key))
+                  }}
+                  onUnmarkOverride={(key) => {
+                    setOverrideKeys((prev) => {
+                      const next = new Set(prev)
+                      next.delete(key)
+                      return next
+                    })
+                  }}
+                  onOverrideAllSafe={() => {
+                    // Bulk-mark all duplicates whose existing status is NOT in_progress/completed.
+                    // The dangerous statuses still require a per-row click + the safety modal.
+                    const SAFE = new Set(['pending', 'assigned', 'confirmed'])
+                    const eligible = candidates
+                      .filter(
+                        (c) =>
+                          c.status === 'duplicate' &&
+                          !!c.propertyId &&
+                          !!c.existingProjectId &&
+                          (!c.existingProjectStatus || SAFE.has(c.existingProjectStatus))
+                      )
+                      .map((c) => c.key)
+                    setOverrideKeys((prev) => {
+                      const next = new Set(prev)
+                      for (const k of eligible) next.add(k)
+                      return next
+                    })
+                  }}
+                  onClearOverrides={() => setOverrideKeys(new Set())}
                   onSelectAllNew={() => {
                     setSelectedKeys(new Set(candidates.filter((c) => c.status === 'new').map((c) => c.key)))
                   }}

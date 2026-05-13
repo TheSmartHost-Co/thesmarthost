@@ -102,6 +102,11 @@ const DoneStep: React.FC<DoneStepProps> = ({ results, candidates, onClose, onOpe
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {r.overrode && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                            overridden
+                          </span>
+                        )}
                         {hasProject && (
                           <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
                             cleaning

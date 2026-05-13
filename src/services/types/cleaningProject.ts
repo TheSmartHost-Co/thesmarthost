@@ -440,6 +440,11 @@ export interface SyncCandidate {
   status: SyncCandidateStatus
   existingProjectId: string | null
   existingProjectStatus: string | null
+  existingCleanerName?: string | null
+  existingBookingId?: string | null
+  // Client-side flag; when true and status==='duplicate', the apply step will
+  // soft-cancel the existing record(s) before creating fresh ones.
+  override?: boolean
 }
 
 export interface SyncStats {
@@ -483,6 +488,7 @@ export interface SyncApplyResultItem {
   bookingId?: string | null
   reason?: string
   existingProjectId?: string | null
+  overrode?: boolean
 }
 
 export interface SyncApplyResponse {

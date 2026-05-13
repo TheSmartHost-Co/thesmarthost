@@ -39,9 +39,9 @@ const daysBetween = (start: string, end: string): number => {
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
-const isoMinusDays = (d: number) => {
+const isoOffsetDays = (d: number) => {
   const t = new Date()
-  t.setDate(t.getDate() - d)
+  t.setDate(t.getDate() + d)
   return t.toISOString().slice(0, 10)
 }
 
@@ -57,8 +57,13 @@ const ConfigureStep: React.FC<ConfigureStepProps> = ({ config, properties, onCha
     return null
   }, [config])
 
-  const applyPreset = (days: number) => {
-    onChange({ ...config, startDate: isoMinusDays(days), endDate: todayIso() })
+  // Backward preset: from today-Ndays to today
+  const applyBackwardPreset = (days: number) => {
+    onChange({ ...config, startDate: isoOffsetDays(-days), endDate: todayIso() })
+  }
+  // Forward preset: from today to today+Ndays
+  const applyForwardPreset = (days: number) => {
+    onChange({ ...config, startDate: todayIso(), endDate: isoOffsetDays(days) })
   }
 
   const toggleSource = (s: SyncSource) => {
@@ -108,17 +113,39 @@ const ConfigureStep: React.FC<ConfigureStepProps> = ({ config, properties, onCha
             />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {[7, 14, 30, 60, 90].map((d) => (
             <button
-              key={d}
+              key={`back-${d}`}
               type="button"
-              onClick={() => applyPreset(d)}
+              onClick={() => applyBackwardPreset(d)}
               className="px-3 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-full transition-colors"
             >
               Last {d} days
             </button>
           ))}
+          <span className="w-px h-4 bg-gray-200 mx-1" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={() => applyForwardPreset(7)}
+            className="px-3 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors"
+          >
+            Next week
+          </button>
+          <button
+            type="button"
+            onClick={() => applyForwardPreset(14)}
+            className="px-3 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors"
+          >
+            Next 2 weeks
+          </button>
+          <button
+            type="button"
+            onClick={() => applyForwardPreset(30)}
+            className="px-3 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors"
+          >
+            Upcoming month
+          </button>
         </div>
       </section>
 

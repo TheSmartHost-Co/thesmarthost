@@ -1,13 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
   InformationCircleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import type { SyncCandidate, SyncStats } from '@/services/types/cleaningProject'
+import OverrideConfirmModal from '../OverrideConfirmModal'
 
 interface PreviewStepProps {
   loading: boolean
@@ -16,7 +19,13 @@ interface PreviewStepProps {
   stats: SyncStats
   warnings: string[]
   selectedKeys: Set<string>
+  overrideKeys: Set<string>
+  createBookings: boolean
   onToggleKey: (key: string) => void
+  onMarkOverride: (key: string) => void
+  onUnmarkOverride: (key: string) => void
+  onOverrideAllSafe: () => void
+  onClearOverrides: () => void
   onSelectAllNew: () => void
   onSelectNone: () => void
   onBack: () => void
@@ -43,13 +52,31 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   stats,
   warnings,
   selectedKeys,
+  overrideKeys,
+  createBookings,
   onToggleKey,
+  onMarkOverride,
+  onUnmarkOverride,
+  onOverrideAllSafe,
+  onClearOverrides,
   onSelectAllNew,
   onSelectNone,
   onBack,
   onApply,
   onRetry,
 }) => {
+  const [pendingOverride, setPendingOverride] = useState<SyncCandidate | null>(null)
+
+  // Count "safe" duplicates (eligible for one-click bulk override; in_progress/completed excluded)
+  const SAFE_STATUSES = new Set(['pending', 'assigned', 'confirmed'])
+  const safeDuplicateCount = candidates.filter(
+    (c) =>
+      c.status === 'duplicate' &&
+      !!c.propertyId &&
+      !!c.existingProjectId &&
+      (!c.existingProjectStatus || SAFE_STATUSES.has(c.existingProjectStatus))
+  ).length
+
   if (loading) {
     return (
       <div className="px-6 py-12 flex flex-col items-center justify-center">
@@ -85,6 +112,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   }
 
   const selectedCount = candidates.filter((c) => c.status === 'new' && selectedKeys.has(c.key)).length
+  const overrideCount = overrideKeys.size
+  const applyTotal = selectedCount + overrideCount
   const newCount = stats.new
 
   return (
@@ -120,8 +149,8 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
 
       {candidates.length > 0 && (
         <>
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <button onClick={onSelectAllNew} className="text-purple-600 hover:underline font-medium">
                 Select all new
               </button>
@@ -129,9 +158,34 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
               <button onClick={onSelectNone} className="text-gray-500 hover:underline">
                 Select none
               </button>
+              {(safeDuplicateCount > 0 || overrideCount > 0) && (
+                <>
+                  <span className="text-gray-300 hidden sm:inline">|</span>
+                  {safeDuplicateCount > 0 && (
+                    <button
+                      onClick={onOverrideAllSafe}
+                      className="text-amber-700 hover:underline font-medium"
+                      title="Bulk-mark all safe duplicates for override (pending/assigned/confirmed only — in-progress and completed still need per-row confirmation)"
+                    >
+                      Override all duplicates
+                    </button>
+                  )}
+                  {overrideCount > 0 && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <button onClick={onClearOverrides} className="text-gray-500 hover:underline">
+                        Clear overrides
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
             </div>
             <span className="text-gray-500">
               {selectedCount} of {newCount} new selected
+              {overrideCount > 0 && (
+                <span className="ml-2 text-amber-600 font-medium">· {overrideCount} to override</span>
+              )}
             </span>
           </div>
 
@@ -152,23 +206,53 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                   {candidates.map((c) => {
                     const isSelectable = c.status === 'new' && !!c.propertyId
                     const isSelected = selectedKeys.has(c.key)
+                    const isOverridable = c.status === 'duplicate' && !!c.propertyId && !!c.existingProjectId
+                    const isOverridden = overrideKeys.has(c.key)
+                    const rowOpacity = !isSelectable && !isOverridable && !isOverridden ? 'opacity-60' : ''
                     const sBadge = STATUS_BADGE[c.status]
                     const srcBadge = SOURCE_BADGE[c.source]
                     return (
                       <tr
                         key={c.key}
-                        className={`${isSelectable ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-60'}`}
+                        className={`${isSelectable ? 'hover:bg-gray-50 cursor-pointer' : ''} ${rowOpacity} ${isOverridden ? 'bg-amber-50/40' : ''}`}
                         onClick={() => isSelectable && onToggleKey(c.key)}
                       >
                         <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={!isSelectable}
-                            onChange={() => isSelectable && onToggleKey(c.key)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:bg-gray-100"
-                          />
+                          {isOverridable && isOverridden ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onUnmarkOverride(c.key)
+                              }}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                              title="Click to cancel override"
+                            >
+                              undo
+                            </button>
+                          ) : isOverridable ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPendingOverride(c)
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+                              title="Replace the existing record(s) with fresh data"
+                            >
+                              <ArrowPathIcon className="w-3 h-3" />
+                              Override
+                            </button>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={!isSelectable}
+                              onChange={() => isSelectable && onToggleKey(c.key)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:bg-gray-100"
+                            />
+                          )}
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-800">
                           {c.propertyName ? (
@@ -233,12 +317,23 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
         <button
           type="button"
           onClick={onApply}
-          disabled={selectedCount === 0}
+          disabled={applyTotal === 0}
           className="px-5 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          Apply {selectedCount > 0 ? `(${selectedCount})` : ''}
+          Apply {applyTotal > 0 ? `(${applyTotal})` : ''}
         </button>
       </div>
+
+      <OverrideConfirmModal
+        isOpen={!!pendingOverride}
+        candidate={pendingOverride}
+        createBookings={createBookings}
+        onConfirm={(key) => {
+          onMarkOverride(key)
+          setPendingOverride(null)
+        }}
+        onCancel={() => setPendingOverride(null)}
+      />
     </div>
   )
 }
