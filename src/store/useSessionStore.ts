@@ -1,19 +1,19 @@
 // store/useSessionStore.ts
-// Dedicated store for session error state
-// This enables instant modal display when session errors occur
+// Dedicated store for session error state.
+// When set, useSessionMonitor reacts by auto-logging-out and redirecting to /login?session=expired.
 
 import { create } from 'zustand'
 
 interface SessionStore {
   /**
-   * Current session error message, or null if no error
-   * When set, the SessionExpiredModal should appear immediately
+   * Current session error message, or null if no error.
+   * When set, useSessionMonitor triggers the auto-logout + redirect flow.
    */
   sessionError: string | null
 
   /**
-   * Set a session error - triggers the expired modal
-   * Called by apiClient when authentication fails
+   * Set a session error - triggers the auto-logout + redirect flow.
+   * Called by apiClient when authentication fails.
    */
   setSessionError: (message: string) => void
 
@@ -23,8 +23,8 @@ interface SessionStore {
   clearSessionError: () => void
 
   /**
-   * Flag to track if a session error has been triggered
-   * Prevents duplicate modal shows from multiple failed requests
+   * Flag to track if a session error has been triggered.
+   * Prevents duplicate auto-logouts from multiple failed requests firing in parallel.
    */
   hasTriggeredExpiration: boolean
 

@@ -1,6 +1,6 @@
 // services/sessionError.ts
-// Custom error class for session-related errors
-// When this error is thrown, the SessionExpiredModal will appear automatically
+// Custom error class for session-related errors.
+// When this error is thrown, useSessionMonitor auto-logs-out and redirects to /login?session=expired.
 
 /**
  * SessionError is thrown when authentication fails due to:
@@ -9,8 +9,8 @@
  * - Invalid session (token validation failed)
  * - 401/403 responses from the backend
  *
- * Components should check for this error type and silently ignore it,
- * as the SessionExpiredModal will appear automatically via the session store.
+ * Components should check for this error type and silently ignore it.
+ * useSessionMonitor will handle the logout + redirect via the session store.
  */
 export class SessionError extends Error {
   constructor(message: string) {
@@ -32,7 +32,7 @@ export class SessionError extends Error {
  * try {
  *   const res = await apiCall()
  * } catch (err) {
- *   if (isSessionError(err)) return // Modal will appear automatically
+ *   if (isSessionError(err)) return // Auto-logout + redirect handled by useSessionMonitor
  *   showNotification(err.message, 'error')
  * }
  * ```

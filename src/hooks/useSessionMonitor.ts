@@ -45,7 +45,6 @@ export function useSessionMonitor() {
   })
 
   const [showWarningModal, setShowWarningModal] = useState(false)
-  const [showExpiredModal, setShowExpiredModal] = useState(false)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const warningShownRef = useRef(false)
@@ -169,11 +168,11 @@ export function useSessionMonitor() {
       timerRef.current = null
     }
 
-    // STEP 4: Show expired modal (non-dismissible)
-    if (!showExpiredModal) {
-      setShowExpiredModal(true)
-    }
-  }, [supabase, clearProfile])
+    // STEP 4: Reset session error flag and redirect to login.
+    // The /login page reads ?session=expired and shows the toast.
+    clearSessionError()
+    router.push('/login?session=expired')
+  }, [supabase, clearProfile, clearSessionError, router])
 
   const handleRefreshSession = useCallback(async () => {
     try {
@@ -208,7 +207,6 @@ export function useSessionMonitor() {
       clearProfile()
       clearSessionError()
       setShowWarningModal(false)
-      setShowExpiredModal(false)
       router.push('/login')
     } catch (error) {
       console.error('Sign out failed:', error)
@@ -218,13 +216,6 @@ export function useSessionMonitor() {
       router.push('/login')
     }
   }, [supabase, clearProfile, clearSessionError, router])
-
-  const handleLoginRedirect = useCallback(() => {
-    setShowExpiredModal(false)
-    // Clear session store error state
-    clearSessionError()
-    router.push('/login?session=expired')
-  }, [router, clearSessionError])
 
   // Session monitoring setup
   useEffect(() => {
@@ -331,22 +322,20 @@ export function useSessionMonitor() {
     }
   }, [])
 
-  // Watch session store for errors set by apiClient
-  // This enables INSTANT modal display when session errors occur
+  // Watch session store for errors set by apiClient.
+  // Triggers the auto-logout + redirect path when a session error appears.
+  // Duplicate triggers are prevented by `hasTriggeredExpiration` inside useSessionStore.
   useEffect(() => {
-    if (sessionError && !showExpiredModal && !isLoggingOut()) {
+    if (sessionError && !isLoggingOut()) {
       handleSessionExpired()
     }
-  }, [sessionError, showExpiredModal, handleSessionExpired])
+  }, [sessionError, handleSessionExpired])
 
   return {
     sessionStatus,
     showWarningModal,
-    showExpiredModal,
     onRefreshSession: handleRefreshSession,
     onSignOut: handleSignOut,
-    onLoginRedirect: handleLoginRedirect,
     onDismissWarning: handleDismissWarning,
-    onDismissExpired: () => setShowExpiredModal(false)
   }
 }

@@ -5,7 +5,6 @@ import Notification from '../../components/shared/notification'
 import UserNavbar from '../../components/navbar/UserNavbar'
 import { useSessionMonitor } from '@/hooks/useSessionMonitor'
 import { SessionWarningModal } from '@/components/session/SessionWarningModal'
-import { SessionExpiredModal } from '@/components/session/SessionExpiredModal'
 import PatchNotesModal from '@/components/patch-notes/PatchNotesModal'
 import { usePatchNotesPopup } from '@/hooks/usePatchNotesPopup'
 import { useLanguageSync } from '@/hooks/useLanguageSync'
@@ -27,10 +26,8 @@ export default function UserLayout({
   const {
     sessionStatus,
     showWarningModal,
-    showExpiredModal,
     onRefreshSession,
     onSignOut,
-    onLoginRedirect,
     onDismissWarning,
   } = useSessionMonitor()
 
@@ -60,11 +57,6 @@ export default function UserLayout({
         onContinueSession={onRefreshSession}
         onSignOut={onSignOut}
         onClose={onDismissWarning}
-      />
-      
-      <SessionExpiredModal
-        isOpen={showExpiredModal}
-        onSignIn={onLoginRedirect}
       />
 
       {/* Patch Notes Popup */}
