@@ -216,6 +216,13 @@ export interface QbStepOverrides {
   isBillable: boolean
   description: string
   includeReceipt: boolean
+  /**
+   * Line-level ItemRef for the QBO Product/Service column. Pre-filled by
+   * computeInitialStepValue from the connection-level override or a token
+   * match against defaults.qbItems. '' = explicit "None — don't attach
+   * a Product/Service" (line falls back to AccountBasedExpenseLineDetail).
+   */
+  qbItemId: string
 }
 
 /**
@@ -229,6 +236,8 @@ export interface QbDefaults {
   paymentAccounts: QbPaymentAccount[]
   qbCustomers: QbCustomer[]
   qbClasses: QbClass[]
+  /** List of Service/NonInventory items, used by the per-expense Product/Service picker. */
+  qbItems: QbItem[]
   accountMappings: QbAccountMapping[]
   classMappings: PropertyClassMapping[]
   taxMappings: TaxCodeMapping[]
@@ -236,6 +245,9 @@ export interface QbDefaults {
   connectionDefaultEntityType: QbEntityType
   defaultPaymentAccountId: string | null
   defaultPaymentAccountName: string | null
+  /** Connection-level billable Item override from Settings (Phase 1). */
+  billableItemId: string | null
+  billableItemName: string | null
 }
 
 // Sync endpoint payloads + responses
@@ -254,6 +266,13 @@ export interface SyncExpensePayload {
   isBillable?: boolean
   /** Per-send override for the line description / PrivateNote prefix. Transient. */
   description?: string
+  /**
+   * Per-send override for the line-level Product/Service ItemRef. Three states:
+   *   undefined (field absent) → backend auto-resolves via resolveBillableItemId
+   *   '' (empty string)        → explicit "None" — line falls back to AccountBased
+   *   '<item id>'              → use that QBO Item ID
+   */
+  qbItemId?: string | null
 }
 
 export interface SyncExpenseResult {
@@ -329,6 +348,8 @@ export interface BulkSyncItem {
   isBillable: boolean
   description: string
   includeReceipt: boolean
+  /** Empty/null = no Product/Service ref on the line (falls back to AccountBased). */
+  qbItemId: string | null
 }
 
 export interface BulkSyncPayload {

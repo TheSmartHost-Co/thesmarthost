@@ -1,4 +1,4 @@
-import type { QbDefaults, QbStepOverrides } from '@/services/types/quickbooks'
+import type { QbDefaults, QbItem, QbStepOverrides } from '@/services/types/quickbooks'
 
 /**
  * Per-expense context used to compute initial step values.
@@ -13,6 +13,26 @@ export interface QbStepExpenseContext {
   propertyId?: string | null
   /** Drives the initial customerId via case-insensitive displayName match. */
   primaryOwnerName?: string | null
+}
+
+/**
+ * Tokens that identify QBO's "Client billable expense" Item (or its equivalent
+ * in non-English / accountant-renamed charts). Specificity-ordered: most
+ * specific token first wins on multi-match. Mirrors BILLABLE_ITEM_TOKENS in
+ * services/quickbooksSyncService.js — keep both lists in sync.
+ */
+const BILLABLE_ITEM_TOKENS = [
+  'client billable expense',
+  'billable expense',
+  'reimbursable expense',
+] as const
+
+function findBillableItem(items: QbItem[]): QbItem | null {
+  for (const token of BILLABLE_ITEM_TOKENS) {
+    const match = items.find((i) => i.name.toLowerCase().includes(token))
+    if (match) return match
+  }
+  return null
 }
 
 /**
@@ -49,6 +69,17 @@ export function computeInitialStepValue(
     if (match) customerId = match.id
   }
 
+  // Item precedence: connection-level override > name-token match > '' (None).
+  // Pre-filled here so the picker opens with the resolved default selected;
+  // user can change it per-send via the SearchableSelect in SendToQbStep.
+  let qbItemId = ''
+  if (defaults.billableItemId) {
+    qbItemId = defaults.billableItemId
+  } else {
+    const itemMatch = findBillableItem(defaults.qbItems)
+    if (itemMatch) qbItemId = itemMatch.id
+  }
+
   return {
     qbEntityType: defaults.connectionDefaultEntityType,
     qbAccountId: mappedAccount?.qbAccountId ?? '',
@@ -58,6 +89,7 @@ export function computeInitialStepValue(
     isBillable: true,
     description: expense.expenseDescription ?? '',
     includeReceipt: expense.hasReceipt,
+    qbItemId,
   }
 }
 
