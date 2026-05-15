@@ -15,6 +15,14 @@ export interface QbConnection {
   /** Top-level AccountRef for Purchase entities (Bank/CreditCard/Cash). */
   defaultPaymentAccountId?: string | null
   defaultPaymentAccountName?: string | null
+  /**
+   * Line-level ItemRef used on billable expense lines so the Product/Service
+   * column propagates to the Invoice line when the expense is added from
+   * QBO's billable-expense panel. When null, the sync service auto-detects
+   * by name token ("Client billable expense" / "Billable expense").
+   */
+  billableItemId?: string | null
+  billableItemName?: string | null
   lastSyncAt?: string | null
   status?: 'active' | 'expired' | 'inactive' | string
   accessTokenExpiresAt?: string | null
@@ -69,6 +77,27 @@ export interface QbClass {
   id: string
   name: string
   fullyQualifiedName?: string
+}
+
+/**
+ * QBO Item entity (Product or Service). Used on billable expense lines as
+ * the line-level ItemRef so the Product/Service column propagates to the
+ * Invoice line when added from QBO's billable-expense panel.
+ *
+ * Backend filters out Items of Type 'Category' (parent groupings — not
+ * pickable on a transaction line) and 'Inventory' (would trigger
+ * inventory-asset bookkeeping on a Purchase, wrong for passthrough billable
+ * expenses). `expenseAccountId/Name` come back so the settings UI can warn
+ * when the Item's GL posting account differs from the user's mapped
+ * category account.
+ */
+export interface QbItem {
+  id: string
+  name: string
+  type: 'Service' | 'NonInventory'
+  fullyQualifiedName?: string
+  expenseAccountId?: string | null
+  expenseAccountName?: string | null
 }
 
 /**
@@ -153,6 +182,7 @@ export interface QbAccountMappingResponse {
 export interface QbCustomersResponse { status: 'success' | 'failed'; message?: string; data: QbCustomer[] }
 export interface QbClassesResponse   { status: 'success' | 'failed'; message?: string; data: QbClass[] }
 export interface QbTaxCodesResponse  { status: 'success' | 'failed'; message?: string; data: QbTaxCode[] }
+export interface QbItemsResponse     { status: 'success' | 'failed'; message?: string; data: QbItem[] }
 
 // Property → Class mapping responses
 export interface PropertyClassMappingsResponse { status: 'success' | 'failed'; message?: string; data: PropertyClassMapping[] }
@@ -348,6 +378,8 @@ export interface QbToggleResponse {
     defaultQbEntityType?: QbEntityType
     defaultPaymentAccountId?: string | null
     defaultPaymentAccountName?: string | null
+    billableItemId?: string | null
+    billableItemName?: string | null
   }
 }
 
