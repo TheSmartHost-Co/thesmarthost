@@ -1,14 +1,19 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { getUnreadCount } from '@/services/notificationCenterService'
 import { useNotificationCenterStore } from '@/store/useNotificationCenterStore'
 
-const POLL_INTERVAL_MS = 30_000 // 30 seconds
+// Backstop only — event-driven polls (mount, focus, navigation) handle
+// the common case. This catches users who sit on a page for long
+// stretches without focus changes or navigation.
+const POLL_INTERVAL_MS = 5 * 60_000 // 5 minutes
 
 export function useNotificationPolling() {
   const setUnreadCount = useNotificationCenterStore((s) => s.setUnreadCount)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const pathname = usePathname()
 
   const poll = useCallback(async () => {
     try {
@@ -20,6 +25,11 @@ export function useNotificationPolling() {
       // Silently ignore polling errors — session monitor handles auth issues
     }
   }, [setUnreadCount])
+
+  // Re-poll on route changes (event-driven)
+  useEffect(() => {
+    poll()
+  }, [pathname, poll])
 
   useEffect(() => {
     // Initial poll
