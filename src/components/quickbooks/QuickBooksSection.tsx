@@ -434,7 +434,7 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
               <div className="p-3 bg-white border border-gray-200 rounded-xl space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-gray-900">
-                    Billable expense item
+                    Default Product/service for billable expenses
                   </div>
                   {connection?.billableItemName && (
                     <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
@@ -443,10 +443,11 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
                   )}
                 </div>
                 <div className="text-xs text-gray-500">
-                  The QuickBooks Product/Service used on billable expense lines, so the
-                  Product/Service column populates when you add them to an Invoice.
-                  By default we automatically pick your &ldquo;Client billable expense&rdquo; item —
-                  only override here if your item is named something else.
+                  Pre-fills the <span className="font-medium">Product/service</span> field
+                  whenever you open <span className="font-medium">Send to QuickBooks</span> on a
+                  billable expense. You can still change it (or pick &ldquo;None&rdquo;) for individual
+                  expenses when you send them. If you don&apos;t pick one here, we&apos;ll auto-detect
+                  your &ldquo;Client billable expense&rdquo; item by name.
                 </div>
                 {!connection?.billableItemId && autoDetectedItem && (
                   <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5">

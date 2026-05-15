@@ -300,8 +300,7 @@ export default function SendToQbStep({
       {value.isBillable && (
         <div>
           <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-            Product/service{' '}
-            <span className="text-[10px] font-normal lowercase text-gray-500">(optional)</span>
+            Product/service
           </label>
           <SearchableSelect<string>
             options={itemOptions}
@@ -312,11 +311,14 @@ export default function SendToQbStep({
             emptyText="No items in your QuickBooks company"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Auto-populates the Product/service column on Invoices created from this billable expense.
-            {isAutoDetectedDefault && (
-              <span className="ml-1 text-emerald-700">(default from your QuickBooks settings)</span>
-            )}
+            Shows up in QuickBooks&apos; <span className="font-medium">Product/service</span> column when
+            you add this expense to a customer&apos;s invoice. Pick &ldquo;None&rdquo; to leave it blank.
           </p>
+          {isAutoDetectedDefault && (
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Using your default from Settings → QuickBooks
+            </p>
+          )}
         </div>
       )}
 
