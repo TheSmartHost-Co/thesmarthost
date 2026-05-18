@@ -18,6 +18,7 @@ import enCleanerPortal from '../../public/locales/en/cleanerPortal.json'
 import enClientPortal from '../../public/locales/en/clientPortal.json'
 import enAuth from '../../public/locales/en/auth.json'
 import enErrors from '../../public/locales/en/errors.json'
+import enAudit from '../../public/locales/en/audit.json'
 
 import frCommon from '../../public/locales/fr/common.json'
 import frNav from '../../public/locales/fr/nav.json'
@@ -34,6 +35,7 @@ import frCleanerPortal from '../../public/locales/fr/cleanerPortal.json'
 import frClientPortal from '../../public/locales/fr/clientPortal.json'
 import frAuth from '../../public/locales/fr/auth.json'
 import frErrors from '../../public/locales/fr/errors.json'
+import frAudit from '../../public/locales/fr/audit.json'
 
 import esCommon from '../../public/locales/es/common.json'
 import esNav from '../../public/locales/es/nav.json'
@@ -50,6 +52,7 @@ import esCleanerPortal from '../../public/locales/es/cleanerPortal.json'
 import esClientPortal from '../../public/locales/es/clientPortal.json'
 import esAuth from '../../public/locales/es/auth.json'
 import esErrors from '../../public/locales/es/errors.json'
+import esAudit from '../../public/locales/es/audit.json'
 
 export const SUPPORTED_LANGUAGES = ['en', 'fr', 'es'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
@@ -73,7 +76,7 @@ i18n
     ns: [
       'common', 'nav', 'settings', 'dashboard', 'properties', 'clients',
       'bookings', 'reports', 'analytics', 'expenses', 'turnover',
-      'cleanerPortal', 'clientPortal', 'auth', 'errors',
+      'cleanerPortal', 'clientPortal', 'auth', 'errors', 'audit',
     ],
     defaultNS: 'common',
 
@@ -83,21 +86,21 @@ i18n
         properties: enProperties, clients: enClients, bookings: enBookings,
         reports: enReports, analytics: enAnalytics, expenses: enExpenses,
         turnover: enTurnover, cleanerPortal: enCleanerPortal, clientPortal: enClientPortal,
-        auth: enAuth, errors: enErrors,
+        auth: enAuth, errors: enErrors, audit: enAudit,
       },
       fr: {
         common: frCommon, nav: frNav, settings: frSettings, dashboard: frDashboard,
         properties: frProperties, clients: frClients, bookings: frBookings,
         reports: frReports, analytics: frAnalytics, expenses: frExpenses,
         turnover: frTurnover, cleanerPortal: frCleanerPortal, clientPortal: frClientPortal,
-        auth: frAuth, errors: frErrors,
+        auth: frAuth, errors: frErrors, audit: frAudit,
       },
       es: {
         common: esCommon, nav: esNav, settings: esSettings, dashboard: esDashboard,
         properties: esProperties, clients: esClients, bookings: esBookings,
         reports: esReports, analytics: esAnalytics, expenses: esExpenses,
         turnover: esTurnover, cleanerPortal: esCleanerPortal, clientPortal: esClientPortal,
-        auth: esAuth, errors: esErrors,
+        auth: esAuth, errors: esErrors, audit: esAudit,
       },
     },
 

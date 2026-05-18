@@ -24,6 +24,7 @@ export const PERMISSION_KEYS = [
   'automation_review_nudge',
   'automation_guest_review',
   'automation_message',
+  'audit',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -56,6 +57,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   automation_review_nudge: 'AI Automations: Review Nudge',
   automation_guest_review: 'AI Automations: Guest Review',
   automation_message: 'AI Automations: Messaging',
+  audit: 'Audit Log',
 }
 
 // Default permissions for new team members (deny by default)
@@ -84,6 +86,7 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   automation_review_nudge: 'none',
   automation_guest_review: 'none',
   automation_message: 'none',
+  audit: 'none',
 }
 
 // Preset templates for common team member roles
@@ -122,6 +125,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       automation_review_nudge: 'read-write',
       automation_guest_review: 'read-write',
       automation_message: 'read-write',
+      audit: 'none',
     },
   },
   reports_only: {
@@ -152,6 +156,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       automation_review_nudge: 'none',
       automation_guest_review: 'none',
       automation_message: 'none',
+      audit: 'none',
     },
   },
   read_only: {
@@ -182,6 +187,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       automation_review_nudge: 'read',
       automation_guest_review: 'read',
       automation_message: 'read',
+      audit: 'none',
     },
   },
   operations: {
@@ -212,6 +218,7 @@ export const PERMISSION_TEMPLATES: Record<string, PermissionTemplate> = {
       automation_review_nudge: 'read-write',
       automation_guest_review: 'read-write',
       automation_message: 'read-write',
+      audit: 'none',
     },
   },
   custom: {

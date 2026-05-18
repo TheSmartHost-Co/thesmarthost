@@ -1,0 +1,88 @@
+{
+  "title": "Audit Log",
+  "subtitle": "Trace mutations across bookings, cleaning projects, and incoming bookings.",
+  "noHistory": "No history recorded yet.",
+  "loading": "Loading…",
+  "noResults": "No results. Adjust your filters and try again.",
+  "promptToSearch": "Set filters and click Search to query the audit log.",
+  "error": "Failed to load audit data.",
+  "entityType": {
+    "booking": "Booking",
+    "cleaning_project": "Cleaning project",
+    "incoming_booking": "Incoming booking"
+  },
+  "action": {
+    "create": "Create",
+    "update": "Update",
+    "delete": "Delete"
+  },
+  "actorType": {
+    "user": "User",
+    "webhook": "Webhook",
+    "cron": "Cron",
+    "system": "System"
+  },
+  "filters": {
+    "any": "(any)",
+    "entity": "Entity",
+    "action": "Action",
+    "actorType": "Actor type",
+    "actorSource": "Actor source",
+    "entityId": "Entity ID",
+    "actorId": "Actor ID",
+    "from": "From",
+    "to": "To"
+  },
+  "buttons": {
+    "search": "Search",
+    "reset": "Reset",
+    "trace": "Trace",
+    "prev": "Previous",
+    "next": "Next",
+    "viewTrace": "View trace",
+    "retry": "Retry"
+  },
+  "table": {
+    "when": "When",
+    "entity": "Entity",
+    "action": "Action",
+    "actor": "Actor",
+    "changedFields": "Changed fields"
+  },
+  "trace": {
+    "title": "Causation trace",
+    "tree": "Tree",
+    "flat": "Flat",
+    "empty": "No events found for this correlation_id.",
+    "eventCount": "{{count}} events in trace",
+    "eventCount_one": "{{count}} event in trace",
+    "cols": {
+      "time": "Time",
+      "entity": "Entity",
+      "action": "Action",
+      "actor": "Actor",
+      "label": "Label"
+    }
+  },
+  "panel": {
+    "title": "Audit Log",
+    "recordTitle": "Record history",
+    "noFieldChanges": "No field-level changes recorded.",
+    "fieldHeader": "Field",
+    "beforeHeader": "Before",
+    "afterHeader": "After",
+    "metadata": "Metadata",
+    "webhookPayload": "Webhook payload"
+  },
+  "cascade": {
+    "relinkNextBooking": "Re-linked next booking",
+    "dragProjectDateForCheckoutChange": "Dragged project date (checkout changed)",
+    "adaptProjectDateForCheckinChange": "Adapted project date (check-in changed)",
+    "autoRescheduleForNewBooking": "Auto-rescheduled for new booking",
+    "cancelOnBookingDeletedOrCancelled": "Cancelled (booking gone)",
+    "cancelOnScheduleConflict": "Cancelled (schedule conflict)"
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} of {{total}}"
+  }
+}

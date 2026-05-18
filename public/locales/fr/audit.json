@@ -1,0 +1,88 @@
+{
+  "title": "Journal d'audit",
+  "subtitle": "Tracez les modifications des réservations, projets de ménage et réservations entrantes.",
+  "noHistory": "Aucun historique enregistré pour le moment.",
+  "loading": "Chargement…",
+  "noResults": "Aucun résultat. Ajustez vos filtres et réessayez.",
+  "promptToSearch": "Définissez les filtres et cliquez sur Rechercher pour interroger le journal d'audit.",
+  "error": "Échec du chargement des données d'audit.",
+  "entityType": {
+    "booking": "Réservation",
+    "cleaning_project": "Projet de ménage",
+    "incoming_booking": "Réservation entrante"
+  },
+  "action": {
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "delete": "Supprimer"
+  },
+  "actorType": {
+    "user": "Utilisateur",
+    "webhook": "Webhook",
+    "cron": "Cron",
+    "system": "Système"
+  },
+  "filters": {
+    "any": "(tous)",
+    "entity": "Entité",
+    "action": "Action",
+    "actorType": "Type d'acteur",
+    "actorSource": "Source de l'acteur",
+    "entityId": "ID de l'entité",
+    "actorId": "ID de l'acteur",
+    "from": "Du",
+    "to": "Au"
+  },
+  "buttons": {
+    "search": "Rechercher",
+    "reset": "Réinitialiser",
+    "trace": "Tracer",
+    "prev": "Précédent",
+    "next": "Suivant",
+    "viewTrace": "Voir la trace",
+    "retry": "Réessayer"
+  },
+  "table": {
+    "when": "Quand",
+    "entity": "Entité",
+    "action": "Action",
+    "actor": "Acteur",
+    "changedFields": "Champs modifiés"
+  },
+  "trace": {
+    "title": "Trace de causalité",
+    "tree": "Arborescence",
+    "flat": "Liste",
+    "empty": "Aucun événement trouvé pour ce correlation_id.",
+    "eventCount": "{{count}} événements dans la trace",
+    "eventCount_one": "{{count}} événement dans la trace",
+    "cols": {
+      "time": "Heure",
+      "entity": "Entité",
+      "action": "Action",
+      "actor": "Acteur",
+      "label": "Étiquette"
+    }
+  },
+  "panel": {
+    "title": "Journal d'audit",
+    "recordTitle": "Historique de l'enregistrement",
+    "noFieldChanges": "Aucune modification de champ enregistrée.",
+    "fieldHeader": "Champ",
+    "beforeHeader": "Avant",
+    "afterHeader": "Après",
+    "metadata": "Métadonnées",
+    "webhookPayload": "Charge utile du webhook"
+  },
+  "cascade": {
+    "relinkNextBooking": "Réservation suivante reliée à nouveau",
+    "dragProjectDateForCheckoutChange": "Date du projet déplacée (changement de départ)",
+    "adaptProjectDateForCheckinChange": "Date du projet adaptée (changement d'arrivée)",
+    "autoRescheduleForNewBooking": "Reprogrammé automatiquement pour une nouvelle réservation",
+    "cancelOnBookingDeletedOrCancelled": "Annulé (réservation supprimée)",
+    "cancelOnScheduleConflict": "Annulé (conflit d'horaire)"
+  },
+  "pagination": {
+    "range": "{{start}}–{{end}} sur {{total}}"
+  }
+}

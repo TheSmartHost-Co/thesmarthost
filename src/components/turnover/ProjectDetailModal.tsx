@@ -33,6 +33,7 @@ import {
 import Modal from '@/components/shared/modal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import AuditHistoryPanel from '@/components/audit/AuditHistoryPanel'
 import {
   assignCleanerToProject,
   updateCleaningProject,
@@ -105,7 +106,7 @@ export default function ProjectDetailModal({
   const { t } = useTranslation('turnover')
   const showNotification = useNotificationStore((state) => state.showNotification)
   const user = useUserStore((state) => state.profile)
-  const { canWrite } = usePermissions()
+  const { canWrite, isPM } = usePermissions()
   const hasWrite = canWrite('turnover')
   const [isAssigning, setIsAssigning] = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState(project.cleanerId || '')
@@ -1416,6 +1417,13 @@ export default function ProjectDetailModal({
               </div>
             )}
           </div>
+
+          {/* Audit Log — PM/ADMIN only */}
+          {isPM && project.id && (
+            <div className="pt-4 border-t border-gray-100">
+              <AuditHistoryPanel entityType="cleaning_project" entityId={project.id} />
+            </div>
+          )}
         </div>
 
         {/* Footer */}

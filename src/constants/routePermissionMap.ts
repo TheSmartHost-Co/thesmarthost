@@ -28,6 +28,7 @@ export const ROUTE_PERMISSION_MAP: Record<string, PermissionKey> = {
   '/property-manager/ai-automations/review-nudge': 'automation_review_nudge',
   '/property-manager/ai-automations/guest-review': 'automation_guest_review',
   '/property-manager/ai-automations/message-automation': 'automation_message',
+  '/property-manager/audit': 'audit',
 }
 
 // Maps sidebar item hrefs to permission keys (same data, different index)

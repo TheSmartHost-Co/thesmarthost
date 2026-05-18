@@ -160,6 +160,7 @@ export const managerNavConfig: SidebarNavConfig = {
     { name: 'clientPortal', href: '/property-manager/client-portal', icon: UserGroupIcon },
     { name: 'teamMembers', href: '/property-manager/team', icon: UsersIcon },
     { name: 'timeSheet', href: '/property-manager/time-sheet', icon: ClockIcon },
+    { name: 'auditLog', href: '/property-manager/audit', icon: ClipboardDocumentListIcon },
     { name: 'settings', href: '/property-manager/settings', icon: CogIcon },
   ],
 }
@@ -191,6 +192,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'guestReview', href: '/property-manager/ai-automations/guest-review', icon: StarIcon },
   { name: 'messageAutomation', href: '/property-manager/ai-automations/message-automation', icon: ChatBubbleLeftRightIcon },
   { name: 'whatsNew', href: '/property-manager/whats-new', icon: SparklesIcon },
+  { name: 'auditLog', href: '/property-manager/audit', icon: ClipboardDocumentListIcon },
   { name: 'settings', href: '/property-manager/settings', icon: CogIcon },
 ]
 

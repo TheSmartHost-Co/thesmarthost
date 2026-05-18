@@ -10,6 +10,7 @@ import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
 import { usePermissions } from '@/hooks/usePermissions'
+import AuditHistoryPanel from '@/components/audit/AuditHistoryPanel'
 import { parseLocalDate } from '@/utils/dateUtils'
 import { isReservedName } from '@/utils/bookingUtils'
 
@@ -32,7 +33,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
 }) => {
   const [fieldChanges, setFieldChanges] = useState<FieldValueChanged[]>([])
   const [loadingFieldChanges, setLoadingFieldChanges] = useState(false)
-  const { effectiveUserId } = usePermissions()
+  const { effectiveUserId, isPM } = usePermissions()
 
   // Load field changes when modal opens
   useEffect(() => {
@@ -352,6 +353,13 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Audit Log (comprehensive change history — PM/ADMIN only) */}
+      {isPM && booking.id && (
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <AuditHistoryPanel entityType="booking" entityId={booking.id} />
+        </div>
+      )}
 
       {/* Metadata */}
       <div className="mb-6">
