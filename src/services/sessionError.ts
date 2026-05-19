@@ -1,16 +1,16 @@
 // services/sessionError.ts
 // Custom error class for session-related errors.
-// When this error is thrown, useSessionMonitor auto-logs-out and redirects to /login?session=expired.
+// When this error is thrown, apiClient has already performed cleanup
+// (Supabase signOut + user store clear) and hard-redirected to /login?session=expired.
 
 /**
- * SessionError is thrown when authentication fails due to:
- * - Expired session (access token expired)
- * - Missing session (no active login)
- * - Invalid session (token validation failed)
- * - 401/403 responses from the backend
+ * SessionError is thrown when authentication fails terminally:
+ * - Refresh token expired/revoked
+ * - 401 after a silent-refresh-retry that also failed
+ * - Supabase reports no active session and refresh can't recover one
  *
- * Components should check for this error type and silently ignore it.
- * useSessionMonitor will handle the logout + redirect via the session store.
+ * Components should check for this error type and silently ignore it —
+ * the user is already on their way to /login.
  */
 export class SessionError extends Error {
   constructor(message: string) {
@@ -32,7 +32,7 @@ export class SessionError extends Error {
  * try {
  *   const res = await apiCall()
  * } catch (err) {
- *   if (isSessionError(err)) return // Auto-logout + redirect handled by useSessionMonitor
+ *   if (isSessionError(err)) return // apiClient has already redirected to /login
  *   showNotification(err.message, 'error')
  * }
  * ```

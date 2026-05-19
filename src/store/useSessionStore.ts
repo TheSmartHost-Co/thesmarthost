@@ -1,19 +1,21 @@
 // store/useSessionStore.ts
-// Dedicated store for session error state.
-// When set, useSessionMonitor reacts by auto-logging-out and redirecting to /login?session=expired.
+// Vestigial store: kept as a trace point for debugging session-failure paths.
+// apiClient still writes here at terminal-failure spots before performing the
+// auth cleanup + hard redirect itself. No active UI subscriber after the
+// useSessionMonitor hook was removed in favor of trusting Supabase auto-refresh.
 
 import { create } from 'zustand'
 
 interface SessionStore {
   /**
-   * Current session error message, or null if no error.
-   * When set, useSessionMonitor triggers the auto-logout + redirect flow.
+   * Most recent session error message, or null if none.
+   * Set by apiClient when a terminal auth failure occurs; not read by any UI.
    */
   sessionError: string | null
 
   /**
-   * Set a session error - triggers the auto-logout + redirect flow.
-   * Called by apiClient when authentication fails.
+   * Record a session error. apiClient sets this just before its hard redirect
+   * to /login?session=expired so the failure mode is visible in devtools/store.
    */
   setSessionError: (message: string) => void
 

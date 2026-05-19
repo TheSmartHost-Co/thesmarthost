@@ -188,6 +188,7 @@ export default function SendToQbWizard({
     const paymentIds = new Set(defaults.paymentAccounts.map((a) => a.id))
     const customerIds = new Set(defaults.qbCustomers.map((c) => c.id))
     const classIds = new Set(defaults.qbClasses.map((c) => c.id))
+    const itemIds = new Set(defaults.qbItems.map((i) => i.id))
 
     let staleAny = false
     const restored = draft.stepStates.map((s) => {
@@ -208,6 +209,10 @@ export default function SendToQbWizard({
       }
       if (ov.classId && !classIds.has(ov.classId)) {
         ov = { ...ov, classId: '' }
+        changed = true
+      }
+      if (ov.qbItemId && !itemIds.has(ov.qbItemId)) {
+        ov = { ...ov, qbItemId: '' }
         changed = true
       }
       if (changed) {
@@ -331,6 +336,10 @@ export default function SendToQbWizard({
             isBillable: ov.isBillable,
             description: ov.description,
             includeReceipt: ov.includeReceipt,
+            // qbItemId: send only when billable (the picker is hidden when not).
+            // '' = explicit None → backend skips the Item for this line.
+            // '<id>' = use that Item. The wizard never sends `undefined`.
+            qbItemId: ov.isBillable ? ov.qbItemId || '' : '',
           }
         })
 

@@ -5,6 +5,7 @@ import { ValidationError } from '@/services/validationError'
 import { BackendError } from '@/services/backendError'
 import { getSessionStore } from '@/store/useSessionStore'
 import { useImpersonationStore } from '@/store/useImpersonationStore'
+import { useUserStore } from '@/store/useUserStore'
 
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -57,6 +58,22 @@ export const sessionEvents = {
   }
 }
 
+// Final cleanup when refresh truly fails: clear Supabase session, clear user store,
+// and hard-redirect to login. Guarded against running on /login (avoids loops).
+async function performAuthCleanup() {
+  if (typeof window === 'undefined') return
+  if (window.location.pathname.startsWith('/login')) return
+
+  const supabase = getSupabaseClient()
+  try {
+    await supabase.auth.signOut()
+  } catch (err) {
+    console.warn('signOut during auth cleanup failed (continuing):', err)
+  }
+  useUserStore.getState().clearProfile()
+  window.location.href = '/login?session=expired'
+}
+
 interface ApiClientOptions<T = unknown> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: T;
@@ -79,9 +96,9 @@ async function apiClient<T, B = unknown>(
 
     if (sessionError) {
       console.error('Session error:', sessionError)
-      // Set store state to trigger modal immediately
       getSessionStore().setSessionError('Authentication error - please sign in again')
       sessionEvents.emit('session-invalid')
+      await performAuthCleanup()
       throw new SessionError('Authentication error')
     }
 
@@ -95,9 +112,9 @@ async function apiClient<T, B = unknown>(
 
       if (refreshError) {
         console.error('Session refresh failed:', refreshError)
-        // Set store state to trigger modal immediately
         getSessionStore().setSessionError('Session expired - please sign in again')
         sessionEvents.emit('session-expired')
+        await performAuthCleanup()
         throw new SessionError('Session expired - please log in again')
       }
 
@@ -107,9 +124,9 @@ async function apiClient<T, B = unknown>(
         console.log('✅ Session recovered via refresh')
       } else {
         console.log('❌ No session after refresh attempt')
-        // Set store state to trigger modal immediately
         getSessionStore().setSessionError('No active session - please sign in')
         sessionEvents.emit('session-expired')
+        await performAuthCleanup()
         throw new SessionError('No active session - please log in')
       }
     }
@@ -208,12 +225,13 @@ async function apiClient<T, B = unknown>(
             console.log('❌ Error (no JSON):', response.statusText)
         }
 
-        // Handle auth errors
+        // Handle auth errors — terminal 401 after silent refresh already failed above.
         if (response.status === 401) {
-            console.log('🔒 Authentication error detected, triggering session modal')
+            console.log('🔒 Authentication error detected, triggering auth cleanup + redirect')
             getSessionStore().setSessionError(errorMessage || 'Authentication required - please sign in again')
             sessionEvents.emit('session-expired')
             console.groupEnd();
+            await performAuthCleanup()
             throw new SessionError(errorMessage);
         }
 

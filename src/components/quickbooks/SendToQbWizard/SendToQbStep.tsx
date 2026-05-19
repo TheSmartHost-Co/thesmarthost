@@ -101,6 +101,31 @@ export default function SendToQbStep({
     [defaults.qbClasses]
   )
 
+  // Item picker options: synthetic "None" row first, then every Service/NonInventory
+  // Item from the user's QBO chart. Empty-string value === explicit None — line
+  // falls back to AccountBasedExpenseLineDetail for that send.
+  const itemOptions: SearchableSelectOption<string>[] = useMemo(
+    () => [
+      {
+        value: '',
+        label: '— None (leave the Product/service column blank)',
+      },
+      ...defaults.qbItems.map((it) => ({
+        value: it.id,
+        label: it.name,
+        secondaryLabel: it.type,
+      })),
+    ],
+    [defaults.qbItems]
+  )
+
+  // True when the currently-picked Item matches the connection-level default
+  // (Phase 1 setting). Used to render a subtle "default from settings" hint.
+  const isAutoDetectedDefault = useMemo(
+    () => !!value.qbItemId && defaults.billableItemId === value.qbItemId,
+    [defaults.billableItemId, value.qbItemId]
+  )
+
   const qbAccountName = useMemo(() => {
     const found = defaults.qbAccounts.find((a) => a.id === value.qbAccountId)
     return found?.name ?? '—'
@@ -265,6 +290,37 @@ export default function SendToQbStep({
           />
         </button>
       </div>
+
+      {/* ─── Product/Service (line-level ItemRef) ─────────────
+          Only rendered when the line is rebillable — the ItemRef only
+          fires on billable lines, so showing it for non-billable expenses
+          would mislead users. Toggle rebillable off and the picker hides
+          (its current value is preserved in state for when it's toggled
+          back on). */}
+      {value.isBillable && (
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+            Product/service
+          </label>
+          <SearchableSelect<string>
+            options={itemOptions}
+            value={value.qbItemId ?? ''}
+            onChange={(v) => update('qbItemId', v ?? '')}
+            placeholder="Select a Product/service…"
+            loading={loading}
+            emptyText="No items in your QuickBooks company"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Shows up in QuickBooks&apos; <span className="font-medium">Product/service</span> column when
+            you add this expense to a customer&apos;s invoice. Pick &ldquo;None&rdquo; to leave it blank.
+          </p>
+          {isAutoDetectedDefault && (
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Using your default from Settings → QuickBooks
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ─── Class (cost center / property) ─────────────────── */}
       <div>

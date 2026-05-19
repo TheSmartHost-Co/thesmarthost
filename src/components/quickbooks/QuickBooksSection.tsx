@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   PlusIcon,
@@ -16,9 +16,32 @@ import {
   setAutoExport as apiSetAutoExport,
   setDefaultEntityType as apiSetDefaultEntityType,
   setDefaultPaymentAccount as apiSetDefaultPaymentAccount,
+  setBillableItem as apiSetBillableItem,
   getQbPaymentAccounts,
+  getQbItems,
 } from '@/services/quickbooksService'
-import type { QbConnection, QbEntityType, QbPaymentAccount } from '@/services/types/quickbooks'
+import type {
+  QbConnection,
+  QbEntityType,
+  QbPaymentAccount,
+  QbItem,
+} from '@/services/types/quickbooks'
+
+// Mirrors BILLABLE_ITEM_TOKENS in services/quickbooksSyncService.js — keep in
+// sync. Specificity-ordered: most specific token first wins on multi-match.
+const BILLABLE_ITEM_TOKENS = [
+  'client billable expense',
+  'billable expense',
+  'reimbursable expense',
+] as const
+
+const findBillableItem = (items: QbItem[]): QbItem | null => {
+  for (const token of BILLABLE_ITEM_TOKENS) {
+    const match = items.find((i) => i.name.toLowerCase().includes(token))
+    if (match) return match
+  }
+  return null
+}
 import ConnectQuickBooksModal from './ConnectQuickBooksModal'
 import DisconnectQuickBooksModal from './DisconnectQuickBooksModal'
 import CategoryMappingTable from './CategoryMappingTable'
@@ -45,9 +68,17 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [showDisconnectModal, setShowDisconnectModal] = useState(false)
   const [savingToggle, setSavingToggle] = useState<
-    'autoExport' | 'defaultType' | 'paymentAccount' | null
+    'autoExport' | 'defaultType' | 'paymentAccount' | 'billableItem' | null
   >(null)
   const [paymentAccounts, setPaymentAccounts] = useState<QbPaymentAccount[]>([])
+  const [items, setItems] = useState<QbItem[]>([])
+
+  // What auto-detect would pick if the user hasn't set an explicit override.
+  // Shown in the UI so users can see what the sync will use by default.
+  const autoDetectedItem = useMemo(
+    () => (items.length > 0 ? findBillableItem(items) : null),
+    [items]
+  )
 
   const fetchConnection = useCallback(async () => {
     setLoading(true)
@@ -75,15 +106,17 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
   useEffect(() => {
     if (!connection?.connected || connection.status === 'expired') {
       setPaymentAccounts([])
+      setItems([])
       return
     }
     let cancelled = false
-    getQbPaymentAccounts()
-      .then((res) => {
+    Promise.all([getQbPaymentAccounts(), getQbItems()])
+      .then(([paRes, itemRes]) => {
         if (cancelled) return
-        if (res.status === 'success') setPaymentAccounts(res.data)
+        if (paRes.status === 'success') setPaymentAccounts(paRes.data)
+        if (itemRes.status === 'success') setItems(itemRes.data)
       })
-      .catch(() => { /* leave list empty; the picker will render the auto-pick fallback hint */ })
+      .catch(() => { /* leave lists empty; pickers render the auto-pick fallback hints */ })
     return () => { cancelled = true }
   }, [connection?.connected, connection?.status])
 
@@ -180,6 +213,36 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
     } catch (err) {
       console.error(err)
       showNotification('Failed to update payment account', 'error')
+    } finally {
+      setSavingToggle(null)
+    }
+  }
+
+  const handleBillableItemChange = async (qbItemId: string) => {
+    if (!qbItemId) return
+    setSavingToggle('billableItem')
+    try {
+      const res = await apiSetBillableItem(qbItemId)
+      if (res.status === 'success') {
+        setConnection((prev) =>
+          prev
+            ? {
+                ...prev,
+                billableItemId: res.data.billableItemId ?? qbItemId,
+                billableItemName:
+                  res.data.billableItemName ??
+                  items.find((i) => i.id === qbItemId)?.name ??
+                  null,
+              }
+            : prev
+        )
+        showNotification('Billable expense item updated', 'success')
+      } else {
+        showNotification(res.message || 'Failed to update billable item', 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      showNotification('Failed to update billable item', 'error')
     } finally {
       setSavingToggle(null)
     }
@@ -356,6 +419,64 @@ export default function QuickBooksSection({ canWrite }: QuickBooksSectionProps) 
                   {paymentAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.name} — {acc.accountType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/*
+                Billable expense Item picker. The line-level ItemRef on billable
+                expense lines, so Product/Service propagates to the Invoice line
+                when the expense is added from QBO's billable-expense panel.
+                Auto-detected from the user's chart by default — this picker
+                only matters for users whose Item is named non-standard.
+              */}
+              <div className="p-3 bg-white border border-gray-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Default Product/service for billable expenses
+                  </div>
+                  {connection?.billableItemName && (
+                    <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                      {connection.billableItemName}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Pre-fills the <span className="font-medium">Product/service</span> field
+                  whenever you open <span className="font-medium">Send to QuickBooks</span> on a
+                  billable expense. You can still change it (or pick &ldquo;None&rdquo;) for individual
+                  expenses when you send them. If you don&apos;t pick one here, we&apos;ll auto-detect
+                  your &ldquo;Client billable expense&rdquo; item by name.
+                </div>
+                {!connection?.billableItemId && autoDetectedItem && (
+                  <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5">
+                    Currently auto-detected:{' '}
+                    <span className="font-medium">{autoDetectedItem.name}</span>
+                  </div>
+                )}
+                {!connection?.billableItemId && !autoDetectedItem && items.length > 0 && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 flex items-start gap-1.5">
+                    <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <div>
+                      No &ldquo;Client billable expense&rdquo; item detected in your
+                      QuickBooks chart. Pick one below, or create one in
+                      QuickBooks (Sales → Products and services).
+                    </div>
+                  </div>
+                )}
+                <select
+                  value={connection?.billableItemId || ''}
+                  onChange={(e) => handleBillableItemChange(e.target.value)}
+                  disabled={savingToggle === 'billableItem' || items.length === 0}
+                  className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                >
+                  <option value="" disabled>
+                    {items.length === 0 ? 'Loading items…' : 'Select an item…'}
+                  </option>
+                  {items.map((it) => (
+                    <option key={it.id} value={it.id}>
+                      {it.name} — {it.type}
                     </option>
                   ))}
                 </select>

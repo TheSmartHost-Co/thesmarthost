@@ -26,6 +26,7 @@ import type {
   QbCustomersResponse,
   QbClassesResponse,
   QbTaxCodesResponse,
+  QbItemsResponse,
   PropertyClassMappingsResponse,
   PropertyClassMappingResponse,
   TaxCodeMappingsResponse,
@@ -87,6 +88,19 @@ export async function setDefaultPaymentAccount(
   )
 }
 
+/**
+ * Set the user's QBO Item used on billable expense lines (line-level ItemRef).
+ * When unset, the sync service auto-detects by name token ("Client billable
+ * expense" / "Billable expense"). This override lets users with non-standard
+ * Item names lock in their exact choice.
+ */
+export async function setBillableItem(qbItemId: string): Promise<QbToggleResponse> {
+  return apiClient<QbToggleResponse, { qbItemId: string }>('/quickbooks/billable-item', {
+    method: 'POST',
+    body: { qbItemId },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // QBO accounts (chart of accounts)
 // ─────────────────────────────────────────────────────────────────────────
@@ -124,6 +138,15 @@ export async function getQbClasses(): Promise<QbClassesResponse> {
  */
 export async function getQbTaxCodes(): Promise<QbTaxCodesResponse> {
   return apiClient<QbTaxCodesResponse>('/quickbooks/qb-tax-codes')
+}
+
+/**
+ * List active QBO Items (Service / NonInventory). Used by the settings UI's
+ * "Billable expense item" dropdown — the explicit override for the line-level
+ * ItemRef on billable expense lines.
+ */
+export async function getQbItems(): Promise<QbItemsResponse> {
+  return apiClient<QbItemsResponse>('/quickbooks/qb-items')
 }
 
 // ─────────────────────────────────────────────────────────────────────────

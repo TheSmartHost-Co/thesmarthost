@@ -14,6 +14,7 @@ import {
   getPropertyClassMappings,
   upsertPropertyClassMapping,
   getTaxCodeMappings,
+  getQbItems,
 } from '@/services/quickbooksService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type {
@@ -59,6 +60,7 @@ const EMPTY_DEFAULTS: QbDefaults = {
   paymentAccounts: [],
   qbCustomers: [],
   qbClasses: [],
+  qbItems: [],
   accountMappings: [],
   classMappings: [],
   taxMappings: [],
@@ -66,6 +68,8 @@ const EMPTY_DEFAULTS: QbDefaults = {
   connectionDefaultEntityType: 'purchase',
   defaultPaymentAccountId: null,
   defaultPaymentAccountName: null,
+  billableItemId: null,
+  billableItemName: null,
 }
 
 export default function SendToQbModal({
@@ -95,6 +99,7 @@ export default function SendToQbModal({
     isBillable: true,
     description: expenseDescription || '',
     includeReceipt: hasReceipt,
+    qbItemId: '',
   })
   const { showNotification } = useNotificationStore()
 
@@ -115,6 +120,7 @@ export default function SendToQbModal({
       getQbClasses(),
       getPropertyClassMappings(),
       getTaxCodeMappings(),
+      getQbItems(),
     ])
       .then(
         ([
@@ -126,6 +132,7 @@ export default function SendToQbModal({
           classesRes,
           classMapsRes,
           taxMapsRes,
+          itemsRes,
         ]) => {
           if (cancelled) return
           const conn = connRes.status === 'success' ? connRes.data : null
@@ -134,6 +141,7 @@ export default function SendToQbModal({
             paymentAccounts: paymentRes.status === 'success' ? paymentRes.data : [],
             qbCustomers: customersRes.status === 'success' ? customersRes.data : [],
             qbClasses: classesRes.status === 'success' ? classesRes.data : [],
+            qbItems: itemsRes.status === 'success' ? itemsRes.data : [],
             accountMappings: mappingsRes.status === 'success' ? mappingsRes.data : [],
             classMappings: classMapsRes.status === 'success' ? classMapsRes.data : [],
             taxMappings: taxMapsRes.status === 'success' ? taxMapsRes.data : [],
@@ -142,6 +150,8 @@ export default function SendToQbModal({
               (conn?.defaultQbEntityType as QbEntityType) || connectionDefaultEntityType,
             defaultPaymentAccountId: conn?.defaultPaymentAccountId ?? null,
             defaultPaymentAccountName: conn?.defaultPaymentAccountName ?? null,
+            billableItemId: conn?.billableItemId ?? null,
+            billableItemName: conn?.billableItemName ?? null,
           }
           setDefaults(nextDefaults)
           // Re-derive the initial value once defaults arrive — mappings drive
@@ -199,6 +209,11 @@ export default function SendToQbModal({
         // set — null/empty omits them in the payload.
         isBillable: value.isBillable,
         description: value.description,
+        // qbItemId: send the picker's value only when billable (the ItemRef
+        // doesn't fire on non-billable lines anyway). Sending '' = explicit
+        // None; sending '<id>' = use that Item; omitting entirely = backend
+        // auto-resolves (the path programmatic/legacy callers go down).
+        qbItemId: value.isBillable ? value.qbItemId : '',
       }
       if (value.qbEntityType === 'purchase') {
         payload.paymentAccountId = value.paymentAccountId
