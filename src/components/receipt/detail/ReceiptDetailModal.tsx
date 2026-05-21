@@ -50,6 +50,7 @@ import {
 import TabBar from '@/components/shared/TabBar'
 import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
 import PropertyChip from '@/components/receipt/PropertyChip'
+import PropertyEditPill from '@/components/receipt/PropertyEditPill'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 import ReceiptMatchReviewModal from '@/components/receipt/match-review/ReceiptMatchReviewModal'
@@ -544,6 +545,27 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
     }
   }
 
+  // --- Quick property reassignment from the View tab ---
+  // The backend (updateReceipt controller) also syncs the linked expense's
+  // property_id when the receipt has been applied, so this works for any
+  // non-archived status.
+  const handleSavePropertyFromView = async (newPropertyId: string) => {
+    if (!receipt) return
+    try {
+      const res = await updateReceipt(receipt.id, { propertyId: newPropertyId })
+      if (res.status === 'success') {
+        showNotification('Property updated', 'success')
+        await fetchReceipt()
+        onUpdated()
+      } else {
+        showNotification(res.message || 'Failed to update property', 'error')
+      }
+    } catch (err) {
+      console.error('Update property error:', err)
+      showNotification('Failed to update property', 'error')
+    }
+  }
+
   // --- Apply ---
   const buildApplyPayload = (): ApplyReceiptPayload => ({
     propertyId: applyPropertyId,
@@ -717,7 +739,13 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
               {!receipt ? (
                 <p className="text-sm text-gray-900">—</p>
               ) : (
-                <PropertyChip receipt={receipt} linkedExpense={receipt.expense} properties={properties} size="md" />
+                <PropertyEditPill
+                  receipt={receipt}
+                  linkedExpense={receipt.expense}
+                  properties={properties}
+                  size="md"
+                  onSave={readOnly || receipt.status === 'archived' ? undefined : handleSavePropertyFromView}
+                />
               )}
             </div>
           </div>

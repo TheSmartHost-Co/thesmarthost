@@ -66,6 +66,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import type { QbConnection, QbEntityType } from '@/services/types/quickbooks'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
+import PropertyEditPill from '@/components/receipt/PropertyEditPill'
 import TabBar from '@/components/shared/TabBar'
 import RelatedEntityCard from '@/components/shared/RelatedEntityCard'
 import LineItemSubForm from '@/components/shared/LineItemSubForm'
@@ -340,6 +341,33 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
 
   const handleModeSwitch = (newMode: ModalMode) => {
     setMode(newMode)
+  }
+
+  // Quick property reassignment from the view-mode pill. Sends only propertyId
+  // through the regular PATCH /expenses/:id endpoint.
+  const handleSavePropertyFromView = async (newPropertyId: string) => {
+    if (!effectiveUserId || !expense) return
+    try {
+      const response = await updateExpense(expense.id, {
+        userId: effectiveUserId,
+        propertyId: newPropertyId || null,
+        // expenseDate + amount are required by UpdateExpensePayload; pass through
+        // the existing values so this acts as a property-only update.
+        expenseDate: expense.expenseDate,
+        amount: expense.amount,
+      })
+      if (response.status === 'success') {
+        showNotification('Property updated', 'success')
+        const propertyName = properties.find(p => p.id === newPropertyId)?.address
+        setExpense({ ...response.data, propertyName: response.data.propertyName ?? propertyName })
+        onExpenseUpdated?.()
+      } else {
+        showNotification(response.message || 'Failed to update property', 'error')
+      }
+    } catch (error) {
+      console.error('Error updating property:', error)
+      showNotification('Error updating property', 'error')
+    }
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -825,15 +853,21 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
             </div>
           </div>
 
-          {expense.propertyName && (
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <div className="text-xs text-gray-500">Property</div>
-                <div className="text-sm font-medium text-gray-900">{expense.propertyName}</div>
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500">Property</div>
+              <div className="mt-0.5">
+                <PropertyEditPill
+                  receipt={{ propertyId: expense.propertyId ?? null, propertyName: expense.propertyName ?? null }}
+                  properties={properties}
+                  size="md"
+                  showFromExpenseHint={false}
+                  onSave={hasWrite ? handleSavePropertyFromView : undefined}
+                />
               </div>
             </div>
-          )}
+          </div>
 
           {expense.vendorName && (
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
