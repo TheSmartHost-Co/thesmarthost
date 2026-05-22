@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronRightIcon,
@@ -8,34 +8,77 @@ import {
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline'
 import { useAuditHistory } from '@/hooks/useAuditHistory'
-import { computeDiff } from '@/services/auditService'
+import { computeDiff, deepDiff, getCascadeKey } from '@/services/auditService'
 import { formatFieldName } from '@/services/fieldValuesChangedService'
 import type { AuditEntityType, AuditEvent } from '@/services/types/audit'
 import AuditTraceModal from './AuditTraceModal'
-import { ActionBadge, ActionDot, formatValue, getEventLabel } from './shared'
+import { ActionBadge, ActionDot, ValueCell, getEventLabel } from './shared'
+import RelinkBookingsCard from './RelinkBookingsCard'
+import type { EntityRef } from './auditFieldRegistry'
+
+type DiffMode = 'changes' | 'full'
 
 interface Props {
   entityType: AuditEntityType
   entityId: string
+  initialExpandedId?: string
+  onOpenEntityPreview?: (ref: EntityRef) => void
 }
 
-export default function AuditHistoryPanel({ entityType, entityId }: Props) {
+export default function AuditHistoryPanel({ entityType, entityId, initialExpandedId, onOpenEntityPreview }: Props) {
   const { t } = useTranslation('audit')
   const { events, loading, error, refresh } = useAuditHistory(entityType, entityId, { limit: 100 })
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(() => initialExpandedId ?? null)
+  const [diffMode, setDiffMode] = useState<DiffMode>('changes')
   const [traceContext, setTraceContext] = useState<{ correlationId: string; highlightId: string | null } | null>(null)
+  const initialScrollRef = useRef<HTMLLIElement | null>(null)
+  const didScrollRef = useRef(false)
+
+  useEffect(() => {
+    if (didScrollRef.current) return
+    if (!initialExpandedId) return
+    if (loading || events.length === 0) return
+    if (initialScrollRef.current) {
+      initialScrollRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      didScrollRef.current = true
+    }
+  }, [initialExpandedId, loading, events])
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <ClockIcon className="h-5 w-5" />
-        {t('panel.title')}
+      <div className="mb-4 flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <ClockIcon className="h-5 w-5" />
+          {t('panel.title')}
+          {events.length > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+              {events.length}
+            </span>
+          )}
+        </h3>
         {events.length > 0 && (
-          <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
-            {events.length}
-          </span>
+          <div className="ml-auto flex rounded-md border border-gray-200 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setDiffMode('changes')}
+              className={`px-2.5 py-1 cursor-pointer transition-colors ${
+                diffMode === 'changes' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {t('panel.diffMode.changes')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDiffMode('full')}
+              className={`px-2.5 py-1 cursor-pointer transition-colors border-l border-gray-200 ${
+                diffMode === 'full' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {t('panel.diffMode.full')}
+            </button>
+          </div>
         )}
-      </h3>
+      </div>
 
       {loading && (
         <div className="flex items-center justify-center py-8">
@@ -72,8 +115,11 @@ export default function AuditHistoryPanel({ entityType, entityId }: Props) {
               key={event.id}
               event={event}
               isExpanded={expandedId === event.id}
+              diffMode={diffMode}
               onToggle={() => setExpandedId(prev => prev === event.id ? null : event.id)}
               onOpenTrace={() => setTraceContext({ correlationId: event.correlationId, highlightId: event.id })}
+              onOpenEntityPreview={onOpenEntityPreview}
+              rowRef={event.id === initialExpandedId ? initialScrollRef : undefined}
             />
           ))}
         </ul>
@@ -91,20 +137,26 @@ export default function AuditHistoryPanel({ entityType, entityId }: Props) {
 }
 
 function EventRow({
-  event, isExpanded, onToggle, onOpenTrace,
+  event, isExpanded, diffMode, onToggle, onOpenTrace, onOpenEntityPreview, rowRef,
 }: {
   event: AuditEvent
   isExpanded: boolean
+  diffMode: DiffMode
   onToggle: () => void
   onOpenTrace: () => void
+  onOpenEntityPreview?: (ref: EntityRef) => void
+  rowRef?: React.Ref<HTMLLIElement>
 }) {
   const { t } = useTranslation('audit')
   const diff = computeDiff(event)
   const label = getEventLabel(event, t)
   const actorBadge = `${event.actorType}${event.actorSource ? `/${event.actorSource}` : ''}`
+  const isRelink = getCascadeKey(event) === 'relinkNextBooking'
+  const relinkBefore = isRelink ? (event.beforeData?.next_booking_id as string | null | undefined) ?? null : null
+  const relinkAfter = isRelink ? (event.afterData?.next_booking_id as string | null | undefined) ?? null : null
 
   return (
-    <li>
+    <li ref={rowRef}>
       <div className="flex items-center gap-2 hover:bg-gray-50 transition-colors">
         <button
           type="button"
@@ -139,6 +191,13 @@ function EventRow({
       {isExpanded && (
         <div className="px-4 pb-4 pt-1 bg-gray-50">
           <div className="ml-7 rounded border border-gray-200 bg-white p-3 text-xs space-y-3">
+            {isRelink && onOpenEntityPreview && (
+              <RelinkBookingsCard
+                beforeBookingId={relinkBefore}
+                afterBookingId={relinkAfter}
+                onOpenEntity={onOpenEntityPreview}
+              />
+            )}
             {diff.length === 0 ? (
               <div className="text-gray-500 italic">{t('panel.noFieldChanges')}</div>
             ) : (
@@ -151,13 +210,23 @@ function EventRow({
                   </tr>
                 </thead>
                 <tbody>
-                  {diff.map(d => (
-                    <tr key={d.field} className="align-top border-b border-gray-50 last:border-0">
-                      <td className="font-mono pr-4 py-1.5 text-gray-700">{formatFieldName(d.field)}</td>
-                      <td className="font-mono pr-4 py-1.5 text-red-600 break-all">{formatValue(d.before)}</td>
-                      <td className="font-mono py-1.5 text-green-700 break-all">{formatValue(d.after)}</td>
-                    </tr>
-                  ))}
+                  {diff.map(d => {
+                    const view = diffMode === 'changes' ? deepDiff(d.before, d.after) : null
+                    const useView = view !== null && view.changed
+                    const before = useView ? view.before : d.before
+                    const after = useView ? view.after : d.after
+                    return (
+                      <tr key={d.field} className="align-top border-b border-gray-50 last:border-0">
+                        <td className="font-mono pr-4 py-1.5 text-gray-700">{formatFieldName(d.field)}</td>
+                        <td className="font-mono pr-4 py-1.5 break-all">
+                          <ValueCell field={d.field} value={before} side="before" onOpenEntity={onOpenEntityPreview} />
+                        </td>
+                        <td className="font-mono py-1.5 break-all">
+                          <ValueCell field={d.field} value={after} side="after" onOpenEntity={onOpenEntityPreview} />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}

@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { Booking } from '@/services/types/booking'
 import { formatCurrency, formatPlatformName } from '@/services/bookingService'
-import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon, XCircleIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { CalendarDaysIcon, PencilIcon, MapPinIcon, CurrencyDollarIcon, ClockIcon, XCircleIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { ArrowDownOnSquareIcon } from '@heroicons/react/24/solid'
 import { getFieldChangesByBooking, formatFieldName } from '@/services/fieldValuesChangedService'
 import { FieldValueChanged } from '@/services/types/fieldValueChanged'
@@ -21,6 +21,7 @@ interface PreviewBookingModalProps {
   onEditBooking?: () => void
   onDeleteBooking?: () => void
   onCancelBooking?: () => void
+  embedded?: boolean
 }
 
 const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
@@ -30,6 +31,7 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
   onEditBooking,
   onDeleteBooking,
   onCancelBooking,
+  embedded = false,
 }) => {
   const [fieldChanges, setFieldChanges] = useState<FieldValueChanged[]>([])
   const [loadingFieldChanges, setLoadingFieldChanges] = useState(false)
@@ -121,8 +123,18 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
     { label: 'Taxes Collected', value: booking.taxesCollected, highlight: false },
   ].filter(item => item.value !== null && item.value !== undefined)
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-9 max-w-4xl w-11/12 max-h-[90vh] overflow-y-auto">
+  const inner = (
+    <>
+      {embedded && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer z-10"
+          aria-label="Close"
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      )}
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-start gap-4 mb-3">
@@ -354,8 +366,10 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
         )}
       </div>
 
-      {/* Audit Log (comprehensive change history — PM/ADMIN only) */}
-      {isPM && booking.id && (
+      {/* Audit Log (comprehensive change history — PM/ADMIN only).
+          Suppressed in embedded mode (audit drill-down secondary panel) since
+          the caller is already inside an audit context. */}
+      {!embedded && isPM && booking.id && (
         <div className="mb-6 pb-6 border-b border-gray-200">
           <AuditHistoryPanel entityType="booking" entityId={booking.id} />
         </div>
@@ -427,6 +441,16 @@ const PreviewBookingModal: React.FC<PreviewBookingModalProps> = ({
           </button>
         )}
       </div>
+    </>
+  )
+
+  if (embedded) {
+    return <div className="relative p-6">{inner}</div>
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} style="p-9 max-w-4xl w-11/12 max-h-[90vh] overflow-y-auto">
+      {inner}
     </Modal>
   )
 }

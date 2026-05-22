@@ -25,6 +25,9 @@ export interface TimeEntry {
   reviewedByAuthUserId: string | null
   reviewedAt: string | null
   rejectionReason: string | null
+  payPeriodId: string | null
+  payPeriodYear: number | null
+  payPeriodNumber: number | null
   createdAt: string
   updatedAt: string | null
 }

@@ -31,6 +31,7 @@ import {
   ChevronLeftIcon,
   PhotoIcon,
   NoSymbolIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { getIssuesByProperty, formatIssueAge, getIssueTypeDisplay, getIssueStatusDisplay } from '@/services/projectIssueService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
@@ -46,6 +47,7 @@ interface PreviewPropertyModalProps {
   onManageChannels?: () => void
   onManageOwners?: () => void
   onManageICal?: () => void
+  embedded?: boolean
 }
 
 type TabType = 'details' | 'bookings' | 'reports' | 'issues'
@@ -59,6 +61,7 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
   onManageChannels,
   onManageOwners,
   onManageICal,
+  embedded = false,
 }) => {
   // Permissions hook
   const { effectiveUserId } = usePermissions()
@@ -856,8 +859,18 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
     )
   }
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12">
+  const inner = (
+    <>
+      {embedded && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer z-10"
+          aria-label="Close"
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-start gap-4">
@@ -943,6 +956,16 @@ const PreviewPropertyModal: React.FC<PreviewPropertyModalProps> = ({
           </button>
         )}
       </div>
+    </>
+  )
+
+  if (embedded) {
+    return <div className="relative p-6">{inner}</div>
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-3xl w-11/12">
+      {inner}
     </Modal>
   )
 }

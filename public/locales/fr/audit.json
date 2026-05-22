@@ -72,7 +72,11 @@
     "beforeHeader": "Avant",
     "afterHeader": "Après",
     "metadata": "Métadonnées",
-    "webhookPayload": "Charge utile du webhook"
+    "webhookPayload": "Charge utile du webhook",
+    "diffMode": {
+      "changes": "Changements seulement",
+      "full": "Tout afficher"
+    }
   },
   "cascade": {
     "relinkNextBooking": "Réservation suivante reliée à nouveau",

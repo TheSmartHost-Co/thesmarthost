@@ -2,6 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   ClockIcon, CurrencyDollarIcon, UsersIcon, ExclamationTriangleIcon,
   ArrowDownTrayIcon, CheckCircleIcon, XCircleIcon, PencilSquareIcon,
@@ -15,7 +16,9 @@ import type {
   TeamTimeSummaryData, TeamTimeSummaryRow, TimeEntry, TimeEntryStatus,
 } from '@/services/types/timeEntry'
 import { formatHours, formatMoney } from '@/lib/format'
-import { formatInTz, zoneAbbrev } from '@/lib/datetime'
+import { formatInTz, zoneAbbrev, isoDateInTz } from '@/lib/datetime'
+import { listPayPeriods } from '@/services/payPeriodService'
+import type { PayPeriodRow } from '@/services/types/payPeriod'
 import ReviewOverCapModal from '@/components/time-entry/approve/ReviewOverCapModal'
 import EditTimeEntryModal from '@/components/time-entry/edit/EditTimeEntryModal'
 import ExportPayrollModal from '@/components/time-entry/export/ExportPayrollModal'
@@ -60,8 +63,13 @@ function TeamTimeSheetPageInner() {
   const [filterMemberId, setFilterMemberId] = useState<string>('') // '' = all
   // Calendar week (Monday 00:00 in PM zone, as UTC instant). Initialized lazily once summary loads.
   const [weekStart, setWeekStart] = useState<Date | null>(null)
-  // Toggle between filtering the entries-table to the visible week or showing all-time entries.
-  const [tableScope, setTableScope] = useState<'this_week' | 'all'>('this_week')
+  // Entries-section filter: a date range (YYYY-MM-DD in PM tz) and an optional
+  // pay-period preset. Picking a period auto-fills the dates; editing a date
+  // clears the period selection.
+  const [dateStart, setDateStart] = useState<string>('')
+  const [dateEnd, setDateEnd] = useState<string>('')
+  const [periodId, setPeriodId] = useState<string>('')
+  const [periodOptions, setPeriodOptions] = useState<PayPeriodRow[]>([])
   // Pending Approvals — multi-select for bulk approve
   const [selectedPending, setSelectedPending] = useState<Set<string>>(new Set())
   const [bulkApproving, setBulkApproving] = useState(false)
@@ -75,16 +83,23 @@ function TeamTimeSheetPageInner() {
   const loadSummary = async () => {
     if (!effectiveUserId) return
     try {
-      const [sumRes, pendingRes] = await Promise.all([
+      const [sumRes, pendingRes, periodsRes] = await Promise.all([
         getTeamTimeSummary(effectiveUserId),
         getTimeEntries({ userId: effectiveUserId, status: 'pending' }),
+        listPayPeriods({}),
       ])
       if (sumRes.status === 'success') {
         setSummary(sumRes.data)
         // Initialize visible week to current Monday in PM zone (only on first load)
-        setWeekStart((prev) => prev ?? startOfWeek(new Date(), sumRes.data.pmTimezone))
+        const tz = sumRes.data.pmTimezone
+        const monday = startOfWeek(new Date(), tz)
+        setWeekStart((prev) => prev ?? monday)
+        // Default the entries filter to the current Mon→Sun window in PM tz.
+        setDateStart((prev) => prev || isoDateInTz(monday, tz))
+        setDateEnd((prev) => prev || isoDateInTz(new Date(monday.getTime() + 6 * 86_400_000), tz))
       }
       if (pendingRes.status === 'success') setPendingEntries(pendingRes.data)
+      if (periodsRes.status === 'success') setPeriodOptions(periodsRes.data)
     } catch (err: any) {
       showNotification(err?.message || 'Failed to load team time data.', 'error')
     } finally {
@@ -102,17 +117,40 @@ function TeamTimeSheetPageInner() {
     }
   }, [searchParams, loading])
 
-  // Apply week filter (when tableScope === 'this_week') on top of the team-member filter
-  // the server already applied. 'all' bypasses the week clamp.
+  // Apply date-range filter (in PM tz) on top of the team-member filter the
+  // server already applied. Both ends inclusive.
   const visibleEntries = useMemo(() => {
-    if (tableScope === 'all' || !weekStart) return entries
-    const start = weekStart.getTime()
-    const end   = start + 7 * 86_400_000
+    if (!summary || !dateStart || !dateEnd) return entries
     return entries.filter(e => {
-      const ts = new Date(e.startedAt).getTime()
-      return ts >= start && ts < end
+      const day = isoDateInTz(new Date(e.startedAt), summary.pmTimezone)
+      return day >= dateStart && day <= dateEnd
     })
-  }, [entries, weekStart, tableScope])
+  }, [entries, dateStart, dateEnd, summary])
+
+  // Distinct (startDate, endDate) windows across all members — periods that
+  // share a window collapse to one row in the picker.
+  const distinctPeriodWindows = useMemo(() => {
+    const map = new Map<string, PayPeriodRow>()
+    for (const p of periodOptions) {
+      const key = `${p.startDate}_${p.endDate}`
+      if (!map.has(key)) map.set(key, p)
+    }
+    return Array.from(map.values()).sort((a, b) => b.startDate.localeCompare(a.startDate))
+  }, [periodOptions])
+
+  // Range totals — hours + $ grouped by currency from the filtered entries.
+  const rangeTotals = useMemo(() => {
+    let hours = 0
+    const dollars = new Map<string, number>()
+    for (const e of visibleEntries) {
+      if (e.hoursWorked != null) hours += e.hoursWorked
+      if (e.hoursWorked != null && e.hourlyRateAtEntry != null) {
+        const cur = e.currencyAtEntry || 'CAD'
+        dollars.set(cur, (dollars.get(cur) || 0) + e.hoursWorked * e.hourlyRateAtEntry)
+      }
+    }
+    return { hours, dollars }
+  }, [visibleEntries])
 
   const totals = useMemo(() => {
     if (!summary) return null
@@ -151,6 +189,33 @@ function TeamTimeSheetPageInner() {
     })()
     return () => { cancelled = true }
   }, [effectiveUserId, filterMemberId, showNotification])
+
+  // Date <-> pay-period sync handlers
+  const handlePeriodChange = (id: string) => {
+    setPeriodId(id)
+    if (!id) return
+    const p = periodOptions.find(x => x.id === id)
+    if (p) {
+      setDateStart(p.startDate)
+      setDateEnd(p.endDate)
+    }
+  }
+  const handleDateStartChange = (v: string) => {
+    setDateStart(v)
+    setPeriodId('')
+  }
+  const handleDateEndChange = (v: string) => {
+    setDateEnd(v)
+    setPeriodId('')
+  }
+  const handleClearRange = () => {
+    if (!summary) return
+    const tz = summary.pmTimezone
+    const monday = startOfWeek(new Date(), tz)
+    setDateStart(isoDateInTz(monday, tz))
+    setDateEnd(isoDateInTz(new Date(monday.getTime() + 6 * 86_400_000), tz))
+    setPeriodId('')
+  }
 
   // Selecting a team-table row jumps the filter to that member and scrolls
   // the entries section into view.
@@ -479,46 +544,80 @@ function TeamTimeSheetPageInner() {
         />
       )}
 
-      {/* Entries (always visible, filterable by team member + day) */}
+      {/* Entries (always visible, filterable by team member + date range + pay period) */}
       <div id="entries-section" className="bg-white rounded-2xl border border-gray-100 shadow-sm scroll-mt-4">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Entries</h2>
-            <p className="text-sm text-gray-500">Times shown in {tzAbbrev} ({summary.pmTimezone}).</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Team member</label>
-            <select
-              value={filterMemberId}
-              onChange={(e) => setFilterMemberId(e.target.value)}
-              className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-            >
-              <option value="">All team members</option>
-              {summary.rows.map(r => (
-                <option key={r.teamMemberId} value={r.teamMemberId}>{r.teamMemberName}</option>
-              ))}
-            </select>
-            {filterMemberId && (
-              <button
-                onClick={() => setFilterMemberId('')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Clear member
-              </button>
-            )}
-            <div className="ml-2 flex gap-1 bg-gray-50 rounded-lg p-1">
-              {([['this_week', 'This week'], ['all', 'All time']] as Array<['this_week' | 'all', string]>).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setTableScope(k)}
-                  className={`px-3 py-1 rounded-md text-sm font-medium ${
-                    tableScope === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+        <div className="px-5 py-4 border-b border-gray-100 space-y-3">
+          <div className="flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Entries</h2>
+              <p className="text-sm text-gray-500">Times shown in {tzAbbrev} ({summary.pmTimezone}).</p>
             </div>
+            <div className="text-right">
+              <div className="text-sm font-semibold text-gray-900 tabular-nums">
+                {formatHours(rangeTotals.hours)}
+                {rangeTotals.dollars.size > 0 && (
+                  <span className="ml-2 text-emerald-700">
+                    · {Array.from(rangeTotals.dollars.entries())
+                        .map(([cur, amt]) => formatMoney(amt, cur))
+                        .join(' · ')}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">in selected range</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Team member</label>
+              <select
+                value={filterMemberId}
+                onChange={(e) => setFilterMemberId(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              >
+                <option value="">All team members</option>
+                {summary.rows.map(r => (
+                  <option key={r.teamMemberId} value={r.teamMemberId}>{r.teamMemberName}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">From</label>
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => handleDateStartChange(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              />
+              <label className="text-sm font-medium text-gray-700">To</label>
+              <input
+                type="date"
+                value={dateEnd}
+                min={dateStart || undefined}
+                onChange={(e) => handleDateEndChange(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Pay period</label>
+              <select
+                value={periodId}
+                onChange={(e) => handlePeriodChange(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white max-w-[280px]"
+              >
+                <option value="">Any</option>
+                {distinctPeriodWindows.map(p => (
+                  <option key={p.id} value={p.id}>
+                    #{String(p.periodNumber).padStart(2, '0')} · {p.periodYear} · {p.startDate} → {p.endDate}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleClearRange}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Reset to this week
+            </button>
           </div>
         </div>
 
@@ -526,13 +625,9 @@ function TeamTimeSheetPageInner() {
           <div className="px-6 py-10 text-center text-gray-400">Loading entries…</div>
         ) : visibleEntries.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-500">
-            {tableScope === 'this_week'
-              ? (filterMemberId
-                  ? 'No entries for this team member this week.'
-                  : 'No entries for this week.')
-              : (filterMemberId
-                  ? 'No entries for this team member yet.'
-                  : 'No entries yet.')}
+            {filterMemberId
+              ? 'No entries for this team member in this range.'
+              : 'No entries in this range.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -545,6 +640,7 @@ function TeamTimeSheetPageInner() {
                   <th className="px-6 py-3">Hours</th>
                   <th className="px-6 py-3">Earned</th>
                   <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Period</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -573,6 +669,19 @@ function TeamTimeSheetPageInner() {
                         <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold ${STATUS_BADGE[e.status]}`}>
                           {STATUS_LABEL[e.status]}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {e.payPeriodNumber != null && e.payPeriodId ? (
+                          <Link
+                            href={`/property-manager/pay-periods/${e.payPeriodId}`}
+                            onClick={(ev) => ev.stopPropagation()}
+                            className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                          >
+                            #{e.payPeriodNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="inline-flex gap-1" onClick={(ev) => ev.stopPropagation()}>

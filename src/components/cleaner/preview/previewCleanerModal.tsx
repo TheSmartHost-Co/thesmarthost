@@ -27,6 +27,7 @@ interface PreviewCleanerModalProps {
   onAssignProperties?: () => void
   onResendInvite?: () => void
   onUpdate?: (updatedCleaner: Cleaner) => void
+  embedded?: boolean
 }
 
 const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
@@ -37,6 +38,7 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
   onAssignProperties,
   onResendInvite,
   onUpdate,
+  embedded = false,
 }) => {
   const { t } = useTranslation('turnover')
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
@@ -173,8 +175,18 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
 
   const assignedCount = cleaner.assignedProperties?.length || 0
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-2xl w-11/12">
+  const inner = (
+    <>
+      {embedded && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer z-10"
+          aria-label="Close"
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-start gap-4">
@@ -456,6 +468,16 @@ const PreviewCleanerModal: React.FC<PreviewCleanerModalProps> = ({
           </button>
         )}
       </div>
+    </>
+  )
+
+  if (embedded) {
+    return <div className="relative p-6">{inner}</div>
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} style="p-6 max-w-2xl w-11/12">
+      {inner}
     </Modal>
   )
 }

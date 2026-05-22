@@ -9,7 +9,9 @@
   "entityType": {
     "booking": "Booking",
     "cleaning_project": "Cleaning project",
-    "incoming_booking": "Incoming booking"
+    "incoming_booking": "Incoming booking",
+    "property": "Property",
+    "cleaner": "Cleaner"
   },
   "action": {
     "create": "Create",
@@ -64,6 +66,9 @@
       "label": "Label"
     }
   },
+  "header": {
+    "viewRecord": "View this record's details"
+  },
   "panel": {
     "title": "Audit Log",
     "recordTitle": "Record history",
@@ -72,7 +77,11 @@
     "beforeHeader": "Before",
     "afterHeader": "After",
     "metadata": "Metadata",
-    "webhookPayload": "Webhook payload"
+    "webhookPayload": "Webhook payload",
+    "diffMode": {
+      "changes": "Changes only",
+      "full": "Show full"
+    }
   },
   "cascade": {
     "relinkNextBooking": "Re-linked next booking",
@@ -81,6 +90,38 @@
     "autoRescheduleForNewBooking": "Auto-rescheduled for new booking",
     "cancelOnBookingDeletedOrCancelled": "Cancelled (booking gone)",
     "cancelOnScheduleConflict": "Cancelled (schedule conflict)"
+  },
+  "chip": {
+    "viewDetails": "View details",
+    "unknown": "Unknown",
+    "deleted": "Deleted"
+  },
+  "relink": {
+    "label": "Re-linked next booking",
+    "noPrevious": "No previous booking",
+    "noNext": "No next booking"
+  },
+  "tombstone": {
+    "title": "Record no longer exists",
+    "message": "This {{entityType}} has been deleted or is no longer available.",
+    "viewHistory": "View audit history",
+    "close": "Close"
+  },
+  "preview": {
+    "loading": "Loading details…",
+    "loadError": "Could not load this record."
+  },
+  "cleaningProjectPreview": {
+    "title": "Cleaning Project",
+    "projectDate": "Project date",
+    "window": "Window",
+    "property": "Property",
+    "cleaner": "Cleaner",
+    "previousBooking": "Previous booking",
+    "nextBooking": "Next booking",
+    "pmNotes": "PM notes",
+    "cleanerNotes": "Cleaner notes",
+    "source": "Source"
   },
   "pagination": {
     "range": "{{start}}–{{end}} of {{total}}"

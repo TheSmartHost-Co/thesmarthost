@@ -9,7 +9,9 @@
   "entityType": {
     "booking": "Reserva",
     "cleaning_project": "Proyecto de limpieza",
-    "incoming_booking": "Reserva entrante"
+    "incoming_booking": "Reserva entrante",
+    "property": "Propiedad",
+    "cleaner": "Limpiador"
   },
   "action": {
     "create": "Crear",
@@ -64,6 +66,9 @@
       "label": "Etiqueta"
     }
   },
+  "header": {
+    "viewRecord": "Ver detalles de este registro"
+  },
   "panel": {
     "title": "Registro de auditoría",
     "recordTitle": "Historial del registro",
@@ -72,7 +77,11 @@
     "beforeHeader": "Antes",
     "afterHeader": "Después",
     "metadata": "Metadatos",
-    "webhookPayload": "Carga del webhook"
+    "webhookPayload": "Carga del webhook",
+    "diffMode": {
+      "changes": "Solo cambios",
+      "full": "Mostrar todo"
+    }
   },
   "cascade": {
     "relinkNextBooking": "Reserva siguiente re-vinculada",
@@ -81,6 +90,38 @@
     "autoRescheduleForNewBooking": "Reprogramado automáticamente por nueva reserva",
     "cancelOnBookingDeletedOrCancelled": "Cancelado (reserva eliminada)",
     "cancelOnScheduleConflict": "Cancelado (conflicto de horario)"
+  },
+  "chip": {
+    "viewDetails": "Ver detalles",
+    "unknown": "Desconocido",
+    "deleted": "Eliminado"
+  },
+  "relink": {
+    "label": "Reserva siguiente re-vinculada",
+    "noPrevious": "Sin reserva previa",
+    "noNext": "Sin reserva siguiente"
+  },
+  "tombstone": {
+    "title": "El registro ya no existe",
+    "message": "Este {{entityType}} ha sido eliminado o ya no está disponible.",
+    "viewHistory": "Ver historial de auditoría",
+    "close": "Cerrar"
+  },
+  "preview": {
+    "loading": "Cargando detalles…",
+    "loadError": "No se pudo cargar este registro."
+  },
+  "cleaningProjectPreview": {
+    "title": "Proyecto de limpieza",
+    "projectDate": "Fecha del proyecto",
+    "window": "Ventana horaria",
+    "property": "Propiedad",
+    "cleaner": "Limpiador",
+    "previousBooking": "Reserva anterior",
+    "nextBooking": "Reserva siguiente",
+    "pmNotes": "Notas del PM",
+    "cleanerNotes": "Notas del limpiador",
+    "source": "Origen"
   },
   "pagination": {
     "range": "{{start}}–{{end}} de {{total}}"

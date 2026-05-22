@@ -3,6 +3,8 @@
 import type { TFunction } from 'i18next'
 import { getCascadeKey } from '@/services/auditService'
 import type { AuditEvent, AuditAction } from '@/services/types/audit'
+import EntityChip from './EntityChip'
+import { resolveEntityRef, type EntityRef } from './auditFieldRegistry'
 
 const ACTION_DOT_COLORS: Record<string, string> = {
   create: 'bg-green-500',
@@ -44,4 +46,31 @@ export function formatValue(v: unknown): string {
   if (typeof v === 'object') return JSON.stringify(v)
   if (typeof v === 'boolean') return v ? 'true' : 'false'
   return String(v)
+}
+
+// Renders a diff value. If the (field, value) pair maps to a known entity
+// reference, renders an EntityChip; otherwise falls back to formatValue text.
+export function ValueCell({
+  field, value, side, onOpenEntity,
+}: {
+  field: string
+  value: unknown
+  side: 'before' | 'after'
+  onOpenEntity?: (ref: EntityRef) => void
+}) {
+  const ref = onOpenEntity ? resolveEntityRef(field, value) : null
+  if (ref) {
+    return (
+      <EntityChip
+        entityType={ref.entityType}
+        entityId={ref.entityId}
+        onClick={() => onOpenEntity!(ref)}
+      />
+    )
+  }
+  return (
+    <span className={side === 'before' ? 'text-red-600' : 'text-green-700'}>
+      {formatValue(value)}
+    </span>
+  )
 }

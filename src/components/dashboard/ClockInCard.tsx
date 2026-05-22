@@ -14,6 +14,8 @@ import {
 } from '@/lib/datetime'
 import { formatHours, formatMoney } from '@/lib/format'
 import LogHoursModal from '@/components/time-entry/log/LogHoursModal'
+import { getMyPayPeriods } from '@/services/payPeriodService'
+import type { PayPeriodRow } from '@/services/types/payPeriod'
 
 interface ClockInCardProps {
   /**
@@ -57,7 +59,6 @@ const STATUS_LABEL: Record<TimeEntryStatus, string> = {
   open: 'Open', approved: 'Approved', pending: 'Pending', rejected: 'Rejected',
 }
 
-type RangePreset = 'this_week' | 'last_week' | 'this_month' | 'all' | 'custom'
 type StatusPreset = 'all' | 'pending' | 'approved' | 'rejected'
 
 /**
@@ -264,38 +265,100 @@ interface EntriesListProps {
 }
 
 const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicked }) => {
-  const [range, setRange]                 = useState<RangePreset>('this_week')
-  const [statusFilter, setStatusFilter]   = useState<StatusPreset>('all')
-  const [customStart, setCustomStart]     = useState<string>('')
-  const [customEnd,   setCustomEnd]       = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<StatusPreset>('all')
+  // Date range (YYYY-MM-DD in PM tz) + optional pay-period preset.
+  // Picking a period auto-fills the dates; editing a date clears the period.
+  const initial = useMemo(() => {
+    const monday = startOfWeekInTz(new Date(), timezone)
+    return {
+      start: isoDateInTz(monday, timezone),
+      end:   isoDateInTz(new Date(monday.getTime() + 6 * 86_400_000), timezone),
+    }
+  }, [timezone])
+  const [dateStart, setDateStart] = useState<string>(initial.start)
+  const [dateEnd,   setDateEnd]   = useState<string>(initial.end)
+  const [periodId,  setPeriodId]  = useState<string>('')
+  const [periodOptions, setPeriodOptions] = useState<PayPeriodRow[]>([])
+
+  // Load the member's own pay periods for the dropdown.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await getMyPayPeriods({})
+        if (!cancelled && res.status === 'success') setPeriodOptions(res.data)
+      } catch {
+        // Non-fatal — dropdown just stays empty.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const distinctPeriodWindows = useMemo(() => {
+    const map = new Map<string, PayPeriodRow>()
+    for (const p of periodOptions) {
+      const key = `${p.startDate}_${p.endDate}`
+      if (!map.has(key)) map.set(key, p)
+    }
+    return Array.from(map.values()).sort((a, b) => b.startDate.localeCompare(a.startDate))
+  }, [periodOptions])
 
   const filtered = useMemo(() => {
-    const { start, end } = computeRangeBounds(range, timezone, customStart, customEnd)
     return data.entries.filter(e => {
       if (statusFilter !== 'all' && e.status !== statusFilter) return false
-      if (start === null) return true
-      const ts = new Date(e.startedAt).getTime()
-      return ts >= start && (end === null || ts < end)
+      if (!dateStart || !dateEnd) return true
+      const day = isoDateInTz(new Date(e.startedAt), timezone)
+      return day >= dateStart && day <= dateEnd
     })
-  }, [data.entries, range, statusFilter, timezone, customStart, customEnd])
+  }, [data.entries, statusFilter, dateStart, dateEnd, timezone])
+
+  // Range totals — hours + $ grouped by currency.
+  const rangeTotals = useMemo(() => {
+    let hours = 0
+    const dollars = new Map<string, number>()
+    for (const e of filtered) {
+      if (e.hoursWorked != null) hours += e.hoursWorked
+      if (e.hoursWorked != null && e.hourlyRateAtEntry != null) {
+        const cur = e.currencyAtEntry || data.teamMember.currency || 'CAD'
+        dollars.set(cur, (dollars.get(cur) || 0) + e.hoursWorked * e.hourlyRateAtEntry)
+      }
+    }
+    return { hours, dollars }
+  }, [filtered, data.teamMember.currency])
+
+  const handlePeriodChange = (id: string) => {
+    setPeriodId(id)
+    if (!id) return
+    const p = periodOptions.find(x => x.id === id)
+    if (p) {
+      setDateStart(p.startDate)
+      setDateEnd(p.endDate)
+    }
+  }
+  const handleDateStartChange = (v: string) => { setDateStart(v); setPeriodId('') }
+  const handleDateEndChange   = (v: string) => { setDateEnd(v);   setPeriodId('') }
+  const handleResetRange = () => {
+    setDateStart(initial.start)
+    setDateEnd(initial.end)
+    setPeriodId('')
+  }
 
   return (
     <div className="mt-5 pt-5 border-t border-gray-100">
-      {/* Filters row */}
+      {/* Totals row */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Range</label>
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as RangePreset)}
-            className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-          >
-            <option value="this_week">This week</option>
-            <option value="last_week">Last week</option>
-            <option value="this_month">This month</option>
-            <option value="all">All time</option>
-            <option value="custom">Custom…</option>
-          </select>
+        <div>
+          <div className="text-sm font-semibold text-gray-900 tabular-nums">
+            {formatHours(rangeTotals.hours)}
+            {rangeTotals.dollars.size > 0 && (
+              <span className="ml-2 text-emerald-700">
+                · {Array.from(rangeTotals.dollars.entries())
+                    .map(([cur, amt]) => formatMoney(amt, cur))
+                    .join(' · ')}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-gray-500">in selected range</div>
         </div>
         <div className="flex gap-1 bg-gray-50 rounded-lg p-1">
           {(['all', 'pending', 'approved', 'rejected'] as StatusPreset[]).map((s) => (
@@ -313,29 +376,47 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
         </div>
       </div>
 
-      {/* Inline custom range */}
-      {range === 'custom' && (
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Start</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">End</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"
-            />
-          </div>
+      {/* Date range + pay-period filter */}
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">From</label>
+          <input
+            type="date"
+            value={dateStart}
+            onChange={(e) => handleDateStartChange(e.target.value)}
+            className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+          />
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">To</label>
+          <input
+            type="date"
+            value={dateEnd}
+            min={dateStart || undefined}
+            onChange={(e) => handleDateEndChange(e.target.value)}
+            className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+          />
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pay period</label>
+          <select
+            value={periodId}
+            onChange={(e) => handlePeriodChange(e.target.value)}
+            className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white max-w-[260px]"
+          >
+            <option value="">Any</option>
+            {distinctPeriodWindows.map(p => (
+              <option key={p.id} value={p.id}>
+                #{String(p.periodNumber).padStart(2, '0')} · {p.periodYear} · {p.startDate} → {p.endDate}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleResetRange}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Reset to this week
+        </button>
+      </div>
 
       {/* Entries table — fixed max height, internal scroll */}
       {filtered.length === 0 ? (
@@ -352,6 +433,7 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
                   <th className="px-4 py-2">Hours</th>
                   <th className="px-4 py-2">Earned</th>
                   <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Period</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -378,6 +460,11 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
                       <td className="px-4 py-2">
                         <StatusPill status={e.status} />
                       </td>
+                      <td className="px-4 py-2 text-sm text-gray-700 tabular-nums">
+                        {e.payPeriodNumber != null
+                          ? <span className="font-medium text-gray-900">#{e.payPeriodNumber}</span>
+                          : <span className="text-gray-400">—</span>}
+                      </td>
                     </tr>
                   )
                 })}
@@ -399,44 +486,5 @@ const StatusPill: React.FC<{ status: TimeEntryStatus }> = ({ status }) => (
     {STATUS_LABEL[status]}
   </span>
 )
-
-/**
- * Compute [start, end) range boundaries (in ms) for a preset, in the
- * given timezone. `null` for either side means "no bound on this side".
- */
-function computeRangeBounds(
-  range: RangePreset,
-  timezone: string,
-  customStart: string,
-  customEnd: string,
-): { start: number | null; end: number | null } {
-  if (range === 'all') return { start: null, end: null }
-
-  if (range === 'custom') {
-    const startMs = customStart ? new Date(`${customStart}T00:00:00`).getTime() : null
-    // End date is inclusive — bump by 1 day to make it exclusive in the comparison
-    const endMs   = customEnd   ? new Date(`${customEnd}T00:00:00`).getTime() + 86_400_000 : null
-    return { start: startMs, end: endMs }
-  }
-
-  if (range === 'this_week') {
-    const start = startOfWeekInTz(new Date(), timezone).getTime()
-    return { start, end: start + 7 * 86_400_000 }
-  }
-  if (range === 'last_week') {
-    const start = startOfWeekInTz(new Date(), timezone).getTime() - 7 * 86_400_000
-    return { start, end: start + 7 * 86_400_000 }
-  }
-  if (range === 'this_month') {
-    const ymd = isoDateInTz(new Date(), timezone)
-    const [y, m] = ymd.split('-').map(Number)
-    // First day of current month at 00:00 (browser local — close enough to PM zone for this filter)
-    const start = new Date(y, m - 1, 1).getTime()
-    const end   = new Date(y, m,     1).getTime()
-    return { start, end }
-  }
-
-  return { start: null, end: null }
-}
 
 export default ClockInCard

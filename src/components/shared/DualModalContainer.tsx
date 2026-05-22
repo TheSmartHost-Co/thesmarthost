@@ -4,6 +4,10 @@ import { ReactNode, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Module-level counter so nested DualModalContainers don't fight each other:
+// only the LAST modal to close restores body scroll.
+let openModalCount = 0
+
 interface DualModalContainerProps {
   isOpen: boolean
   onClose: () => void
@@ -12,6 +16,10 @@ interface DualModalContainerProps {
   isSecondaryOpen: boolean
   onSecondaryClose: () => void
   primaryStyle?: string
+  // Optional override applied to the primary panel only while paired. Lets
+  // callers shrink the primary so a wide secondary can breathe on smaller
+  // screens. Falls back to primaryStyle when omitted.
+  primaryPairedStyle?: string
   secondaryStyle?: string
   zIndex?: number
 }
@@ -41,19 +49,23 @@ const DualModalContainer: React.FC<DualModalContainerProps> = ({
   isSecondaryOpen,
   onSecondaryClose,
   primaryStyle = 'p-6 max-w-lg w-11/12 max-h-[90vh]',
+  primaryPairedStyle,
   secondaryStyle = 'p-5 w-80 max-h-[80vh]',
   zIndex = 60
 }) => {
-  // Handle body scroll lock
+  const activePrimaryStyle = isSecondaryOpen && primaryPairedStyle ? primaryPairedStyle : primaryStyle
+  // Handle body scroll lock with ref-counting so nested modals don't release
+  // the lock while a parent is still open.
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'auto'
-    }
-
+    if (!isOpen) return
+    openModalCount += 1
+    document.body.style.overflow = 'hidden'
     return () => {
-      document.body.style.overflow = 'auto'
+      openModalCount -= 1
+      if (openModalCount <= 0) {
+        openModalCount = 0
+        document.body.style.overflow = 'auto'
+      }
     }
   }, [isOpen])
 
@@ -105,7 +117,7 @@ const DualModalContainer: React.FC<DualModalContainerProps> = ({
       <div className="relative flex items-start gap-4 z-10">
         {/* Primary Modal */}
         <motion.div
-          className={`relative bg-white rounded-2xl shadow-2xl overflow-y-auto ${primaryStyle}`}
+          className={`relative bg-white rounded-2xl shadow-2xl overflow-y-auto ${activePrimaryStyle}`}
           variants={primaryVariants}
           initial="solo"
           animate={isSecondaryOpen ? "paired" : "solo"}
