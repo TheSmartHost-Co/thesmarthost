@@ -23,6 +23,8 @@ import type {
   UpdateExpenseLineItemPayload,
   AttachReceiptResponse,
   DetachReceiptResponse,
+  SplitExpensePayload,
+  SplitExpenseResponse,
 } from './types/expense'
 
 /**
@@ -502,5 +504,26 @@ export async function deleteExpenseLineItem(
 ): Promise<DeleteExpenseResponse> {
   return apiClient<DeleteExpenseResponse>(`/expenses/${expenseId}/line-items/${lineItemId}?userId=${userId}`, {
     method: 'DELETE',
+  })
+}
+
+/**
+ * Split an expense into a new one on a different property.
+ *
+ * The parent's selected line items move to the new child expense; tax allocates
+ * proportionally; fees stay on the parent in V1. The new child shares the same
+ * receipt image (no file duplication — both expenses point at the same Supabase
+ * object). When the parent was already synced to QBO, `requiresQbReSync` is
+ * true and both expenses need to be re-sent via SendToQbModal.
+ *
+ * Backend: POST /api/expenses/:id/split (services/expenseSplitService.js)
+ */
+export async function splitExpense(
+  expenseId: string,
+  payload: SplitExpensePayload
+): Promise<SplitExpenseResponse> {
+  return apiClient<SplitExpenseResponse, SplitExpensePayload>(`/expenses/${expenseId}/split`, {
+    method: 'POST',
+    body: payload,
   })
 }

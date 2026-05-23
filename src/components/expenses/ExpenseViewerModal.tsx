@@ -49,6 +49,7 @@ import {
   PencilIcon,
   TrashIcon,
   ArrowUpTrayIcon,
+  ArrowsRightLeftIcon,
   XMarkIcon,
   BuildingOfficeIcon,
   CalendarIcon,
@@ -58,11 +59,13 @@ import {
   ChevronRightIcon,
   LinkIcon,
   UserIcon,
-  PlusIcon
+  PlusIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import SendToQbModal from '@/components/quickbooks/SendToQbModal'
+import SplitExpenseModal from '@/components/expenses/split/SplitExpenseModal'
+import type { SplitExpenseResponseData } from '@/services/types/expense'
 import { getConnection as getQbConnection, resetQbSyncForExpense } from '@/services/quickbooksService'
-import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import type { QbConnection, QbEntityType } from '@/services/types/quickbooks'
 import ViewSupplyListsModal from '@/components/turnover/supply-lists/ViewSupplyListsModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
@@ -120,6 +123,9 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
   const [mode, setMode] = useState<ModalMode>('view')
   const [qbConnection, setQbConnection] = useState<QbConnection | null>(null)
   const [showSendToQbModal, setShowSendToQbModal] = useState(false)
+  // Split-expense modal toggle. Visible only when the expense has an attached
+  // receipt (receiptId or legacy receipt_path); fees stay on the parent in V1.
+  const [showSplitModal, setShowSplitModal] = useState(false)
   // True while the resend-reset PATCH is in flight (footer button disables itself
   // and we auto-open SendToQbModal on success).
   const [resending, setResending] = useState(false)
@@ -825,6 +831,18 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                   Send to QB
                 </button>
               )}
+              {/* Split — only when a receipt is attached. The whole point is
+                  "two expenses, one receipt"; nothing to split otherwise. */}
+              {(expense.receiptId || expense.receiptPath) && (
+                <button
+                  onClick={() => setShowSplitModal(true)}
+                  className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Split this expense into multiple expenses across properties"
+                >
+                  <ArrowsRightLeftIcon className="w-4 h-4" />
+                  Split
+                </button>
+              )}
               <button
                 onClick={() => handleModeSwitch('edit')}
                 className="cursor-pointer p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1464,6 +1482,25 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
             // page) so its row in the list re-renders without a manual reload.
             fetchExpense()
             onExpenseUpdated?.()
+          }}
+        />
+      )}
+
+      {expense && effectiveUserId && (
+        <SplitExpenseModal
+          isOpen={showSplitModal}
+          onClose={() => setShowSplitModal(false)}
+          expense={expense}
+          lineItems={expenseLineItems}
+          userId={effectiveUserId}
+          zIndex={(zIndex ?? 60) + 10}
+          onSplit={(result: SplitExpenseResponseData) => {
+            // Refresh the open expense (parent's totals reduced) and notify the
+            // expenses list so the new child row appears without a reload.
+            // The SplitExpenseModal itself already showed success + re-sync toasts.
+            fetchExpense()
+            onExpenseUpdated?.()
+            void result // child id is in result.child.id if a follow-up nav is wanted later
           }}
         />
       )}

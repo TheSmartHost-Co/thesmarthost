@@ -1,4 +1,4 @@
-import type { PaidByType } from './receipt'
+import type { PaidByType, ReceiptExtraCharge } from './receipt'
 
 // Expense Types for HostMetrics Frontend
 
@@ -135,6 +135,12 @@ export interface Expense {
   isBillable?: boolean
   primaryOwnerName?: string | null
   primaryOwnerEmail?: string | null
+  // Fees/surcharges captured by OCR (mig 033). null until receipt is OCR'd
+  // post-mig, then either [] (no fees) or an array of {label, amount}.
+  extraCharges?: ReceiptExtraCharge[] | null
+  // Set on expenses created via POST /expenses/:id/split (mig 034). Points
+  // back to the parent so the UI/audit trail can group them.
+  splitFromExpenseId?: string | null
   createdAt: string
   updatedAt: string
   // Nested related objects (from detail endpoint)
@@ -142,6 +148,7 @@ export interface Expense {
   receipt?: ExpenseLinkedReceipt | null
   supplyList?: ExpenseLinkedSupplyList | null
 }
+
 
 /**
  * Payload for creating an expense
@@ -513,4 +520,60 @@ export interface DetachReceiptResponse {
   status: 'success' | 'failed'
   data: Expense
   message?: string
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Split expense (POST /api/expenses/:id/split — mig 034)
+//
+// The "current" expense becomes the parent; one new child is created on
+// a different property, sharing the same receipt image. Tax allocates
+// proportionally to selected subtotal; fees stay on the parent in V1.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-split overrides for the new child expense. propertyId is the only
+ * required field; everything else inherits from the parent unless set.
+ *
+ * Note: qbItemId is intentionally absent — it's a per-sync override
+ * resolved by SendToQbModal at sync time, never persisted on the row.
+ */
+export interface SplitExpenseChildOverrides {
+  propertyId: string
+  category?: string
+  isBillable?: boolean
+  paidByType?: PaidByType | null
+  paidById?: string | null
+  /** When no line items selected, supply the manual amount (excl. tax). */
+  subtotalOverride?: number
+  /** Per-tax-kind overrides; otherwise auto-allocated proportionally. */
+  taxGstOverride?: number
+  taxPstOverride?: number
+  taxHstOverride?: number
+  taxQstOverride?: number
+  taxTotalOverride?: number
+  /**
+   * V2 fee redistribution. UI omits this in V1 (fees stay on parent).
+   * Backend validates label-set preservation: dropping or duplicating a
+   * fee returns 400 BAD_FEES.
+   */
+  extraCharges?: ReceiptExtraCharge[]
+}
+
+export interface SplitExpensePayload {
+  selectedLineItemIds: string[]
+  newExpense: SplitExpenseChildOverrides
+}
+
+export interface SplitExpenseResponseData {
+  parent: Expense
+  child: Expense
+  /** True when the parent was already synced to QBO and was reset to pending. */
+  requiresQbReSync: boolean
+}
+
+export interface SplitExpenseResponse {
+  status: 'success' | 'failed'
+  data?: SplitExpenseResponseData
+  message?: string
+  code?: string
 }

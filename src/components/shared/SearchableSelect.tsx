@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo, useId } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronUpDownIcon, MagnifyingGlassIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 
@@ -94,6 +95,21 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxRef = useRef<HTMLUListElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  // Viewport-relative position for the portaled dropdown. Recomputed on open
+  // and on any ancestor scroll/window resize so the panel stays glued to the
+  // trigger even when the trigger lives inside a scrollable container.
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  const updateDropdownPosition = useCallback(() => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    setDropdownPos({
+      top: rect.bottom + 6, // matches the previous mt-1.5 gap
+      left: rect.left,
+      width: rect.width,
+    })
+  }, [])
 
   const reactId = useId()
   const componentId = id || `searchable-select-${reactId}`
@@ -142,10 +158,14 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
     setHighlightedIndex(0)
   }, [filteredOptions.length])
 
-  // Handle click outside to close
+  // Handle click outside to close — the dropdown is portaled to <body>, so a
+  // click inside it would otherwise look "outside" the container ref. Check both.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      const insideTrigger = containerRef.current?.contains(target)
+      const insideDropdown = dropdownRef.current?.contains(target)
+      if (!insideTrigger && !insideDropdown) {
         setIsOpen(false)
         setQuery('')
       }
@@ -154,6 +174,20 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Keep the dropdown glued to the trigger while open. Capture-phase scroll
+  // listener so we catch scrolling on any ancestor (e.g. the bulk-receipts
+  // table with overflow-y-auto), not just the window.
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = () => updateDropdownPosition()
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [isOpen, updateDropdownPosition])
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -169,9 +203,10 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
     if (!disabled && !loading) {
       setIsOpen(true)
       setQuery('')
+      updateDropdownPosition()
       setTimeout(() => inputRef.current?.focus(), 0)
     }
-  }, [disabled, loading])
+  }, [disabled, loading, updateDropdownPosition])
 
   const handleClose = useCallback(() => {
     setIsOpen(false)
@@ -369,11 +404,20 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
         </div>
       </div>
 
-      {/* Dropdown */}
-      {isOpen && (
+      {/* Dropdown — portaled to <body> so it escapes any clipping/overflow
+          ancestor. Positioned with fixed coords pulled from the trigger's
+          bounding rect, kept in sync via the scroll/resize effect above. */}
+      {isOpen && dropdownPos && typeof document !== 'undefined' && createPortal(
         <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+          }}
           className="
-            absolute z-50 w-full mt-1.5
+            z-[1000]
             bg-white border border-gray-200 rounded-xl
             shadow-lg shadow-gray-200/50
             overflow-hidden
@@ -484,7 +528,8 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Error Message */}
