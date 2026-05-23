@@ -139,9 +139,12 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
     (Object.keys(statusStyles) as InvoiceStatus[]).map(k => [k, { label: statusLabels[k], ...statusStyles[k] }])
   ) as Record<InvoiceStatus, { label: string; bg: string; text: string; dot: string }>
 
+  // Flex column layout caps the modal at 85vh and lets the middle section scroll
+  // internally — header/PDF actions and footer actions stay pinned regardless of
+  // how many line items the invoice has.
   const modalStyle = role === 'pm'
-    ? 'p-6 max-w-5xl !w-11/12 !max-h-[85vh]'
-    : 'p-6 max-w-3xl !w-11/12 !max-h-[85vh]'
+    ? 'p-0 max-w-5xl !w-11/12 !max-h-[85vh] !overflow-y-hidden flex flex-col'
+    : 'p-0 max-w-3xl !w-11/12 !max-h-[85vh] !overflow-y-hidden flex flex-col'
 
   // Cleaner can edit draft/rejected. PM has full admin edit access at any status.
   const isEditable = role === 'pm'
@@ -567,7 +570,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   if (loading || !invoice) {
     return (
       <Modal isOpen={isOpen} onClose={handleModalClose} style={modalStyle}>
-        <div className="flex justify-center items-center py-12">
+        <div className="flex justify-center items-center py-12 p-6">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
         </div>
       </Modal>
@@ -579,6 +582,8 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleModalClose} style={modalStyle}>
+      {/* Fixed top: header + PDF actions + status notices */}
+      <div className="flex-shrink-0 px-6 pt-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 pr-8">
         <div>
@@ -762,11 +767,15 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           <p className="text-sm text-slate-700">{t('invoiceIsArchived')}</p>
         </div>
       )}
+      </div>
+
+      {/* Scrollable middle: line items + tax + totals + notes + reject input */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-6">
 
       {/* Line Items */}
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('lineItems')}</h3>
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="space-y-2">
           {items.map((item, index) => (
             <div key={item.id} className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-start justify-between">
@@ -1219,9 +1228,13 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
           </button>
         </div>
       )}
+      </div>
+
+      {/* Fixed bottom: footer actions (always visible) */}
+      <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200">
 
       {/* Footer Actions */}
-      <div className="flex justify-between gap-3 pt-4 border-t border-gray-200">
+      <div className="flex justify-between gap-3">
         <div className="flex gap-2">
           {role === 'cleaner' && isEditable && (
             <button
@@ -1313,6 +1326,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
             </button>
           )}
         </div>
+      </div>
       </div>
 
       {/* PM Delete Confirmation Modal */}

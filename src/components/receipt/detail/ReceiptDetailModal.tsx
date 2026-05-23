@@ -69,6 +69,7 @@ interface ReceiptDetailModalProps {
   defaultPaidByType?: PaidByType
   defaultPaidById?: string | null
   readOnly?: boolean
+  zIndex?: number
 }
 
 type Tab = 'view' | 'edit' | 'apply' | 'related'
@@ -133,6 +134,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   defaultPaidByType,
   defaultPaidById,
   readOnly,
+  zIndex,
 }) => {
   const showNotification = useNotificationStore((s) => s.showNotification)
   const { profile } = useUserStore()
@@ -756,9 +758,34 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         </div>
       </div>
 
+      {/* Reconciliation warning — set by the backend when
+          |subtotal + fees + tax - total| > $0.05 (typical: Costco surcharge dropped). */}
+      {receipt?.reconciliationWarning ? (
+        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+          <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-amber-800">{receipt.reconciliationWarning}</p>
+        </div>
+      ) : null}
+
       {/* Totals */}
       <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
         <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="text-gray-900 tabular-nums">{fmt(receipt?.subtotal)}</span></div>
+        {Array.isArray(receipt?.extraCharges) && receipt.extraCharges.length > 0 ? (
+          <>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Fees & Surcharges</span>
+              <span className="text-gray-900 tabular-nums">
+                {fmt(receipt.extraCharges.reduce((s, c) => s + p(c.amount), 0))}
+              </span>
+            </div>
+            {receipt.extraCharges.map((c, i) => (
+              <div key={`${c.label}-${i}`} className="flex justify-between text-xs">
+                <span className="text-gray-400 pl-2">{c.label}</span>
+                <span className="text-gray-600 tabular-nums">{fmt(c.amount)}</span>
+              </div>
+            ))}
+          </>
+        ) : null}
         {(receipt?.taxGst || receipt?.taxPst || receipt?.taxHst || receipt?.taxQst) && (
           <>
             {receipt?.taxGst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">GST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxGst)}</span></div> : null}
@@ -1096,7 +1123,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   )
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-5xl w-11/12 max-h-[85vh] overflow-hidden">
+    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-5xl w-11/12 max-h-[85vh] overflow-hidden" zIndex={zIndex}>
       {loading ? (
         <div className="flex items-center justify-center h-96">
           <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin" />
@@ -1189,7 +1216,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         </div>
       )}
 
-      {/* Stacked modals for related entities */}
+      {/* Stacked modals for related entities — bump z-index above this modal. */}
       {stackedExpenseId && (
         <ExpenseViewerModal
           isOpen={!!stackedExpenseId}
@@ -1197,6 +1224,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           expenseId={stackedExpenseId}
           onExpenseUpdated={() => fetchReceipt()}
           hideSupplyListLink
+          zIndex={(zIndex ?? 60) + 10}
         />
       )}
       {stackedSupplyListId && (
@@ -1205,6 +1233,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           onClose={() => setStackedSupplyListId(null)}
           initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
           onSupplyListsChanged={() => fetchReceipt()}
+          zIndex={(zIndex ?? 60) + 10}
         />
       )}
       {showMatchReview && receipt && applySupplyListId && (

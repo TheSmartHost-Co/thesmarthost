@@ -5,6 +5,14 @@ import type { SupplyList } from './supplyList'
 export type ReceiptStatus = 'pending' | 'matched' | 'failed' | 'applied' | 'archived'
 export type PaidByType = 'PROPERTY-MANAGER' | 'CLEANER' | 'TEAM_MEMBER'
 
+// Non-tax non-line-item fees the merchant added on top of subtotal: Costco
+// Grocery Surcharge, shipping, delivery, environmental fees, deposits, gratuity.
+// Backed by migration 033 (receipts.extra_charges + expenses.extra_charges).
+export interface ReceiptExtraCharge {
+  label: string
+  amount: number
+}
+
 export interface ReceiptLineItem {
   id: string
   receiptId: string
@@ -39,6 +47,11 @@ export interface UploadedReceipt {
   taxTotal: number | null
   total: number | null
   description: string | null
+  // Optional because old client code still constructs UploadedReceipt literals
+  // (e.g. ViewSupplyListsModal mapping from SupplyListReceipt) without these
+  // mig-033 fields. Backend always returns them; consumers should null-guard.
+  extraCharges?: ReceiptExtraCharge[] | null
+  reconciliationWarning?: string | null
   uploaderName: string | null
 }
 
@@ -106,6 +119,7 @@ export interface UpdateReceiptPayload {
   paymentMethod?: string
   description?: string
   propertyId?: string
+  extraCharges?: ReceiptExtraCharge[]
 }
 
 export interface CreateLineItemPayload {
@@ -136,6 +150,7 @@ export interface ApplyReceiptPayload {
   taxHst: number | null
   taxQst: number | null
   taxTotal: number
+  extraCharges?: ReceiptExtraCharge[]
   supplyList: {
     mode: 'none' | 'new' | 'existing'
     projectId?: string | null
@@ -159,6 +174,7 @@ export interface AutoApplyOptions {
   taxHst?: number | null
   taxQst?: number | null
   taxTotal?: number
+  extraCharges?: ReceiptExtraCharge[]
   supplyList?: {
     mode: 'none' | 'new' | 'existing'
     projectId?: string | null
@@ -247,6 +263,7 @@ export interface ScanReceiptOcrData {
   taxHst: OcrDataField<number>
   taxQst: OcrDataField<number>
   taxTotal: OcrDataField<number>
+  extraCharges: OcrDataField<ReceiptExtraCharge[]>
   lineItems: {
     name: OcrDataField<string>
     quantity: OcrDataField<number>
@@ -327,6 +344,7 @@ export interface BulkApplyAssignment {
   taxHst?: number | null
   taxQst?: number | null
   taxTotal?: number
+  extraCharges?: ReceiptExtraCharge[]
   supplyList?: { mode: 'none' | 'new' | 'existing' }
 }
 

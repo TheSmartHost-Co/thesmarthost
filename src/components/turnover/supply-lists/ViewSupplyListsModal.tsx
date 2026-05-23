@@ -49,6 +49,7 @@ interface ViewSupplyListsModalProps {
   fulfilledBy?: string
   initialSupplyList?: SupplyList | null
   onScanReceipt?: (supplyList: SupplyList) => void
+  zIndex?: number
 }
 
 // Inline progress bar component
@@ -84,6 +85,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
   fulfilledBy,
   initialSupplyList,
   onScanReceipt,
+  zIndex,
 }) => {
   const { t } = useTranslation('turnover')
   const [supplyLists, setSupplyLists] = useState<SupplyList[]>([])
@@ -507,7 +509,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} closable style="!overflow-y-hidden flex flex-col max-w-2xl w-[calc(100%-1rem)]">
+    <Modal isOpen={isOpen} onClose={onClose} closable style="!overflow-y-hidden flex flex-col max-w-2xl w-[calc(100%-1rem)]" zIndex={zIndex}>
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-4 sm:p-6">
@@ -1092,6 +1094,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
           if (selectedList) refreshSelectedList()
         }}
         defaultSupplyListId={selectedList?.id}
+        zIndex={(zIndex ?? 60) + 10}
       />
     )}
     {viewingExpenseId && (
@@ -1100,6 +1103,7 @@ const ViewSupplyListsModal: React.FC<ViewSupplyListsModalProps> = ({
         onClose={() => setViewingExpenseId(null)}
         expenseId={viewingExpenseId}
         hideSupplyListLink={true}
+        zIndex={(zIndex ?? 60) + 10}
       />
     )}
     {reviewReceiptId && selectedList && (

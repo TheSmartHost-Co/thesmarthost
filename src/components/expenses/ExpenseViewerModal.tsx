@@ -1469,7 +1469,8 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
       )}
     </Modal>
 
-    {/* Stacked modals for related entities */}
+    {/* Stacked modals for related entities — bump z-index above this modal so
+        a 3-deep stack (invoice → expense → receipt) renders top-to-bottom. */}
     {stackedReceiptId && (
       <ReceiptDetailModal
         isOpen={!!stackedReceiptId}
@@ -1478,6 +1479,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         properties={properties}
         onUpdated={() => fetchExpense()}
         onDeleted={() => { setStackedReceiptId(null); fetchExpense() }}
+        zIndex={(zIndex ?? 60) + 10}
       />
     )}
     {stackedSupplyListId && (
@@ -1486,6 +1488,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         onClose={() => setStackedSupplyListId(null)}
         initialSupplyList={{ id: stackedSupplyListId } as SupplyList}
         onSupplyListsChanged={() => fetchExpense()}
+        zIndex={(zIndex ?? 60) + 10}
       />
     )}
     </>

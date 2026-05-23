@@ -414,7 +414,7 @@ export default function PropertyRowView({
           </div>
           {properties.map(property => {
             const rowHeight = getRowHeight(property.id)
-            const displayName = property.listingName || property.internalName || property.address
+            const secondaryName = property.listingName || property.internalName || property.externalName
             return (
               <div
                 key={property.id}
@@ -433,15 +433,17 @@ export default function PropertyRowView({
                         textOverflow: 'ellipsis',
                       }}
                     >
-                      {displayName}
+                      {property.address}
                     </span>
                   </div>
                 ) : (
                   <div className={`flex flex-col justify-center overflow-hidden ${compactDensity ? 'py-1 px-2' : 'py-2 px-3'}`} style={{ height: rowHeight }}>
                     <div className={`font-medium text-gray-800 truncate leading-tight ${compactDensity ? 'text-[11px]' : 'text-[13px]'}`}>
-                      {displayName}
+                      {property.address}
                     </div>
-                    {!compactDensity && <div className="text-[11px] text-gray-400 truncate leading-tight">{property.address}</div>}
+                    {!compactDensity && secondaryName && (
+                      <div className="text-[11px] text-gray-400 truncate leading-tight">{secondaryName}</div>
+                    )}
                   </div>
                 )}
               </div>
