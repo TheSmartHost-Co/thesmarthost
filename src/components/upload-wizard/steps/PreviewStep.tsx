@@ -267,59 +267,73 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
     return value.replace(/[$,\s]/g, '').trim()
   }
 
+  // Normalizes an identifier for fuzzy matching.
+  // "Host Side Channel Fee", "HostSideChannelFee", "host_side_channel_fee" → "hostsidechannelfee"
+  const normalizeIdentifier = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+
   // Formula evaluator function
   // suppressWarning: When true, don't log warnings or add to formulaErrorsRef (used during pass 1 of two-pass evaluation)
   const evaluateFormula = (formula: string, csvRow: string[], csvHeaders: any[], suppressWarning: boolean = false): number | string => {
     try {
-      // Removed excessive logging
-      
-      // Create a lowercase mapping for all columns
-      const valueMap = new Map<string, string>()
+      // Keep both the lowercased original (for verbatim multi-word matches like "other guest fees")
+      // and the normalized form (for camelCase/snake_case/smushed references like "OtherGuestFees").
+      type HeaderEntry = { original: string; normalized: string; value: string }
+      const headerEntries: HeaderEntry[] = []
+
       csvHeaders.forEach((header, index) => {
         const columnValue = csvRow[index] || '0'
-        
-        // Special handling for date fields and listing names - keep original text format
         const headerLower = header.name.toLowerCase()
-        if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin') || 
+        const headerNormalized = normalizeIdentifier(header.name)
+
+        // Special handling for date fields and listing names - keep original text format
+        if (headerLower.includes('date') || headerLower.includes('check-in') || headerLower.includes('checkin') ||
             headerLower.includes('listing') || headerLower.includes('property')) {
-          valueMap.set(headerLower, columnValue)
+          headerEntries.push({ original: headerLower, normalized: headerNormalized, value: columnValue })
           return
         }
-        
+
         const numValue = parseFloat(stripCurrency(columnValue))
-        // For numeric calculations, use numbers. For text, keep original text
         const valueToUse = isNaN(numValue) ? columnValue : numValue.toString()
-        valueMap.set(headerLower, valueToUse)
+        headerEntries.push({ original: headerLower, normalized: headerNormalized, value: valueToUse })
       })
-      
-      // Check if it's a simple column reference first
-      const simpleValue = valueMap.get(formula.toLowerCase())
-      if (simpleValue !== undefined) {
-        // Simple column mapping found
-        
-        // For date-related formulas and listing names, always return the original string value
-        const formulaLower = formula.toLowerCase()
+
+      // Simple-reference check — try both the original and the normalized forms
+      const formulaLower = formula.toLowerCase()
+      const formulaNormalized = normalizeIdentifier(formula)
+      const simpleEntry =
+        headerEntries.find(e => e.original === formulaLower) ||
+        (formulaNormalized ? headerEntries.find(e => e.normalized === formulaNormalized) : undefined)
+
+      if (simpleEntry) {
         if (formulaLower.includes('date') || formulaLower.includes('check-in') || formulaLower.includes('checkin') ||
             formulaLower.includes('listing') || formulaLower.includes('property')) {
-          return simpleValue
+          return simpleEntry.value
         }
-        
-        // For non-date/non-listing fields, try to parse as number
-        const numValue = parseFloat(stripCurrency(simpleValue))
-        return isNaN(numValue) ? simpleValue : numValue
+        const numValue = parseFloat(stripCurrency(simpleEntry.value))
+        return isNaN(numValue) ? simpleEntry.value : numValue
       }
 
-      // For complex formulas, split by operators and replace each term
-      let expression = formula.toLowerCase() // Convert entire formula to lowercase
+      // Complex formula: substitute identifiers with their values.
+      let expression = formula.toLowerCase()
 
-      
-      // Replace each mapped column with its value
-      valueMap.forEach((value, key) => {
-        // Use word boundaries to avoid partial matches
-        const regex = new RegExp(`\\b${escapeRegExp(key)}\\b`, 'g')
-        const beforeReplace = expression
+      // Pass A: replace multi-word column references verbatim (e.g. "other guest fees").
+      // Sort longest-first so "total guest fees" wins over a "guest" column if both existed.
+      const multiWordEntries = headerEntries
+        .filter(e => /\s/.test(e.original))
+        .sort((a, b) => b.original.length - a.original.length)
+      multiWordEntries.forEach(({ original, value }) => {
+        const regex = new RegExp(`\\b${escapeRegExp(original)}\\b`, 'g')
         expression = expression.replace(regex, value)
-        
+      })
+
+      // Pass B: replace remaining identifier-like tokens by normalized lookup.
+      // Handles "OtherGuestFees", "other_guest_fees", and snake_case references like
+      // "total_payout" pointing at a previously-computed booking field of the same name.
+      expression = expression.replace(/[a-z_][a-z0-9_]*/g, (match) => {
+        const normalizedMatch = normalizeIdentifier(match)
+        if (!normalizedMatch) return match
+        const entry = headerEntries.find(e => e.normalized === normalizedMatch)
+        return entry ? entry.value : match
       })
 
       // Evaluate the mathematical expression safely
@@ -1340,7 +1354,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                                     className={`${hasBeenEdited ? 'bg-yellow-50 px-1 rounded' : isUsingPlatformOverride ? 'bg-blue-50 px-1 rounded' : ''}`}
                                     title={`${value}${isUsingPlatformOverride ? ` (${bookingPlatform} override)` : ''}`}
                                   >
-                                    {value || <span className="text-gray-400">—</span>}
+                                    {value !== undefined && value !== null && value !== '' ? value : <span className="text-gray-400">—</span>}
                                     {hasBeenEdited && (
                                       <span className="ml-1 text-xs text-yellow-600">*</span>
                                     )}
