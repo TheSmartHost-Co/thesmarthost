@@ -98,8 +98,10 @@ export interface ReceiptSearchParams {
   propertyId?: string
   supplyListId?: string
   status?: ReceiptStatus | ''
-  startDate?: string
-  endDate?: string
+  startDate?: string // upload date (created_at) range start
+  endDate?: string // upload date (created_at) range end
+  purchaseStartDate?: string // purchase date (expense_date) range start
+  purchaseEndDate?: string // purchase date (expense_date) range end
   linked?: string // 'true' | 'false'
   limit?: number
   offset?: number

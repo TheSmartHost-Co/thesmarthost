@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   ReceiptPercentIcon,
@@ -33,6 +33,8 @@ import BulkDeleteReceiptsModal from '@/components/receipt/delete/BulkDeleteRecei
 import ReceiptGalleryCard from '@/components/receipt/ReceiptGalleryCard'
 import PropertyChip from '@/components/receipt/PropertyChip'
 import ReceiptThumbnail from '@/components/shared/ReceiptThumbnail'
+import SearchableSelect from '@/components/shared/SearchableSelect'
+import type { SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
 
@@ -94,8 +96,12 @@ function ReceiptsContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<ReceiptStatus | 'all'>('all')
   const [propertyFilter, setPropertyFilter] = useState('')
+  // Upload date (created_at) range
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  // Purchase date (expense_date) range
+  const [purchaseStartDate, setPurchaseStartDate] = useState('')
+  const [purchaseEndDate, setPurchaseEndDate] = useState('')
   const [linkedFilter, setLinkedFilter] = useState<'' | 'true' | 'false'>('')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
@@ -123,7 +129,7 @@ function ReceiptsContent() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, propertyFilter, startDate, endDate, linkedFilter])
+  }, [debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter])
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -140,6 +146,8 @@ function ReceiptsContent() {
       if (propertyFilter) params.propertyId = propertyFilter
       if (startDate) params.startDate = startDate
       if (endDate) params.endDate = endDate
+      if (purchaseStartDate) params.purchaseStartDate = purchaseStartDate
+      if (purchaseEndDate) params.purchaseEndDate = purchaseEndDate
       if (linkedFilter) params.linked = linkedFilter
 
       const [receiptsRes, propertiesRes] = await Promise.all([
@@ -164,7 +172,7 @@ function ReceiptsContent() {
     } finally {
       setLoading(false)
     }
-  }, [effectiveUserId, currentPage, debouncedSearch, statusFilter, propertyFilter, startDate, endDate, linkedFilter])
+  }, [effectiveUserId, currentPage, debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter])
 
   useEffect(() => {
     fetchData()
@@ -181,7 +189,18 @@ function ReceiptsContent() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const activeFilterCount = [propertyFilter, startDate, endDate, linkedFilter].filter(Boolean).length
+  const activeFilterCount = [propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter].filter(Boolean).length
+
+  // Searchable property options — same label format as the expenses filter
+  // (address + postal code) so the two filters behave consistently.
+  const propertyOptions: SearchableSelectOption<string>[] = useMemo(
+    () =>
+      properties.map((p) => ({
+        value: p.id,
+        label: [p.address, p.postalCode].filter(Boolean).join(', ') || p.id,
+      })),
+    [properties]
+  )
 
   // Build actions for each receipt
   const buildActions = (receipt: UploadedReceipt): ActionItem[] => {
@@ -399,6 +418,8 @@ function ReceiptsContent() {
                         setPropertyFilter('')
                         setStartDate('')
                         setEndDate('')
+                        setPurchaseStartDate('')
+                        setPurchaseEndDate('')
                         setLinkedFilter('')
                       }}
                       className="text-xs text-blue-600 hover:text-blue-800"
@@ -410,34 +431,51 @@ function ReceiptsContent() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Property</label>
-                  <select
-                    value={propertyFilter}
-                    onChange={(e) => setPropertyFilter(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">All Properties</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.address || p.id}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    options={propertyOptions}
+                    value={propertyFilter || null}
+                    onChange={(value) => setPropertyFilter(value ?? '')}
+                    placeholder="All Properties"
+                    emptyText="No properties found"
+                    clearable
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+                {/* Purchase date (when the receipt was purchased — expense_date) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Purchase date</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"
+                      aria-label="Purchase date from"
+                      value={purchaseStartDate}
+                      onChange={(e) => setPurchaseStartDate(e.target.value)}
+                      className="w-full px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      aria-label="Purchase date to"
+                      value={purchaseEndDate}
+                      onChange={(e) => setPurchaseEndDate(e.target.value)}
+                      className="w-full px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Upload date (when the receipt was uploaded — created_at) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Upload date</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      aria-label="Upload date from"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       className="w-full px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
                     <input
                       type="date"
+                      aria-label="Upload date to"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       className="w-full px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
