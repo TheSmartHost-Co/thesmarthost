@@ -11,6 +11,10 @@ import {
   ClientPortalIssuesResponse,
   ClientPortalProjectDetailResponse,
   ClientPortalReportsResponse,
+  ClientPortalReceiptsResponse,
+  ClientPortalReceiptResponse,
+  ClientPortalExpensesResponse,
+  ClientPortalExpenseResponse,
 } from './types/clientPortal';
 
 // No userId parameter needed — the backend determines scoping from the JWT + auth middleware
@@ -74,4 +78,70 @@ export function getClientPortalReports(filters?: {
   if (filters?.endDate) params.set('endDate', filters.endDate);
   const qs = params.toString();
   return apiClient<ClientPortalReportsResponse>(`/client-portal/reports${qs ? `?${qs}` : ''}`);
+}
+
+export function getClientPortalReceipts(filters?: {
+  propertyId?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  includeArchived?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<ClientPortalReceiptsResponse> {
+  const params = new URLSearchParams();
+  if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.includeArchived) params.set('includeArchived', 'true');
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  if (filters?.offset != null) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  return apiClient<ClientPortalReceiptsResponse>(`/client-portal/receipts${qs ? `?${qs}` : ''}`);
+}
+
+export function getClientPortalReceiptById(
+  id: string,
+  opts?: { includeArchived?: boolean }
+): Promise<ClientPortalReceiptResponse> {
+  const params = new URLSearchParams();
+  if (opts?.includeArchived) params.set('includeArchived', 'true');
+  const qs = params.toString();
+  return apiClient<ClientPortalReceiptResponse>(`/client-portal/receipts/${id}${qs ? `?${qs}` : ''}`);
+}
+
+export function getClientPortalExpenses(filters?: {
+  propertyId?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  includeArchived?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<ClientPortalExpensesResponse> {
+  const params = new URLSearchParams();
+  if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+  if (filters?.category) params.set('category', filters.category);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.includeArchived) params.set('includeArchived', 'true');
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  if (filters?.offset != null) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  return apiClient<ClientPortalExpensesResponse>(`/client-portal/expenses${qs ? `?${qs}` : ''}`);
+}
+
+export function getClientPortalExpenseById(
+  id: string,
+  opts?: { includeArchived?: boolean }
+): Promise<ClientPortalExpenseResponse> {
+  const params = new URLSearchParams();
+  if (opts?.includeArchived) params.set('includeArchived', 'true');
+  const qs = params.toString();
+  return apiClient<ClientPortalExpenseResponse>(`/client-portal/expenses/${id}${qs ? `?${qs}` : ''}`);
 }

@@ -1,7 +1,7 @@
 // components/Modal.js
 'use client'
 import { ReactNode, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline'; 
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { createPortal } from 'react-dom';
 
 interface ModalProps {
@@ -13,17 +13,19 @@ interface ModalProps {
     closable?: boolean; // Allow disabling close button and backdrop click
   }
 
+// Module-level counter so stacked modals don't unlock the body while one is still open.
+let openModalCount = 0;
 
 const Modal = ({ isOpen, onClose, children, style, zIndex = 60, closable = true }: ModalProps) => {
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.removeProperty('overflow');
-    }
-
+    if (!isOpen) return;
+    openModalCount += 1;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.removeProperty('overflow');
+      openModalCount = Math.max(0, openModalCount - 1);
+      if (openModalCount === 0) {
+        document.body.style.removeProperty('overflow');
+      }
     };
   }, [isOpen]);
 

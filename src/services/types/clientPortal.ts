@@ -374,3 +374,157 @@ export interface ClientPortalReportsResponse {
   status: 'success' | 'failed';
   data: ClientPortalReport[];
 }
+
+// --- Receipts & Expenses ---
+
+export type ClientPortalReceiptStatus =
+  | 'pending'
+  | 'matched'
+  | 'applied'
+  | 'archived'
+  | 'failed';
+
+export type ClientPortalExpensePaymentStatus =
+  | 'paid'
+  | 'pending'
+  | 'reimbursed'
+  | 'cancelled';
+
+export type ClientPortalSupplyListStatus = 'pending' | 'in_progress' | 'fulfilled';
+
+export interface ClientPortalExtraCharge {
+  label: string;
+  amount: number;
+}
+
+export interface ClientPortalReceipt {
+  id: string;
+  propertyId: string;
+  propertyName: string | null;
+  supplyListId: string | null;
+  vendorName: string | null;
+  expenseDate: string | null;
+  description: string | null;
+  status: ClientPortalReceiptStatus;
+  appliedAt: string | null;
+  subtotal: number | null;
+  taxGst: number | null;
+  taxPst: number | null;
+  taxHst: number | null;
+  taxQst: number | null;
+  taxTotal: number | null;
+  total: number | null;
+  paymentMethod: string | null;
+  extraCharges: ClientPortalExtraCharge[] | null;
+  originalName: string;
+  mimeType: string;
+  signedUrl: string | null;
+  createdAt: string;
+}
+
+export interface ClientPortalReceiptLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number | null;
+  totalPrice: number | null;
+  sortOrder: number;
+}
+
+export interface ClientPortalReceiptDetail extends ClientPortalReceipt {
+  lineItems: ClientPortalReceiptLineItem[];
+  expense: {
+    id: string;
+    amount: number | null;
+    category: string | null;
+    paymentStatus: ClientPortalExpensePaymentStatus;
+    expenseDate: string | null;
+  } | null;
+  supplyList: { id: string; status: ClientPortalSupplyListStatus } | null;
+}
+
+export interface ClientPortalReceiptsResponse {
+  status: 'success' | 'failed';
+  data: ClientPortalReceipt[];
+  total: number;
+  message?: string;
+}
+
+export interface ClientPortalReceiptResponse {
+  status: 'success' | 'failed';
+  data: ClientPortalReceiptDetail;
+  message?: string;
+}
+
+export interface ClientPortalExpense {
+  id: string;
+  propertyId: string;
+  propertyName: string | null;
+  propertyAddress: string | null;
+  bookingId: string | null;
+  bookingGuestName: string | null;
+  bookingCheckInDate: string | null;
+  bookingReservationCode: string | null; // always null on list, populated on detail
+  expenseDate: string | null;
+  amount: number;
+  currency: string;
+  category: string | null;
+  vendorName: string | null;
+  description: string | null;
+  isTaxDeductible: boolean;
+  paymentMethod: string | null;
+  paymentStatus: ClientPortalExpensePaymentStatus;
+  isRecurring: boolean;
+  recurringFrequency: string | null;
+  recurringEndDate: string | null; // always null on list, populated on detail
+  subtotal: number | null;
+  taxGst: number | null;
+  taxPst: number | null;
+  taxHst: number | null;
+  taxQst: number | null;
+  taxTotal: number | null;
+  extraCharges: ClientPortalExtraCharge[] | null;
+  receipt: {
+    id: string;
+    status: ClientPortalReceiptStatus;
+    originalName: string;
+    mimeType: string;
+    signedUrl: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientPortalExpenseLineItem {
+  id: string;
+  description: string;
+  quantity: number | null;
+  unitCost: number | null;
+  totalCost: number | null;
+  createdAt: string;
+}
+
+export interface ClientPortalExpenseDetail extends Omit<ClientPortalExpense, 'receipt'> {
+  receipt:
+    | (NonNullable<ClientPortalExpense['receipt']> & {
+        vendorName: string | null;
+        expenseDate: string | null;
+        total: number | null;
+      })
+    | null;
+  lineItems: ClientPortalExpenseLineItem[];
+  supplyList: { id: string; status: ClientPortalSupplyListStatus } | null;
+}
+
+export interface ClientPortalExpensesResponse {
+  status: 'success' | 'failed';
+  data: ClientPortalExpense[];
+  total: number;
+  message?: string;
+}
+
+export interface ClientPortalExpenseResponse {
+  status: 'success' | 'failed';
+  data: ClientPortalExpenseDetail;
+  message?: string;
+}

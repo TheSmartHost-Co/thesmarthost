@@ -215,6 +215,8 @@ export const clientSidebarItems: SidebarItem[] = [
   { name: 'myProperties', href: '/client/properties', icon: BuildingOfficeIcon },
   { name: 'bookings', href: '/client/bookings', icon: CalendarDaysIcon },
   { name: 'reports', href: '/client/reports', icon: DocumentTextIcon },
+  { name: 'receipts', href: '/client/receipts', icon: ReceiptPercentIcon },
+  { name: 'expenses', href: '/client/expenses', icon: BanknotesIcon },
   { name: 'schedule', href: '/client/cleaning', icon: ClipboardDocumentListIcon },
   { name: 'projects', href: '/client/projects', icon: WrenchScrewdriverIcon },
   { name: 'checklists', href: '/client/checklists', icon: ClipboardDocumentCheckIcon },
