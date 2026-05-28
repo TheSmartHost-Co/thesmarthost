@@ -15,6 +15,7 @@ import {
   upsertPropertyClassMapping,
   getTaxCodeMappings,
   getQbItems,
+  getQbTaxCodes,
 } from '@/services/quickbooksService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type {
@@ -61,6 +62,7 @@ const EMPTY_DEFAULTS: QbDefaults = {
   qbCustomers: [],
   qbClasses: [],
   qbItems: [],
+  qbTaxCodes: [],
   accountMappings: [],
   classMappings: [],
   taxMappings: [],
@@ -100,6 +102,7 @@ export default function SendToQbModal({
     description: expenseDescription || '',
     includeReceipt: hasReceipt,
     qbItemId: '',
+    qbTaxCodeId: '',
   })
   const { showNotification } = useNotificationStore()
 
@@ -121,6 +124,7 @@ export default function SendToQbModal({
       getPropertyClassMappings(),
       getTaxCodeMappings(),
       getQbItems(),
+      getQbTaxCodes(),
     ])
       .then(
         ([
@@ -133,6 +137,7 @@ export default function SendToQbModal({
           classMapsRes,
           taxMapsRes,
           itemsRes,
+          taxCodesRes,
         ]) => {
           if (cancelled) return
           const conn = connRes.status === 'success' ? connRes.data : null
@@ -142,6 +147,7 @@ export default function SendToQbModal({
             qbCustomers: customersRes.status === 'success' ? customersRes.data : [],
             qbClasses: classesRes.status === 'success' ? classesRes.data : [],
             qbItems: itemsRes.status === 'success' ? itemsRes.data : [],
+            qbTaxCodes: taxCodesRes.status === 'success' ? taxCodesRes.data : [],
             accountMappings: mappingsRes.status === 'success' ? mappingsRes.data : [],
             classMappings: classMapsRes.status === 'success' ? classMapsRes.data : [],
             taxMappings: taxMapsRes.status === 'success' ? taxMapsRes.data : [],
@@ -164,6 +170,7 @@ export default function SendToQbModal({
                 categoryCode,
                 propertyId,
                 primaryOwnerName,
+                taxBreakdown,
               },
               nextDefaults
             )
@@ -214,6 +221,10 @@ export default function SendToQbModal({
         // None; sending '<id>' = use that Item; omitting entirely = backend
         // auto-resolves (the path programmatic/legacy callers go down).
         qbItemId: value.isBillable ? value.qbItemId : '',
+        // qbTaxCodeId: '' = explicit None (no TaxCodeRef); '<id>' = use that
+        // TaxCode. Always sent so the backend uses the user's picked rate
+        // rather than re-deriving the default.
+        qbTaxCodeId: value.qbTaxCodeId,
       }
       if (value.qbEntityType === 'purchase') {
         payload.paymentAccountId = value.paymentAccountId

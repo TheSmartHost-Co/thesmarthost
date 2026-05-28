@@ -223,6 +223,14 @@ export interface QbStepOverrides {
    * a Product/Service" (line falls back to AccountBasedExpenseLineDetail).
    */
   qbItemId: string
+  /**
+   * Line-level sales-tax TaxCodeRef. Pre-filled by computeInitialStepValue by
+   * matching the receipt's detected taxes against defaults.qbTaxCodes (a QC
+   * receipt → "GST/QST QC", an ON receipt → "HST ON"). '' = explicit "None" —
+   * no TaxCodeRef on the line (correct for zero-tax expenses). QBO computes the
+   * tax from this code under GlobalTaxCalculation: "TaxExcluded".
+   */
+  qbTaxCodeId: string
 }
 
 /**
@@ -238,6 +246,8 @@ export interface QbDefaults {
   qbClasses: QbClass[]
   /** List of Service/NonInventory items, used by the per-expense Product/Service picker. */
   qbItems: QbItem[]
+  /** Raw QBO TaxCode list, used by the per-expense Sales tax picker. */
+  qbTaxCodes: QbTaxCode[]
   accountMappings: QbAccountMapping[]
   classMappings: PropertyClassMapping[]
   taxMappings: TaxCodeMapping[]
@@ -273,6 +283,13 @@ export interface SyncExpensePayload {
    *   '<item id>'              → use that QBO Item ID
    */
   qbItemId?: string | null
+  /**
+   * Per-send override for the line-level sales-tax TaxCodeRef. Three states:
+   *   undefined (field absent) → backend derives the default from the receipt
+   *   '' (empty string)        → explicit "None" — no TaxCodeRef on the line
+   *   '<tax code id>'          → use that QBO TaxCode ID
+   */
+  qbTaxCodeId?: string | null
 }
 
 export interface SyncExpenseResult {
@@ -350,6 +367,8 @@ export interface BulkSyncItem {
   includeReceipt: boolean
   /** Empty/null = no Product/Service ref on the line (falls back to AccountBased). */
   qbItemId: string | null
+  /** Empty/null = no sales-tax TaxCodeRef on the line. '<id>' = use that TaxCode. */
+  qbTaxCodeId: string | null
 }
 
 export interface BulkSyncPayload {

@@ -128,6 +128,12 @@ export default function SendToQbWizard({
                     categoryCode: it.expense.category,
                     propertyId: it.expense.propertyId,
                     primaryOwnerName: it.expense.primaryOwnerName,
+                    taxBreakdown: {
+                      gst: Number(it.expense.taxGst || 0),
+                      pst: Number(it.expense.taxPst || 0),
+                      hst: Number(it.expense.taxHst || 0),
+                      qst: Number(it.expense.taxQst || 0),
+                    },
                   },
                   def
                 )
@@ -189,6 +195,7 @@ export default function SendToQbWizard({
     const customerIds = new Set(defaults.qbCustomers.map((c) => c.id))
     const classIds = new Set(defaults.qbClasses.map((c) => c.id))
     const itemIds = new Set(defaults.qbItems.map((i) => i.id))
+    const taxCodeIds = new Set(defaults.qbTaxCodes.map((t) => t.id))
 
     let staleAny = false
     const restored = draft.stepStates.map((s) => {
@@ -213,6 +220,10 @@ export default function SendToQbWizard({
       }
       if (ov.qbItemId && !itemIds.has(ov.qbItemId)) {
         ov = { ...ov, qbItemId: '' }
+        changed = true
+      }
+      if (ov.qbTaxCodeId && !taxCodeIds.has(ov.qbTaxCodeId)) {
+        ov = { ...ov, qbTaxCodeId: '' }
         changed = true
       }
       if (changed) {
@@ -340,6 +351,9 @@ export default function SendToQbWizard({
             // '' = explicit None → backend skips the Item for this line.
             // '<id>' = use that Item. The wizard never sends `undefined`.
             qbItemId: ov.isBillable ? ov.qbItemId || '' : '',
+            // qbTaxCodeId: '' = explicit None → no TaxCodeRef on the line.
+            // '<id>' = use that TaxCode. The wizard never sends `undefined`.
+            qbTaxCodeId: ov.qbTaxCodeId || '',
           }
         })
 

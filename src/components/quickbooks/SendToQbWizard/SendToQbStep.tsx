@@ -136,24 +136,77 @@ export default function SendToQbStep({
     return found?.name ?? defaults.defaultPaymentAccountName ?? '—'
   }, [defaults.paymentAccounts, value.paymentAccountId, defaults.defaultPaymentAccountName])
 
-  // ─── Tax breakdown analysis ──────────────────────────────────────
-  // Pairs the (gst, pst, hst, qst) tuple with the user's saved tax-code
-  // mappings so we can show per-rate amounts + warn on missing mappings.
-  const taxRows = useMemo(() => {
-    const breakdown = expense.taxBreakdown ?? { gst: 0, pst: 0, hst: 0, qst: 0 }
-    const mappingByKind = new Map(defaults.taxMappings.map((m) => [m.hmTaxKind, m]))
-    return (['gst', 'pst', 'hst', 'qst'] as const).map((kind) => ({
-      kind,
-      label: kind.toUpperCase(),
-      amount: Number(breakdown[kind] || 0),
-      mapping: mappingByKind.get(kind) || null,
-    }))
-  }, [expense.taxBreakdown, defaults.taxMappings])
+  // Sales-tax picker options: synthetic "None" row first, then every QBO
+  // TaxCode. '' = explicit None — no TaxCodeRef on the line. The receipt-matched
+  // default is pre-selected via computeInitialStepValue.
+  const taxCodeOptions: SearchableSelectOption<string>[] = useMemo(
+    () => [
+      { value: '', label: '— None (no sales tax)' },
+      ...defaults.qbTaxCodes.map((tc) => ({
+        value: tc.id,
+        label: tc.name,
+      })),
+    ],
+    [defaults.qbTaxCodes]
+  )
 
-  const totalTax = useMemo(() => taxRows.reduce((s, r) => s + r.amount, 0), [taxRows])
-  const unmappedNonZeroKinds = useMemo(
-    () => taxRows.filter((r) => r.amount > 0 && !r.mapping),
-    [taxRows]
+  // Receipt's total tax = sum of the detected per-kind amounts. Used only to
+  // derive the pre-tax subtotal — the same value the backend sends as the QBO
+  // line Amount (lineSubtotal = amount − tax_total).
+  const receiptTax = useMemo(() => {
+    const b = expense.taxBreakdown ?? { gst: 0, pst: 0, hst: 0, qst: 0 }
+    return Number(b.gst || 0) + Number(b.pst || 0) + Number(b.hst || 0) + Number(b.qst || 0)
+  }, [expense.taxBreakdown])
+
+  const subtotal = useMemo(
+    () =>
+      expense.expenseAmount !== undefined
+        ? Math.round((expense.expenseAmount - receiptTax) * 100) / 100
+        : undefined,
+    [expense.expenseAmount, receiptTax]
+  )
+
+  // The tax preview reflects the SELECTED QBO rate (what QBO will actually
+  // post), not the receipt's printed tax. QBO TaxCodes don't expose a numeric
+  // rate — only rate names like "GST 5%" / "QST 9.975%" — so we sum the
+  // percentages parsed out of the selected code's rate names. A code with no
+  // rates (Zero-rated / Exempt / Out of Scope) → 0%. Returns null when no
+  // percentage can be parsed, so we can fall back to the receipt's tax.
+  const selectedTaxRate = useMemo<number | null>(() => {
+    if (!value.qbTaxCodeId) return 0 // "None" → no tax
+    const code = defaults.qbTaxCodes.find((tc) => tc.id === value.qbTaxCodeId)
+    if (!code) return null
+    const rates = code.rates ?? []
+    if (rates.length === 0) return 0 // zero-rated / exempt / out of scope
+    let sum = 0
+    let parsedAny = false
+    for (const r of rates) {
+      const m = (r.name || '').match(/(\d+(?:\.\d+)?)\s*%/)
+      if (m) {
+        sum += parseFloat(m[1])
+        parsedAny = true
+      }
+    }
+    return parsedAny ? sum / 100 : null
+  }, [value.qbTaxCodeId, defaults.qbTaxCodes])
+
+  // Preview tax = subtotal × selected rate (rounded). Falls back to the
+  // receipt's tax when the rate can't be determined from names.
+  const previewTax = useMemo(() => {
+    if (subtotal === undefined) return undefined
+    if (selectedTaxRate === null) return receiptTax
+    return Math.round(subtotal * selectedTaxRate * 100) / 100
+  }, [subtotal, selectedTaxRate, receiptTax])
+
+  // Whether the Tax row reflects the picked rate (vs. a receipt-tax fallback).
+  const taxFromSelectedRate = selectedTaxRate !== null
+
+  const previewTotal = useMemo(
+    () =>
+      subtotal !== undefined && previewTax !== undefined
+        ? Math.round((subtotal + previewTax) * 100) / 100
+        : undefined,
+    [subtotal, previewTax]
   )
 
   const summaryText = useMemo(() => {
@@ -363,55 +416,56 @@ export default function SendToQbStep({
         />
       </div>
 
-      {/* ─── Amount + tax breakdown ─────────────────────────── */}
-      {(expense.expenseAmount !== undefined || totalTax > 0) && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2 text-sm">
-          {expense.expenseAmount !== undefined && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total amount</span>
-              <span className="font-semibold text-gray-900">
-                {formatCurrency(expense.expenseAmount)}
-              </span>
-            </div>
+      {/* ─── Sales tax ──────────────────────────────────────── */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+          Sales tax
+        </label>
+        <SearchableSelect<string>
+          options={taxCodeOptions}
+          value={value.qbTaxCodeId ?? ''}
+          onChange={(v) => update('qbTaxCodeId', v ?? '')}
+          placeholder="Select a sales-tax rate…"
+          loading={loading}
+          emptyText="No tax codes in your QuickBooks company"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          QuickBooks computes the tax from this rate on the pre-tax subtotal. Defaulted from
+          the receipt&apos;s detected taxes — change it if needed.
+        </p>
+      </div>
+
+      {/* ─── Amount (subtotal + selected-rate tax + total) ──── */}
+      {expense.expenseAmount !== undefined && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1 text-sm">
+          {(value.qbTaxCodeId || receiptTax > 0) && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Subtotal (pre-tax)</span>
+                <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">
+                  {taxFromSelectedRate ? 'Tax (selected rate)' : 'Tax (from receipt)'}
+                </span>
+                <span className="font-medium text-gray-900">{formatCurrency(previewTax)}</span>
+              </div>
+            </>
           )}
-          {taxRows.some((r) => r.amount > 0) && (
-            <div className="pt-2 border-t border-gray-200 space-y-1">
-              <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                Tax breakdown
-              </div>
-              {taxRows
-                .filter((r) => r.amount > 0)
-                .map((r) => (
-                  <div key={r.kind} className="flex justify-between text-xs">
-                    <span className="text-gray-600">
-                      {r.label}
-                      {r.mapping ? (
-                        <span className="ml-2 text-emerald-700">
-                          → {r.mapping.qbTaxCodeName}
-                        </span>
-                      ) : (
-                        <span className="ml-2 text-amber-700">(unmapped)</span>
-                      )}
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {formatCurrency(r.amount)}
-                    </span>
-                  </div>
-                ))}
-              <div className="flex justify-between pt-1 border-t border-gray-100 text-xs">
-                <span className="text-gray-600 font-semibold">Total tax</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(totalTax)}</span>
-              </div>
-              {unmappedNonZeroKinds.length > 0 && (
-                <div className="text-[11px] text-amber-700 mt-1 leading-snug">
-                  {unmappedNonZeroKinds.map((r) => r.label).join(', ')}{' '}
-                  {unmappedNonZeroKinds.length === 1 ? 'is' : 'are'} not mapped to a QuickBooks
-                  tax code. Total tax will still sync, but per-rate breakdown won&apos;t. Set up
-                  mappings in Settings → QuickBooks.
-                </div>
+          <div
+            className={`flex justify-between ${
+              value.qbTaxCodeId || receiptTax > 0 ? 'pt-1 border-t border-gray-200' : ''
+            }`}
+          >
+            <span className="text-gray-600">
+              {taxFromSelectedRate && value.qbTaxCodeId ? 'Estimated total' : 'Total amount'}
+            </span>
+            <span className="font-semibold text-gray-900">
+              {formatCurrency(
+                value.qbTaxCodeId || receiptTax > 0 ? previewTotal : expense.expenseAmount
               )}
-            </div>
-          )}
+            </span>
+          </div>
         </div>
       )}
 
