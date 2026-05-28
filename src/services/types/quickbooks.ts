@@ -113,7 +113,12 @@ export interface QbTaxCode {
   // Underlying TaxRate breakdown from the code's PurchaseTaxRateList. Composite
   // codes (e.g. "GST/QST QC") have rates.length > 1 — surface this in the UI so
   // users can pick a code that covers all the kinds on a multi-tax receipt.
-  rates?: Array<{ id: string; name: string | null }>
+  // `rateValue` is the numeric percent per component (e.g. 9.975), joined from
+  // the TaxRate entity; null when QBO didn't return it.
+  rates?: Array<{ id: string; name: string | null; rateValue?: number | null }>
+  // Total purchase rate as a percent (sum of component rateValues, e.g. 14.975
+  // for GST/QST QC). 0 for zero-rated/exempt/out-of-scope; null when unknown.
+  rate?: number | null
 }
 
 /**

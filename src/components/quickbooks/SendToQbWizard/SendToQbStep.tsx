@@ -167,15 +167,16 @@ export default function SendToQbStep({
   )
 
   // The tax preview reflects the SELECTED QBO rate (what QBO will actually
-  // post), not the receipt's printed tax. QBO TaxCodes don't expose a numeric
-  // rate — only rate names like "GST 5%" / "QST 9.975%" — so we sum the
-  // percentages parsed out of the selected code's rate names. A code with no
-  // rates (Zero-rated / Exempt / Out of Scope) → 0%. Returns null when no
-  // percentage can be parsed, so we can fall back to the receipt's tax.
+  // post), not the receipt's printed tax. Prefer the numeric `rate` the backend
+  // joined from the TaxRate entity (e.g. 14.975 for GST/QST QC); fall back to
+  // parsing percentages out of the rate names ("GST 5%" / "QST 9.975%") when the
+  // numeric value is unavailable. Returns 0 for "None"/zero-rated/exempt, and
+  // null when the rate can't be determined (→ fall back to the receipt's tax).
   const selectedTaxRate = useMemo<number | null>(() => {
     if (!value.qbTaxCodeId) return 0 // "None" → no tax
     const code = defaults.qbTaxCodes.find((tc) => tc.id === value.qbTaxCodeId)
     if (!code) return null
+    if (typeof code.rate === 'number') return code.rate / 100
     const rates = code.rates ?? []
     if (rates.length === 0) return 0 // zero-rated / exempt / out of scope
     let sum = 0
