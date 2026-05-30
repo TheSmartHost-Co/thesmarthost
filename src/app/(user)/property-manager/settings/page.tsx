@@ -14,7 +14,10 @@ import {
   BellIcon,
   ArrowPathIcon,
   EnvelopeIcon,
-  DevicePhoneMobileIcon
+  DevicePhoneMobileIcon,
+  CreditCardIcon,
+  ArrowsRightLeftIcon,
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +33,8 @@ import GuestyConnectionModal from '@/components/connection/guesty/GuestyConnecti
 import HospitableConnectionModal from '@/components/connection/hospitable/HospitableConnectionModal'
 import QuickBooksSection from '@/components/quickbooks/QuickBooksSection'
 import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscriptionsSection'
+import ListingMappingsSection from '@/components/listing-mapping/ListingMappingsSection'
+import SettingsSectionNav, { SettingsNavSection } from '@/components/settings/SettingsSectionNav'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 import { getProperties } from '@/services/propertyService'
@@ -444,6 +449,18 @@ export default function PropertyManagerSettingsPage() {
       {/* Language Prompt Banner */}
       <LanguagePromptBanner />
 
+      {/* Section quick-nav (sticky tabs that jump to each section) */}
+      <SettingsSectionNav
+        sections={[
+          { id: 'settings-profile', label: 'Profile', icon: <UserIcon className="h-4 w-4" /> },
+          { id: 'settings-notifications', label: 'Notifications', icon: <BellIcon className="h-4 w-4" /> },
+          { id: 'settings-connections', label: 'Connections', icon: <LinkIcon className="h-4 w-4" /> },
+          { id: 'settings-quickbooks', label: 'QuickBooks', icon: <CreditCardIcon className="h-4 w-4" /> },
+          { id: 'settings-mappings', label: 'Property mappings', icon: <ArrowsRightLeftIcon className="h-4 w-4" /> },
+          { id: 'settings-calendar', label: 'Calendar', icon: <CalendarDaysIcon className="h-4 w-4" /> },
+        ] satisfies SettingsNavSection[]}
+      />
+
       {/* Settings Sections */}
       <div className="space-y-6">
         {/* Profile Settings Section */}
@@ -451,7 +468,8 @@ export default function PropertyManagerSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          id="settings-profile"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-mt-36"
         >
           <div className="px-6 py-5 border-b border-gray-100">
             <div className="flex items-center justify-between">
@@ -592,7 +610,8 @@ export default function PropertyManagerSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          id="settings-notifications"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-mt-36"
         >
           <div className="px-6 py-5 border-b border-gray-100">
             <div className="flex items-center gap-4">
@@ -726,7 +745,8 @@ export default function PropertyManagerSettingsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          id="settings-connections"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-mt-36"
         >
           <div className="px-6 py-5 border-b border-gray-100">
             <div className="flex items-center gap-4">
@@ -1031,7 +1051,9 @@ export default function PropertyManagerSettingsPage() {
             </div>
 
             {/* QuickBooks Online */}
-            <QuickBooksSection canWrite={canWrite('settings')} />
+            <div id="settings-quickbooks" className="scroll-mt-36">
+              <QuickBooksSection canWrite={canWrite('settings')} />
+            </div>
 
             {/* Future PMS integrations placeholder */}
             <div className="p-6 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1048,12 +1070,24 @@ export default function PropertyManagerSettingsPage() {
           </div>
         </motion.div>
 
+      {/* Listing Mappings Section (Hostaway listing → property) */}
+      <div id="settings-mappings" className="scroll-mt-36">
+        <ListingMappingsSection
+          userId={effectiveUserId!}
+          properties={properties}
+          loadingProperties={loadingProperties}
+          canWrite={canWrite('settings')}
+        />
+      </div>
+
       {/* iCal Calendar Feeds Section */}
-      <ICalSubscriptionsSection
-        userId={effectiveUserId!}
-        properties={properties}
-        loadingProperties={loadingProperties}
-      />
+      <div id="settings-calendar" className="scroll-mt-36">
+        <ICalSubscriptionsSection
+          userId={effectiveUserId!}
+          properties={properties}
+          loadingProperties={loadingProperties}
+        />
+      </div>
 
       {/* Hostaway Connection Modal */}
       <HostawayConnectionModal
