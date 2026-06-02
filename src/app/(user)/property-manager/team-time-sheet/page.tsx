@@ -17,8 +17,7 @@ import type {
 } from '@/services/types/timeEntry'
 import { formatHours, formatMoney } from '@/lib/format'
 import { formatInTz, zoneAbbrev, isoDateInTz } from '@/lib/datetime'
-import { listPayPeriods } from '@/services/payPeriodService'
-import type { PayPeriodRow } from '@/services/types/payPeriod'
+import { LOCKED_PAYSTUB_STATUSES, PAYSTUB_STATUS_INFO } from '@/services/types/paystub'
 import ReviewOverCapModal from '@/components/time-entry/approve/ReviewOverCapModal'
 import EditTimeEntryModal from '@/components/time-entry/edit/EditTimeEntryModal'
 import ExportPayrollModal from '@/components/time-entry/export/ExportPayrollModal'
@@ -63,13 +62,9 @@ function TeamTimeSheetPageInner() {
   const [filterMemberId, setFilterMemberId] = useState<string>('') // '' = all
   // Calendar week (Monday 00:00 in PM zone, as UTC instant). Initialized lazily once summary loads.
   const [weekStart, setWeekStart] = useState<Date | null>(null)
-  // Entries-section filter: a date range (YYYY-MM-DD in PM tz) and an optional
-  // pay-period preset. Picking a period auto-fills the dates; editing a date
-  // clears the period selection.
+  // Entries-section filter: a date range (YYYY-MM-DD in PM tz).
   const [dateStart, setDateStart] = useState<string>('')
   const [dateEnd, setDateEnd] = useState<string>('')
-  const [periodId, setPeriodId] = useState<string>('')
-  const [periodOptions, setPeriodOptions] = useState<PayPeriodRow[]>([])
   // Pending Approvals — multi-select for bulk approve
   const [selectedPending, setSelectedPending] = useState<Set<string>>(new Set())
   const [bulkApproving, setBulkApproving] = useState(false)
@@ -83,10 +78,9 @@ function TeamTimeSheetPageInner() {
   const loadSummary = async () => {
     if (!effectiveUserId) return
     try {
-      const [sumRes, pendingRes, periodsRes] = await Promise.all([
+      const [sumRes, pendingRes] = await Promise.all([
         getTeamTimeSummary(effectiveUserId),
         getTimeEntries({ userId: effectiveUserId, status: 'pending' }),
-        listPayPeriods({}),
       ])
       if (sumRes.status === 'success') {
         setSummary(sumRes.data)
@@ -99,7 +93,6 @@ function TeamTimeSheetPageInner() {
         setDateEnd((prev) => prev || isoDateInTz(new Date(monday.getTime() + 6 * 86_400_000), tz))
       }
       if (pendingRes.status === 'success') setPendingEntries(pendingRes.data)
-      if (periodsRes.status === 'success') setPeriodOptions(periodsRes.data)
     } catch (err: any) {
       showNotification(err?.message || 'Failed to load team time data.', 'error')
     } finally {
@@ -126,17 +119,6 @@ function TeamTimeSheetPageInner() {
       return day >= dateStart && day <= dateEnd
     })
   }, [entries, dateStart, dateEnd, summary])
-
-  // Distinct (startDate, endDate) windows across all members — periods that
-  // share a window collapse to one row in the picker.
-  const distinctPeriodWindows = useMemo(() => {
-    const map = new Map<string, PayPeriodRow>()
-    for (const p of periodOptions) {
-      const key = `${p.startDate}_${p.endDate}`
-      if (!map.has(key)) map.set(key, p)
-    }
-    return Array.from(map.values()).sort((a, b) => b.startDate.localeCompare(a.startDate))
-  }, [periodOptions])
 
   // Range totals — hours + $ grouped by currency from the filtered entries.
   const rangeTotals = useMemo(() => {
@@ -190,31 +172,14 @@ function TeamTimeSheetPageInner() {
     return () => { cancelled = true }
   }, [effectiveUserId, filterMemberId, showNotification])
 
-  // Date <-> pay-period sync handlers
-  const handlePeriodChange = (id: string) => {
-    setPeriodId(id)
-    if (!id) return
-    const p = periodOptions.find(x => x.id === id)
-    if (p) {
-      setDateStart(p.startDate)
-      setDateEnd(p.endDate)
-    }
-  }
-  const handleDateStartChange = (v: string) => {
-    setDateStart(v)
-    setPeriodId('')
-  }
-  const handleDateEndChange = (v: string) => {
-    setDateEnd(v)
-    setPeriodId('')
-  }
+  const handleDateStartChange = (v: string) => { setDateStart(v) }
+  const handleDateEndChange = (v: string) => { setDateEnd(v) }
   const handleClearRange = () => {
     if (!summary) return
     const tz = summary.pmTimezone
     const monday = startOfWeek(new Date(), tz)
     setDateStart(isoDateInTz(monday, tz))
     setDateEnd(isoDateInTz(new Date(monday.getTime() + 6 * 86_400_000), tz))
-    setPeriodId('')
   }
 
   // Selecting a team-table row jumps the filter to that member and scrolls
@@ -597,21 +562,6 @@ function TeamTimeSheetPageInner() {
                 className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Pay period</label>
-              <select
-                value={periodId}
-                onChange={(e) => handlePeriodChange(e.target.value)}
-                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white max-w-[280px]"
-              >
-                <option value="">Any</option>
-                {distinctPeriodWindows.map(p => (
-                  <option key={p.id} value={p.id}>
-                    #{String(p.periodNumber).padStart(2, '0')} · {p.periodYear} · {p.startDate} → {p.endDate}
-                  </option>
-                ))}
-              </select>
-            </div>
             <button
               onClick={handleClearRange}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -640,7 +590,7 @@ function TeamTimeSheetPageInner() {
                   <th className="px-6 py-3">Hours</th>
                   <th className="px-6 py-3">Earned</th>
                   <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Period</th>
+                  <th className="px-6 py-3">Paystub</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -649,12 +599,16 @@ function TeamTimeSheetPageInner() {
                   const earned = e.hoursWorked != null && e.hourlyRateAtEntry != null
                     ? e.hoursWorked * e.hourlyRateAtEntry
                     : null
+                  const locked = e.paystubStatus != null && LOCKED_PAYSTUB_STATUSES.includes(e.paystubStatus)
+                  const lockTooltip = locked
+                    ? `Locked — on ${PAYSTUB_STATUS_INFO[e.paystubStatus!].label.toLowerCase()} paystub ${e.paystubNumber ?? ''}`.trim()
+                    : null
                   return (
                     <tr
                       key={e.id}
                       onClick={() => setEditing(e)}
                       className="hover:bg-gray-50/40 cursor-pointer"
-                      title="Edit entry"
+                      title={locked ? lockTooltip! : 'Edit entry'}
                     >
                       <td className="px-6 py-4 text-sm text-gray-900 font-medium">{e.teamMemberName}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{formatInTz(e.startedAt, summary.pmTimezone)}</td>
@@ -671,13 +625,13 @@ function TeamTimeSheetPageInner() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {e.payPeriodNumber != null && e.payPeriodId ? (
+                        {e.paystubId && e.paystubNumber ? (
                           <Link
-                            href={`/property-manager/pay-periods/${e.payPeriodId}`}
+                            href={`/property-manager/paystubs?paystubId=${e.paystubId}`}
                             onClick={(ev) => ev.stopPropagation()}
                             className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
                           >
-                            #{e.payPeriodNumber}
+                            {e.paystubNumber}
                           </Link>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -686,16 +640,18 @@ function TeamTimeSheetPageInner() {
                       <td className="px-6 py-4 text-right">
                         <div className="inline-flex gap-1" onClick={(ev) => ev.stopPropagation()}>
                           <button
-                            onClick={() => setEditing(e)}
-                            className="p-1.5 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-                            title="Edit"
+                            onClick={() => { if (!locked) setEditing(e) }}
+                            disabled={locked}
+                            className="p-1.5 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed"
+                            title={locked ? lockTooltip! : 'Edit'}
                           >
                             <PencilSquareIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteEntry(e)}
-                            className="p-1.5 rounded-md text-gray-500 hover:text-rose-600 hover:bg-rose-50"
-                            title="Delete"
+                            onClick={() => { if (!locked) handleDeleteEntry(e) }}
+                            disabled={locked}
+                            className="p-1.5 rounded-md text-gray-500 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed"
+                            title={locked ? lockTooltip! : 'Delete'}
                           >
                             <XCircleIcon className="w-4 h-4" />
                           </button>

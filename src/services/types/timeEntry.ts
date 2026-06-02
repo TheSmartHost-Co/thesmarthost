@@ -4,6 +4,8 @@
 // is currently clocked in. Approval workflow drives over-cap requests and
 // manual backfills.
 
+import type { PaystubStatus } from './paystub'
+
 export type TimeEntryStatus = 'open' | 'approved' | 'pending' | 'rejected'
 
 export type PendingKind = 'over_cap' | 'backfill'
@@ -25,9 +27,9 @@ export interface TimeEntry {
   reviewedByAuthUserId: string | null
   reviewedAt: string | null
   rejectionReason: string | null
-  payPeriodId: string | null
-  payPeriodYear: number | null
-  payPeriodNumber: number | null
+  paystubId: string | null
+  paystubNumber: string | null
+  paystubStatus: PaystubStatus | null
   createdAt: string
   updatedAt: string | null
 }

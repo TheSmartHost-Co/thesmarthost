@@ -14,8 +14,9 @@ import {
 } from '@/lib/datetime'
 import { formatHours, formatMoney } from '@/lib/format'
 import LogHoursModal from '@/components/time-entry/log/LogHoursModal'
-import { getMyPayPeriods } from '@/services/payPeriodService'
-import type { PayPeriodRow } from '@/services/types/payPeriod'
+import { getMonthlyEarnings, getMyPaystubs } from '@/services/paystubService'
+import type { MonthlyEarnings, Paystub } from '@/services/types/paystub'
+import { PAYSTUB_STATUS_INFO, LOCKED_PAYSTUB_STATUSES } from '@/services/types/paystub'
 
 interface ClockInCardProps {
   /**
@@ -223,6 +224,7 @@ const ClockInCard: React.FC<ClockInCardProps> = ({
 
 const RecentList: React.FC<{ data: MyTimeEntriesData }> = ({ data }) => {
   const recent = data.entries.slice(0, 3)
+  const currency = data.teamMember.currency || 'CAD'
   return (
     <>
       {recent.length > 0 && (
@@ -242,6 +244,7 @@ const RecentList: React.FC<{ data: MyTimeEntriesData }> = ({ data }) => {
           </ul>
         </div>
       )}
+      <MyPaystubSummary currency={currency} />
       <div className="mt-5 flex items-center justify-end text-sm">
         <Link
           href="/property-manager/time-sheet"
@@ -251,6 +254,120 @@ const RecentList: React.FC<{ data: MyTimeEntriesData }> = ({ data }) => {
         </Link>
       </div>
     </>
+  )
+}
+
+// =============================================================================
+// "My Paystubs" — latest paystub status + current-month earnings + link
+// =============================================================================
+
+const MyPaystubSummary: React.FC<{ currency: string }> = ({ currency }) => {
+  const [earnings, setEarnings] = useState<MonthlyEarnings | null>(null)
+  const [latest, setLatest] = useState<Paystub | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [earningsRes, listRes] = await Promise.all([
+          getMonthlyEarnings(),
+          getMyPaystubs(),
+        ])
+        if (cancelled) return
+        if (earningsRes.status === 'success') setEarnings(earningsRes.data)
+        if (listRes.status === 'success') {
+          // The list is sorted by backend; the first item is the most recent.
+          setLatest(listRes.data[0] ?? null)
+        }
+      } catch {
+        // Non-fatal — section just stays empty.
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="mt-5 pt-5 border-t border-gray-100">
+        <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+        <div className="h-8 w-48 bg-gray-100 rounded animate-pulse" />
+      </div>
+    )
+  }
+
+  const cm = earnings?.currentMonth
+  const hasEarnings = cm && (cm.paid + cm.approved + cm.pending) > 0
+  if (!latest && !hasEarnings) return null
+
+  return (
+    <div className="mt-5 pt-5 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">My paystubs</div>
+        <Link
+          href="/property-manager/paystubs"
+          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+        >
+          View all
+        </Link>
+      </div>
+
+      {latest && (
+        <Link
+          href={`/property-manager/paystubs?paystubId=${latest.id}`}
+          className="flex items-center justify-between text-sm py-1.5 hover:bg-gray-50 -mx-2 px-2 rounded"
+        >
+          <span className="text-gray-700">
+            <span className="font-medium text-gray-900">{latest.paystubNumber}</span>
+            <span className="text-gray-500"> · {formatMoney(latest.totalAmountSnapshot ?? latest.total, latest.currencyAtPayment ?? latest.currency)}</span>
+          </span>
+          <PaystubStatusPill status={latest.status} />
+        </Link>
+      )}
+
+      {hasEarnings && (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          {cm!.paid > 0 && (
+            <EarningsCell label="Paid" amount={cm!.paid} currency={currency} tone="emerald" />
+          )}
+          {cm!.approved > 0 && (
+            <EarningsCell label="Approved" amount={cm!.approved} currency={currency} tone="blue" />
+          )}
+          {cm!.pending > 0 && (
+            <EarningsCell label="Pending" amount={cm!.pending} currency={currency} tone="amber" />
+          )}
+        </div>
+      )}
+      {hasEarnings && (
+        <div className="text-[10px] text-gray-500 mt-1">{cm!.label}</div>
+      )}
+    </div>
+  )
+}
+
+const EARNINGS_TONE: Record<'emerald' | 'blue' | 'amber', string> = {
+  emerald: 'bg-emerald-50 text-emerald-700',
+  blue:    'bg-blue-50 text-blue-700',
+  amber:   'bg-amber-50 text-amber-700',
+}
+
+const EarningsCell: React.FC<{ label: string; amount: number; currency: string; tone: 'emerald' | 'blue' | 'amber' }> = ({
+  label, amount, currency, tone,
+}) => (
+  <div className={`rounded-lg px-2 py-1.5 ${EARNINGS_TONE[tone]}`}>
+    <div className="text-[10px] font-semibold uppercase tracking-wider opacity-80">{label}</div>
+    <div className="text-sm font-semibold tabular-nums">{formatMoney(amount, currency)}</div>
+  </div>
+)
+
+const PaystubStatusPill: React.FC<{ status: Paystub['status'] }> = ({ status }) => {
+  const info = PAYSTUB_STATUS_INFO[status]
+  return (
+    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${info.pill}`}>
+      {info.label}
+    </span>
   )
 }
 
@@ -277,31 +394,6 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
   }, [timezone])
   const [dateStart, setDateStart] = useState<string>(initial.start)
   const [dateEnd,   setDateEnd]   = useState<string>(initial.end)
-  const [periodId,  setPeriodId]  = useState<string>('')
-  const [periodOptions, setPeriodOptions] = useState<PayPeriodRow[]>([])
-
-  // Load the member's own pay periods for the dropdown.
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await getMyPayPeriods({})
-        if (!cancelled && res.status === 'success') setPeriodOptions(res.data)
-      } catch {
-        // Non-fatal — dropdown just stays empty.
-      }
-    })()
-    return () => { cancelled = true }
-  }, [])
-
-  const distinctPeriodWindows = useMemo(() => {
-    const map = new Map<string, PayPeriodRow>()
-    for (const p of periodOptions) {
-      const key = `${p.startDate}_${p.endDate}`
-      if (!map.has(key)) map.set(key, p)
-    }
-    return Array.from(map.values()).sort((a, b) => b.startDate.localeCompare(a.startDate))
-  }, [periodOptions])
 
   const filtered = useMemo(() => {
     return data.entries.filter(e => {
@@ -326,21 +418,11 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
     return { hours, dollars }
   }, [filtered, data.teamMember.currency])
 
-  const handlePeriodChange = (id: string) => {
-    setPeriodId(id)
-    if (!id) return
-    const p = periodOptions.find(x => x.id === id)
-    if (p) {
-      setDateStart(p.startDate)
-      setDateEnd(p.endDate)
-    }
-  }
-  const handleDateStartChange = (v: string) => { setDateStart(v); setPeriodId('') }
-  const handleDateEndChange   = (v: string) => { setDateEnd(v);   setPeriodId('') }
+  const handleDateStartChange = (v: string) => { setDateStart(v) }
+  const handleDateEndChange   = (v: string) => { setDateEnd(v) }
   const handleResetRange = () => {
     setDateStart(initial.start)
     setDateEnd(initial.end)
-    setPeriodId('')
   }
 
   return (
@@ -376,7 +458,7 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
         </div>
       </div>
 
-      {/* Date range + pay-period filter */}
+      {/* Date range filter */}
       <div className="flex items-center gap-3 flex-wrap mb-3">
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">From</label>
@@ -394,21 +476,6 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
             onChange={(e) => handleDateEndChange(e.target.value)}
             className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pay period</label>
-          <select
-            value={periodId}
-            onChange={(e) => handlePeriodChange(e.target.value)}
-            className="px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white max-w-[260px]"
-          >
-            <option value="">Any</option>
-            {distinctPeriodWindows.map(p => (
-              <option key={p.id} value={p.id}>
-                #{String(p.periodNumber).padStart(2, '0')} · {p.periodYear} · {p.startDate} → {p.endDate}
-              </option>
-            ))}
-          </select>
         </div>
         <button
           onClick={handleResetRange}
@@ -433,7 +500,7 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
                   <th className="px-4 py-2">Hours</th>
                   <th className="px-4 py-2">Earned</th>
                   <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Period</th>
+                  <th className="px-4 py-2">Paystub</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -441,12 +508,16 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
                   const earned = e.hoursWorked != null && e.hourlyRateAtEntry != null
                     ? e.hoursWorked * e.hourlyRateAtEntry
                     : null
+                  const locked = e.paystubStatus != null && LOCKED_PAYSTUB_STATUSES.includes(e.paystubStatus)
+                  const rowTitle = locked
+                    ? `Locked — on ${PAYSTUB_STATUS_INFO[e.paystubStatus!].label.toLowerCase()} paystub ${e.paystubNumber ?? ''}`.trim()
+                    : 'Open entry'
                   return (
                     <tr
                       key={e.id}
-                      onClick={() => onEntryClicked?.(e)}
-                      className="hover:bg-blue-50/40 cursor-pointer"
-                      title="Open entry"
+                      onClick={() => { if (!locked) onEntryClicked?.(e) }}
+                      className={locked ? 'cursor-not-allowed opacity-70' : 'hover:bg-blue-50/40 cursor-pointer'}
+                      title={rowTitle}
                     >
                       <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">{formatLocalDate(e.startedAt)}</td>
                       <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{formatLocalTime(e.startedAt)}</td>
@@ -460,10 +531,18 @@ const EntriesList: React.FC<EntriesListProps> = ({ data, timezone, onEntryClicke
                       <td className="px-4 py-2">
                         <StatusPill status={e.status} />
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-700 tabular-nums">
-                        {e.payPeriodNumber != null
-                          ? <span className="font-medium text-gray-900">#{e.payPeriodNumber}</span>
-                          : <span className="text-gray-400">—</span>}
+                      <td className="px-4 py-2 text-sm whitespace-nowrap">
+                        {e.paystubId && e.paystubNumber ? (
+                          <Link
+                            href={`/property-manager/paystubs?paystubId=${e.paystubId}`}
+                            onClick={(ev) => ev.stopPropagation()}
+                            className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                          >
+                            {e.paystubNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                     </tr>
                   )

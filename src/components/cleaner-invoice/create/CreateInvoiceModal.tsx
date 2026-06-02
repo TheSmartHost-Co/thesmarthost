@@ -34,8 +34,11 @@ import {
   ShoppingCartIcon,
   TrashIcon,
   InformationCircleIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline'
 import { TAX_RATES, calcTax } from '@/constants/taxRates'
+import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
+import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -216,6 +219,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     expenses: AvailableExpense[]
     receipts: UploadedReceipt[]
   } | null>(null)
+
+  // ─── Per-row editor sub-modals ───────────────────────────────────────────
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null)
 
   // ─── Derived counts ───────────────────────────────────────────────────────
 
@@ -1243,6 +1250,14 @@ setSelectedProjectIds(new Set())
                           <span className="text-sm font-semibold text-gray-900 tabular-nums">
                             ${expense.amount.toFixed(2)}
                           </span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditingExpenseId(expense.id) }}
+                            className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit expense"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
                     )
@@ -1439,6 +1454,14 @@ setSelectedProjectIds(new Set())
                             <span className="text-sm font-medium text-gray-900 tabular-nums flex-shrink-0">
                               {formatAmount(receipt.total || receipt.subtotal)}
                             </span>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditingReceiptId(receipt.id) }}
+                              title="Edit receipt"
+                              className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2097,6 +2120,52 @@ setSelectedProjectIds(new Set())
         </div>
       </div>,
       document.body
+    )}
+
+    {/* ─── Per-row editor sub-modals (open on pencil-click) ─── */}
+    {editingExpenseId && (
+      <ExpenseViewerModal
+        isOpen={true}
+        onClose={() => setEditingExpenseId(null)}
+        expenseId={editingExpenseId}
+        zIndex={90}
+        onExpenseUpdated={() => {
+          // Refetch expenses so the row reflects the edit
+          getAvailableExpenses(
+            cleaner.id,
+            periodStart || undefined,
+            periodEnd || undefined,
+            propertyFilter || undefined,
+            undefined,
+            searchQuery || undefined,
+          ).then((res) => {
+            if (res.status === 'success') setAvailableExpenses(res.data)
+          }).catch(console.error)
+        }}
+      />
+    )}
+    {editingReceiptId && (
+      <ReceiptDetailModal
+        isOpen={true}
+        onClose={() => setEditingReceiptId(null)}
+        receiptId={editingReceiptId}
+        properties={properties}
+        zIndex={90}
+        onUpdated={() => {
+          // Refetch receipts so the row reflects the edit
+          searchReceipts({
+            status: 'matched',
+            linked: 'unlinked',
+            propertyId: propertyFilter || undefined,
+            search: searchQuery || undefined,
+          }).then((res) => {
+            if (res.status === 'success') {
+              const ownReceipts = res.data.filter(r => r.uploadedBy === cleaner.authUserId)
+              setMatchedReceipts(ownReceipts)
+            }
+          }).catch(console.error)
+        }}
+      />
     )}
     </>
   )

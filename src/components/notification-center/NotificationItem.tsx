@@ -10,9 +10,10 @@ import {
   DocumentTextIcon,
   BellIcon,
   BoltIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 import { TimeAgo } from '@/components/dashboard/shared/TimeAgo'
-import type { InAppNotification, NotificationCategory } from '@/services/types/notificationCenter'
+import type { InAppNotification, NotificationCategory, NotificationEventType } from '@/services/types/notificationCenter'
 
 interface NotificationItemProps {
   notification: InAppNotification
@@ -34,10 +35,22 @@ const categoryConfig: Record<
 
 const fallbackConfig = { icon: BellIcon, iconColor: 'bg-gray-100 text-gray-600' }
 
+// Some event types get a distinct icon regardless of category (e.g. paystub events
+// may surface under either 'invoices' or 'paystubs' category depending on backend).
+const eventTypeOverrides: Partial<Record<NotificationEventType, { icon: React.ElementType; iconColor: string }>> = {
+  paystub_submitted: { icon: BanknotesIcon, iconColor: 'bg-amber-100 text-amber-600' },
+  paystub_approved:  { icon: BanknotesIcon, iconColor: 'bg-blue-100 text-blue-600' },
+  paystub_rejected:  { icon: BanknotesIcon, iconColor: 'bg-red-100 text-red-600' },
+  paystub_paid:      { icon: BanknotesIcon, iconColor: 'bg-emerald-100 text-emerald-600' },
+}
+
 export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { icon: Icon, iconColor } = categoryConfig[notification.category] ?? fallbackConfig
+  const { icon: Icon, iconColor } =
+    eventTypeOverrides[notification.eventType] ??
+    categoryConfig[notification.category] ??
+    fallbackConfig
 
   const handleClick = () => {
     if (!notification.isRead) {

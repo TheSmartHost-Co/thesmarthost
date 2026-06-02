@@ -31,6 +31,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
   const [hourlyRate, setHourlyRate] = useState('')
   const [weeklyMaxHours, setWeeklyMaxHours] = useState('')
   const [currency, setCurrency] = useState('CAD')
+  const [invoicePrefix, setInvoicePrefix] = useState('')
   const [loading, setLoading] = useState(false)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -45,6 +46,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
       setHourlyRate(member.hourlyRate != null ? String(member.hourlyRate) : '')
       setWeeklyMaxHours(member.weeklyMaxHours != null ? String(member.weeklyMaxHours) : '')
       setCurrency(member.currency || 'CAD')
+      setInvoicePrefix(member.invoicePrefix ?? '')
       setLoading(false)
     }
   }, [isOpen, member])
@@ -74,6 +76,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
         return Number.isFinite(n) && n >= 0 ? n : null
       }
 
+      const trimmedPrefix = invoicePrefix.trim()
       const payload: UpdateTeamMemberPayload = {
         name: trimmedName,
         phone: trimmedPhone || null,
@@ -82,6 +85,7 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
         hourlyRate: parseNum(hourlyRate),
         weeklyMaxHours: parseNum(weeklyMaxHours),
         currency: currency.trim() || 'CAD',
+        invoicePrefix: trimmedPrefix ? trimmedPrefix.toUpperCase() : null,
       }
 
       const res = await updateTeamMember(member.id, payload)
@@ -217,6 +221,23 @@ const UpdateTeamMemberModal: React.FC<UpdateTeamMemberModalProps> = ({
               <option value="MXN">MXN</option>
             </select>
           </div>
+        </div>
+
+        {/* Paystub prefix */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Paystub number prefix
+          </label>
+          <input
+            value={invoicePrefix}
+            onChange={(e) => setInvoicePrefix(e.target.value)}
+            maxLength={8}
+            className="w-full text-gray-900 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all uppercase"
+            placeholder="e.g. JS"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Used as the prefix in this team member&rsquo;s paystub numbers (e.g. &ldquo;JS-2026-0001&rdquo;). Leave blank to use name initials.
+          </p>
         </div>
 
         {/* Permissions */}

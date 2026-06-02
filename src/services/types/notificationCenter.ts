@@ -22,6 +22,10 @@ export type NotificationEventType =
   | 'invoice_approved'
   | 'invoice_rejected'
   | 'invoice_paid'
+  | 'paystub_submitted'
+  | 'paystub_approved'
+  | 'paystub_rejected'
+  | 'paystub_paid'
   | 'automation_awaiting_approval'
   | 'automation_sent'
 

@@ -14,10 +14,8 @@ export interface TeamMember {
   hourlyRate?: number | null
   weeklyMaxHours?: number | null
   currency?: string                       // ISO 4217; defaults to 'CAD'
-  // Pay-schedule overrides (added 2026-05). null = inherit from PM defaults.
-  payCadence?: 'weekly' | 'biweekly' | 'monthly' | null
-  payAnchorDate?: string | null           // YYYY-MM-DD
-  payDateOffsetDays?: number | null       // 0-30
+  // Paystub number prefix (e.g. "JS" → "JS-2026-0001"). Falls back to TM-name initials when null.
+  invoicePrefix?: string | null
   lastActiveAt?: string | null
   createdAt: string
   updatedAt?: string | null
@@ -36,9 +34,8 @@ export interface CreateTeamMemberPayload {
 }
 
 // Update payload. Wage fields use COALESCE on the backend, so omit to leave
-// unchanged. Pass `0` to "clear" a rate. For pay-schedule overrides, omitting
-// the key leaves it unchanged; `null` explicitly clears the override
-// (reverts to inherited PM default).
+// unchanged. Pass `0` to "clear" a rate. `invoicePrefix` is nullable —
+// omit to leave unchanged, pass null to clear back to TM-name initials.
 export interface UpdateTeamMemberPayload {
   name?: string
   phone?: string | null
@@ -47,9 +44,7 @@ export interface UpdateTeamMemberPayload {
   hourlyRate?: number | null
   weeklyMaxHours?: number | null
   currency?: string
-  payCadence?: 'weekly' | 'biweekly' | 'monthly' | null
-  payAnchorDate?: string | null
-  payDateOffsetDays?: number | null
+  invoicePrefix?: string | null
 }
 
 // API responses
