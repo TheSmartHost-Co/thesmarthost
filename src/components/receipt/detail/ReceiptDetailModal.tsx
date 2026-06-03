@@ -93,12 +93,22 @@ interface EditFormState {
   taxPst: string
   taxHst: string
   taxQst: string
+  taxSales: string
   taxTotal: string
   total: string
+  // mig 036: currency override on the receipt. Empty string = "leave NULL,
+  // backend falls back to profile.home_currency at apply time".
+  currency: string
   manualSubtotal: boolean
   manualTaxTotal: boolean
   manualTotal: boolean
 }
+
+const CURRENCY_OPTIONS: Array<{ value: '' | 'CAD' | 'USD'; label: string }> = [
+  { value: '', label: 'Auto (use my default)' },
+  { value: 'CAD', label: 'CAD' },
+  { value: 'USD', label: 'USD' },
+]
 
 const PAYMENT_METHODS = [
   { value: 'credit_card', label: 'Credit Card' },
@@ -150,7 +160,8 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   // Edit form state
   const [editForm, setEditForm] = useState<EditFormState>({
     vendorName: '', description: '', expenseDate: '', paymentMethod: 'credit_card',
-    subtotal: '', taxGst: '', taxPst: '', taxHst: '', taxQst: '', taxTotal: '', total: '',
+    subtotal: '', taxGst: '', taxPst: '', taxHst: '', taxQst: '', taxSales: '', taxTotal: '', total: '',
+    currency: '',
     manualSubtotal: false, manualTaxTotal: false, manualTotal: false,
   })
   const [editLineItems, setEditLineItems] = useState<EditLineItem[]>([])
@@ -230,8 +241,12 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       taxPst: receipt.taxPst != null ? String(receipt.taxPst) : '',
       taxHst: receipt.taxHst != null ? String(receipt.taxHst) : '',
       taxQst: receipt.taxQst != null ? String(receipt.taxQst) : '',
+      taxSales: receipt.taxSales != null ? String(receipt.taxSales) : '',
       taxTotal: receipt.taxTotal != null ? String(receipt.taxTotal) : '',
       total: receipt.total != null ? String(receipt.total) : '',
+      // Pre-fill from the OCR-detected/user-set currency. Empty means "use my
+      // profile's home currency as the source currency" (no override).
+      currency: receipt.currency || '',
       manualSubtotal: false, manualTaxTotal: false, manualTotal: false,
     })
     setEditLineItems(lineItems.map((li) => ({
@@ -456,8 +471,15 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       if (String(p(editForm.taxPst)) !== String(p(receipt.taxPst))) headerPayload.taxPst = editForm.taxPst ? p(editForm.taxPst) : null
       if (String(p(editForm.taxHst)) !== String(p(receipt.taxHst))) headerPayload.taxHst = editForm.taxHst ? p(editForm.taxHst) : null
       if (String(p(editForm.taxQst)) !== String(p(receipt.taxQst))) headerPayload.taxQst = editForm.taxQst ? p(editForm.taxQst) : null
+      if (String(p(editForm.taxSales)) !== String(p(receipt.taxSales))) headerPayload.taxSales = editForm.taxSales ? p(editForm.taxSales) : null
       if (String(p(editForm.taxTotal)) !== String(p(receipt.taxTotal))) headerPayload.taxTotal = p(editForm.taxTotal)
       if (String(p(editForm.total)) !== String(p(receipt.total))) headerPayload.total = p(editForm.total)
+      // Currency: '' (Auto) maps to null, which clears the override on the receipt.
+      // Backend then falls back to the user's profile.home_currency at apply time.
+      const editedCurrency = editForm.currency === '' ? null : editForm.currency as 'CAD' | 'USD'
+      if ((receipt.currency || null) !== editedCurrency) {
+        headerPayload.currency = editedCurrency
+      }
 
       if (Object.keys(headerPayload).length > 0) {
         promises.push(updateReceipt(receipt.id, headerPayload))
@@ -786,16 +808,27 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
             ))}
           </>
         ) : null}
-        {(receipt?.taxGst || receipt?.taxPst || receipt?.taxHst || receipt?.taxQst) && (
+        {(receipt?.taxGst || receipt?.taxPst || receipt?.taxHst || receipt?.taxQst || receipt?.taxSales) && (
           <>
             {receipt?.taxGst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">GST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxGst)}</span></div> : null}
             {receipt?.taxPst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">PST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxPst)}</span></div> : null}
             {receipt?.taxHst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">HST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxHst)}</span></div> : null}
             {receipt?.taxQst ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">QST</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxQst)}</span></div> : null}
+            {receipt?.taxSales ? <div className="flex justify-between text-xs"><span className="text-gray-400 pl-2">Sales Tax</span><span className="text-gray-600 tabular-nums">{fmt(receipt.taxSales)}</span></div> : null}
           </>
         )}
         <div className="flex justify-between text-sm"><span className="text-gray-500">Tax Total</span><span className="text-gray-900 tabular-nums">{fmt(receipt?.taxTotal)}</span></div>
-        <div className="flex justify-between text-sm font-semibold border-t border-gray-200 pt-1.5"><span className="text-gray-900">Total</span><span className="text-gray-900 tabular-nums">{fmt(receipt?.total)}</span></div>
+        <div className="flex justify-between text-sm font-semibold border-t border-gray-200 pt-1.5">
+          <span className="text-gray-900 inline-flex items-center gap-2">
+            Total
+            {receipt?.currency ? (
+              <span className="text-[10px] font-medium tracking-wide text-gray-500 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+                {receipt.currency}
+              </span>
+            ) : null}
+          </span>
+          <span className="text-gray-900 tabular-nums">{fmt(receipt?.total)}</span>
+        </div>
       </div>
 
       {/* Line Items */}
@@ -902,6 +935,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
               { label: 'PST', key: 'taxPst' as const },
               { label: 'HST', key: 'taxHst' as const },
               { label: 'QST', key: 'taxQst' as const },
+              { label: 'Sales Tax', key: 'taxSales' as const },
             ].map(({ label, key }) => (
               <div key={key} className="flex items-center justify-between">
                 <label className="text-xs text-gray-400">{label}</label>
@@ -920,6 +954,17 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
           <label className="text-sm font-semibold text-gray-900">Total</label>
           <input type="number" step="0.01" value={editForm.total} onChange={(e) => updateEditField('total', e.target.value)}
             className="w-28 px-2 py-1 text-sm font-bold text-right bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+        {/* Currency override (mig 036). Blank = "use my profile default at apply time".
+            When set to a non-home currency, applying the receipt will run FX conversion. */}
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-gray-500">Currency</label>
+          <select value={editForm.currency} onChange={(e) => updateEditField('currency', e.target.value)}
+            className="w-28 px-2 py-1 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500">
+            {CURRENCY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 

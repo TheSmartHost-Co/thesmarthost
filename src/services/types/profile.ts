@@ -12,6 +12,11 @@ export interface UserProfile {
   additionalNotificationPhones?: string[];
   autoImport?: boolean | null;
   preferredLanguage?: 'en' | 'fr' | 'es' | null;
+  // mig 036 multi-currency: the user's home currency (the currency their books
+  // are kept in). USD purchases get converted to this at apply-time. Defaults
+  // to 'CAD' for all existing users.
+  homeCurrency?: 'CAD' | 'USD' | null;
+  country?: string | null;
   createdAt: string;
   // Team member fields (returned by getOrCreateTeamMemberProfile)
   pmUserId?: string | null;
@@ -29,6 +34,8 @@ export interface UpdateProfilePayload {
   additionalNotificationPhones?: string[];
   autoImport?: boolean;
   preferredLanguage?: 'en' | 'fr' | 'es';
+  homeCurrency?: 'CAD' | 'USD';
+  country?: string | null;
 }
 
 export interface ProfileResponse {
