@@ -113,6 +113,7 @@ export const managerNavConfig: SidebarNavConfig = {
         icon: WrenchScrewdriverIcon,
         items: [
           { name: 'calendar', href: '/property-manager/turnover', icon: ClipboardDocumentListIcon },
+          { name: 'scheduleRequests', href: '/property-manager/turnover-requests', icon: ClockIcon },
           { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
           { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
           { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
@@ -181,6 +182,7 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'expenses', href: '/property-manager/expenses', icon: BanknotesIcon },
   { name: 'receipts', href: '/property-manager/receipts', icon: ReceiptPercentIcon },
   { name: 'calendar', href: '/property-manager/turnover', icon: ClipboardDocumentListIcon },
+  { name: 'scheduleRequests', href: '/property-manager/turnover-requests', icon: ClockIcon },
   { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
   { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },

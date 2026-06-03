@@ -19,6 +19,15 @@ export interface TimeChangeRequest {
   resolvedAt?: string | null
 }
 
+// List item — a request enriched with the project's property context,
+// used by the manager-facing "Schedule Requests" queue.
+export interface TimeChangeRequestListItem extends TimeChangeRequest {
+  propertyId: string
+  propertyName?: string | null
+  propertyAddress?: string | null
+  projectStatus?: string | null
+}
+
 // Submit payload (from cleaner)
 export interface SubmitTimeChangePayload {
   cleanerId: string
@@ -43,6 +52,12 @@ export interface PendingTimeChangeResponse {
 export interface TimeChangeRequestResponse {
   status: 'success' | 'failed'
   data: TimeChangeRequest
+  message?: string
+}
+
+export interface TimeChangeRequestListResponse {
+  status: 'success' | 'failed'
+  data: TimeChangeRequestListItem[]
   message?: string
 }
 

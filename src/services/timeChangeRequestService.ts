@@ -4,8 +4,11 @@ import type {
   RejectTimeChangePayload,
   PendingTimeChangeResponse,
   TimeChangeRequestResponse,
+  TimeChangeRequestListResponse,
   ApproveTimeChangeResponse,
 } from './types/timeChangeRequest'
+
+export type TimeChangeStatusFilter = 'pending' | 'approved' | 'rejected'
 
 /**
  * Submit a time change request for a cleaning project
@@ -31,6 +34,21 @@ export function getPendingTimeChangeRequest(
 ): Promise<PendingTimeChangeResponse> {
   return apiClient<PendingTimeChangeResponse>(
     `/cleaning-projects/${projectId}/time-change-requests/pending`
+  )
+}
+
+/**
+ * List all time change requests across a manager's projects.
+ * Omit `status` to fetch every status (pending + approved + rejected).
+ */
+export function listTimeChangeRequests(
+  userId: string,
+  status?: TimeChangeStatusFilter
+): Promise<TimeChangeRequestListResponse> {
+  const params = new URLSearchParams({ userId })
+  if (status) params.set('status', status)
+  return apiClient<TimeChangeRequestListResponse>(
+    `/cleaning-projects/time-change-requests?${params.toString()}`
   )
 }
 
