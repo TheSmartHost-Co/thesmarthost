@@ -15,6 +15,7 @@ import {
   ClientPortalReceiptResponse,
   ClientPortalExpensesResponse,
   ClientPortalExpenseResponse,
+  ClientPortalPropertyWalkthroughTemplateResponse,
 } from './types/clientPortal';
 
 // No userId parameter needed — the backend determines scoping from the JWT + auth middleware
@@ -33,6 +34,14 @@ export function getClientPortalProperties(): Promise<ClientPortalPropertiesRespo
 
 export function getClientPortalPropertyById(id: string): Promise<ClientPortalPropertyResponse> {
   return apiClient<ClientPortalPropertyResponse>(`/client-portal/properties/${id}`);
+}
+
+export function getClientPortalPropertyWalkthroughTemplate(
+  propertyId: string,
+): Promise<ClientPortalPropertyWalkthroughTemplateResponse> {
+  return apiClient<ClientPortalPropertyWalkthroughTemplateResponse>(
+    `/client-portal/properties/${propertyId}/walkthrough-template`,
+  );
 }
 
 export function getClientPortalBookings(filters?: { startDate?: string; endDate?: string }): Promise<ClientPortalBookingsResponse> {

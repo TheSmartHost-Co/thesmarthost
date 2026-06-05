@@ -283,6 +283,14 @@ export interface ClientPortalEffectiveTemplate {
   groups: ClientPortalWalkthroughGroup[];
 }
 
+// Property-scoped walkthrough template (structure only, no photos)
+// GET /client-portal/properties/:id/walkthrough-template — `data` matches
+// ClientPortalEffectiveTemplate, but every `photos` array is always empty.
+export interface ClientPortalPropertyWalkthroughTemplateResponse {
+  status: string;
+  data: ClientPortalEffectiveTemplate;
+}
+
 export interface ClientPortalOrphanedGroup {
   groupNameSnapshot: string;
   photos: ClientPortalWalkthroughPhoto[];

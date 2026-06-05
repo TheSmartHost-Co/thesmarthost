@@ -36,7 +36,9 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(node:*)",
       "Bash(python3 skills/ui-ux-pro-max/scripts/search.py \"property management dashboard analytics carousel horizontal navigation\" --design-system -p \"HostMetrics\")",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(cd *)",
+      "Bash(git *)"
     ],
     "deny": []
   }
