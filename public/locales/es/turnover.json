@@ -843,6 +843,7 @@
   "edited": "editado",
   "wasDuration": "era {{duration}}",
   "taxShort": "IMP",
+  "filters": "Filtros",
   "generateInvoiceTitle": "Generar factura",
   "generateInvoiceSubtitle": "Selecciona un rango de fechas, revisa tus proyectos y ajusta horas o montos antes de generar",
   "currentMonth": "Mes actual",

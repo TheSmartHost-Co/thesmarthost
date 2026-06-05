@@ -961,6 +961,7 @@
   "edited": "edited",
   "wasDuration": "was {{duration}}",
   "taxShort": "TAX",
+  "filters": "Filters",
   "generateInvoiceTitle": "Generate Invoice",
   "generateInvoiceSubtitle": "Select a date range, review your projects, and adjust hours or amounts before generating",
   "currentMonth": "Current Month",

@@ -209,6 +209,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   // ─── Cart & submit ────────────────────────────────────────────────────────
 
   const [cartExpanded, setCartExpanded] = useState(false)
+  const [filtersExpanded, setFiltersExpanded] = useState(false) // mobile-only; desktop always shows the panel
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
 
@@ -845,6 +846,14 @@ setSelectedProjectIds(new Set())
     )
   }
 
+  // Compact summary shown in the collapsed mobile filter bar
+  const filterPropertyLabel = propertyFilter
+    ? (properties.find((p) => p.id === propertyFilter)?.address ?? t('allProperties'))
+    : t('allProperties')
+  const activeFilterCount = (propertyFilter ? 1 : 0) + (searchQuery.trim() ? 1 : 0)
+  const filterRangeLabel =
+    periodStart && periodEnd ? `${formatProjectDate(periodStart)} – ${formatProjectDate(periodEnd)}` : ''
+
   return (
     <>
     <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-5xl w-[95%] sm:w-11/12 max-h-[92vh] flex flex-col">
@@ -855,7 +864,35 @@ setSelectedProjectIds(new Set())
       </div>
 
       {/* ═══ Global Filters ═══ */}
-      <div className="px-5 sm:px-6 py-3 border-b border-gray-100 bg-gray-50/50">
+      {/* Mobile: collapsed summary bar — frees vertical space for line items */}
+      <button
+        type="button"
+        onClick={() => setFiltersExpanded((v) => !v)}
+        aria-expanded={filtersExpanded}
+        className="sm:hidden w-full flex items-center justify-between gap-2 px-5 py-2.5 border-b border-gray-100 bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-medium text-gray-700 flex-shrink-0">{t('filters')}</span>
+          {activeFilterCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">
+              {activeFilterCount}
+            </span>
+          )}
+          {!filtersExpanded && (
+            <span className="text-xs text-gray-400 truncate">
+              {filterRangeLabel && `· ${filterRangeLabel} `}· {filterPropertyLabel}
+            </span>
+          )}
+        </div>
+        {filtersExpanded ? (
+          <ChevronUpIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        ) : (
+          <ChevronDownIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Panel: hidden on mobile until expanded; always visible on desktop */}
+      <div className={`${filtersExpanded ? 'block' : 'hidden'} sm:block px-5 sm:px-6 py-3 border-b border-gray-100 bg-gray-50/50`}>
         {/* Date presets */}
         <div className="flex flex-wrap gap-2 mb-3">
           {[

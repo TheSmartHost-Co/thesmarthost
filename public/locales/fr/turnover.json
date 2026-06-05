@@ -925,6 +925,7 @@
   "edited": "modifié",
   "wasDuration": "était {{duration}}",
   "taxShort": "TAXE",
+  "filters": "Filtres",
   "generateInvoiceTitle": "Générer une facture",
   "generateInvoiceSubtitle": "Sélectionnez une période, examinez vos projets et ajustez les heures ou montants avant de générer",
   "currentMonth": "Mois en cours",
