@@ -184,5 +184,13 @@
   "initials": "initiales",
   "businessNamePlaceholder": "ex. Services Propreté Inc.",
   "invoicePrefixPlaceholder": "ex. JS, PROPRETÉ",
-  "off": "désactivé"
+  "off": "désactivé",
+  "branding": "Image de marque",
+  "brandingHint": "Votre logo et les coordonnées de l'entreprise apparaissent sur les PDF des bulletins de paie et des rapports",
+  "companyAddress": "Adresse de l'entreprise",
+  "enterCompanyAddress": "Saisissez l'adresse de l'entreprise",
+  "companyPhone": "Téléphone de l'entreprise",
+  "enterCompanyPhone": "Saisissez le téléphone de l'entreprise",
+  "companyEmail": "Courriel de l'entreprise",
+  "enterCompanyEmail": "Saisissez le courriel de l'entreprise"
 }

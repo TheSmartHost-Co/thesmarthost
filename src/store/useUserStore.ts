@@ -10,6 +10,10 @@
     email?: string
     phoneNumber?: string | null
     companyName?: string | null
+    // PM branding (rendered on paystub/report PDFs)
+    companyAddress?: string | null
+    companyPhone?: string | null
+    companyEmail?: string | null
     smsNotificationsEnabled?: boolean
     emailNotificationsEnabled?: boolean
     autoImport?: boolean | null

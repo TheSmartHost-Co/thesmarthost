@@ -19,6 +19,8 @@ import type {
   PaystubStatus,
   ConvertPaystubItemToExpensePayload,
   ConvertPaystubItemToExpenseResponse,
+  SendPaystubPayload,
+  SendPaystubResponse,
 } from './types/paystub'
 
 // List paystubs with optional filters
@@ -234,6 +236,19 @@ export function changePaystubStatus(id: string, status: PaystubStatus): Promise<
 export function generatePaystubPDF(id: string): Promise<PaystubPDFResponse> {
   return apiClient<PaystubPDFResponse>(`/paystubs/${id}/generate-pdf`, {
     method: 'POST',
+  })
+}
+
+// PM: email a fresh branded PDF to the team member as an attachment.
+// On 409 (TM has email off) the failed body carries data.emailDisabled —
+// re-call with { override: true } to deliver anyway.
+export function sendPaystub(
+  id: string,
+  data: SendPaystubPayload = {}
+): Promise<SendPaystubResponse> {
+  return apiClient<SendPaystubResponse, SendPaystubPayload>(`/paystubs/${id}/send`, {
+    method: 'POST',
+    body: data,
   })
 }
 

@@ -184,5 +184,13 @@
   "initials": "initials",
   "businessNamePlaceholder": "e.g. Sparkle Clean Co.",
   "invoicePrefixPlaceholder": "e.g. JS, SPARKLE",
-  "off": "off"
+  "off": "off",
+  "branding": "Branding",
+  "brandingHint": "Your logo and company details appear on your paystub and report PDFs",
+  "companyAddress": "Company Address",
+  "enterCompanyAddress": "Enter company address",
+  "companyPhone": "Company Phone",
+  "enterCompanyPhone": "Enter company phone",
+  "companyEmail": "Company Email",
+  "enterCompanyEmail": "Enter company email"
 }

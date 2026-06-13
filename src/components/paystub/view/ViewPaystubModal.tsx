@@ -37,13 +37,18 @@ import {
   ArrowPathIcon,
   CheckIcon,
   XMarkIcon,
+  PaperAirplaneIcon,
 } from '@heroicons/react/24/outline'
 import { formatHours, formatMoney } from '@/lib/format'
+import { getLogos } from '@/services/reportService'
+import { useUserStore } from '@/store/useUserStore'
 import AddExtraChargeModal from '@/components/paystub/create/AddExtraChargeModal'
 import AddExistingExpenseModal from '@/components/paystub/create/AddExistingExpenseModal'
 import AddReceiptToPaystubModal from '@/components/paystub/create/AddReceiptToPaystubModal'
 import ConvertToExpenseModal from '@/components/paystub/view/ConvertToExpenseModal'
 import DeletePaystubModal from '@/components/paystub/delete/DeletePaystubModal'
+import SendPaystubModal from '@/components/paystub/send/SendPaystubModal'
+import Image from 'next/image'
 
 interface ViewPaystubModalProps {
   isOpen: boolean
@@ -65,12 +70,15 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
   isOpen, onClose, paystubId, role, userId, onUpdated, onDeleted,
 }) => {
   const showNotification = useNotificationStore((s) => s.showNotification)
+  const pmEmail = useUserStore((s) => s.profile?.email)
 
   const [paystub, setPaystub] = useState<Paystub | null>(null)
   const [files, setFiles] = useState<PaystubFile[]>([])
   const [loading, setLoading] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [showSend, setShowSend] = useState(false)
+  const [pmLogoUrl, setPmLogoUrl] = useState<string | null>(null)
 
   // Inline edit states
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -127,9 +135,35 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
     setRejectReason('')
     setEditingItemId(null)
     setNotesDirty(false)
+    setShowSend(false)
     loadPaystub()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, paystubId])
+
+  // Resolve the PM branding logo image for the "From" block. Logos are one-per-user
+  // and getLogos() returns the caller's own — so this is only meaningful for a PM
+  // viewing the paystub (a TM would get their own logo, not the PM's). TMs see the
+  // text-only From block; the generated PDF stays branded for everyone.
+  useEffect(() => {
+    if (!isOpen || role !== 'pm') {
+      setPmLogoUrl(null)
+      return
+    }
+    let cancelled = false
+    getLogos()
+      .then((res) => {
+        if (cancelled) return
+        setPmLogoUrl(res.status === 'success' ? (res.data[0]?.logoUrl ?? null) : null)
+      })
+      .catch(() => { if (!cancelled) setPmLogoUrl(null) })
+    return () => { cancelled = true }
+  }, [isOpen, role])
+
+  const refreshFiles = async () => {
+    if (!paystub) return
+    const filesRes = await getPaystubFiles(paystub.id)
+    if (filesRes.status === 'success') setFiles(filesRes.data)
+  }
 
   const handleClose = () => {
     if (isDirty && onUpdated) onUpdated()
@@ -329,6 +363,35 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
       <Modal isOpen={isOpen} onClose={handleClose} style="p-0 max-w-3xl w-11/12 !max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10 pr-12">
+          {/* PM branding "From" block — what the PDF shows */}
+          {(paystub.pmCompanyName || pmLogoUrl || paystub.pmCompanyAddress) && (
+            <div className="flex items-start gap-3 pb-3 mb-3 border-b border-gray-100">
+              {pmLogoUrl && (
+                <div className="relative w-12 h-12 flex-shrink-0">
+                  <Image
+                    src={pmLogoUrl}
+                    alt={paystub.pmCompanyName || 'Company logo'}
+                    fill
+                    sizes="48px"
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+              )}
+              <div className="min-w-0 text-xs text-gray-500 leading-relaxed">
+                {paystub.pmCompanyName && (
+                  <div className="text-sm font-semibold text-gray-900">{paystub.pmCompanyName}</div>
+                )}
+                {paystub.pmCompanyAddress && (
+                  <div className="whitespace-pre-line">{paystub.pmCompanyAddress}</div>
+                )}
+                <div className="flex flex-wrap gap-x-3">
+                  {paystub.pmCompanyPhone && <span>{paystub.pmCompanyPhone}</span>}
+                  {paystub.pmCompanyEmail && <span>{paystub.pmCompanyEmail}</span>}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-xs text-gray-500">Paystub</div>
@@ -641,6 +704,16 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
             >
               Close
             </button>
+            {role === 'pm' && (
+              <button
+                type="button"
+                onClick={() => setShowSend(true)}
+                disabled={actionLoading !== null}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+              >
+                <PaperAirplaneIcon className="w-4 h-4" /> Send to team member
+              </button>
+            )}
             {role === 'tm' && isEditable && (
               <button
                 type="button"
@@ -723,6 +796,13 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
           if (onDeleted) onDeleted()
           onClose()
         }}
+      />
+      <SendPaystubModal
+        isOpen={showSend}
+        onClose={() => setShowSend(false)}
+        paystub={paystub}
+        pmEmail={pmEmail}
+        onSent={refreshFiles}
       />
     </>
   )

@@ -71,7 +71,6 @@ export interface ReportGenerationPayload {
   startDate: string
   endDate: string
   format: ReportFormat
-  logoId?: string
   templateIds?: string[]  // Array of template IDs (PDF: 0-1, Excel/CSV: 0+)
   dateFilterMode?: DateFilterMode  // How to filter bookings by date (defaults to 'checkIn' on backend)
   sourcesFilter?: BookingSource[]  // Which booking sources to include (defaults to all on backend)

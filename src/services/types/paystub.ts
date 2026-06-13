@@ -41,6 +41,11 @@ export interface Paystub {
   teamMemberAuthUserId?: string | null
   teamMemberBusinessName?: string | null
   itemCount?: number
+  // PM branding snapshot (GET /paystubs/:id detail only — not on the list endpoint)
+  pmCompanyName?: string | null
+  pmCompanyAddress?: string | null
+  pmCompanyPhone?: string | null
+  pmCompanyEmail?: string | null
   // Populated by GET /paystubs/:id
   items?: PaystubItem[]
 }
@@ -296,6 +301,27 @@ export interface PaystubFileDownloadResponse {
   status: 'success' | 'failed'
   data?: { signedUrl: string; fileName: string }
   message?: string
+}
+
+// PM emails a branded paystub PDF to the team member (POST /paystubs/:id/send)
+export interface SendPaystubPayload {
+  cc?: string
+  override?: boolean
+}
+
+export interface SendPaystubResponse {
+  status: 'success' | 'failed'
+  message?: string
+  data?: {
+    sentTo?: string
+    cc?: string
+    fileId?: string
+    fileVersion?: number
+    lastSentAt?: string
+    // Present on the 409 "email turned off" body
+    emailDisabled?: boolean
+    teamMemberEmail?: string
+  }
 }
 
 export interface MonthlyEarningsResponse {

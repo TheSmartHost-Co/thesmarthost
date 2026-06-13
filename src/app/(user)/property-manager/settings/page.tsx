@@ -35,6 +35,7 @@ import QuickBooksSection from '@/components/quickbooks/QuickBooksSection'
 import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscriptionsSection'
 import ListingMappingsSection from '@/components/listing-mapping/ListingMappingsSection'
 import SettingsSectionNav, { SettingsNavSection } from '@/components/settings/SettingsSectionNav'
+import BrandingLogoManager from '@/components/settings/BrandingLogoManager'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 import { getProperties } from '@/services/propertyService'
@@ -54,6 +55,9 @@ export default function PropertyManagerSettingsPage() {
     email: '',
     phone: '',
     company: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
     role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER'
   })
 
@@ -92,6 +96,9 @@ export default function PropertyManagerSettingsPage() {
         email: profile.email || '',
         phone: profile.phoneNumber || '',
         company: profile.companyName || '',
+        companyAddress: profile.companyAddress || '',
+        companyPhone: profile.companyPhone || '',
+        companyEmail: profile.companyEmail || '',
         role: profile.role!
       })
     }
@@ -183,6 +190,9 @@ export default function PropertyManagerSettingsPage() {
         role: profileData.role,
         phoneNumber: profileData.phone || null,
         companyName: profileData.company || null,
+        companyAddress: profileData.companyAddress || null,
+        companyPhone: profileData.companyPhone || null,
+        companyEmail: profileData.companyEmail || null,
       })
 
       if (response.status === 'success' && response.data) {
@@ -497,6 +507,11 @@ export default function PropertyManagerSettingsPage() {
           </div>
 
           <div className="p-6">
+            {/* Company logo — one per user, managed instantly via its own endpoints */}
+            <div className="pb-6 mb-6 border-b border-gray-100">
+              <BrandingLogoManager canWrite={canWrite('settings')} />
+            </div>
+
             {!showProfileEdit ? (
               // View Mode
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -515,6 +530,18 @@ export default function PropertyManagerSettingsPage() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('company')}</label>
                   <p className="text-gray-900 font-medium">{profile?.companyName || t('notSet')}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('companyAddress')}</label>
+                  <p className="text-gray-900 font-medium whitespace-pre-line">{profile?.companyAddress || t('notSet')}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('companyPhone')}</label>
+                  <p className="text-gray-900 font-medium">{profile?.companyPhone || t('notSet')}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{t('companyEmail')}</label>
+                  <p className="text-gray-900 font-medium">{profile?.companyEmail || t('notSet')}</p>
                 </div>
               </div>
             ) : (
@@ -574,6 +601,56 @@ export default function PropertyManagerSettingsPage() {
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
                       placeholder={t('enterCompany')}
                     />
+                  </div>
+                </div>
+
+                {/* Branding — shown on paystub & report PDFs */}
+                <div className="pt-4 border-t border-gray-100 space-y-6">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">{t('branding')}</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">{t('brandingHint')}</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('companyAddress')}
+                      </label>
+                      <textarea
+                        id="companyAddress"
+                        rows={3}
+                        value={profileData.companyAddress}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, companyAddress: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        placeholder={t('enterCompanyAddress')}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="companyPhone" className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('companyPhone')}
+                      </label>
+                      <input
+                        type="tel"
+                        id="companyPhone"
+                        value={profileData.companyPhone}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, companyPhone: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        placeholder={t('enterCompanyPhone')}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="companyEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('companyEmail')}
+                      </label>
+                      <input
+                        type="email"
+                        id="companyEmail"
+                        value={profileData.companyEmail}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, companyEmail: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                        placeholder={t('enterCompanyEmail')}
+                      />
+                    </div>
                   </div>
                 </div>
 

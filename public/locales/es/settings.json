@@ -184,5 +184,13 @@
   "initials": "iniciales",
   "businessNamePlaceholder": "ej. Limpieza Estrella S.A.",
   "invoicePrefixPlaceholder": "ej. JS, LIMPIEZA",
-  "off": "desactivado"
+  "off": "desactivado",
+  "branding": "Marca",
+  "brandingHint": "Tu logotipo y los datos de la empresa aparecen en los PDF de recibos de pago e informes",
+  "companyAddress": "Dirección de la empresa",
+  "enterCompanyAddress": "Ingresa la dirección de la empresa",
+  "companyPhone": "Teléfono de la empresa",
+  "enterCompanyPhone": "Ingresa el teléfono de la empresa",
+  "companyEmail": "Correo de la empresa",
+  "enterCompanyEmail": "Ingresa el correo de la empresa"
 }

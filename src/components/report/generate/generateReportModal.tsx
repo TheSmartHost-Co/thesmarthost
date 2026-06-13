@@ -6,8 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
-  getLogos,
-  uploadLogo,
   previewReport,
   generateReport,
 } from '@/services/reportService'
@@ -16,7 +14,6 @@ import { getReportTemplateById } from '@/services/reportTemplateService'
 import type { Property } from '@/services/types/property'
 import type {
   ReportFormat,
-  Logo,
   DateFilterMode,
   PreviewBookingRow,
   PreviewExpenseRow,
@@ -35,7 +32,6 @@ import {
   SparklesIcon,
   ArrowPathIcon,
   ChevronDownIcon,
-  CloudArrowUpIcon,
   RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
@@ -186,18 +182,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
   const [selectedPreset, setSelectedPreset] = useState<string>('')
-  const [selectedLogoId, setSelectedLogoId] = useState<string>('')
   const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('checkIn')
   const [sourcesFilter, setSourcesFilter] = useState<BookingSource[]>(['webhook'])
 
   // ─── UI state ───
   const [propertySearch, setPropertySearch] = useState<string>('')
   const [isPropertyDropdownOpen, setIsPropertyDropdownOpen] = useState<boolean>(false)
-  const [isLogoDropdownOpen, setIsLogoDropdownOpen] = useState<boolean>(false)
-
-  // ─── Data state ───
-  const [logos, setLogos] = useState<Logo[]>([])
-  const [loadingLogos, setLoadingLogos] = useState<boolean>(false)
 
   // ─── Template state ───
   const [hydratedTemplates, setHydratedTemplates] = useState<FullReportTemplate[]>([])
@@ -218,14 +208,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
 
   // ─── Loading states ───
   const [generating, setGenerating] = useState<boolean>(false)
-  const [uploading, setUploading] = useState<boolean>(false)
 
   // ─── Refs ───
   const propertyDropdownRef = useRef<HTMLDivElement>(null)
-  const logoDropdownRef = useRef<HTMLDivElement>(null)
   const templateDropdownRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const logosLoadedRef = useRef<boolean>(false)
 
   // ─── Computed values ───
   const completeProperties = useMemo(() =>
@@ -255,12 +241,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
 
   // ─── Effects ───
 
-  // Load logos when modal opens
+  // Apply initial property selection when modal opens
   useEffect(() => {
-    if (isOpen && !logosLoadedRef.current) {
-      logosLoadedRef.current = true
-      loadLogos()
-    }
     if (isOpen && initialPropertyIds && initialPropertyIds.length > 0) {
       setSelectedPropertyIds(initialPropertyIds)
     }
@@ -348,7 +330,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       resetForm()
-      logosLoadedRef.current = false
     }
   }, [isOpen])
 
@@ -357,9 +338,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (propertyDropdownRef.current && !propertyDropdownRef.current.contains(event.target as Node)) {
         setIsPropertyDropdownOpen(false)
-      }
-      if (logoDropdownRef.current && !logoDropdownRef.current.contains(event.target as Node)) {
-        setIsLogoDropdownOpen(false)
       }
       if (templateDropdownRef.current && !templateDropdownRef.current.contains(event.target as Node)) {
         setIsTemplateDropdownOpen(false)
@@ -377,12 +355,10 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setStartDate('')
     setEndDate('')
     setSelectedPreset('')
-    setSelectedLogoId('')
     setDateFilterMode('checkIn')
     setSourcesFilter(['webhook'])
     setPropertySearch('')
     setIsPropertyDropdownOpen(false)
-    setIsLogoDropdownOpen(false)
     setSelectedTemplateIds([])
     setAvailableTemplates([])
     setIsTemplateDropdownOpen(false)
@@ -397,20 +373,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setEditingBooking(null)
     setEditingExpenseId(null)
     setGenerating(false)
-  }
-
-  const loadLogos = async () => {
-    try {
-      setLoadingLogos(true)
-      const res = await getLogos()
-      if (res.status === 'success') {
-        setLogos(res.data || [])
-      }
-    } catch (err) {
-      console.error('Error loading logos:', err)
-    } finally {
-      setLoadingLogos(false)
-    }
   }
 
   const formatDateForInput = (date: Date): string => {
@@ -431,9 +393,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setFormat(newFormat)
     if (newFormat === 'pdf' && selectedPropertyIds.length > 1) {
       setSelectedPropertyIds([selectedPropertyIds[0]])
-    }
-    if (newFormat !== 'pdf') {
-      setSelectedLogoId('')
     }
   }
 
@@ -460,40 +419,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     } else {
       setSelectedPropertyIds(completeProperties.map(p => p.id))
     }
-  }
-
-  const handleLogoUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      showNotification('Please select an image file', 'error')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('File size must be less than 5MB', 'error')
-      return
-    }
-    try {
-      setUploading(true)
-      const res = await uploadLogo(file)
-      if (res.status === 'success') {
-        setLogos([res.data, ...logos])
-        setSelectedLogoId(res.data.id)
-        showNotification('Logo uploaded successfully', 'success')
-      } else {
-        showNotification(res.message || 'Failed to upload logo', 'error')
-      }
-    } catch (err) {
-      console.error('Error uploading logo:', err)
-      showNotification('Failed to upload logo', 'error')
-    } finally {
-      setUploading(false)
-      setIsLogoDropdownOpen(false)
-    }
-  }
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleLogoUpload(file)
-    e.target.value = ''
   }
 
   const handleTemplateToggle = (templateId: string) => {
@@ -565,7 +490,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         startDate,
         endDate,
         format,
-        logoId: selectedLogoId || undefined,
         templateIds: selectedTemplateIds.length > 0 ? selectedTemplateIds : [],
         dateFilterMode,
         sourcesFilter,
@@ -629,8 +553,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     setEditingExpenseId(null)
     fetchPreview(true)
   }
-
-  const selectedLogo = logos.find(l => l.id === selectedLogoId)
 
   // ─── Step indicator ───
 
@@ -1215,121 +1137,6 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                     </div>
                   )}
 
-                  {/* Logo (PDF only) */}
-                  {format === 'pdf' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                        Branding <span className="font-normal text-gray-400">(Optional)</span>
-                      </label>
-
-                      <div ref={logoDropdownRef} className="relative">
-                        <button
-                          onClick={() => setIsLogoDropdownOpen(!isLogoDropdownOpen)}
-                          className={`
-                            w-full px-3 py-2.5 border rounded-lg text-left flex items-center justify-between transition-all
-                            ${isLogoDropdownOpen
-                              ? 'border-blue-500 ring-2 ring-blue-500/20'
-                              : 'border-gray-200 hover:border-gray-300'
-                            }
-                          `}
-                        >
-                          {selectedLogo ? (
-                            <div className="flex items-center gap-2">
-                              <img src={selectedLogo.logoUrl} alt="" className="w-6 h-6 object-contain rounded" />
-                              <span className="text-gray-900 text-sm truncate max-w-[200px]">{selectedLogo.originalName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">No logo selected</span>
-                          )}
-                          <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isLogoDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        <AnimatePresence>
-                          {isLogoDropdownOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{ duration: 0.15 }}
-                              className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
-                            >
-                              <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={uploading}
-                                className="w-full px-3 py-2.5 flex items-center gap-2 text-amber-600 hover:bg-amber-50 border-b border-gray-100 transition-colors"
-                              >
-                                {uploading ? (
-                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <CloudArrowUpIcon className="w-4 h-4" />
-                                )}
-                                <span className="text-sm font-medium">
-                                  {uploading ? 'Uploading...' : 'Upload new logo'}
-                                </span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedLogoId('')
-                                  setIsLogoDropdownOpen(false)
-                                }}
-                                className={`
-                                  w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors
-                                  ${!selectedLogoId ? 'bg-blue-50' : 'hover:bg-gray-50'}
-                                `}
-                              >
-                                <span className={`text-sm ${!selectedLogoId ? 'text-blue-700 font-medium' : 'text-gray-600'}`}>
-                                  No logo
-                                </span>
-                                {!selectedLogoId && <CheckIcon className="w-4 h-4 text-blue-600" />}
-                              </button>
-
-                              {loadingLogos ? (
-                                <div className="px-3 py-4 flex justify-center">
-                                  <ArrowPathIcon className="w-5 h-5 text-gray-400 animate-spin" />
-                                </div>
-                              ) : (
-                                <div className="max-h-40 overflow-y-auto">
-                                  {logos.map((logo) => {
-                                    const isSelected = selectedLogoId === logo.id
-                                    return (
-                                      <button
-                                        key={logo.id}
-                                        onClick={() => {
-                                          setSelectedLogoId(logo.id)
-                                          setIsLogoDropdownOpen(false)
-                                        }}
-                                        className={`
-                                          w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors
-                                          ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
-                                        `}
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <img src={logo.logoUrl} alt="" className="w-8 h-8 object-contain rounded border border-gray-200" />
-                                          <span className={`text-sm truncate max-w-[180px] ${isSelected ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
-                                            {logo.originalName}
-                                          </span>
-                                        </div>
-                                        {isSelected && <CheckIcon className="w-4 h-4 text-blue-600" />}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileInputChange}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

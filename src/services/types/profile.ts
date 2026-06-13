@@ -6,6 +6,10 @@ export interface UserProfile {
   role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER';
   phoneNumber?: string | null;
   companyName?: string | null;
+  // PM branding (rendered on paystub/report PDFs)
+  companyAddress?: string | null;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
   smsNotificationsEnabled?: boolean;
   emailNotificationsEnabled?: boolean;
   additionalNotificationEmails?: string[];
@@ -23,6 +27,10 @@ export interface UpdateProfilePayload {
   role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER';
   phoneNumber?: string | null;
   companyName?: string | null;
+  // PM branding (rendered on paystub/report PDFs)
+  companyAddress?: string | null;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
   smsNotificationsEnabled?: boolean;
   emailNotificationsEnabled?: boolean;
   additionalNotificationEmails?: string[];

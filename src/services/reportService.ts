@@ -100,28 +100,16 @@ export async function getLogos(): Promise<LogosResponse> {
  * @returns Promise with uploaded logo details
  */
 export async function uploadLogo(logoFile: File): Promise<LogoUploadResponse> {
+  // Route through apiClient so the request carries the auth header — the backend
+  // now scopes logos to the uploading user. apiClient detects FormData and lets
+  // the browser set the multipart Content-Type boundary.
   const formData = new FormData()
   formData.append('logo', logoFile)
-  
-  const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/reports/upload-logo`, {
+
+  return apiClient<LogoUploadResponse, FormData>('/reports/upload-logo', {
     method: 'POST',
     body: formData,
-    // No Content-Type header - let browser set it with boundary
-    // Include any auth headers if needed in the future
   })
-
-  if (!response.ok) {
-    let errorMessage = `Upload failed: ${response.statusText}`
-    try {
-      const errorBody = await response.json()
-      errorMessage = errorBody.message || errorMessage
-    } catch {
-      // If JSON parsing fails, use the default error message
-    }
-    throw new Error(errorMessage)
-  }
-
-  return response.json() as Promise<LogoUploadResponse>
 }
 
 /**
