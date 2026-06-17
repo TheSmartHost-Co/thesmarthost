@@ -97,7 +97,8 @@ export default function CleanerReceiptsPage() {
         setProperties(
           (scheduleRes.data.assignedProperties || []).map(p => ({
             id: p.propertyId,
-            listingName: p.propertyName || p.propertyId,
+            listingName: p.propertyName || undefined,
+            address: p.propertyAddress || '',
           } as Property))
         )
       }

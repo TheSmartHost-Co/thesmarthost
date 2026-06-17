@@ -1003,7 +1003,10 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         <select value={applyPropertyId} onChange={(e) => setApplyPropertyId(e.target.value)}
           className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="">Select a property...</option>
-          {properties.map((p) => <option key={p.id} value={p.id}>{p.address || p.id}</option>)}
+          {properties.map((p) => {
+            const label = [p.listingName, p.address].filter(Boolean).join(' — ') || p.id
+            return <option key={p.id} value={p.id}>{label}</option>
+          })}
         </select>
       </div>
 

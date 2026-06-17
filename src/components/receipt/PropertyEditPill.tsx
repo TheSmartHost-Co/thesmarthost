@@ -61,8 +61,8 @@ const PropertyEditPill: React.FC<PropertyEditPillProps> = ({
   const options = useMemo<SearchableSelectOption<string>[]>(() => {
     return properties.map((p) => ({
       value: p.id,
-      label: p.address || p.id,
-      secondaryLabel: p.postalCode || undefined,
+      label: p.listingName || p.address || p.id,
+      secondaryLabel: p.listingName ? (p.address || undefined) : (p.postalCode || undefined),
     }))
   }, [properties])
 

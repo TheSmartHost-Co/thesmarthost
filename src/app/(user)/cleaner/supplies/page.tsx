@@ -263,7 +263,7 @@ export default function CleanerSuppliesPage() {
           onClose={() => setShowCreateModal(false)}
           cleanerId={cleaner.id}
           pmUserId={cleaner.userId}
-          properties={cleaner.assignedProperties?.map(p => ({ id: p.propertyId, listingName: p.propertyName || p.propertyId })) || []}
+          properties={cleaner.assignedProperties?.map(p => ({ id: p.propertyId, listingName: [p.propertyName, p.propertyAddress].filter(Boolean).join(' — ') || p.propertyId })) || []}
           onCreated={() => { setShowCreateModal(false); fetchData() }}
         />
       )}

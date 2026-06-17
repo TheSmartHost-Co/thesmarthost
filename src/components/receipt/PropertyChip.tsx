@@ -34,11 +34,11 @@ function resolveProperty(
     const expensePropId = linkedExpense?.propertyId
     if (receiptPropId) {
       const p = properties.find((prop) => prop.id === receiptPropId)
-      if (p) return { name: p.address, source: 'own' }
+      if (p && (p.address || p.listingName)) return { name: p.address || p.listingName!, source: 'own' }
     }
     if (expensePropId) {
       const p = properties.find((prop) => prop.id === expensePropId)
-      if (p) return { name: p.address, source: 'expense' }
+      if (p && (p.address || p.listingName)) return { name: p.address || p.listingName!, source: 'expense' }
     }
   }
   // Fall back to denormalized propertyName
