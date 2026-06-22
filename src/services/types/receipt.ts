@@ -102,7 +102,11 @@ export interface ReceiptSearchParams {
   endDate?: string // upload date (created_at) range end
   purchaseStartDate?: string // purchase date (expense_date) range start
   purchaseEndDate?: string // purchase date (expense_date) range end
+  minTotal?: string // total amount range minimum (inclusive)
+  maxTotal?: string // total amount range maximum (inclusive)
   linked?: string // 'true' | 'false'
+  sortBy?: 'createdAt' | 'expenseDate' | 'total' // date added | transaction date | total amount
+  sortDirection?: 'asc' | 'desc'
   limit?: number
   offset?: number
 }

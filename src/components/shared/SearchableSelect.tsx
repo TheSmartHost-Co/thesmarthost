@@ -410,6 +410,7 @@ function SearchableSelect<T = string>(props: SearchableSelectProps<T>) {
       {isOpen && dropdownPos && typeof document !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
+          data-searchable-select-portal=""
           style={{
             position: 'fixed',
             top: dropdownPos.top,

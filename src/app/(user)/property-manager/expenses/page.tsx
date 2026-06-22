@@ -105,6 +105,7 @@ const COLUMN_DEFS: ExpenseColumnDef[] = [
   { key: 'category', label: 'Category' },
   { key: 'property', label: 'Property / Booking' },
   { key: 'vendor',   label: 'Vendor' },
+  { key: 'description', label: 'Description' },
   { key: 'paidBy',   label: 'Paid By' },
   { key: 'status',   label: 'Status (payment + QB sync)' },
   { key: 'receipt',  label: 'Receipt' },
@@ -848,6 +849,7 @@ function ExpensesContent() {
                 {showCol('category') && <Th>Category</Th>}
                 {showCol('property') && <Th>Property / Booking</Th>}
                 {showCol('vendor') && <Th>Vendor</Th>}
+                {showCol('description') && <Th>Description</Th>}
                 {showCol('paidBy') && <Th>Paid By</Th>}
                 {showCol('status') && <Th>Status</Th>}
                 {showCol('receipt') && <Th>Receipt</Th>}
@@ -956,6 +958,16 @@ function ExpensesContent() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-700 truncate max-w-[140px] block">
                             {expense.vendorName || '—'}
+                          </span>
+                        </td>
+                      )}
+                      {showCol('description') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className="text-sm text-gray-700 truncate max-w-[220px] block"
+                            title={expense.description || undefined}
+                          >
+                            {expense.description || '—'}
                           </span>
                         </td>
                       )}

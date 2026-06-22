@@ -3,7 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline'
 
-const STORAGE_KEY = 'expenses-table-columns:v1'
+// Bumped to v2 when the Description column was added so existing users get it
+// visible by default (their v1 prefs predate the column). Re-hiding persists.
+const STORAGE_KEY = 'expenses-table-columns:v2'
 
 export interface ExpenseColumnDef {
   key: string

@@ -16,6 +16,8 @@ import {
   Squares2X2Icon,
   ListBulletIcon,
   DocumentTextIcon,
+  BarsArrowDownIcon,
+  BarsArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
@@ -39,6 +41,18 @@ import TableActionsDropdown from '@/components/shared/TableActionsDropdown'
 import type { ActionItem } from '@/components/shared/TableActionsDropdown'
 
 const ITEMS_PER_PAGE = 20
+
+type SortField = 'createdAt' | 'expenseDate' | 'total'
+type SortDirection = 'asc' | 'desc'
+
+// Sort is done server-side (ORDER BY) so it spans all pages, not just the
+// current one. Field values match ReceiptSearchParams.sortBy / the backend
+// SORT_COLUMNS whitelist.
+const SORT_OPTIONS: { field: SortField; label: string; ascLabel: string; descLabel: string }[] = [
+  { field: 'createdAt', label: 'Date added', ascLabel: 'Oldest first', descLabel: 'Newest first' },
+  { field: 'expenseDate', label: 'Transaction date', ascLabel: 'Oldest first', descLabel: 'Newest first' },
+  { field: 'total', label: 'Total amount', ascLabel: 'Low to high', descLabel: 'High to low' },
+]
 
 const STATUS_FILTERS: { value: ReceiptStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -102,9 +116,20 @@ function ReceiptsContent() {
   // Purchase date (expense_date) range
   const [purchaseStartDate, setPurchaseStartDate] = useState('')
   const [purchaseEndDate, setPurchaseEndDate] = useState('')
+  // Total amount range
+  const [minTotal, setMinTotal] = useState('')
+  const [maxTotal, setMaxTotal] = useState('')
   const [linkedFilter, setLinkedFilter] = useState<'' | 'true' | 'false'>('')
   const [showFilterPopover, setShowFilterPopover] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
+
+  // Sort (server-side — default matches the backend's previous fixed order)
+  const [sortConfig, setSortConfig] = useState<{ field: SortField; direction: SortDirection }>({
+    field: 'createdAt',
+    direction: 'desc',
+  })
+  const [showSortPopover, setShowSortPopover] = useState(false)
+  const sortRef = useRef<HTMLDivElement>(null)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -126,10 +151,10 @@ function ReceiptsContent() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Reset page when filters change
+  // Reset page when filters or sort change
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter])
+  }, [debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, minTotal, maxTotal, linkedFilter, sortConfig])
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -148,7 +173,11 @@ function ReceiptsContent() {
       if (endDate) params.endDate = endDate
       if (purchaseStartDate) params.purchaseStartDate = purchaseStartDate
       if (purchaseEndDate) params.purchaseEndDate = purchaseEndDate
+      if (minTotal) params.minTotal = minTotal
+      if (maxTotal) params.maxTotal = maxTotal
       if (linkedFilter) params.linked = linkedFilter
+      params.sortBy = sortConfig.field
+      params.sortDirection = sortConfig.direction
 
       const [receiptsRes, propertiesRes] = await Promise.all([
         searchReceipts(params),
@@ -172,24 +201,40 @@ function ReceiptsContent() {
     } finally {
       setLoading(false)
     }
-  }, [effectiveUserId, currentPage, debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter])
+  }, [effectiveUserId, currentPage, debouncedSearch, statusFilter, propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, minTotal, maxTotal, linkedFilter, sortConfig])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  // Click-outside for filter popover
+  // Click-outside for filter + sort popovers
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+      const target = e.target as Element
+      // SearchableSelect renders its dropdown in a portal on <body>, outside
+      // filterRef. Ignore clicks inside it so selecting a property doesn't
+      // close the whole filter popover before the selection registers.
+      if (target.closest?.('[data-searchable-select-portal]')) return
+      if (filterRef.current && !filterRef.current.contains(target as Node)) {
         setShowFilterPopover(false)
+      }
+      if (sortRef.current && !sortRef.current.contains(target as Node)) {
+        setShowSortPopover(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const activeFilterCount = [propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, linkedFilter].filter(Boolean).length
+  const activeFilterCount = [propertyFilter, startDate, endDate, purchaseStartDate, purchaseEndDate, minTotal, maxTotal, linkedFilter].filter(Boolean).length
+
+  // Short label for the sort button, e.g. "Total amount: High to low"
+  const currentSortLabel = (() => {
+    const option = SORT_OPTIONS.find((o) => o.field === sortConfig.field)
+    if (!option) return 'Sort'
+    const directionLabel = sortConfig.direction === 'asc' ? option.ascLabel : option.descLabel
+    return `${option.label}: ${directionLabel}`
+  })()
 
   // Searchable property options — same label format as the expenses filter
   // (address + postal code) so the two filters behave consistently.
@@ -420,6 +465,8 @@ function ReceiptsContent() {
                         setEndDate('')
                         setPurchaseStartDate('')
                         setPurchaseEndDate('')
+                        setMinTotal('')
+                        setMaxTotal('')
                         setLinkedFilter('')
                       }}
                       className="text-xs text-blue-600 hover:text-blue-800"
@@ -462,6 +509,41 @@ function ReceiptsContent() {
                   </div>
                 </div>
 
+                {/* Total amount range */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Total amount</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        aria-label="Minimum total amount"
+                        placeholder="Min"
+                        value={minTotal}
+                        onChange={(e) => setMinTotal(e.target.value)}
+                        className="w-full pl-5 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        aria-label="Maximum total amount"
+                        placeholder="Max"
+                        value={maxTotal}
+                        onChange={(e) => setMaxTotal(e.target.value)}
+                        className="w-full pl-5 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Upload date (when the receipt was uploaded — created_at) */}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Upload date</label>
@@ -495,6 +577,65 @@ function ReceiptsContent() {
                     <option value="false">Not applied</option>
                   </select>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sort popover */}
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setShowSortPopover(!showSortPopover)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
+              title="Sort"
+            >
+              {sortConfig.direction === 'desc' ? (
+                <BarsArrowDownIcon className="w-4 h-4" />
+              ) : (
+                <BarsArrowUpIcon className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{currentSortLabel}</span>
+              <span className="sm:hidden">Sort</span>
+            </button>
+
+            {showSortPopover && (
+              <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-3rem)] bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50 space-y-3">
+                <span className="text-sm font-semibold text-gray-900">Sort by</span>
+                {SORT_OPTIONS.map((option) => {
+                  const isSelected = sortConfig.field === option.field
+                  return (
+                    <div key={option.field} className="space-y-1">
+                      <div className="text-xs font-medium text-gray-500">{option.label}</div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSortConfig({ field: option.field, direction: 'desc' })
+                            setShowSortPopover(false)
+                          }}
+                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected && sortConfig.direction === 'desc'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {option.descLabel}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSortConfig({ field: option.field, direction: 'asc' })
+                            setShowSortPopover(false)
+                          }}
+                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected && sortConfig.direction === 'asc'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {option.ascLabel}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -721,6 +862,7 @@ function ReceiptsContent() {
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12" />
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded On</th>
@@ -787,9 +929,16 @@ function ReceiptsContent() {
                             <p className="text-sm font-semibold text-gray-900">
                               {receipt.vendorName || 'Unknown'}
                             </p>
-                            {receipt.description && (
-                              <p className="text-xs text-gray-400 mt-0.5">{receipt.description}</p>
-                            )}
+                          </td>
+
+                          {/* Description */}
+                          <td className="px-6 py-4">
+                            <p
+                              className="text-sm text-gray-700 truncate max-w-[220px]"
+                              title={receipt.description || undefined}
+                            >
+                              {receipt.description || '—'}
+                            </p>
                           </td>
 
                           {/* Property */}
