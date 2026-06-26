@@ -178,6 +178,14 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
     onClose()
   }
 
+  // Status changes and notes saves return a header-only paystub — `items` is only
+  // populated by GET /paystubs/:id (the detail endpoint runs a separate query +
+  // signed-URL enrichment). Replacing state outright would drop the line items we
+  // already hold and render "No items yet." (PAYSTUB-003). Status/notes edits never
+  // alter line items, so merge the response over existing state and keep `items`.
+  const applyPaystubHeaderUpdate = (data: Paystub) =>
+    setPaystub(prev => (prev ? { ...data, items: prev.items } : data))
+
   // Optimistic helpers ------------------------------------------------------
   const optimisticReplaceItems = (items: PaystubItem[]) => {
     setPaystub(p => {
@@ -260,7 +268,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         pmNotes: role === 'pm' ? pmNotes : undefined,
       })
       if (res.status === 'success') {
-        setPaystub(res.data)
+        applyPaystubHeaderUpdate(res.data)
         setIsDirty(true)
         setNotesDirty(false)
         showNotification('Notes saved.', 'success')
@@ -278,7 +286,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
     try {
       const res = await fn()
       if (res.status === 'success' && res.data) {
-        setPaystub(res.data)
+        applyPaystubHeaderUpdate(res.data)
         setIsDirty(true)
         showNotification(`${label} succeeded.`, 'success')
       } else {
