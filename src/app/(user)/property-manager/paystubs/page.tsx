@@ -175,7 +175,7 @@ function PaystubsPageInner() {
     const actions: ActionItem[] = [
       { label: 'View', icon: EyeIcon, onClick: () => setViewingId(p.id) },
     ]
-    if (p.status === 'pending') {
+    if (p.status === 'pending' || p.status === 'sent') {
       actions.push({ label: 'Approve', icon: CheckIcon, onClick: () => handleRowAction(p, 'Approve', () => approvePaystub(p.id)), variant: 'highlight' })
     }
     if (p.status === 'approved') {
@@ -229,12 +229,22 @@ function PaystubsPageInner() {
         userName={profile?.fullName}
       />
 
-      {/* TM banner: drafts ready to send */}
+      {/* TM banner: own drafts ready to submit */}
       {isTeamMember && summary && summary.draft > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
           <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1 text-sm text-amber-900">
             You have <span className="font-semibold">{summary.draft}</span> draft paystub{summary.draft > 1 ? 's' : ''} ready to send. Open them and click Submit.
+          </div>
+        </div>
+      )}
+
+      {/* TM banner: paystubs the PM sent, ready to review (read-only) */}
+      {isTeamMember && summary && summary.sent > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
+          <EyeIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-blue-900">
+            You have <span className="font-semibold">{summary.sent}</span> paystub{summary.sent > 1 ? 's' : ''} ready to review. Open to view or download.
           </div>
         </div>
       )}
@@ -278,7 +288,7 @@ function PaystubsPageInner() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1 bg-gray-50 rounded-lg p-1">
-          {(['all', 'draft', 'pending', 'approved', 'rejected', 'paid'] as StatusFilter[]).map(s => (
+          {(['all', 'draft', 'sent', 'pending', 'approved', 'rejected', 'paid'] as StatusFilter[]).map(s => (
             <button
               key={s}
               type="button"

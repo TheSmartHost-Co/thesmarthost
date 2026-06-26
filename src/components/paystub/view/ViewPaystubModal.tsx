@@ -165,6 +165,14 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
     if (filesRes.status === 'success') setFiles(filesRes.data)
   }
 
+  // After a send, refetch so the PM view reflects the new status (draft → sent) and mark
+  // dirty so the list/summary/filters refresh on close (PAYSTUB-002 follow-up).
+  const handleSent = async () => {
+    await refreshFiles()
+    await loadPaystub()
+    setIsDirty(true)
+  }
+
   const handleClose = () => {
     if (isDirty && onUpdated) onUpdated()
     onClose()
@@ -175,7 +183,11 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
     setPaystub(p => {
       if (!p) return p
       const subtotal = items.reduce((s, it) => s + it.amount, 0)
-      return { ...p, items, subtotal, total: subtotal }
+      // Editing a finalized paystub reverts it to 'draft' on the backend (sent/rejected
+      // → draft; see PAYSTUB-002). Mirror that here so action buttons (Approve/Send)
+      // reflect the real status instead of erroring on a stale one.
+      const status = (p.status === 'sent' || p.status === 'rejected') ? 'draft' : p.status
+      return { ...p, items, subtotal, total: subtotal, status }
     })
     setIsDirty(true)
   }
@@ -725,24 +737,25 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
               </button>
             )}
             {role === 'pm' && paystub.status === 'pending' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setRejectInputOpen(true)}
-                  disabled={actionLoading !== null}
-                  className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
-                >
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={actionLoading !== null}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {actionLoading === 'Approve' ? 'Approving…' : 'Approve'}
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => setRejectInputOpen(true)}
+                disabled={actionLoading !== null}
+                className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+              >
+                Reject
+              </button>
+            )}
+            {/* Approve from 'pending' (TM-submitted) or 'sent' (PM-finalized) — see PAYSTUB-002 */}
+            {role === 'pm' && (paystub.status === 'pending' || paystub.status === 'sent') && (
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={actionLoading !== null}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {actionLoading === 'Approve' ? 'Approving…' : 'Approve'}
+              </button>
             )}
             {role === 'pm' && paystub.status === 'approved' && (
               <button
@@ -802,7 +815,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         onClose={() => setShowSend(false)}
         paystub={paystub}
         pmEmail={pmEmail}
-        onSent={refreshFiles}
+        onSent={handleSent}
       />
     </>
   )

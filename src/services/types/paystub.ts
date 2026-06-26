@@ -1,5 +1,7 @@
 // Paystub statuses
-export type PaystubStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'paid' | 'archived'
+// 'sent' = PM has finalized & sent the paystub to the team member; read-only for the TM,
+// still editable by the PM (editing auto-reverts it to 'draft'). See PAYSTUB-002.
+export type PaystubStatus = 'draft' | 'sent' | 'pending' | 'approved' | 'rejected' | 'paid' | 'archived'
 
 // Line item type discriminator
 export type PaystubItemType = 'time_entry' | 'expense' | 'extra_charge'
@@ -118,6 +120,7 @@ export interface AvailablePaystubExpense {
 export interface PaystubSummary {
   total: number
   draft: number
+  sent: number
   pending: number
   approved: number
   rejected: number
@@ -350,6 +353,7 @@ export interface PaystubStatusVisual {
 
 export const PAYSTUB_STATUS_INFO: Record<PaystubStatus, PaystubStatusVisual> = {
   draft:    { label: 'Draft',    color: 'gray',  pill: 'bg-gray-100 text-gray-700',   banner: 'bg-gray-50 border-gray-200 text-gray-800' },
+  sent:     { label: 'Sent',     color: 'blue',  pill: 'bg-blue-100 text-blue-700',   banner: 'bg-blue-50 border-blue-200 text-blue-800' },
   pending:  { label: 'Pending',  color: 'amber', pill: 'bg-amber-100 text-amber-700', banner: 'bg-amber-50 border-amber-200 text-amber-800' },
   approved: { label: 'Approved', color: 'blue',  pill: 'bg-blue-100 text-blue-700',   banner: 'bg-blue-50 border-blue-200 text-blue-800' },
   rejected: { label: 'Rejected', color: 'red',   pill: 'bg-red-100 text-red-700',     banner: 'bg-red-50 border-red-200 text-red-800' },
@@ -357,5 +361,6 @@ export const PAYSTUB_STATUS_INFO: Record<PaystubStatus, PaystubStatusVisual> = {
   archived: { label: 'Archived', color: 'slate', pill: 'bg-slate-100 text-slate-700', banner: 'bg-slate-50 border-slate-200 text-slate-800' },
 }
 
-// Statuses where a time entry is locked from editing/deletion
-export const LOCKED_PAYSTUB_STATUSES: PaystubStatus[] = ['pending', 'approved', 'paid', 'archived']
+// Statuses where a time entry is locked from editing/deletion.
+// 'sent' is included so a TM can't edit time entries out from under a paystub the PM finalized.
+export const LOCKED_PAYSTUB_STATUSES: PaystubStatus[] = ['sent', 'pending', 'approved', 'paid', 'archived']
