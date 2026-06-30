@@ -86,6 +86,19 @@ const calcAmount = (hours: number, rate: number | null | undefined): number => {
   return Math.round(hours * rate * 100) / 100
 }
 
+// Receipt money fields come from Postgres NUMERIC columns, which `pg` serializes as
+// STRINGS (e.g. "75.71") despite the `number` TS type. Doing math on them concatenates
+// ("0"+"75.71"), and formatMoney rejects non-finite input — so the builder rendered a
+// blank/$0 receipt total even though the value was present (PAYSTUB-004). Coerce first.
+// subtotal+tax is authoritative with a fallback to the grand-total column, matching the
+// backend's `(subtotal+tax) || total` (paystubs.controller.js).
+const receiptDisplayAmount = (r: UploadedReceipt): number => {
+  const subtotal = Number(r.subtotal ?? 0)
+  const taxTotal = Number(r.taxTotal ?? 0)
+  const total = Number(r.total ?? 0)
+  return (subtotal + taxTotal) || total
+}
+
 // ---- Component -------------------------------------------------------------
 
 const CreatePaystubModal: React.FC<CreatePaystubModalProps> = ({
@@ -427,7 +440,7 @@ const CreatePaystubModal: React.FC<CreatePaystubModalProps> = ({
     let total = 0
     selectedReceiptIds.forEach((id) => {
       const r = matchedReceipts.find((x) => x.id === id)
-      if (r && r.total != null) total += r.total
+      if (r) total += receiptDisplayAmount(r)
     })
     return total
   }, [selectedReceiptIds, matchedReceipts])
@@ -898,7 +911,9 @@ const CreatePaystubModal: React.FC<CreatePaystubModalProps> = ({
                           </div>
                         </div>
                         <div className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">
-                          {r.total != null ? formatMoney(r.total, 'CAD') : '—'}
+                          {(r.subtotal != null || r.taxTotal != null || r.total != null)
+                            ? formatMoney(receiptDisplayAmount(r), 'CAD')
+                            : '—'}
                         </div>
                         <button
                           type="button"
