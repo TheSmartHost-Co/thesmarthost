@@ -1,3 +1,3 @@
 # Memory Index
 
-- [project_latest_changes.md](project_latest_changes.md) — latest: 2026-07-04 PAYSTUB-005 over-cap badge fix; also PAYSTUB-004 receipt-total coercion & PAYSTUB-003 line-items merge
+- [project_latest_changes.md](project_latest_changes.md) — latest: 2026-07-04 PAYSTUB-007 expense date off-by-one fix; also -005 over-cap badge, -004 receipt-total, -003 line-items

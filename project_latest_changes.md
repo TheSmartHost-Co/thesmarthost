@@ -3,6 +3,19 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-07-04: PAYSTUB-007 — Off-by-one expense date display (UTC-vs-local)
+
+**Goal**: Expense dates were rendering one day earlier than stored (2026-06-15 → "Jun 14") in the expenses list, details view, and attach-receipt list.
+
+### Changes:
+1. **`formatExpenseDate`** (`src/services/expenseService.ts`) — parse date-only `"YYYY-MM-DD"` values with `parseLocalDate` (guarded by `/^\d{4}-\d{2}-\d{2}$/`) instead of bare `new Date()`, then format. Fixes expenses list (`property-manager/expenses/page.tsx`) and `ExpenseViewerModal`.
+2. **`formatDate`** (`src/components/expenses/attach/AttachReceiptModal.tsx`) — same date-only guard so `receipt.expenseDate` parses local while `createdAt` instants still format normally.
+
+### Key design decisions:
+- Root cause: `new Date("2026-06-15")` = UTC midnight → shifts back a day in behind-UTC zones. The `+ 'T00:00:00'` idiom (~40 sites) parses LOCAL and is CORRECT — left untouched (not the bug). Reused the existing canonical `parseLocalDate` (`utils/dateUtils.ts`) rather than a new helper; the two sites differ in locale/sentinel so no wrapper extracted.
+- Backend `notificationTemplates.js` email `formatDate` shared the bug (email period "May 31 — Jun 29"); confirmed corrected in the tested env. Verified end-to-end on localhost.
+- **Follow-up (separate ticket):** cleaner-invoice module repeats the same `new Date(dateOnly)` off-by-one in ~5 spots (see `notes/PAYSTUB-007.md`).
+
 ## 2026-07-04: PAYSTUB-005 — "Over-cap request" badge only shows for actual over-cap entries
 
 **Goal**: Stop the manager's "Review entry" approval dialog from showing the orange "Over-cap request" badge on every non-backfill entry (including normal under-cap ones).

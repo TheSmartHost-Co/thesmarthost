@@ -10,6 +10,7 @@ import { attachReceipt } from '@/services/expenseService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { UploadedReceipt } from '@/services/types/receipt'
 import type { AttachReceiptResponse } from '@/services/types/expense'
+import { parseLocalDate } from '@/utils/dateUtils'
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -166,7 +167,10 @@ const AttachReceiptModal: React.FC<AttachReceiptModalProps> = ({
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    // expenseDate is a date-only "YYYY-MM-DD" (parse LOCAL to avoid the UTC-midnight
+    // day-shift); createdAt is an ISO instant and formats normally (PAYSTUB-007).
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? parseLocalDate(dateStr) : new Date(dateStr)
+    return d.toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
     })
   }

@@ -1,6 +1,7 @@
 // Expense Service - API calls for expense management
 
 import apiClient, { getAuthHeaders } from './apiClient'
+import { parseLocalDate } from '../utils/dateUtils'
 import type {
   Expense,
   ExpenseResponse,
@@ -411,7 +412,11 @@ export function formatExpenseDate(
   options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
 ): string {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('en-CA', options)
+  // expense_date is a DATE (calendar date) returned as "YYYY-MM-DD". Parse it as LOCAL to
+  // avoid the UTC-midnight day-shift (new Date("2026-06-15") → Jun 14 in behind-UTC zones);
+  // pass genuine ISO instants through unchanged (PAYSTUB-007).
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateString) ? parseLocalDate(dateString) : new Date(dateString)
+  return date.toLocaleDateString('en-CA', options)
 }
 
 // ============================================================================
