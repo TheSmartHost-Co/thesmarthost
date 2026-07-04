@@ -74,10 +74,18 @@ const ReviewOverCapModal: React.FC<ReviewOverCapModalProps> = ({
     }
   }
 
-  const kindLabel = entry.pendingKind === 'backfill' ? 'Past-shift submission' : 'Over-cap request'
+  // pendingKind is three-valued: 'backfill' | 'over_cap' | null. Only 'over_cap' is an
+  // over-cap request; a null kind is an ordinary under-cap pending entry (PAYSTUB-005).
+  const kindLabel = entry.pendingKind === 'backfill'
+    ? 'Past-shift submission'
+    : entry.pendingKind === 'over_cap'
+      ? 'Over-cap request'
+      : 'Submission'
   const kindBadge = entry.pendingKind === 'backfill'
     ? 'bg-blue-100 text-blue-700'
-    : 'bg-amber-100 text-amber-700'
+    : entry.pendingKind === 'over_cap'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-gray-100 text-gray-700'
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} style="p-6 w-11/12 max-w-lg">

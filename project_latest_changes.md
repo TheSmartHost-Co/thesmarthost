@@ -3,6 +3,29 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-07-04: PAYSTUB-005 — "Over-cap request" badge only shows for actual over-cap entries
+
+**Goal**: Stop the manager's "Review entry" approval dialog from showing the orange "Over-cap request" badge on every non-backfill entry (including normal under-cap ones).
+
+### Changes:
+1. **Badge kind logic** (`src/components/time-entry/approve/ReviewOverCapModal.tsx`) — replaced the binary `pendingKind === 'backfill' ? … : 'Over-cap request'` ternary with a 3-way branch on the three-valued `pendingKind`: `backfill` → "Past-shift submission" (blue), `over_cap` → "Over-cap request" (amber), `null`/other → "Submission" (gray).
+
+### Key design decisions:
+- `pendingKind` is `'backfill' | 'over_cap' | null`; the old else-branch treated `null` (ordinary under-cap pending entry) as over-cap. Mirrored the already-correct list-view logic (`team-time-sheet/page.tsx:344`) and its "Submission" wording.
+- Display-only; backend already sets `pendingKind` correctly. Component name left as-is (pre-existing misnomer; rename out of scope for a 1-pointer).
+
+## 2026-06-29: PAYSTUB-004 — Builder receipt total no longer renders blank/$0
+
+**Goal**: Fix the paystub builder showing a blank/CA$0.00 total for a checked receipt (header, footer, "Selected items", and Confirm dialog), even though creation valued the receipt correctly.
+
+### Changes:
+1. **`receiptDisplayAmount` helper** (`src/components/paystub/create/CreatePaystubModal.tsx`) — coerces receipt money fields with `Number()` before math, then computes `(subtotal + taxTotal) || total` (mirrors backend `paystubs.controller.js`). Used in the `receiptSubtotal` memo and the per-row amount; per-row shows `—` only when all three fields are null.
+
+### Key design decisions:
+- Root cause: Postgres NUMERIC columns serialize as strings (e.g. `"75.71"`), so the builder was doing string concatenation (`0 + "75.71"`) → NaN, and `formatMoney` returns '' for non-finite input → blank. Coercion is the real fix.
+- Frontend-only: `total` was always sent, so a briefly-staged backend list-projection change (adding subtotal/tax_total) was reverted as unnecessary. The helper still falls back to coerced `total` if subtotal/tax are absent.
+- Out of scope, still open: the "Receipt {uuid} not found" abort (Bug B) could not be reproduced; documented in `notes/PAYSTUB-004.md`. Also flagged: the same pg-NUMERIC-as-string risk may affect other money fields (possible audit ticket).
+
 ## 2026-06-26: PAYSTUB-003 — Line items no longer vanish on in-modal status change
 
 **Goal**: Fix the display bug where a paystub's LINE ITEMS section collapsed to "No items yet." after changing status (or saving notes) from inside the detail modal, even though the data was intact.
