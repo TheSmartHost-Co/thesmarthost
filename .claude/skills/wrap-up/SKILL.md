@@ -40,15 +40,15 @@ Invoke with `/wrap-up` after finishing a task or set of changes.
 
 Output a commit title and description for the user to copy:
 
-- **Title**: Prefix with the ticket code, then conventional-commits format:
-  `<TICKET-CODE> <type>: <summary>` (e.g. `PAYSTUB-007 fix: correct off-by-one expense date display`).
+- **Title**: Prefix with the ticket code in square brackets, then conventional-commits format:
+  `[<TICKET-CODE>] <type>: <summary>` (e.g. `[PAYSTUB-007] fix: correct off-by-one expense date display`).
   Infer the ticket code from the session context / `notes/<TICKET>.md` / branch name. If no ticket code can be determined, omit the prefix. Keep the whole title under 72 characters.
 - **Description**: 1-2 sentences summarizing what changed and why. Reference specific areas affected.
 
 Format the output clearly so the user can copy-paste:
 
 ```
-**Commit title:** `TICKET-CODE feat: [title here]`
+**Commit title:** `[TICKET-CODE] feat: [title here]`
 
 **Commit description:** `[description here]`
 ```
