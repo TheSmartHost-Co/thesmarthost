@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { XMarkIcon, BoltIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, BoltIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +19,7 @@ import {
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
   bulkDeleteWalkthroughPhotos,
+  findWalkthroughPhotoByUrl,
   getStartBlockReason,
   getMissingGroupsFromError,
   isValidPhotoFile,
@@ -786,6 +787,27 @@ export default function ChecklistModal({
               >
                 <XMarkIcon className="w-5 h-5 text-gray-700" />
               </button>
+              {/* Delete — only for walkthrough photos while the project is
+                  editable (in_progress). Gives a tap-friendly single-delete on
+                  mobile where the thumbnail hover-trash is unreachable. */}
+              {(() => {
+                if (readOnly || !walkthrough || !viewingImage) return null
+                const wtPhoto = findWalkthroughPhotoByUrl(walkthrough, viewingImage)
+                if (!wtPhoto) return null
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setViewingImage(null)
+                      requestWalkthroughDelete([wtPhoto.id])
+                    }}
+                    className="absolute bottom-4 left-4 inline-flex items-center gap-2 px-3 py-2 bg-red-600 rounded-lg text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                    {t('delete')}
+                  </button>
+                )
+              })()}
               <a
                 href={viewingImage}
                 target="_blank"

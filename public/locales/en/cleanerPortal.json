@@ -290,6 +290,7 @@
   "photoUploaded": "Photo uploaded successfully",
   "failedToUploadPhoto": "Failed to upload photo",
   "errorUploadingPhoto": "Error uploading photo",
+  "delete": "Delete",
   "photoDeleted": "Photo deleted",
   "failedToDeletePhoto": "Failed to delete photo",
   "errorDeletingPhoto": "Error deleting photo",

@@ -25,6 +25,8 @@ import type {
   // Photo gallery
   ProjectPhotosResponse,
   // Walkthrough
+  ProjectWalkthrough,
+  WalkthroughPhoto,
   ProjectWalkthroughResponse,
   WalkthroughPhotoUploadResponse,
   WalkthroughPhotoDeleteResponse,
@@ -774,6 +776,27 @@ export async function bulkDeleteWalkthroughPhotos(
     }
     throw err
   }
+}
+
+/**
+ * Find a walkthrough photo by its (signed) URL across every bucket it can live
+ * in: template groups, their items, orphaned groups, and freeform. Used to map
+ * an enlarged-viewer URL back to the photo record (id, metadata) for delete +
+ * watermarked download.
+ */
+export function findWalkthroughPhotoByUrl(
+  walkthrough: ProjectWalkthrough,
+  url: string
+): WalkthroughPhoto | undefined {
+  const all = [
+    ...walkthrough.effectiveTemplate.groups.flatMap(g => [
+      ...g.photos,
+      ...g.items.flatMap(it => it.photos),
+    ]),
+    ...walkthrough.orphanedGroups.flatMap(og => og.photos),
+    ...walkthrough.freeformPhotos,
+  ]
+  return all.find(p => p.photoUrl === url)
 }
 
 /**

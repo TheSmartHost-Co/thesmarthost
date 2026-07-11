@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 interface ImagePreviewModalProps {
   isOpen: boolean
@@ -13,6 +13,9 @@ interface ImagePreviewModalProps {
   photoTakenAt?: string | null
   photoUploadedAt?: string | null
   onDownloadWatermarked?: () => Promise<void>
+  // When provided, a red Delete button is shown in the footer. The caller owns
+  // the actual delete flow (typically: close this viewer + open a confirm modal).
+  onDelete?: () => void
 }
 
 export default function ImagePreviewModal({
@@ -23,6 +26,7 @@ export default function ImagePreviewModal({
   photoTakenAt,
   photoUploadedAt,
   onDownloadWatermarked,
+  onDelete,
 }: ImagePreviewModalProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -139,12 +143,23 @@ export default function ImagePreviewModal({
 
         {/* Footer — always visible */}
         <div className={`flex-shrink-0 px-4 py-3 ${!(photoTakenAt || photoUploadedAt) ? 'border-t border-gray-100' : ''} flex items-center justify-between bg-gray-50 rounded-b-xl`}>
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <TrashIcon className="w-4 h-4" />
+                Delete
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {onDownloadWatermarked && (
               <button

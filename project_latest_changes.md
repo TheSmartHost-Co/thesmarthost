@@ -3,6 +3,23 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-07-11: WALKTHROUGH-001 — Delete button in the enlarged photo viewer
+
+**Goal**: Client testing showed single-delete was hover-only (unreachable on mobile — cleaners are on phones). Add a Delete action inside the enlarged photo viewer for both cleaner and PM, routed through the existing confirm modal + delete handlers.
+
+### Changes:
+1. **`findWalkthroughPhotoByUrl(walkthrough, url)`** (`src/services/cleaningProjectService.ts`) — new shared helper mapping a viewer URL back to its `WalkthroughPhoto` (searches groups + items, orphans, freeform). `ProjectDetailModal`'s existing inline `allPhotos.find()` lookup refactored to use it (2 call sites → dedup).
+2. **`ImagePreviewModal`** (`src/components/shared/ImagePreviewModal.tsx`) — new optional `onDelete?: () => void` prop → red Delete button in the footer (left group, next to Close). Shown only when provided, so the other consumer (`PhotoGalleryModal`) is unaffected. Strings hardcoded to match the file's existing convention (its `useTranslation` import is dead/unused).
+3. **PM viewer** (`src/components/turnover/ProjectDetailModal.tsx`) — `previewImage` state gains `onDelete`; set only for walkthrough photos → `{ setPreviewImage(null); requestPmWalkthroughDelete([photo.id]) }`. Checklist/issue photos omit it → no Delete button there. Passed into `<ImagePreviewModal onDelete=... />`.
+4. **Cleaner viewer** (`src/components/cleaner-portal/ChecklistModal.tsx`) — inline full-screen viewer gains a red Delete button, gated `!readOnly && findWalkthroughPhotoByUrl(walkthrough, viewingImage)`. On click: close viewer + `requestWalkthroughDelete([id])`. New `delete` key in `cleanerPortal.json`; `TrashIcon` imported.
+
+### Key design decisions:
+- **Mobile fix**: hover-trash is unreachable on touch (a tap opens the viewer). Tap-photo → viewer → Delete is now the reliable single-delete path on phones; hover-trash + Select stay for desktop.
+- Delete is **walkthrough-only** in the shared viewer — driven by whether `onDelete`/`findWalkthroughPhotoByUrl` resolves, so checklist/issue/client-portal photos never show it.
+- Cleaner gate `!readOnly` (readOnly unless in_progress) mirrors the backend cleaner rule for free.
+- Viewers sit above the confirm modal (z-100 vs z-60), so Delete closes the viewer first, then the confirm opens.
+- `npm run build` clean.
+
 ## 2026-07-10: WALKTHROUGH-001 — Delete walkthrough photos (confirmation + multi-select, graceful fallback)
 
 **Goal**: Extend the existing single-photo delete with a confirmation step, full multi-select/bulk delete, and let PMs delete on completed projects — all degrading gracefully when the frontend ships ahead of the backend.

@@ -57,6 +57,7 @@ import {
   deleteWalkthroughPhoto,
   bulkDeleteWalkthroughPhotos,
   downloadWalkthroughPhotoWatermarked,
+  findWalkthroughPhotoByUrl,
 } from '@/services/cleaningProjectService'
 import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
@@ -152,6 +153,7 @@ export default function ProjectDetailModal({
     photoTakenAt?: string | null
     photoUploadedAt?: string | null
     downloadFn?: () => Promise<void>
+    onDelete?: () => void
   } | null>(null)
 
   // Project issues (for photo gallery)
@@ -1251,16 +1253,9 @@ export default function ProjectDetailModal({
                 onExitSelectionMode={exitPmWalkthroughSelection}
                 onRequestDeleteSelected={() => requestPmWalkthroughDelete([...selectedWalkthroughIds])}
                 onViewPhoto={(url) => {
-                  // Find the photo in the walkthrough payload to surface metadata + download
-                  const allPhotos = [
-                    ...walkthrough.effectiveTemplate.groups.flatMap(g => [
-                      ...g.photos,
-                      ...g.items.flatMap(it => it.photos),
-                    ]),
-                    ...walkthrough.orphanedGroups.flatMap(og => og.photos),
-                    ...walkthrough.freeformPhotos,
-                  ]
-                  const photo = allPhotos.find(p => p.photoUrl === url)
+                  // Map the URL back to the photo record to surface metadata +
+                  // download + delete.
+                  const photo = findWalkthroughPhotoByUrl(walkthrough, url)
                   const label = photo
                     ? photo.itemNameSnapshot ?? photo.groupNameSnapshot ?? 'Walkthrough'
                     : 'Walkthrough'
@@ -1271,6 +1266,9 @@ export default function ProjectDetailModal({
                     photoUploadedAt: photo?.photoUploadedAt ?? null,
                     downloadFn: photo
                       ? () => downloadWalkthroughPhotoWatermarked(project.id, photo.id)
+                      : undefined,
+                    onDelete: photo
+                      ? () => { setPreviewImage(null); requestPmWalkthroughDelete([photo.id]) }
                       : undefined,
                   })
                 }}
@@ -1761,6 +1759,7 @@ export default function ProjectDetailModal({
         photoTakenAt={previewImage?.photoTakenAt}
         photoUploadedAt={previewImage?.photoUploadedAt}
         onDownloadWatermarked={previewImage?.downloadFn}
+        onDelete={previewImage?.onDelete}
       />
 
       {/* Preview Booking Modal */}
