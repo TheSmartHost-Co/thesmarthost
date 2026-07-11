@@ -18,6 +18,7 @@ import {
   getProjectWalkthrough,
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
+  bulkDeleteWalkthroughPhotos,
   getStartBlockReason,
   getMissingGroupsFromError,
   isValidPhotoFile,
@@ -25,6 +26,7 @@ import {
 import type { CleaningProject, ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, WalkthroughPhoto } from '@/services/types/cleaningProject'
 import type { WalkthroughUploadTarget } from '@/components/walkthrough/WalkthroughAccordion'
 import { targetKey, type OptimisticPhoto } from '@/components/walkthrough/WalkthroughAccordion'
+import DeleteWalkthroughPhotosModal from '@/components/walkthrough/DeleteWalkthroughPhotosModal'
 import { ReportIssueModal, ViewIssuesModal } from '@/components/turnover/issues'
 import { CleanerSupplyListModal } from '@/components/cleaner-portal/supply-lists'
 import ScanSupplyReceiptModal from '@/components/supply-hub/ScanSupplyReceiptModal'
@@ -98,6 +100,12 @@ export default function ChecklistModal({
   const [missingGroupIds, setMissingGroupIds] = useState<Set<string>>(new Set())
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set())
   const hasSeededExpansion = useRef(false)
+
+  // Walkthrough photo selection + delete-confirmation state
+  const [walkthroughSelectionMode, setWalkthroughSelectionMode] = useState(false)
+  const [selectedWalkthroughIds, setSelectedWalkthroughIds] = useState<Set<string>>(new Set())
+  // Photos queued for deletion, awaiting confirmation (single or bulk).
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
   // Nested modal state
   const [showReportIssueModal, setShowReportIssueModal] = useState(false)
@@ -407,37 +415,88 @@ export default function ChecklistModal({
     }
   }
 
-  const handleWalkthroughDeletePhoto = async (photoId: string) => {
-    if (!walkthrough) return
+  // Queue photo(s) for deletion — opens the confirmation modal. Used by both
+  // the per-photo trash icon (single) and the selection toolbar (bulk).
+  const requestWalkthroughDelete = useCallback((photoIds: string[]) => {
+    if (photoIds.length > 0) setPendingDeleteIds(photoIds)
+  }, [])
 
-    // Optimistic: filter the photo out of every bucket it could live in.
-    const stripPhoto = (photos: WalkthroughPhoto[]) => photos.filter(p => p.id !== photoId)
+  // Selection handlers
+  const toggleWalkthroughSelect = useCallback((photoId: string) => {
+    setSelectedWalkthroughIds(prev => {
+      const next = new Set(prev)
+      if (next.has(photoId)) next.delete(photoId)
+      else next.add(photoId)
+      return next
+    })
+  }, [])
+
+  const setWalkthroughSelection = useCallback((photoIds: string[], selected: boolean) => {
+    setSelectedWalkthroughIds(prev => {
+      const next = new Set(prev)
+      photoIds.forEach(id => { if (selected) next.add(id); else next.delete(id) })
+      return next
+    })
+  }, [])
+
+  const exitWalkthroughSelection = useCallback(() => {
+    setWalkthroughSelectionMode(false)
+    setSelectedWalkthroughIds(new Set())
+  }, [])
+
+  // Runs on confirm-modal confirm. Optimistically strips the photos, then hits
+  // the server (single delete or bulk, with the bulk endpoint's built-in
+  // fallback). On any failure it re-syncs from the server.
+  const performWalkthroughDelete = useCallback(async () => {
+    const ids = pendingDeleteIds
+    if (!ids || ids.length === 0) return
+    const idSet = new Set(ids)
+
+    const strip = (photos: WalkthroughPhoto[]) => photos.filter(p => !idSet.has(p.id))
     setWalkthrough(prev => prev && ({
       ...prev,
-      freeformPhotos: stripPhoto(prev.freeformPhotos),
-      orphanedGroups: prev.orphanedGroups.map(g => ({ ...g, photos: stripPhoto(g.photos) })),
+      freeformPhotos: strip(prev.freeformPhotos),
+      orphanedGroups: prev.orphanedGroups.map(g => ({ ...g, photos: strip(g.photos) })),
       effectiveTemplate: {
         ...prev.effectiveTemplate,
         groups: prev.effectiveTemplate.groups.map(g => ({
           ...g,
-          photos: stripPhoto(g.photos),
-          items: g.items.map(it => ({ ...it, photos: stripPhoto(it.photos) })),
+          photos: strip(g.photos),
+          items: g.items.map(it => ({ ...it, photos: strip(it.photos) })),
         })),
       },
     }))
 
     try {
-      const res = await deleteWalkthroughPhoto(project.id, photoId)
-      if (res.status !== 'success') {
-        await fetchWalkthrough(true) // server is source of truth on failure — avoids stale snapshot if a concurrent upload resolved
-        showNotification(res.message || t('failedToDeletePhoto'), 'error')
+      if (ids.length === 1) {
+        const res = await deleteWalkthroughPhoto(project.id, ids[0])
+        if (res.status !== 'success') {
+          await fetchWalkthrough(true)
+          showNotification(res.message || t('failedToDeletePhoto'), 'error')
+          return
+        }
+        showNotification(t('photoDeleted'), 'success')
+      } else {
+        const { deleted, failed } = await bulkDeleteWalkthroughPhotos(project.id, ids)
+        if (failed.length > 0) {
+          await fetchWalkthrough(true)
+          showNotification(
+            t('photosDeletedPartial', { deleted: deleted.length, total: ids.length, failed: failed.length }),
+            'error'
+          )
+        } else {
+          showNotification(t('photosDeleted', { count: deleted.length }), 'success')
+        }
       }
     } catch (err) {
-      console.error('Error deleting walkthrough photo:', err)
-      await fetchWalkthrough(true)
+      console.error('Error deleting walkthrough photo(s):', err)
+      await fetchWalkthrough(true) // server is source of truth on failure
       showNotification(t('errorDeletingPhoto'), 'error')
+    } finally {
+      setPendingDeleteIds(null)
+      exitWalkthroughSelection()
     }
-  }
+  }, [pendingDeleteIds, project.id, fetchWalkthrough, showNotification, t, exitWalkthroughSelection])
 
   const handleToggleWalkthroughGroup = useCallback((groupId: string) => {
     setExpandedGroupIds(prev => {
@@ -571,12 +630,19 @@ export default function ChecklistModal({
             canEdit={!readOnly}
             uploadingKey={null}
             onUpload={handleWalkthroughUpload}
-            onDelete={handleWalkthroughDeletePhoto}
+            onDelete={(photoId) => requestWalkthroughDelete([photoId])}
             onViewPhoto={setViewingImage}
             missingGroupIds={missingGroupIds}
             expandedGroupIds={expandedGroupIds}
             onToggleGroup={handleToggleWalkthroughGroup}
             optimisticPhotos={optimisticPhotos}
+            selectionMode={walkthroughSelectionMode}
+            selectedPhotoIds={selectedWalkthroughIds}
+            onToggleSelect={toggleWalkthroughSelect}
+            onSetSelection={setWalkthroughSelection}
+            onEnterSelectionMode={() => setWalkthroughSelectionMode(true)}
+            onExitSelectionMode={exitWalkthroughSelection}
+            onRequestDeleteSelected={() => requestWalkthroughDelete([...selectedWalkthroughIds])}
           />
         ) : (
           <InfoContent
@@ -733,6 +799,13 @@ export default function ChecklistModal({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DeleteWalkthroughPhotosModal
+        isOpen={pendingDeleteIds !== null}
+        count={pendingDeleteIds?.length ?? 0}
+        onClose={() => setPendingDeleteIds(null)}
+        onConfirm={performWalkthroughDelete}
+      />
     </>
   )
 }

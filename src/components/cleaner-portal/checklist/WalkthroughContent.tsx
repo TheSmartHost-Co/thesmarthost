@@ -1,5 +1,6 @@
 'use client'
 
+import { type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CameraIcon } from '@heroicons/react/24/outline'
 import type { ProjectWalkthrough } from '@/services/types/cleaningProject'
@@ -8,7 +9,20 @@ import WalkthroughAccordion, {
   type OptimisticPhoto,
 } from '@/components/walkthrough/WalkthroughAccordion'
 
-interface WalkthroughContentProps {
+// Selection props are forwarded verbatim to the accordion — model them off its
+// own prop type so the two never drift.
+type WalkthroughSelectionProps = Pick<
+  ComponentProps<typeof WalkthroughAccordion>,
+  | 'selectionMode'
+  | 'selectedPhotoIds'
+  | 'onToggleSelect'
+  | 'onSetSelection'
+  | 'onEnterSelectionMode'
+  | 'onExitSelectionMode'
+  | 'onRequestDeleteSelected'
+>
+
+interface WalkthroughContentProps extends WalkthroughSelectionProps {
   walkthrough: ProjectWalkthrough | null
   loading: boolean
   canEdit: boolean
@@ -38,6 +52,7 @@ export default function WalkthroughContent({
   expandedGroupIds,
   onToggleGroup,
   optimisticPhotos,
+  ...selectionProps
 }: WalkthroughContentProps) {
   const { t } = useTranslation('cleanerPortal')
 
@@ -70,6 +85,7 @@ export default function WalkthroughContent({
       expandedGroupIds={expandedGroupIds}
       onToggleGroup={onToggleGroup}
       optimisticPhotos={optimisticPhotos}
+      {...selectionProps}
     />
   )
 }

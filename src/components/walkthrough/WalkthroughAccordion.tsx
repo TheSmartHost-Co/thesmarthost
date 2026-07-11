@@ -12,6 +12,7 @@ import {
   CameraIcon,
   ArchiveBoxIcon,
 } from '@heroicons/react/24/outline'
+import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid'
 import type {
   ProjectWalkthrough,
   WalkthroughPhoto,
@@ -42,6 +43,14 @@ export interface OptimisticPhoto {
   targetKey: string    // matches targetKey() encoding
 }
 
+/** Multi-select wiring threaded from the accordion down to each PhotoGrid. */
+interface SelectionProps {
+  selectionMode: boolean
+  selectedPhotoIds?: Set<string>
+  onToggleSelect?: (photoId: string) => void
+  onSetSelection?: (photoIds: string[], selected: boolean) => void
+}
+
 export interface WalkthroughAccordionProps {
   walkthrough: ProjectWalkthrough
   canEdit: boolean
@@ -53,6 +62,18 @@ export interface WalkthroughAccordionProps {
   expandedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
   optimisticPhotos?: OptimisticPhoto[]
+  // --- Multi-select (all optional; off by default so read-only/portal views
+  // and any caller that doesn't opt in are unaffected) ---
+  selectionMode?: boolean
+  selectedPhotoIds?: Set<string>
+  onToggleSelect?: (photoId: string) => void
+  /** Set many photos' selection at once (used by per-group "select all"). */
+  onSetSelection?: (photoIds: string[], selected: boolean) => void
+  // The selection toolbar renders only when all three are provided (and
+  // canEdit). Consumers own the selection state + the confirm/delete flow.
+  onEnterSelectionMode?: () => void
+  onExitSelectionMode?: () => void
+  onRequestDeleteSelected?: () => void
 }
 
 /**
@@ -75,13 +96,75 @@ export default function WalkthroughAccordion({
   expandedGroupIds,
   onToggleGroup,
   optimisticPhotos = [],
+  selectionMode = false,
+  selectedPhotoIds,
+  onToggleSelect,
+  onSetSelection,
+  onEnterSelectionMode,
+  onExitSelectionMode,
+  onRequestDeleteSelected,
 }: WalkthroughAccordionProps) {
   const { t } = useTranslation('turnover')
   const { effectiveTemplate, orphanedGroups, freeformPhotos } = walkthrough
   const groups = [...effectiveTemplate.groups].sort((a, b) => a.sortOrder - b.sortOrder)
 
+  // Bundle selection props once so every level passes the same shape down.
+  const selection: SelectionProps = {
+    selectionMode,
+    selectedPhotoIds,
+    onToggleSelect,
+    onSetSelection,
+  }
+
+  // The selection toolbar is available only when the consumer opts in by wiring
+  // all three callbacks. Kept off for the read-only client portal.
+  const canSelect =
+    canEdit && !!onEnterSelectionMode && !!onExitSelectionMode && !!onRequestDeleteSelected
+  const totalPhotoCount =
+    groups.reduce((acc, g) => acc + g.photos.length + g.items.reduce((a, it) => a + it.photos.length, 0), 0) +
+    orphanedGroups.reduce((acc, o) => acc + o.photos.length, 0) +
+    freeformPhotos.length
+  const selectedCount = selectedPhotoIds?.size ?? 0
+
   return (
     <div className="p-4 space-y-4">
+      {canSelect && (selectionMode || totalPhotoCount > 0) && (
+        <div className="flex items-center justify-between">
+          {selectionMode ? (
+            <>
+              <span className="text-xs text-gray-500">
+                {t('selectedCount', { count: selectedCount })}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onExitSelectionMode}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={onRequestDeleteSelected}
+                  disabled={selectedCount === 0}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {t('deleteSelectedCount', { count: selectedCount })}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onEnterSelectionMode}
+              className="ml-auto px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+            >
+              {t('selectPhotos')}
+            </button>
+          )}
+        </div>
+      )}
+
       {!effectiveTemplate.requiresCompletion && (
         <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl">
           <PhotoIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -117,6 +200,7 @@ export default function WalkthroughAccordion({
             onDelete={onDelete}
             onViewPhoto={onViewPhoto}
             optimisticPhotos={optimisticPhotos}
+            selection={selection}
           />
         )
       })}
@@ -135,6 +219,7 @@ export default function WalkthroughAccordion({
               canEdit={canEdit}
               onDelete={onDelete}
               onViewPhoto={onViewPhoto}
+              selection={selection}
             />
           ))}
         </div>
@@ -148,6 +233,7 @@ export default function WalkthroughAccordion({
         onDelete={onDelete}
         onViewPhoto={onViewPhoto}
         optimisticPhotos={optimisticPhotos.filter(p => p.targetKey === 'freeform')}
+        selection={selection}
       />
     </div>
   )
@@ -168,6 +254,7 @@ interface GroupCardProps {
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
   optimisticPhotos: OptimisticPhoto[]
+  selection: SelectionProps
 }
 
 function GroupCard({
@@ -181,6 +268,7 @@ function GroupCard({
   onDelete,
   onViewPhoto,
   optimisticPhotos,
+  selection,
 }: GroupCardProps) {
   const items = [...group.items].sort((a, b) => a.sortOrder - b.sortOrder)
   const groupUploadTarget = `group:${group.id}`
@@ -189,6 +277,15 @@ function GroupCard({
   const itemPhotoCount = items.reduce((acc, it) => acc + it.photos.length, 0)
   const { t } = useTranslation('turnover')
   const totalPhotos = groupPhotoCount + itemPhotoCount
+
+  // All real (non-optimistic) photo ids in this group, for select-all.
+  const allGroupPhotoIds = [
+    ...group.photos.map(p => p.id),
+    ...items.flatMap(it => it.photos.map(p => p.id)),
+  ]
+  const allSelected =
+    allGroupPhotoIds.length > 0 &&
+    allGroupPhotoIds.every(id => selection.selectedPhotoIds?.has(id))
 
   // A group is "complete" when every item has ≥1 photo, OR (if no items) when
   // group.photos has ≥1 photo. Matches the backend completion rule.
@@ -235,7 +332,20 @@ function GroupCard({
           )}
         </button>
 
-        {canEdit && (
+        {canEdit && selection.selectionMode ? (
+          allGroupPhotoIds.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                selection.onSetSelection?.(allGroupPhotoIds, !allSelected)
+              }}
+              className="flex-shrink-0 ml-2 text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer"
+            >
+              {allSelected ? t('deselectAll') : t('selectAll')}
+            </button>
+          )
+        ) : canEdit ? (
           <div className="flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
             <WalkthroughUploadMenu
               onSelect={(files) => onUpload({ kind: 'group', groupId: group.id }, files)}
@@ -243,7 +353,7 @@ function GroupCard({
               label="Add"
             />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Body */}
@@ -262,6 +372,7 @@ function GroupCard({
                 onDelete={onDelete}
                 onViewPhoto={onViewPhoto}
                 altPrefix={group.name}
+                selection={selection}
               />
             </div>
           )}
@@ -279,6 +390,7 @@ function GroupCard({
                 onDelete={onDelete}
                 onViewPhoto={onViewPhoto}
                 optimisticPhotos={optimisticPhotos}
+                selection={selection}
               />
             ))
           ) : (
@@ -307,6 +419,7 @@ interface ItemRowProps {
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
   optimisticPhotos: OptimisticPhoto[]
+  selection: SelectionProps
 }
 
 function ItemRow({
@@ -318,6 +431,7 @@ function ItemRow({
   onDelete,
   onViewPhoto,
   optimisticPhotos,
+  selection,
 }: ItemRowProps) {
   const itemUploadKey = `item:${item.id}`
   const itemOptimistic = optimisticPhotos.filter(p => p.targetKey === itemUploadKey)
@@ -338,7 +452,7 @@ function ItemRow({
             {item.photos.length}
           </span>
         </div>
-        {canEdit && (
+        {canEdit && !selection.selectionMode && (
           <WalkthroughUploadMenu
             onSelect={(files) =>
               onUpload({ kind: 'item', groupId, itemId: item.id }, files)
@@ -357,6 +471,7 @@ function ItemRow({
           onDelete={onDelete}
           onViewPhoto={onViewPhoto}
           altPrefix={item.name}
+          selection={selection}
         />
       )}
     </div>
@@ -373,9 +488,10 @@ interface OrphanBucketProps {
   canEdit: boolean
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
+  selection: SelectionProps
 }
 
-function OrphanBucket({ groupName, photos, canEdit, onDelete, onViewPhoto }: OrphanBucketProps) {
+function OrphanBucket({ groupName, photos, canEdit, onDelete, onViewPhoto, selection }: OrphanBucketProps) {
   const { t } = useTranslation('turnover')
   return (
     <div className="bg-amber-50/50 border border-amber-100 rounded-xl overflow-hidden">
@@ -393,6 +509,7 @@ function OrphanBucket({ groupName, photos, canEdit, onDelete, onViewPhoto }: Orp
           onDelete={onDelete}
           onViewPhoto={onViewPhoto}
           altPrefix={groupName}
+          selection={selection}
         />
       </div>
     </div>
@@ -411,6 +528,7 @@ interface FreeformSectionProps {
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
   optimisticPhotos: OptimisticPhoto[]
+  selection: SelectionProps
 }
 
 function FreeformSection({
@@ -421,9 +539,13 @@ function FreeformSection({
   onDelete,
   onViewPhoto,
   optimisticPhotos,
+  selection,
 }: FreeformSectionProps) {
   const { t } = useTranslation('turnover')
   if (!canEdit && photos.length === 0) return null
+
+  const allSelected =
+    photos.length > 0 && photos.every(p => selection.selectedPhotoIds?.has(p.id))
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
@@ -434,13 +556,25 @@ function FreeformSection({
             {photos.length} {photos.length !== 1 ? t('photos') : t('photo')}
           </span>
         </div>
-        {canEdit && (
+        {canEdit && selection.selectionMode ? (
+          photos.length > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                selection.onSetSelection?.(photos.map(p => p.id), !allSelected)
+              }
+              className="text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer"
+            >
+              {allSelected ? t('deselectAll') : t('selectAll')}
+            </button>
+          )
+        ) : canEdit ? (
           <WalkthroughUploadMenu
             onSelect={(files) => onUpload({ kind: 'freeform' }, files)}
             isUploading={uploadingKey === 'freeform'}
             label="Add"
           />
-        )}
+        ) : null}
       </div>
       {(photos.length > 0 || optimisticPhotos.length > 0) && (
         <div className="p-3">
@@ -451,6 +585,7 @@ function FreeformSection({
             onDelete={onDelete}
             onViewPhoto={onViewPhoto}
             altPrefix="Other"
+            selection={selection}
           />
         </div>
       )}
@@ -469,37 +604,67 @@ interface PhotoGridProps {
   onDelete: (photoId: string) => void
   onViewPhoto: (url: string) => void
   altPrefix: string
+  selection: SelectionProps
 }
 
-function PhotoGrid({ photos, optimisticPhotos = [], canEdit, onDelete, onViewPhoto, altPrefix }: PhotoGridProps) {
+function PhotoGrid({ photos, optimisticPhotos = [], canEdit, onDelete, onViewPhoto, altPrefix, selection }: PhotoGridProps) {
   if (photos.length === 0 && optimisticPhotos.length === 0) return null
+  const selecting = canEdit && selection.selectionMode
   return (
     <div className="grid grid-cols-3 gap-2">
-      {photos.map(photo => (
-        <div key={photo.id} className="relative group">
-          <img
-            src={photo.photoUrl}
-            alt={`${altPrefix} walkthrough`}
-            className="aspect-square rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-200 w-full"
-            onClick={() => onViewPhoto(photo.photoUrl)}
-          />
-          <div
-            className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-            onClick={() => onViewPhoto(photo.photoUrl)}
-          >
-            <MagnifyingGlassPlusIcon className="w-5 h-5 text-white" />
-          </div>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => onDelete(photo.id)}
-              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+      {photos.map(photo => {
+        const isSelected = selection.selectedPhotoIds?.has(photo.id) ?? false
+        // In selection mode, tapping the photo toggles selection instead of
+        // opening the viewer, and the per-photo trash button is hidden (bulk
+        // delete drives removal).
+        if (selecting) {
+          return (
+            <div
+              key={photo.id}
+              onClick={() => selection.onToggleSelect?.(photo.id)}
+              className={`relative rounded-lg cursor-pointer ${isSelected ? 'ring-2 ring-red-500' : ''}`}
             >
-              <TrashIcon className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      ))}
+              <img
+                src={photo.photoUrl}
+                alt={`${altPrefix} walkthrough`}
+                className={`aspect-square rounded-lg object-cover border border-gray-200 w-full ${isSelected ? 'opacity-90' : ''}`}
+              />
+              <div className="absolute top-1 left-1">
+                {isSelected ? (
+                  <CheckCircleSolidIcon className="w-5 h-5 text-red-500 bg-white rounded-full" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-white bg-black/20" />
+                )}
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div key={photo.id} className="relative group">
+            <img
+              src={photo.photoUrl}
+              alt={`${altPrefix} walkthrough`}
+              className="aspect-square rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-200 w-full"
+              onClick={() => onViewPhoto(photo.photoUrl)}
+            />
+            <div
+              className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+              onClick={() => onViewPhoto(photo.photoUrl)}
+            >
+              <MagnifyingGlassPlusIcon className="w-5 h-5 text-white" />
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => onDelete(photo.id)}
+                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+              >
+                <TrashIcon className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )
+      })}
       {optimisticPhotos.map(op => (
         <div key={op.tempId} className="relative">
           <img

@@ -293,6 +293,8 @@
   "photoDeleted": "Photo deleted",
   "failedToDeletePhoto": "Failed to delete photo",
   "errorDeletingPhoto": "Error deleting photo",
+  "photosDeleted": "{{count}} photo(s) deleted",
+  "photosDeletedPartial": "Deleted {{deleted}} of {{total}} — {{failed}} failed",
   "photosUploadedCount": "{{count}} photo uploaded",
   "photosUploadedCount_plural": "{{count}} photos uploaded",
   "failedToUploadPhotos": "Failed to upload photos",

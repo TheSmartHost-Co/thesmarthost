@@ -55,6 +55,7 @@ import {
   getProjectWalkthrough,
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
+  bulkDeleteWalkthroughPhotos,
   downloadWalkthroughPhotoWatermarked,
 } from '@/services/cleaningProjectService'
 import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
@@ -65,6 +66,7 @@ import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, CleaningProjectStatus } from '@/services/types/cleaningProject'
 import WalkthroughAccordion, { type WalkthroughUploadTarget, type OptimisticPhoto, targetKey } from '@/components/walkthrough/WalkthroughAccordion'
+import DeleteWalkthroughPhotosModal from '@/components/walkthrough/DeleteWalkthroughPhotosModal'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -159,6 +161,10 @@ export default function ProjectDetailModal({
   const [walkthrough, setWalkthrough] = useState<ProjectWalkthrough | null>(null)
   const [pmOptimisticPhotos, setPmOptimisticPhotos] = useState<OptimisticPhoto[]>([])
   const [walkthroughExpandedGroups, setWalkthroughExpandedGroups] = useState<Set<string>>(new Set())
+  // Walkthrough photo selection + delete-confirmation state
+  const [walkthroughSelectionMode, setWalkthroughSelectionMode] = useState(false)
+  const [selectedWalkthroughIds, setSelectedWalkthroughIds] = useState<Set<string>>(new Set())
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
   // Time change request state
   const [pendingRequest, setPendingRequest] = useState<TimeChangeRequest | null>(null)
@@ -419,20 +425,66 @@ export default function ProjectDetailModal({
     }
   }
 
-  const handlePmWalkthroughDelete = async (photoId: string) => {
+  // Queue photo(s) for deletion — opens the confirmation modal (single or bulk).
+  const requestPmWalkthroughDelete = useCallback((photoIds: string[]) => {
+    if (photoIds.length > 0) setPendingDeleteIds(photoIds)
+  }, [])
+
+  const togglePmWalkthroughSelect = useCallback((photoId: string) => {
+    setSelectedWalkthroughIds(prev => {
+      const next = new Set(prev)
+      if (next.has(photoId)) next.delete(photoId)
+      else next.add(photoId)
+      return next
+    })
+  }, [])
+
+  const setPmWalkthroughSelection = useCallback((photoIds: string[], selected: boolean) => {
+    setSelectedWalkthroughIds(prev => {
+      const next = new Set(prev)
+      photoIds.forEach(id => { if (selected) next.add(id); else next.delete(id) })
+      return next
+    })
+  }, [])
+
+  const exitPmWalkthroughSelection = useCallback(() => {
+    setWalkthroughSelectionMode(false)
+    setSelectedWalkthroughIds(new Set())
+  }, [])
+
+  // Runs on confirm. PM side keeps the simpler refetch-after pattern (no
+  // optimistic strip) — same as the original single-delete handler.
+  const performPmWalkthroughDelete = useCallback(async () => {
+    const ids = pendingDeleteIds
+    if (!ids || ids.length === 0) return
     try {
-      const res = await deleteWalkthroughPhoto(project.id, photoId)
-      if (res.status === 'success') {
-        showNotification(t('photoDeletedSuccess'), 'success')
-        await fetchWalkthrough()
+      if (ids.length === 1) {
+        const res = await deleteWalkthroughPhoto(project.id, ids[0])
+        if (res.status === 'success') {
+          showNotification(t('photoDeletedSuccess'), 'success')
+        } else {
+          showNotification(res.message || t('failedToDeleteWalkthroughPhoto'), 'error')
+        }
       } else {
-        showNotification(res.message || t('failedToDeleteWalkthroughPhoto'), 'error')
+        const { deleted, failed } = await bulkDeleteWalkthroughPhotos(project.id, ids)
+        if (failed.length > 0) {
+          showNotification(
+            t('photosDeletedPartial', { deleted: deleted.length, total: ids.length, failed: failed.length }),
+            'error'
+          )
+        } else {
+          showNotification(t('photosDeleted', { count: deleted.length }), 'success')
+        }
       }
+      await fetchWalkthrough()
     } catch (err) {
-      console.error('Error deleting walkthrough photo:', err)
+      console.error('Error deleting walkthrough photo(s):', err)
       showNotification(t('errorDeletingWalkthroughPhoto'), 'error')
+    } finally {
+      setPendingDeleteIds(null)
+      exitPmWalkthroughSelection()
     }
-  }
+  }, [pendingDeleteIds, project.id, fetchWalkthrough, showNotification, t, exitPmWalkthroughSelection])
 
   const handlePmWalkthroughToggleGroup = useCallback((groupId: string) => {
     setWalkthroughExpandedGroups(prev => {
@@ -1189,8 +1241,15 @@ export default function ProjectDetailModal({
                 canEdit
                 uploadingKey={null}
                 onUpload={handlePmWalkthroughUpload}
-                onDelete={handlePmWalkthroughDelete}
+                onDelete={(photoId) => requestPmWalkthroughDelete([photoId])}
                 optimisticPhotos={pmOptimisticPhotos}
+                selectionMode={walkthroughSelectionMode}
+                selectedPhotoIds={selectedWalkthroughIds}
+                onToggleSelect={togglePmWalkthroughSelect}
+                onSetSelection={setPmWalkthroughSelection}
+                onEnterSelectionMode={() => setWalkthroughSelectionMode(true)}
+                onExitSelectionMode={exitPmWalkthroughSelection}
+                onRequestDeleteSelected={() => requestPmWalkthroughDelete([...selectedWalkthroughIds])}
                 onViewPhoto={(url) => {
                   // Find the photo in the walkthrough payload to surface metadata + download
                   const allPhotos = [
@@ -1715,6 +1774,13 @@ export default function ProjectDetailModal({
           booking={selectedBooking}
         />
       )}
+
+      <DeleteWalkthroughPhotosModal
+        isOpen={pendingDeleteIds !== null}
+        count={pendingDeleteIds?.length ?? 0}
+        onClose={() => setPendingDeleteIds(null)}
+        onConfirm={performPmWalkthroughDelete}
+      />
     </Modal>
   )
 }

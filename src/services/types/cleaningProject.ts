@@ -375,6 +375,21 @@ export interface WalkthroughPhotoDeleteResponse {
   message: string
 }
 
+// Returned by POST /cleaning-projects/:id/walkthrough/photos/bulk-delete.
+// `data` is the list of deleted photo ids.
+export interface WalkthroughPhotoBulkDeleteResponse {
+  status: 'success' | 'failed'
+  message: string
+  data: string[]
+}
+
+// Aggregate outcome of a bulk delete, normalized across the bulk endpoint and
+// the per-photo fallback path (used when the backend lacks the bulk route).
+export interface WalkthroughBulkDeleteResult {
+  deleted: string[]
+  failed: string[]
+}
+
 // Returned by POST /cleaning-projects/:id/complete with 400 when the
 // walkthrough gate is tripped. `missingGroups` is a list of group NAMES,
 // not IDs — match back via effectiveTemplate.groups.

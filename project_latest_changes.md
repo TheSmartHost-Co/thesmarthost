@@ -3,6 +3,23 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-07-10: WALKTHROUGH-001 — Delete walkthrough photos (confirmation + multi-select, graceful fallback)
+
+**Goal**: Extend the existing single-photo delete with a confirmation step, full multi-select/bulk delete, and let PMs delete on completed projects — all degrading gracefully when the frontend ships ahead of the backend.
+
+### Changes:
+1. **`bulkDeleteWalkthroughPhotos`** (`src/services/cleaningProjectService.ts`) — new. Tries `POST /cleaning-projects/:id/walkthrough/photos/bulk-delete`; on `BackendError.status === 404` (backend not yet deployed) falls back to looping the existing single `deleteWalkthroughPhoto` via `Promise.allSettled`. Returns `{ deleted, failed }`. Types added in `services/types/cleaningProject.ts`.
+2. **`DeleteWalkthroughPhotosModal`** (`src/components/walkthrough/DeleteWalkthroughPhotosModal.tsx`) — new. Count-aware confirm ("Delete photo?" / "Delete N photos?"), owns its own spinner, follows the `DeleteWalkthroughTemplateModal` pattern. Used for both single and bulk.
+3. **Multi-select in `WalkthroughAccordion`** (`src/components/walkthrough/WalkthroughAccordion.tsx`) — optional `SelectionProps` threaded to `PhotoGrid`: checkbox overlay + tap-to-select in selection mode, per-group and freeform "select all", and an embedded toolbar (Select / N selected / Delete(N) / Cancel). All props optional → read-only client portal unaffected.
+4. **Consumers** — `ChecklistModal.tsx` (cleaner) keeps optimistic strip; `ProjectDetailModal.tsx` (PM) keeps refetch-after. Both route single (trash icon) + bulk (toolbar) deletes through the confirm modal. `WalkthroughContent.tsx` forwards selection props via `Pick<ComponentProps<typeof WalkthroughAccordion>>`.
+5. **i18n** — new keys in `turnover.json` + `cleanerPortal.json` (confirm copy, select/delete-count, partial-failure). Removed 3 accidental duplicate keys (`selectAll`/`deselectAll`/`selectedCount`) that would have relowercased existing calendar-filter copy.
+
+### Key design decisions:
+- **Graceful fallback is the whole point**: single-delete already ships in prod, so the 404→loop fallback makes multi-select fully functional day one; the bulk endpoint is a transparent optimization once the backend deploys. PM-delete-on-completed degrades to an honest error toast (no regression). Confirmed against Express 5 (unmatched route → clean 404; no greedy route swallows `/bulk-delete`; CORS preflight handled globally).
+- Selection toolbar lives **inside** the accordion (one place, `turnover` ns loaded everywhere) instead of duplicated in both consumers.
+- Cleaner-side `canEdit = !readOnly` (readOnly unless in_progress) means selection/delete only appear in-progress, matching the backend cleaner gate for free.
+- Reviewed by 2 agents: no correctness bugs; only the i18n dup (fixed). `npm run build` clean.
+
 ## 2026-07-04: PAYSTUB-007 — Off-by-one expense date display (UTC-vs-local)
 
 **Goal**: Expense dates were rendering one day earlier than stored (2026-06-15 → "Jun 14") in the expenses list, details view, and attach-receipt list.

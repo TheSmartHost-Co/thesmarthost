@@ -28,6 +28,8 @@ import type {
   ProjectWalkthroughResponse,
   WalkthroughPhotoUploadResponse,
   WalkthroughPhotoDeleteResponse,
+  WalkthroughPhotoBulkDeleteResponse,
+  WalkthroughBulkDeleteResult,
   WalkthroughUploadOptions,
   CompleteProjectMissingGroupsError,
   // Sync (backfill)
@@ -731,6 +733,47 @@ export function deleteWalkthroughPhoto(
     `/cleaning-projects/${projectId}/walkthrough/photos/${photoId}`,
     { method: 'DELETE' }
   )
+}
+
+/**
+ * Delete multiple walkthrough photos in one action.
+ *
+ * Tries the bulk endpoint first. If the backend hasn't deployed that route yet
+ * (404), it transparently falls back to looping the existing single-delete
+ * endpoint so the feature keeps working during a frontend-ahead-of-backend
+ * deploy. Non-404 errors propagate. Returns which ids were deleted vs failed.
+ */
+export async function bulkDeleteWalkthroughPhotos(
+  projectId: string,
+  photoIds: string[]
+): Promise<WalkthroughBulkDeleteResult> {
+  if (photoIds.length === 0) return { deleted: [], failed: [] }
+
+  try {
+    const res = await apiClient<WalkthroughPhotoBulkDeleteResponse, { photoIds: string[] }>(
+      `/cleaning-projects/${projectId}/walkthrough/photos/bulk-delete`,
+      { method: 'POST', body: { photoIds } }
+    )
+    // Prefer the server's authoritative list of deleted ids; fall back to the
+    // requested ids if the payload omits them.
+    const deleted = Array.isArray(res.data) && res.data.length > 0 ? res.data : photoIds
+    return { deleted, failed: photoIds.filter(id => !deleted.includes(id)) }
+  } catch (err) {
+    // Bulk route not deployed yet → degrade to per-photo deletes.
+    if (err instanceof BackendError && err.status === 404) {
+      const results = await Promise.allSettled(
+        photoIds.map(id => deleteWalkthroughPhoto(projectId, id))
+      )
+      const deleted: string[] = []
+      const failed: string[] = []
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value.status === 'success') deleted.push(photoIds[i])
+        else failed.push(photoIds[i])
+      })
+      return { deleted, failed }
+    }
+    throw err
+  }
 }
 
 /**
