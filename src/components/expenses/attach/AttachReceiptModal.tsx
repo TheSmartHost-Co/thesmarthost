@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useCallback, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -101,7 +102,7 @@ const AttachReceiptModal: React.FC<AttachReceiptModalProps> = ({
       }
     } catch (err) {
       console.error('Attach error:', err)
-      showNotification(err instanceof Error ? err.message : 'Error attaching receipt', 'error')
+      notifyError(err, 'Error attaching receipt')
     } finally {
       setAttaching(false)
     }

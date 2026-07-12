@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
@@ -186,10 +187,7 @@ export default function CreateChecklistTemplateModal({
       onClose()
     } catch (err) {
       console.error('Error creating template:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to create template',
-        'error'
-      )
+      notifyError(err, 'Failed to create template')
     } finally {
       setLoading(false)
     }

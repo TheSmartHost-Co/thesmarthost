@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
@@ -44,10 +45,7 @@ export default function DeleteWalkthroughTemplateModal({
       }
     } catch (err) {
       console.error('Error deleting walkthrough template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorDeletingTemplate'),
-        'error'
-      )
+      notifyError(err, t('errorDeletingTemplate'))
     } finally {
       setDeleting(false)
     }

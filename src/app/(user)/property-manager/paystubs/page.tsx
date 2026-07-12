@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -97,7 +98,7 @@ function PaystubsPageInner() {
       const sumRes = await getPaystubSummary(isPM ? teamMemberFilter || undefined : undefined)
       if (sumRes.status === 'success') setSummary(sumRes.data)
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setLoading(false)
     }
@@ -167,7 +168,7 @@ function PaystubsPageInner() {
         showNotification(res.message || `${label} failed.`, 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     }
   }
 
@@ -214,7 +215,7 @@ function PaystubsPageInner() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Export failed.', 'error')
+      notifyError(err, 'Export failed.')
     }
   }
 

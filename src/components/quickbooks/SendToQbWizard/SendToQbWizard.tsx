@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import {
@@ -383,10 +384,7 @@ export default function SendToQbWizard({
         }
       } catch (err) {
         console.error('bulk send error', err)
-        showNotification(
-          err instanceof Error ? err.message : 'Bulk send failed',
-          'error'
-        )
+        notifyError(err, 'Bulk send failed')
         setPhase('wizard')
       }
     },

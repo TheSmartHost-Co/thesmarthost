@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect } from 'react'
 import Modal from '../../shared/modal'
 import { createCleaner } from '@/services/cleanerService'
@@ -115,7 +116,7 @@ const CreateCleanerModal: React.FC<CreateCleanerModalProps> = ({
       }
     } catch (err) {
       console.error('Error creating cleaner:', err)
-      showNotification(err instanceof Error ? err.message : t('errorCreatingCleaner'), 'error')
+      notifyError(err, t('errorCreatingCleaner'))
     } finally {
       setIsSubmitting(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -365,7 +366,7 @@ export default function EditProjectModal({
       if (isValidationError(err)) {
         err.errors.forEach((e) => showNotification(e, 'error'))
       } else {
-        showNotification(err instanceof Error ? err.message : 'Failed to update project', 'error')
+        notifyError(err, 'Failed to update project')
       }
     } finally {
       setLoading(false)

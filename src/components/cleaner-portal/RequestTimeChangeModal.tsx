@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -97,10 +98,7 @@ export default function RequestTimeChangeModal({
       }
     } catch (err) {
       console.error('Error submitting time change request:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToSubmit'),
-        'error'
-      )
+      notifyError(err, t('failedToSubmit'))
     } finally {
       setLoading(false)
     }

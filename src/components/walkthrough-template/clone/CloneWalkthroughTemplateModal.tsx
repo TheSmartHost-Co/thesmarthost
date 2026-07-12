@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
@@ -60,10 +61,7 @@ export default function CloneWalkthroughTemplateModal({
       }
     } catch (err) {
       console.error('Error cloning walkthrough template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorCloningTemplate'),
-        'error'
-      )
+      notifyError(err, t('errorCloningTemplate'))
     } finally {
       setCloning(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -84,10 +85,7 @@ const SubmitSupplyListModal: React.FC<SubmitSupplyListModalProps> = ({
       }
     } catch (err) {
       console.error('Error submitting supply list:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToSubmitList'),
-        'error'
-      )
+      notifyError(err, t('failedToSubmitList'))
     } finally {
       setLoading(false)
     }

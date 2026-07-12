@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
 import { addInvoiceItem, getAvailableExpenses } from '@/services/cleanerInvoiceService'
@@ -78,7 +79,7 @@ const AddExistingExpenseModal: React.FC<AddExistingExpenseModalProps> = ({
       }
     } catch (err) {
       console.error('Error adding expense:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToAddExpense'), 'error')
+      notifyError(err, t('failedToAddExpense'))
     } finally {
       setSubmitting(false)
     }

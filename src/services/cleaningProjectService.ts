@@ -425,6 +425,42 @@ export function isValidPhotoFile(file: File): PhotoValidationResult {
   return { ok: true }
 }
 
+/** Human-readable reason a photo was rejected client-side. */
+export function describePhotoRejection(file: File, reason: 'type' | 'size'): string {
+  if (reason === 'size') {
+    const mb = Math.round(file.size / (1024 * 1024))
+    return `"${file.name}" is ${mb} MB — the maximum is ${MAX_PHOTO_SIZE / (1024 * 1024)} MB.`
+  }
+  return `"${file.name}" isn't a supported image — use JPG, PNG, GIF, WebP, or HEIC.`
+}
+
+export interface PhotoPreflightResult {
+  valid: File[]
+  rejected: { file: File; reason: 'type' | 'size'; message: string }[]
+  overflow: File[]   // valid files dropped because they exceeded the max count
+}
+
+/**
+ * Validate a batch of files client-side BEFORE uploading, so avoidable failures
+ * never round-trip to the backend. Returns the files safe to upload, the ones
+ * rejected (with a specific message), and any dropped for exceeding the count.
+ */
+export function preflightPhotos(files: File[], opts?: { max?: number }): PhotoPreflightResult {
+  const max = opts?.max ?? MAX_PHOTOS_PER_UPLOAD
+  const valid: File[] = []
+  const rejected: PhotoPreflightResult['rejected'] = []
+  for (const file of files) {
+    const result = isValidPhotoFile(file)
+    if (result.ok) {
+      valid.push(file)
+    } else {
+      rejected.push({ file, reason: result.reason, message: describePhotoRejection(file, result.reason) })
+    }
+  }
+  const overflow = valid.splice(max)
+  return { valid, rejected, overflow }
+}
+
 // =============================================
 // PROJECT CHECKLIST ITEMS
 // =============================================

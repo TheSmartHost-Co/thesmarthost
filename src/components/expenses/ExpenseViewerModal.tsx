@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useTranslation } from 'react-i18next'
 import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
@@ -469,7 +470,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
         showNotification(res.message || 'Failed to reset QuickBooks link', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error resending to QuickBooks', 'error')
+      notifyError(err, 'Error resending to QuickBooks')
     } finally {
       setResending(false)
     }
@@ -732,7 +733,7 @@ const ExpenseViewerModal: React.FC<ExpenseViewerModalProps> = ({
                       showNotification(res.message || 'Failed to detach receipt', 'error')
                     }
                   } catch (err) {
-                    showNotification(err instanceof Error ? err.message : 'Error detaching receipt', 'error')
+                    notifyError(err, 'Error detaching receipt')
                   }
                 }}
                 className="text-xs text-red-500 hover:text-red-700 font-medium cursor-pointer"

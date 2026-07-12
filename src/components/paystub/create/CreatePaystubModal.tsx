@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Modal from '@/components/shared/modal'
@@ -502,7 +503,7 @@ const CreatePaystubModal: React.FC<CreatePaystubModalProps> = ({
         showNotification(res.message || 'Upload failed.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Upload failed.', 'error')
+      notifyError(err, 'Upload failed.')
     } finally {
       setIsUploading(false)
     }
@@ -578,7 +579,7 @@ const CreatePaystubModal: React.FC<CreatePaystubModalProps> = ({
       onCreated(ready)
       onClose()
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error creating paystub.', 'error')
+      notifyError(err, 'Error creating paystub.')
     } finally {
       setIsSubmitting(false)
     }

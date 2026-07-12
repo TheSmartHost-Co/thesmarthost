@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -633,10 +634,7 @@ const BulkUploadReceiptModal: React.FC<BulkUploadReceiptModalProps> = ({
         skipped: skippedCount + duplicateCount,
       })
     } catch (err) {
-      showNotification(
-        err instanceof Error ? err.message : 'Network error during bulk apply',
-        'error'
-      )
+      notifyError(err, 'Network error during bulk apply')
       toApply.forEach((r) => updateRow(r.id, { status: 'apply-failed' }))
     } finally {
       setApplying(false)

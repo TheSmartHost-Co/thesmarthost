@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -179,10 +180,7 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
       onClose()
     } catch (err) {
       console.error('Error reporting issue:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToReportIssue'),
-        'error'
-      )
+      notifyError(err, t('failedToReportIssue'))
     } finally {
       setLoading(false)
     }

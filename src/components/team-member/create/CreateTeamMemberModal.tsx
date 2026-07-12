@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
@@ -109,10 +110,7 @@ const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
       }
     } catch (err) {
       console.error('Error creating team member:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorCreatingTeamMember'),
-        'error'
-      )
+      notifyError(err, t('errorCreatingTeamMember'))
     } finally {
       setLoading(false)
     }

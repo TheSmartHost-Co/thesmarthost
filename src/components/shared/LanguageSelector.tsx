@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { GlobeAltIcon, CheckIcon } from '@heroicons/react/24/outline'
@@ -46,7 +47,7 @@ export default function LanguageSelector({ delay = 0.05 }: LanguageSelectorProps
       }
     } catch (err) {
       console.error('Failed to save language:', err)
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setSaving(false)
     }

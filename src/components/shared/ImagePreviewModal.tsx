@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 interface ImagePreviewModalProps {
   isOpen: boolean
@@ -16,6 +16,13 @@ interface ImagePreviewModalProps {
   // When provided, a red Delete button is shown in the footer. The caller owns
   // the actual delete flow (typically: close this viewer + open a confirm modal).
   onDelete?: () => void
+  // When provided, left/right carousel arrows + keyboard nav are enabled. The
+  // caller advances its own current-photo index; this component just renders the
+  // controls. Existing callers pass none of these and get no nav UI.
+  onPrev?: () => void
+  onNext?: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
 }
 
 export default function ImagePreviewModal({
@@ -27,10 +34,33 @@ export default function ImagePreviewModal({
   photoUploadedAt,
   onDownloadWatermarked,
   onDelete,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
 }: ImagePreviewModalProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
+
+  // Reset load state whenever the image changes (e.g. carousel prev/next),
+  // otherwise a stale "loaded" state would suppress the spinner on the next image.
+  useEffect(() => {
+    setIsLoading(true)
+    setImageError(false)
+  }, [imageUrl])
+
+  // Keyboard nav: arrows move the carousel (when enabled), Escape closes.
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrev && hasPrev) onPrev()
+      else if (e.key === 'ArrowRight' && onNext && hasNext) onNext()
+      else if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, onPrev, onNext, hasPrev, hasNext, onClose])
 
   const handleImageLoad = () => {
     console.log('[ImagePreview] Image loaded successfully:', imageUrl)
@@ -90,6 +120,24 @@ export default function ImagePreviewModal({
 
         {/* Image Container — scrollable */}
         <div className="flex-1 overflow-y-auto relative bg-gray-100 min-h-[200px] flex items-center justify-center">
+          {onPrev && hasPrev && (
+            <button
+              onClick={onPrev}
+              aria-label="Previous photo"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+          )}
+          {onNext && hasNext && (
+            <button
+              onClick={onNext}
+              aria-label="Next photo"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          )}
           {isLoading && !imageError && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">

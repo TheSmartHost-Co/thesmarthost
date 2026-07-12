@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ExclamationTriangleIcon,
@@ -253,7 +254,7 @@ const SplitExpenseModal: React.FC<SplitExpenseModalProps> = ({
       }
     } catch (err) {
       console.error('splitExpense error:', err)
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setSubmitting(false)
     }

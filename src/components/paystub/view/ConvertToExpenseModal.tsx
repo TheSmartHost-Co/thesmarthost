@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { convertPaystubItemToExpense } from '@/services/paystubService'
@@ -69,7 +70,7 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
         showNotification(res.message || 'Failed to convert.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error converting.', 'error')
+      notifyError(err, 'Error converting.')
     } finally {
       setSubmitting(false)
     }

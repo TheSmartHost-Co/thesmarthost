@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { getTeamMembers } from '@/services/teamMemberService'
@@ -38,7 +39,7 @@ const PMTeamMemberPickerModal: React.FC<PMTeamMemberPickerModalProps> = ({
         }
       } catch (err) {
         if (!cancelled) {
-          showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+          notifyError(err, 'Network error.')
         }
       } finally {
         if (!cancelled) setLoading(false)

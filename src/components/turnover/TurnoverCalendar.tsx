@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo, useRef, useCallback, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -833,7 +834,7 @@ export default function TurnoverCalendar({
       }
     } catch (err) {
       console.error('Error deleting booking:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToDeleteBooking'), 'error')
+      notifyError(err, t('failedToDeleteBooking'))
     } finally {
       setBookingActionLoading(false)
     }
@@ -877,7 +878,7 @@ export default function TurnoverCalendar({
       }
     } catch (err) {
       console.error('Error cancelling booking:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToCancelBooking'), 'error')
+      notifyError(err, t('failedToCancelBooking'))
     } finally {
       setBookingActionLoading(false)
     }
@@ -1104,7 +1105,7 @@ export default function TurnoverCalendar({
       if (isValidationError(err)) {
         err.errors.forEach((e) => showNotification(e, 'error'))
       } else {
-        showNotification(err instanceof Error ? err.message : t('failedToCompleteMove'), 'error')
+        notifyError(err, t('failedToCompleteMove'))
       }
     } finally {
       setPendingDrop(null)

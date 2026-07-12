@@ -7,8 +7,11 @@ import {
   getIssuesByProject,
   formatIssueAge,
   getIssueTypeDisplay,
-  getIssueStatusDisplay
+  getIssueStatusDisplay,
+  getPhotoPublicUrl,
+  downloadIssuePhotoWatermarked
 } from '@/services/projectIssueService'
+import ImagePreviewModal from '@/components/shared/ImagePreviewModal'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -61,6 +64,8 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
+  // Index of the issue photo currently open in the shared viewer (null = closed).
+  const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null)
   const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -122,6 +127,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   }
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} closable style="w-11/12 max-w-2xl">
       <div className="p-6">
         {/* Header */}
@@ -178,6 +184,7 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                 onIssueUpdated={handleIssueUpdated}
                 onIssueDeleted={handleIssueDeleted}
                 onViewed={() => markIssueAsRead(selectedIssue.id)}
+                onViewPhoto={(idx) => setPhotoViewerIndex(idx)}
               />
             </motion.div>
           ) : (
@@ -297,6 +304,24 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
 
       </div>
     </Modal>
+
+    {/* Shared enlarged viewer for issue photos (replaces the old bespoke overlay) */}
+    {selectedIssue && photoViewerIndex !== null && selectedIssue.photoUrls[photoViewerIndex] && (
+      <ImagePreviewModal
+        isOpen
+        onClose={() => setPhotoViewerIndex(null)}
+        imageUrl={getPhotoPublicUrl(selectedIssue.photoUrls[photoViewerIndex])}
+        title={`${getIssueTypeDisplay(selectedIssue.issueType).label} — photo ${photoViewerIndex + 1} of ${selectedIssue.photoUrls.length}`}
+        photoTakenAt={selectedIssue.photoTakenAt?.[photoViewerIndex] ?? null}
+        photoUploadedAt={selectedIssue.photoUploadedAt?.[photoViewerIndex] ?? null}
+        onDownloadWatermarked={() => downloadIssuePhotoWatermarked(selectedIssue.id, photoViewerIndex)}
+        hasPrev={photoViewerIndex > 0}
+        onPrev={() => setPhotoViewerIndex((i) => (i === null ? i : Math.max(0, i - 1)))}
+        hasNext={photoViewerIndex < selectedIssue.photoUrls.length - 1}
+        onNext={() => setPhotoViewerIndex((i) => (i === null ? i : Math.min(selectedIssue.photoUrls.length - 1, i + 1)))}
+      />
+    )}
+    </>
   )
 }
 

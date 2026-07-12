@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import Modal from '../../shared/modal'
 import { deleteInvoice } from '@/services/cleanerInvoiceService'
@@ -38,7 +39,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
       }
     } catch (err) {
       console.error('Error deleting invoice:', err)
-      showNotification(err instanceof Error ? err.message : t('errorDeletingInvoice'), 'error')
+      notifyError(err, t('errorDeletingInvoice'))
     } finally {
       setIsDeleting(false)
     }

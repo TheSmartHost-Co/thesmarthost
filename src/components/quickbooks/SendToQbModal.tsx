@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { CheckCircleIcon } from '@heroicons/react/24/outline'
@@ -268,10 +269,7 @@ export default function SendToQbModal({
       }
     } catch (err) {
       console.error('QB sync error:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to send to QuickBooks',
-        'error'
-      )
+      notifyError(err, 'Failed to send to QuickBooks')
     } finally {
       setSubmitting(false)
     }

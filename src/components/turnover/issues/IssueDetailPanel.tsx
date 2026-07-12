@@ -12,9 +12,7 @@ import {
   EyeIcon,
   TrashIcon,
   PhotoIcon,
-  XMarkIcon,
   ChatBubbleLeftIcon,
-  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline'
 import { ArrowUpIcon } from '@heroicons/react/24/solid'
 import {
@@ -24,7 +22,6 @@ import {
   getPhotoPublicUrl,
   getIssueTypeDisplay,
   getIssueStatusDisplay,
-  downloadIssuePhotoWatermarked
 } from '@/services/projectIssueService'
 import { getNotesByIssue, createIssueNote } from '@/services/projectIssueNoteService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
@@ -52,6 +49,9 @@ interface IssueDetailPanelProps {
   onIssueUpdated?: (updated: ProjectIssue) => void
   onIssueDeleted?: (issueId: string) => void
   onViewed?: () => void
+  // Open a photo in the parent's shared ImagePreviewModal. When omitted, falls
+  // back to opening the image in a new tab.
+  onViewPhoto?: (index: number) => void
 }
 
 export default function IssueDetailPanel({
@@ -60,15 +60,13 @@ export default function IssueDetailPanel({
   onIssueUpdated,
   onIssueDeleted,
   onViewed,
+  onViewPhoto,
 }: IssueDetailPanelProps) {
   const [notes, setNotes] = useState<IssueNote[]>([])
   const [noteText, setNoteText] = useState('')
   const [notesLoading, setNotesLoading] = useState(false)
   const [publishLoading, setPublishLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [showPhotoViewer, setShowPhotoViewer] = useState(false)
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
-  const [isDownloadingPhoto, setIsDownloadingPhoto] = useState(false)
   const notesEndRef = useRef<HTMLDivElement>(null)
 
   const { t } = useTranslation('turnover')
@@ -244,8 +242,8 @@ export default function IssueDetailPanel({
               <button
                 key={index}
                 onClick={() => {
-                  setCurrentPhotoIndex(index)
-                  setShowPhotoViewer(true)
+                  if (onViewPhoto) onViewPhoto(index)
+                  else window.open(getPhotoPublicUrl(url), '_blank', 'noopener,noreferrer')
                 }}
                 className="relative group"
               >
@@ -390,65 +388,6 @@ export default function IssueDetailPanel({
         </div>
       )}
 
-      {/* Photo Viewer Modal */}
-      {showPhotoViewer && issue.photoUrls.length > 0 && (
-        <div
-          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
-          onClick={() => setShowPhotoViewer(false)}
-        >
-          <button
-            onClick={() => setShowPhotoViewer(false)}
-            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white"
-          >
-            <XMarkIcon className="w-8 h-8" />
-          </button>
-          <button
-            onClick={async (e) => {
-              e.stopPropagation()
-              if (isDownloadingPhoto) return
-              setIsDownloadingPhoto(true)
-              try {
-                await downloadIssuePhotoWatermarked(issue.id, currentPhotoIndex)
-              } catch (err) {
-                console.error('Download failed:', err)
-              } finally {
-                setIsDownloadingPhoto(false)
-              }
-            }}
-            disabled={isDownloadingPhoto}
-            className="absolute top-4 left-4 inline-flex items-center gap-2 px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {isDownloadingPhoto ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <ArrowDownTrayIcon className="w-4 h-4" />
-            )}
-            {t('download')}
-          </button>
-          <img
-            src={getPhotoPublicUrl(issue.photoUrls[currentPhotoIndex])}
-            alt="Issue photo"
-            className="max-w-[90vw] max-h-[90vh] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          {issue.photoUrls.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {issue.photoUrls.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setCurrentPhotoIndex(index)
-                  }}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    index === currentPhotoIndex ? 'bg-white' : 'bg-white/40'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

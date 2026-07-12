@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -174,10 +175,7 @@ export default function DuplicateChecklistModal({
       }
     } catch (err) {
       console.error('Error duplicating checklist:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to duplicate checklist',
-        'error'
-      )
+      notifyError(err, 'Failed to duplicate checklist')
     } finally {
       setSubmitting(false)
     }

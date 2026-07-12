@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { getAvailablePaystubExpenses, addPaystubExpense } from '@/services/paystubService'
@@ -40,7 +41,7 @@ const AddExistingExpenseModal: React.FC<AddExistingExpenseModalProps> = ({
         if (res.status === 'success') setExpenses(res.data)
         else showNotification(res.message || 'Failed to load expenses.', 'error')
       } catch (err) {
-        if (!cancelled) showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+        if (!cancelled) notifyError(err, 'Network error.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -60,7 +61,7 @@ const AddExistingExpenseModal: React.FC<AddExistingExpenseModalProps> = ({
         showNotification(res.message || 'Failed to attach expense.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error attaching expense.', 'error')
+      notifyError(err, 'Error attaching expense.')
     } finally {
       setAttaching(null)
     }

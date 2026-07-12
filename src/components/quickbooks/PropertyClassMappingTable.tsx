@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -98,10 +99,7 @@ export default function PropertyClassMappingTable({ isConnected }: PropertyClass
         if (mappingsRes.status === 'success') setMappings(mappingsRes.data)
       } catch (err) {
         console.error('Failed to load property→class mappings:', err)
-        showNotification(
-          err instanceof Error ? err.message : 'Failed to load property→class mappings',
-          'error'
-        )
+        notifyError(err, 'Failed to load property→class mappings')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -134,10 +132,7 @@ export default function PropertyClassMappingTable({ isConnected }: PropertyClass
       }
     } catch (err) {
       console.error('Failed to save class mapping:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to save class mapping',
-        'error'
-      )
+      notifyError(err, 'Failed to save class mapping')
     } finally {
       setSavingPropertyId(null)
     }
@@ -155,10 +150,7 @@ export default function PropertyClassMappingTable({ isConnected }: PropertyClass
       }
     } catch (err) {
       console.error('Failed to delete class mapping:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to remove class mapping',
-        'error'
-      )
+      notifyError(err, 'Failed to remove class mapping')
     } finally {
       setSavingPropertyId(null)
     }

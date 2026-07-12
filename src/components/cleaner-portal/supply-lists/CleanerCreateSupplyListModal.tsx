@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -146,10 +147,7 @@ export default function CleanerCreateSupplyListModal({
       }
     } catch (err) {
       console.error('Error creating supply list:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('networkError'),
-        'error'
-      )
+      notifyError(err, t('networkError'))
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,6 @@
 "use client"
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -308,7 +309,7 @@ export default function BookingsPage() {
       }
     } catch (err) {
       console.error('Error cancelling booking:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to cancel booking', 'error')
+      notifyError(err, 'Failed to cancel booking')
     } finally {
       setCancellingBooking(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -135,10 +136,7 @@ export default function CopyChecklistToPropertyModal({
       }
     } catch (err) {
       console.error('Error copying checklist:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToCopyChecklist'),
-        'error'
-      )
+      notifyError(err, t('failedToCopyChecklist'))
     } finally {
       setSubmitting(false)
     }

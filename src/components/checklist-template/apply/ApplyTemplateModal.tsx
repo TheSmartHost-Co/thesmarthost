@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -131,10 +132,7 @@ export default function ApplyTemplateModal({
       }
     } catch (err) {
       console.error('Error applying template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToApplyTemplate'),
-        'error'
-      )
+      notifyError(err, t('failedToApplyTemplate'))
     } finally {
       setSubmitting(false)
     }

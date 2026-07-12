@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '@/components/shared/modal'
 import SearchableSelect, { SearchableSelectOption } from '@/components/shared/SearchableSelect'
@@ -246,7 +247,7 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
       }
     } catch (err) {
       console.error('Error converting to expense:', err)
-      showNotification(err instanceof Error ? err.message : t('errorConverting'), 'error')
+      notifyError(err, t('errorConverting'))
     } finally {
       setSubmitting(false)
     }

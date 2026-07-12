@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -344,7 +345,7 @@ export default function CreateProjectModal({
       }
     } catch (err) {
       console.error('Error creating project:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToCreateProject'), 'error')
+      notifyError(err, t('failedToCreateProject'))
     } finally {
       setLoading(false)
     }

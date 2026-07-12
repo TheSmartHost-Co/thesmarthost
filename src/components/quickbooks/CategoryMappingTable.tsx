@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -89,10 +90,7 @@ export default function CategoryMappingTable({ isConnected }: CategoryMappingTab
         if (mappingsRes.status === 'success') setMappings(mappingsRes.data)
       } catch (err) {
         console.error('Failed to load category mappings:', err)
-        showNotification(
-          err instanceof Error ? err.message : 'Failed to load category mappings',
-          'error'
-        )
+        notifyError(err, 'Failed to load category mappings')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -125,7 +123,7 @@ export default function CategoryMappingTable({ isConnected }: CategoryMappingTab
       }
     } catch (err) {
       console.error('Failed to save mapping:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to save mapping', 'error')
+      notifyError(err, 'Failed to save mapping')
     } finally {
       setSavingCategoryCode(null)
     }
@@ -143,7 +141,7 @@ export default function CategoryMappingTable({ isConnected }: CategoryMappingTab
       }
     } catch (err) {
       console.error('Failed to delete mapping:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to remove mapping', 'error')
+      notifyError(err, 'Failed to remove mapping')
     } finally {
       setSavingCategoryCode(null)
     }

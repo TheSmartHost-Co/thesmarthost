@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -394,7 +395,7 @@ function ExpensesContent() {
         showNotification(res.message || 'Failed to delete view', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     }
   }
 
@@ -436,7 +437,7 @@ function ExpensesContent() {
         showNotification(res.message || 'Bulk update failed', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setBulkBusy(false)
     }
@@ -450,7 +451,7 @@ function ExpensesContent() {
       const result = await exportExpenses({ format, userId: effectiveUserId, expenseIds: ids })
       showNotification(`Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'}`, 'success')
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+      notifyError(err, 'Export failed')
     } finally {
       setBulkBusy(false)
     }
@@ -480,7 +481,7 @@ function ExpensesContent() {
       const result = await exportExpenses({ format, userId: effectiveUserId, filters: buildApiFilters(filterState) })
       showNotification(`Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'}`, 'success')
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+      notifyError(err, 'Export failed')
     }
   }
 
@@ -528,7 +529,7 @@ function ExpensesContent() {
                 showNotification(res.message || 'Failed to detach receipt', 'error')
               }
             } catch (err) {
-              showNotification(err instanceof Error ? err.message : 'Error detaching receipt', 'error')
+              notifyError(err, 'Error detaching receipt')
             }
           },
         }]

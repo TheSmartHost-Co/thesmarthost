@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -70,10 +71,7 @@ const ListingMappingsSection: React.FC<ListingMappingsSectionProps> = ({
       }
     } catch (err) {
       console.error('Error loading listing mappings:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to load listing mappings',
-        'error'
-      )
+      notifyError(err, 'Failed to load listing mappings')
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -224,10 +225,7 @@ export default function EditPropertyChecklistModal({
       onClose()
     } catch (err) {
       console.error('Error updating checklist:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to update checklist',
-        'error'
-      )
+      notifyError(err, 'Failed to update checklist')
     } finally {
       setSaving(false)
     }

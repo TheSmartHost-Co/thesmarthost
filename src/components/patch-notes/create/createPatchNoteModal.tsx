@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -152,10 +153,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
       onCreated()
     } catch (err) {
       console.error('Error creating patch note:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Error creating patch note',
-        'error'
-      )
+      notifyError(err, 'Error creating patch note')
     } finally {
       setSubmitting(false)
     }

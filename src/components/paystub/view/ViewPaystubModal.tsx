@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import {
@@ -122,7 +123,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
       }
       if (filesRes.status === 'success') setFiles(filesRes.data)
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setLoading(false)
     }
@@ -230,7 +231,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         loadPaystub()
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
       loadPaystub()
     }
   }
@@ -245,7 +246,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         loadPaystub()
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
       loadPaystub()
     }
   }
@@ -276,7 +277,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         showNotification(res.message || 'Failed to save notes.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     }
   }
 
@@ -293,7 +294,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         showNotification(res.message || `${label} failed.`, 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setActionLoading(null)
     }
@@ -330,7 +331,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         showNotification(res.message || 'Failed to generate PDF.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setActionLoading(null)
     }
@@ -343,7 +344,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         window.open(res.data.signedUrl, '_blank')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to open PDF.', 'error')
+      notifyError(err, 'Failed to open PDF.')
     }
   }
   const handleDownloadPDF = async () => {
@@ -359,7 +360,7 @@ const ViewPaystubModal: React.FC<ViewPaystubModalProps> = ({
         document.body.removeChild(a)
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to download PDF.', 'error')
+      notifyError(err, 'Failed to download PDF.')
     }
   }
 

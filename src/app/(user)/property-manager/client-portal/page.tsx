@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -87,7 +88,7 @@ export default function ClientPortalPage() {
         showNotification(res.message || 'Failed to send invitation', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to send invitation', 'error')
+      notifyError(err, 'Failed to send invitation')
     } finally {
       setActionLoading(null)
     }
@@ -103,7 +104,7 @@ export default function ClientPortalPage() {
         showNotification(res.message || 'Failed to resend invitation', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to resend invitation', 'error')
+      notifyError(err, 'Failed to resend invitation')
     } finally {
       setActionLoading(null)
     }
@@ -120,7 +121,7 @@ export default function ClientPortalPage() {
         showNotification(res.message || 'Failed to revoke access', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to revoke access', 'error')
+      notifyError(err, 'Failed to revoke access')
     } finally {
       setActionLoading(null)
     }
@@ -137,7 +138,7 @@ export default function ClientPortalPage() {
         showNotification(res.message || 'Failed to restore access', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to restore access', 'error')
+      notifyError(err, 'Failed to restore access')
     } finally {
       setActionLoading(null)
     }

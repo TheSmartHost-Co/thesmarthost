@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { deletePaystub } from '@/services/paystubService'
@@ -34,7 +35,7 @@ const DeletePaystubModal: React.FC<DeletePaystubModalProps> = ({
         showNotification(res.message || 'Failed to delete paystub.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error deleting paystub.', 'error')
+      notifyError(err, 'Error deleting paystub.')
     } finally {
       setIsDeleting(false)
     }

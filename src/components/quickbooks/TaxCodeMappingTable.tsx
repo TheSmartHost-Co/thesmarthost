@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
@@ -95,10 +96,7 @@ export default function TaxCodeMappingTable({ isConnected }: TaxCodeMappingTable
         if (mappingsRes.status === 'success') setMappings(mappingsRes.data)
       } catch (err) {
         console.error('Failed to load tax-code mappings:', err)
-        showNotification(
-          err instanceof Error ? err.message : 'Failed to load tax-code mappings',
-          'error'
-        )
+        notifyError(err, 'Failed to load tax-code mappings')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -134,10 +132,7 @@ export default function TaxCodeMappingTable({ isConnected }: TaxCodeMappingTable
       }
     } catch (err) {
       console.error('Failed to save tax mapping:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to save tax mapping',
-        'error'
-      )
+      notifyError(err, 'Failed to save tax mapping')
     } finally {
       setSavingKind(null)
     }
@@ -155,10 +150,7 @@ export default function TaxCodeMappingTable({ isConnected }: TaxCodeMappingTable
       }
     } catch (err) {
       console.error('Failed to delete tax mapping:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to remove tax mapping',
-        'error'
-      )
+      notifyError(err, 'Failed to remove tax mapping')
     } finally {
       setSavingKind(null)
     }

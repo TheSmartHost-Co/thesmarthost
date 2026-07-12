@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import {
   MagnifyingGlassIcon,
@@ -218,7 +219,7 @@ export default function ScheduleRequestsPage() {
         showNotification(res.message || 'Failed to approve', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setBusyId(null)
     }
@@ -251,7 +252,7 @@ export default function ScheduleRequestsPage() {
         showNotification(res.message || 'Failed to reject', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setBusyId(null)
     }

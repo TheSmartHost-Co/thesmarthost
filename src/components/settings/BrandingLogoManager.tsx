@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { PhotoIcon, ArrowUpTrayIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -65,7 +66,7 @@ const BrandingLogoManager: React.FC<BrandingLogoManagerProps> = ({ canWrite }) =
         showNotification(res.message || 'Failed to upload logo', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to upload logo', 'error')
+      notifyError(err, 'Failed to upload logo')
     } finally {
       setUploading(false)
     }
@@ -83,7 +84,7 @@ const BrandingLogoManager: React.FC<BrandingLogoManagerProps> = ({ canWrite }) =
         showNotification(res.message || 'Failed to remove logo', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Failed to remove logo', 'error')
+      notifyError(err, 'Failed to remove logo')
     } finally {
       setRemoving(false)
     }

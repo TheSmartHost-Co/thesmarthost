@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
 import { addPaystubItem } from '@/services/paystubService'
@@ -69,7 +70,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
         showNotification(res.message || 'Failed to add extra charge.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error adding extra charge.', 'error')
+      notifyError(err, 'Error adding extra charge.')
     } finally {
       setSubmitting(false)
     }

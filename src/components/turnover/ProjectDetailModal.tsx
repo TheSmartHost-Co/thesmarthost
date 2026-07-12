@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -56,18 +57,17 @@ import {
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
   bulkDeleteWalkthroughPhotos,
-  downloadWalkthroughPhotoWatermarked,
-  findWalkthroughPhotoByUrl,
 } from '@/services/cleaningProjectService'
-import { getIssueCounts, getIssuesByProject, getPhotoPublicUrl, downloadIssuePhotoWatermarked } from '@/services/projectIssueService'
+import { getIssueCounts, getIssuesByProject } from '@/services/projectIssueService'
 import { getSupplyListsByProject } from '@/services/supplyListService'
 import type { SupplyList } from '@/services/types/supplyList'
 import { getPendingTimeChangeRequest, approveTimeChangeRequest, rejectTimeChangeRequest } from '@/services/timeChangeRequestService'
 import type { TimeChangeRequest } from '@/services/types/timeChangeRequest'
 import type { IssueCounts, ProjectIssue } from '@/services/types/projectIssue'
 import type { ProjectChecklistItem, ChecklistProgress, ProjectWalkthrough, CleaningProjectStatus } from '@/services/types/cleaningProject'
-import WalkthroughAccordion, { type WalkthroughUploadTarget, type OptimisticPhoto, targetKey } from '@/components/walkthrough/WalkthroughAccordion'
+import { type WalkthroughUploadTarget, type OptimisticPhoto, targetKey } from '@/components/walkthrough/WalkthroughAccordion'
 import DeleteWalkthroughPhotosModal from '@/components/walkthrough/DeleteWalkthroughPhotosModal'
+import ProjectPhotos from '@/components/turnover/project-detail/photos/ProjectPhotos'
 import EditProjectModal from './update/EditProjectModal'
 import DeleteProjectModal from './delete/DeleteProjectModal'
 import { ReportIssueModal, ViewIssuesModal } from './issues'
@@ -272,7 +272,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error approving time change request:', err)
-      showNotification(t('errorApprovingRequest'), 'error')
+      notifyError(err, t('errorApprovingRequest'))
     } finally {
       setIsResolvingRequest(false)
     }
@@ -295,7 +295,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error rejecting time change request:', err)
-      showNotification(t('errorRejectingRequest'), 'error')
+      notifyError(err, t('errorRejectingRequest'))
     } finally {
       setIsResolvingRequest(false)
     }
@@ -315,7 +315,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error initializing checklist:', err)
-      showNotification(t('errorInitializingChecklist'), 'error')
+      notifyError(err, t('errorInitializingChecklist'))
     } finally {
       setIsInitializingChecklist(false)
     }
@@ -340,7 +340,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error updating checklist item:', err)
-      showNotification(t('errorUpdatingChecklistItem'), 'error')
+      notifyError(err, t('errorUpdatingChecklistItem'))
     } finally {
       setUpdatingItemId(null)
     }
@@ -360,7 +360,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error fetching booking:', err)
-      showNotification(t('errorLoadingBookingDetails'), 'error')
+      notifyError(err, t('errorLoadingBookingDetails'))
     } finally {
       setLoadingBookingId(null)
     }
@@ -413,10 +413,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error uploading walkthrough photos:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorUploadingWalkthroughPhotos'),
-        'error'
-      )
+      notifyError(err, t('errorUploadingWalkthroughPhotos'))
     } finally {
       // Remove this batch's optimistic photos and revoke blob URLs
       setPmOptimisticPhotos(prev => {
@@ -481,7 +478,7 @@ export default function ProjectDetailModal({
       await fetchWalkthrough()
     } catch (err) {
       console.error('Error deleting walkthrough photo(s):', err)
-      showNotification(t('errorDeletingWalkthroughPhoto'), 'error')
+      notifyError(err, t('errorDeletingWalkthroughPhoto'))
     } finally {
       setPendingDeleteIds(null)
       exitPmWalkthroughSelection()
@@ -549,7 +546,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error assigning cleaner:', err)
-      showNotification(t('errorAssigningCleaner'), 'error')
+      notifyError(err, t('errorAssigningCleaner'))
     } finally {
       setIsAssigning(false)
     }
@@ -574,7 +571,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error cancelling project:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToCancelProject'), 'error')
+      notifyError(err, t('failedToCancelProject'))
     } finally {
       setCancellingProject(false)
     }
@@ -613,7 +610,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error overriding project:', err)
-      showNotification(t('errorOverridingProject'), 'error')
+      notifyError(err, t('errorOverridingProject'))
     } finally {
       setOverriding(false)
     }
@@ -631,7 +628,7 @@ export default function ProjectDetailModal({
       }
     } catch (err) {
       console.error('Error removing override:', err)
-      showNotification(t('errorRemovingOverride'), 'error')
+      notifyError(err, t('errorRemovingOverride'))
     }
   }
 
@@ -1231,140 +1228,37 @@ export default function ProjectDetailModal({
             )}
           </div>
 
-          {/* Walkthrough Photos Section */}
-          {walkthrough && (
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-3 px-1">
-                <CameraIcon className="w-4 h-4" />
-                <span className="text-xs font-medium uppercase tracking-wider">{t('walkthroughPhotosLabel')}</span>
-              </div>
-              <WalkthroughAccordion
-                walkthrough={walkthrough}
-                canEdit
-                uploadingKey={null}
-                onUpload={handlePmWalkthroughUpload}
-                onDelete={(photoId) => requestPmWalkthroughDelete([photoId])}
-                optimisticPhotos={pmOptimisticPhotos}
-                selectionMode={walkthroughSelectionMode}
-                selectedPhotoIds={selectedWalkthroughIds}
-                onToggleSelect={togglePmWalkthroughSelect}
-                onSetSelection={setPmWalkthroughSelection}
-                onEnterSelectionMode={() => setWalkthroughSelectionMode(true)}
-                onExitSelectionMode={exitPmWalkthroughSelection}
-                onRequestDeleteSelected={() => requestPmWalkthroughDelete([...selectedWalkthroughIds])}
-                onViewPhoto={(url) => {
-                  // Map the URL back to the photo record to surface metadata +
-                  // download + delete.
-                  const photo = findWalkthroughPhotoByUrl(walkthrough, url)
-                  const label = photo
-                    ? photo.itemNameSnapshot ?? photo.groupNameSnapshot ?? 'Walkthrough'
-                    : 'Walkthrough'
-                  setPreviewImage({
-                    url,
-                    task: `Walkthrough: ${label}`,
-                    photoTakenAt: photo?.photoTakenAt ?? null,
-                    photoUploadedAt: photo?.photoUploadedAt ?? null,
-                    downloadFn: photo
-                      ? () => downloadWalkthroughPhotoWatermarked(project.id, photo.id)
-                      : undefined,
-                    onDelete: photo
-                      ? () => { setPreviewImage(null); requestPmWalkthroughDelete([photo.id]) }
-                      : undefined,
-                  })
-                }}
-                expandedGroupIds={walkthroughExpandedGroups}
-                onToggleGroup={handlePmWalkthroughToggleGroup}
-              />
+          {/* Photos — unified segmented area (walkthrough / checklist / issues) */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-2 text-gray-500 mb-3">
+              <PhotoIcon className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">{t('photos')}</span>
             </div>
-          )}
-
-          {/* Photos Gallery Section */}
-          {(() => {
-            const checklistPhotos = checklistItems.filter(item => item.photoUrl)
-            const issuePhotos: Array<{ url: string; issueId: string; issueType: string; photoIndex: number; createdAt: string }> = []
-            projectIssues.forEach(issue => {
-              issue.photoUrls.forEach((url, idx) => {
-                issuePhotos.push({
-                  url,
-                  issueId: issue.id,
-                  issueType: issue.issueType,
-                  photoIndex: idx,
-                  createdAt: issue.createdAt
-                })
-              })
-            })
-            const totalPhotoCount = checklistPhotos.length + issuePhotos.length
-
-            return (
-              <div className="border-t border-gray-100 pt-4">
-                <div className="flex items-center gap-2 text-gray-500 mb-3">
-                  <PhotoIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t('photos')}</span>
-                  {totalPhotoCount > 0 && (
-                    <span className="text-xs font-semibold text-purple-600">{totalPhotoCount}</span>
-                  )}
-                </div>
-
-                {totalPhotoCount > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                    {checklistPhotos.map(item => (
-                      <button
-                        key={item.id}
-                        onClick={() => setPreviewImage({
-                          url: item.photoUrl!,
-                          task: item.taskDescription,
-                          photoTakenAt: item.photoTakenAt,
-                          photoUploadedAt: item.photoUploadedAt,
-                          downloadFn: () => downloadChecklistPhotoWatermarked(project.id, item.id),
-                        })}
-                        className="relative group cursor-pointer"
-                      >
-                        <img
-                          src={item.photoUrl!}
-                          alt={item.taskDescription}
-                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <CameraIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
-                          {item.taskDescription}
-                        </div>
-                      </button>
-                    ))}
-                    {issuePhotos.map((photo, idx) => (
-                      <button
-                        key={`issue-${photo.issueId}-${photo.photoIndex}`}
-                        onClick={() => setPreviewImage({
-                          url: getPhotoPublicUrl(photo.url),
-                          task: `Issue: ${photo.issueType.replace('_', ' ')}`,
-                          photoTakenAt: photo.createdAt,
-                          downloadFn: () => downloadIssuePhotoWatermarked(photo.issueId, photo.photoIndex),
-                        })}
-                        className="relative group cursor-pointer"
-                      >
-                        <img
-                          src={getPhotoPublicUrl(photo.url)}
-                          alt={`Issue photo ${idx + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <CameraIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-amber-500/70 text-white text-[10px] px-1 py-0.5 rounded-b-lg truncate">
-                          Issue: {photo.issueType.replace('_', ' ')}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-xl p-4 text-center">
-                    <p className="text-sm text-gray-500">{t('noPhotosUploaded')}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
+            <ProjectPhotos
+              project={project}
+              walkthrough={walkthrough}
+              checklistItems={checklistItems}
+              projectIssues={projectIssues}
+              canEdit
+              onChecklistRefetch={fetchChecklist}
+              onIssuesRefetch={fetchProjectIssues}
+              walkthroughControls={{
+                uploadingKey: null,
+                optimisticPhotos: pmOptimisticPhotos,
+                expandedGroupIds: walkthroughExpandedGroups,
+                selectionMode: walkthroughSelectionMode,
+                selectedPhotoIds: selectedWalkthroughIds,
+                onUpload: handlePmWalkthroughUpload,
+                onDelete: (photoId) => requestPmWalkthroughDelete([photoId]),
+                onToggleGroup: handlePmWalkthroughToggleGroup,
+                onToggleSelect: togglePmWalkthroughSelect,
+                onSetSelection: setPmWalkthroughSelection,
+                onEnterSelectionMode: () => setWalkthroughSelectionMode(true),
+                onExitSelectionMode: exitPmWalkthroughSelection,
+                onRequestDeleteSelected: () => requestPmWalkthroughDelete([...selectedWalkthroughIds]),
+              }}
+            />
+          </div>
 
           {/* Supply Lists Section */}
           <div className="border-t border-gray-100 pt-4">
@@ -1685,6 +1579,7 @@ export default function ProjectDetailModal({
         onIssueCreated={() => {
           setShowReportIssueModal(false)
           fetchIssueCounts()
+          fetchProjectIssues()
         }}
       />
 
@@ -1699,7 +1594,7 @@ export default function ProjectDetailModal({
           setShowViewIssuesModal(false)
           setShowReportIssueModal(true)
         }}
-        onIssuesChanged={fetchIssueCounts}
+        onIssuesChanged={() => { fetchIssueCounts(); fetchProjectIssues() }}
       />
 
       {/* Submit Supply List Modal */}

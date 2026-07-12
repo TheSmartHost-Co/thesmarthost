@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
@@ -62,7 +63,7 @@ const SendPaystubModal: React.FC<SendPaystubModalProps> = ({
           return
         }
       }
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setSending(false)
     }

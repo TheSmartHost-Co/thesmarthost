@@ -1,5 +1,6 @@
 "use client"
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useUserStore } from '@/store/useUserStore'
@@ -319,7 +320,7 @@ export default function IncomingBookingsPage() {
       }
     } catch (err) {
       console.error('Error sending to turnover:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to send to turnover calendar', 'error')
+      notifyError(err, 'Failed to send to turnover calendar')
     } finally {
       clearSelection()
       setBulkTurnoverModalOpen(false)

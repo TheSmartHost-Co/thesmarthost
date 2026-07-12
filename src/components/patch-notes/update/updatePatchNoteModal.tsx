@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -151,10 +152,7 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
       onUpdated()
     } catch (err) {
       console.error('Error updating patch note:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Error updating patch note',
-        'error'
-      )
+      notifyError(err, 'Error updating patch note')
     } finally {
       setSubmitting(false)
     }

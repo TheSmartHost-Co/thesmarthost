@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -45,10 +46,7 @@ export default function DeleteChecklistModal({
       }
     } catch (err) {
       console.error('Error deleting checklist:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to delete checklist',
-        'error'
-      )
+      notifyError(err, 'Failed to delete checklist')
     } finally {
       setDeleting(false)
     }

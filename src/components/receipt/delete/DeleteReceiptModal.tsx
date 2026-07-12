@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
@@ -38,7 +39,7 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
       }
     } catch (err) {
       console.error('Error deleting receipt:', err)
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setDeleting(false)
     }

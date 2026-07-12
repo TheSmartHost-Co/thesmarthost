@@ -9,7 +9,8 @@ import {
   PhotoIcon,
   ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
-import { isValidPhotoFile, MAX_PHOTOS_PER_UPLOAD } from '@/services/cleaningProjectService'
+import { preflightPhotos, MAX_PHOTOS_PER_UPLOAD } from '@/services/cleaningProjectService'
+import { useNotificationStore } from '@/store/useNotificationStore'
 
 interface WalkthroughUploadMenuProps {
   onSelect: (files: File[]) => void
@@ -26,8 +27,9 @@ interface WalkthroughUploadMenuProps {
  *   - Choose Photos (gallery picker)
  *   - Upload Files (file browser with explicit accept list)
  *
- * Client-side validates file type and size; silently drops invalid files and
- * caps at MAX_PHOTOS_PER_UPLOAD. Accepts HEIC — the backend converts to JPEG.
+ * Client-side validates file type and size (via preflightPhotos), notifies the
+ * user about anything rejected, and caps at MAX_PHOTOS_PER_UPLOAD. Accepts HEIC
+ * — the backend converts to JPEG.
  */
 export default function WalkthroughUploadMenu({
   onSelect,
@@ -37,6 +39,7 @@ export default function WalkthroughUploadMenu({
   label = 'Add Photos',
 }: WalkthroughUploadMenuProps) {
   const { t } = useTranslation('turnover')
+  const showNotification = useNotificationStore((s) => s.showNotification)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -92,14 +95,19 @@ export default function WalkthroughUploadMenu({
     const fileList = e.target.files
     if (!fileList || fileList.length === 0) return
 
-    const validFiles: File[] = []
-    for (let i = 0; i < Math.min(fileList.length, MAX_PHOTOS_PER_UPLOAD); i++) {
-      const file = fileList[i]
-      if (isValidPhotoFile(file).ok) validFiles.push(file)
+    // Validate client-side and tell the user why anything was rejected, instead
+    // of silently dropping it (was a no-feedback dead end for oversize/wrong-type).
+    const { valid, rejected } = preflightPhotos(Array.from(fileList), { max: MAX_PHOTOS_PER_UPLOAD })
+    if (rejected.length > 0) {
+      showNotification(
+        rejected.length === 1
+          ? rejected[0].message
+          : `${rejected.length} files skipped — ${rejected[0].message}`,
+        'error'
+      )
     }
-
-    if (validFiles.length > 0) {
-      onSelect(validFiles)
+    if (valid.length > 0) {
+      onSelect(valid)
     }
 
     // Reset the input so the same file(s) can be selected again

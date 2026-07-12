@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -59,7 +60,7 @@ export default function ClientSettingsPage() {
       }
     } catch (err) {
       console.error('Failed to save settings:', err)
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setSaving(false)
     }

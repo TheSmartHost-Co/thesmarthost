@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { updateTeamMember, getTeamMember } from '@/services/teamMemberService'
@@ -57,7 +58,7 @@ const WageSettingsModal: React.FC<WageSettingsModalProps> = ({
         }
       } catch (err) {
         if (!cancelled) {
-          showNotification(err instanceof Error ? err.message : 'Could not load team member.', 'error')
+          notifyError(err, 'Could not load team member.')
         }
       } finally {
         if (!cancelled) setFetching(false)
@@ -100,7 +101,7 @@ const WageSettingsModal: React.FC<WageSettingsModalProps> = ({
         showNotification(res.message || 'Save failed.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Save failed.', 'error')
+      notifyError(err, 'Save failed.')
     } finally {
       setLoading(false)
     }

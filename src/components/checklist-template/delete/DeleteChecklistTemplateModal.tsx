@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -45,10 +46,7 @@ export default function DeleteChecklistTemplateModal({
       }
     } catch (err) {
       console.error('Error deleting template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToDeleteTemplate'),
-        'error'
-      )
+      notifyError(err, t('failedToDeleteTemplate'))
     } finally {
       setDeleting(false)
     }

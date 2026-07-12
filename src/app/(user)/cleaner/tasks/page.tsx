@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
@@ -350,10 +351,7 @@ export default function CleanerTasksPage() {
         return
       }
       console.error('Error completing task:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorCompletingTask'),
-        'error'
-      )
+      notifyError(err, t('errorCompletingTask'))
     }
   }
 

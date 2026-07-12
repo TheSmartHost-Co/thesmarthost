@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -120,7 +121,7 @@ export default function PropertyManagerPropertiesPage() {
         'success'
       )
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Export failed', 'error')
+      notifyError(err, 'Export failed')
     }
   }
 

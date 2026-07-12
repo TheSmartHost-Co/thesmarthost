@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../../shared/modal'
@@ -41,10 +42,7 @@ const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
       }
     } catch (err) {
       console.error('Error deleting team member:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorDeletingTeamMember'),
-        'error'
-      )
+      notifyError(err, t('errorDeletingTeamMember'))
     } finally {
       setLoading(false)
     }

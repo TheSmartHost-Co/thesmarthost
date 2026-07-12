@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
@@ -36,10 +37,7 @@ export default function ConnectQuickBooksModal({
       setSubmitting(false)
     } catch (err) {
       console.error('QB connect error:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to start QuickBooks OAuth',
-        'error'
-      )
+      notifyError(err, 'Failed to start QuickBooks OAuth')
       setSubmitting(false)
     }
   }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Modal from '../../shared/modal'
@@ -662,7 +663,7 @@ setSelectedProjectIds(new Set())
       }
     } catch (err) {
       console.error('Upload error:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToUploadAndApply'), 'error')
+      notifyError(err, t('failedToUploadAndApply'))
     } finally {
       setIsUploading(false)
     }
@@ -687,7 +688,7 @@ setSelectedProjectIds(new Set())
       }
     } catch (err) {
       console.error('Archive error:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToArchiveReceipt'), 'error')
+      notifyError(err, t('failedToArchiveReceipt'))
     }
   }
 
@@ -712,7 +713,7 @@ setSelectedProjectIds(new Set())
       }
     } catch (err) {
       console.error('Assign property error:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToUpdateReceipt'), 'error')
+      notifyError(err, t('failedToUpdateReceipt'))
     } finally {
       setAssigningReceiptProperty(null)
     }
@@ -805,7 +806,7 @@ setSelectedProjectIds(new Set())
       }
     } catch (err) {
       console.error('Error creating invoice:', err)
-      showNotification(err instanceof Error ? err.message : t('errorGeneratingInvoice'), 'error')
+      notifyError(err, t('errorGeneratingInvoice'))
     } finally {
       setIsSubmitting(false)
     }

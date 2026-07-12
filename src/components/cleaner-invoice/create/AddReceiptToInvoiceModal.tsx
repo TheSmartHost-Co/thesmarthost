@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '@/components/shared/modal'
 import { addInvoiceItem } from '@/services/cleanerInvoiceService'
@@ -181,7 +182,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       }
     } catch (err) {
       console.error('Upload error:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToUploadAndApply'), 'error')
+      notifyError(err, t('failedToUploadAndApply'))
       setUploadStep('select')
     }
   }
@@ -204,7 +205,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       }
     } catch (err) {
       console.error('Error adding expense to invoice:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToAddReceiptExpense'), 'error')
+      notifyError(err, t('failedToAddReceiptExpense'))
     } finally {
       setSubmitting(false)
     }
@@ -255,7 +256,7 @@ const AddReceiptToInvoiceModal: React.FC<AddReceiptToInvoiceModalProps> = ({
       }
     } catch (err) {
       console.error('Error applying receipt:', err)
-      showNotification(err instanceof Error ? err.message : t('failedToApplyReceipt'), 'error')
+      notifyError(err, t('failedToApplyReceipt'))
     } finally {
       setSubmitting(false)
     }

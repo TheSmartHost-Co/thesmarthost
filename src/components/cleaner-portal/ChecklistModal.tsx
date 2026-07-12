@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -402,10 +403,7 @@ export default function ChecklistModal({
       }
     } catch (err) {
       console.error('Error uploading walkthrough photos:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorUploadingPhotos'),
-        'error'
-      )
+      notifyError(err, t('errorUploadingPhotos'))
     } finally {
       // Remove this batch's optimistic photos and revoke blob URLs
       setOptimisticPhotos(prev => {
@@ -572,10 +570,7 @@ export default function ChecklistModal({
           'error'
         )
       } else {
-        showNotification(
-          err instanceof Error ? err.message : t('errorCompletingTask'),
-          'error'
-        )
+        notifyError(err, t('errorCompletingTask'))
       }
     } finally {
       setCompleting(false)

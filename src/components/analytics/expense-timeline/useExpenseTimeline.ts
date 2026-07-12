@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getExpenseAnalytics, getExpenseDrilldown } from '@/services/expenseAnalyticsService'
 import { getCategoriesByUserId } from '@/services/expenseCategoriesService'
@@ -231,7 +232,7 @@ export function useExpenseTimeline(userId: string) {
         showNotification(res.message || 'Failed to load expense details', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setIsDrilldownLoading(false)
     }

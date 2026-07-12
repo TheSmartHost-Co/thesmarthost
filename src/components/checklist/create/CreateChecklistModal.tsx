@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
@@ -286,10 +287,7 @@ export default function CreateChecklistModal({
       onClose()
     } catch (err) {
       console.error('Error creating checklist:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to create checklist',
-        'error'
-      )
+      notifyError(err, 'Failed to create checklist')
     } finally {
       setLoading(false)
     }

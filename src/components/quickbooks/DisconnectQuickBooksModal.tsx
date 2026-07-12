@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
@@ -33,10 +34,7 @@ export default function DisconnectQuickBooksModal({
       }
     } catch (err) {
       console.error('QB disconnect error:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to disconnect QuickBooks',
-        'error'
-      )
+      notifyError(err, 'Failed to disconnect QuickBooks')
     } finally {
       setSubmitting(false)
     }

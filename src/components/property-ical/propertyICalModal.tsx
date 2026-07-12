@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -247,7 +248,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
       }
     } catch (err) {
       console.error('Error syncing iCal:', err)
-      showNotification(err instanceof Error ? err.message : 'Sync failed', 'error')
+      notifyError(err, 'Sync failed')
     } finally {
       setSyncingId(null)
     }
@@ -274,7 +275,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
       }
     } catch (err) {
       console.error('Error deleting iCal subscription:', err)
-      showNotification(err instanceof Error ? err.message : 'Failed to delete', 'error')
+      notifyError(err, 'Failed to delete')
     } finally {
       setDeletingId(null)
     }
@@ -352,7 +353,7 @@ const PropertyICalModal: React.FC<PropertyICalModalProps> = ({
     } catch (err) {
       console.error('Error toggling auto-sync:', err)
       setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, autoSync: !newValue } : s))
-      showNotification(err instanceof Error ? err.message : 'Failed to update auto-sync', 'error')
+      notifyError(err, 'Failed to update auto-sync')
     } finally {
       setTogglingAutoSync(null)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useEffect, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import { searchReceipts, uploadReceipt } from '@/services/receiptService'
@@ -41,7 +42,7 @@ const AddReceiptToPaystubModal: React.FC<AddReceiptToPaystubModalProps> = ({
       if (res.status === 'success') setReceipts(res.data)
       else showNotification(res.message || 'Failed to load receipts.', 'error')
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error.', 'error')
+      notifyError(err, 'Network error.')
     } finally {
       setLoading(false)
     }
@@ -83,7 +84,7 @@ const AddReceiptToPaystubModal: React.FC<AddReceiptToPaystubModalProps> = ({
         showNotification(res.message || 'Failed to attach receipt.', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Error attaching receipt.', 'error')
+      notifyError(err, 'Error attaching receipt.')
     } finally {
       setAttaching(null)
     }
@@ -100,7 +101,7 @@ const AddReceiptToPaystubModal: React.FC<AddReceiptToPaystubModalProps> = ({
       // Re-fetch in a moment so newly-matched receipts surface
       setTimeout(loadReceipts, 1500)
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Upload failed.', 'error')
+      notifyError(err, 'Upload failed.')
     } finally {
       setUploading(false)
     }

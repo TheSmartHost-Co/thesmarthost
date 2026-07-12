@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import React, { useState } from 'react'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
@@ -49,7 +50,7 @@ const BulkDeleteExpensesModal: React.FC<BulkDeleteExpensesModalProps> = ({
       }
     } catch (err) {
       console.error('Bulk delete expenses error:', err)
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setDeleting(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -241,10 +242,7 @@ export default function UpdateChecklistTemplateModal({
       return metaRes.data
     } catch (err) {
       console.error('Error updating template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('failedToUpdateTemplate'),
-        'error'
-      )
+      notifyError(err, t('failedToUpdateTemplate'))
       return null
     } finally {
       setSaving(false)

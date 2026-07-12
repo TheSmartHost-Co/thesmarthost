@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
@@ -255,10 +256,7 @@ export default function WalkthroughTemplateEditorModal({
       }
     } catch (err) {
       console.error('Error saving walkthrough template:', err)
-      showNotification(
-        err instanceof Error ? err.message : t('errorSavingTemplate'),
-        'error'
-      )
+      notifyError(err, t('errorSavingTemplate'))
     } finally {
       setSaving(false)
     }

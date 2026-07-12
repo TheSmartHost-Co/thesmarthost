@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getBookingAnalytics, getBookingDrilldown } from '@/services/bookingAnalyticsService'
 import { getCurrentMonthRange } from '@/services/analyticsService'
@@ -182,7 +183,7 @@ export function useBookingTimeline(userId: string) {
         showNotification(res.message || 'Failed to load booking details', 'error')
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Network error', 'error')
+      notifyError(err, 'Network error')
     } finally {
       setIsDrilldownLoading(false)
     }

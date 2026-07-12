@@ -1,5 +1,6 @@
 'use client'
 
+import { notifyError } from '@/utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/shared/modal'
 import SearchableSelect, {
@@ -91,10 +92,7 @@ const EditListingMappingModal: React.FC<EditListingMappingModalProps> = ({
       }
     } catch (err) {
       console.error('Error updating listing mapping:', err)
-      showNotification(
-        err instanceof Error ? err.message : 'Network error',
-        'error'
-      )
+      notifyError(err, 'Network error')
     } finally {
       setSaving(false)
     }
