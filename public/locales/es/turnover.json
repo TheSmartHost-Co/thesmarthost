@@ -1201,5 +1201,8 @@
   "cartReceipts": "Recibos",
   "cartExtraCharges": "Cargos Extra",
   "clearAll": "Limpiar todo",
-  "reimbursable": "Reembolsable"
+  "reimbursable": "Reembolsable",
+  "photosLabel": "Fotos",
+  "auditLabel": "Auditoría",
+  "photoAttached": "Foto adjunta"
 }

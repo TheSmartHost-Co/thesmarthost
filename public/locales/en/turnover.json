@@ -1220,5 +1220,8 @@
   "cartReceipts": "Receipts",
   "cartExtraCharges": "Extra Charges",
   "clearAll": "Clear All",
-  "reimbursable": "Reimbursable"
+  "reimbursable": "Reimbursable",
+  "photosLabel": "Photos",
+  "auditLabel": "Audit",
+  "photoAttached": "Photo attached"
 }

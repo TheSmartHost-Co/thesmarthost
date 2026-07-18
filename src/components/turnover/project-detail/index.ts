@@ -1,15 +1,5 @@
-// Section identifiers for the PM project-detail modal's collapsible sections +
-// sticky nav. Order here is the render + nav order.
-export const SECTION_IDS = [
-  'bookings',
-  'checklist',
-  'photos',
-  'supplies',
-  'issues',
-  'audit',
-] as const
-
-export type SectionId = (typeof SECTION_IDS)[number]
-
+export { SECTION_IDS } from './types'
+export type { SectionId } from './types'
 export { default as CollapsibleSection, SECTION_ANIM_MS } from './CollapsibleSection'
 export { default as SectionNav } from './SectionNav'
+export { default } from './ProjectDetailModal'

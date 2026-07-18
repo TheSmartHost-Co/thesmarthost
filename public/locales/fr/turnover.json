@@ -1076,5 +1076,8 @@
   "acknowledgedIssuesBadge": "{{count}} pris en charge",
   "supplyListCountLabel": "{{count}} liste de fournitures",
   "supplyListCountLabel_plural": "{{count}} listes de fournitures",
-  "submittedAgo": "Soumis {{time}}"
+  "submittedAgo": "Soumis {{time}}",
+  "photosLabel": "Photos",
+  "auditLabel": "Audit",
+  "photoAttached": "Photo jointe"
 }

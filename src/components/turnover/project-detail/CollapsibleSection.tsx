@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
-import type { SectionId } from './index'
+import type { SectionId } from './types'
 
 // Kept in one place so SectionNav can time its scroll to land after the expand.
 export const SECTION_ANIM_MS = 180
@@ -43,7 +43,7 @@ export default function CollapsibleSection({
         <button
           type="button"
           onClick={() => onToggle(id)}
-          className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer min-w-0"
+          className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
         >
           {icon}
           <span className="text-xs font-medium uppercase tracking-wider">{title}</span>
