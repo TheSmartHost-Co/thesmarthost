@@ -9,9 +9,9 @@ import type { Cleaner } from '@/services/types/cleaner'
 
 export type { WalkthroughUploadTarget, OptimisticPhoto } from '@/components/walkthrough/WalkthroughAccordion'
 
-// Order here is the render + nav order.
-export const SECTION_IDS = [
-  'bookings',
+// Order here is the tab order. Overview absorbs the old 'bookings' section.
+export const TAB_IDS = [
+  'overview',
   'checklist',
   'photos',
   'supplies',
@@ -19,7 +19,7 @@ export const SECTION_IDS = [
   'audit',
 ] as const
 
-export type SectionId = (typeof SECTION_IDS)[number]
+export type TabId = (typeof TAB_IDS)[number]
 
 export interface StatusHeaderProps {
   project: CleaningProject
@@ -71,16 +71,20 @@ export interface ChecklistSectionProps {
   hasTemplate: boolean
   updatingItemId: string | null
   onToggleItem: (item: ProjectChecklistItem) => void
+  isInitializing: boolean
+  onInitialize: () => void
 }
 
 export interface SupplyListsSectionProps {
   count: number
   onView: () => void
+  onRequest: () => void
 }
 
 export interface IssuesSectionProps {
   counts: IssueCounts | null
   onView: () => void
+  onReport: () => void
 }
 
 export interface FooterActionsProps {

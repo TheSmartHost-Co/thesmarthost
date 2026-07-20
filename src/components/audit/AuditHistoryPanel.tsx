@@ -23,9 +23,11 @@ interface Props {
   entityId: string
   initialExpandedId?: string
   onOpenEntityPreview?: (ref: EntityRef) => void
+  /** Hide the panel's own title (e.g. when a surrounding tab/section already labels it). */
+  hideTitle?: boolean
 }
 
-export default function AuditHistoryPanel({ entityType, entityId, initialExpandedId, onOpenEntityPreview }: Props) {
+export default function AuditHistoryPanel({ entityType, entityId, initialExpandedId, onOpenEntityPreview, hideTitle }: Props) {
   const { t } = useTranslation('audit')
   const { events, loading, error, refresh } = useAuditHistory(entityType, entityId, { limit: 100 })
   const [expandedId, setExpandedId] = useState<string | null>(() => initialExpandedId ?? null)
@@ -47,15 +49,17 @@ export default function AuditHistoryPanel({ entityType, entityId, initialExpande
   return (
     <div>
       <div className="mb-4 flex items-center gap-2">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <ClockIcon className="h-5 w-5" />
-          {t('panel.title')}
-          {events.length > 0 && (
-            <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
-              {events.length}
-            </span>
-          )}
-        </h3>
+        {!hideTitle && (
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <ClockIcon className="h-5 w-5" />
+            {t('panel.title')}
+            {events.length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                {events.length}
+              </span>
+            )}
+          </h3>
+        )}
         {events.length > 0 && (
           <div className="ml-auto flex rounded-md border border-gray-200 overflow-hidden text-xs">
             <button

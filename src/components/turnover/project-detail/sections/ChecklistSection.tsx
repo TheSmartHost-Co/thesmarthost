@@ -9,7 +9,7 @@ import type { ChecklistSectionProps } from '../types'
  * Checklist rows grouped by room. Rows with a photo show a quiet camera
  * indicator — viewing/managing photos lives in the Photos section.
  */
-export default function ChecklistSection({ items, isLoading, hasTemplate, updatingItemId, onToggleItem }: ChecklistSectionProps) {
+export default function ChecklistSection({ items, isLoading, hasTemplate, updatingItemId, onToggleItem, isInitializing, onInitialize }: ChecklistSectionProps) {
   const { t } = useTranslation('turnover')
 
   if (isLoading) {
@@ -26,6 +26,15 @@ export default function ChecklistSection({ items, isLoading, hasTemplate, updati
       <div className="bg-gray-50 rounded-xl p-4 text-center">
         <ClipboardDocumentCheckIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
         <p className="text-sm text-gray-500">{hasTemplate ? t('checklistNotInitialized') : t('noChecklist')}</p>
+        {hasTemplate && (
+          <button
+            onClick={onInitialize}
+            disabled={isInitializing}
+            className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          >
+            {isInitializing ? t('initializingChecklist') : t('initializeChecklist')}
+          </button>
+        )}
       </div>
     )
   }

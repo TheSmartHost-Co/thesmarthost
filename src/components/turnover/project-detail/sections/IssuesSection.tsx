@@ -1,11 +1,11 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { ExclamationTriangleIcon, FlagIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, FlagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import type { IssuesSectionProps } from '../types'
 
-/** Issue-count summary card (opens the issues modal) or empty state. */
-export default function IssuesSection({ counts, onView }: IssuesSectionProps) {
+/** Issue-count summary card (opens the issues modal) or empty state with CTA. */
+export default function IssuesSection({ counts, onView, onReport }: IssuesSectionProps) {
   const { t } = useTranslation('turnover')
 
   if (!counts || counts.total === 0) {
@@ -13,6 +13,13 @@ export default function IssuesSection({ counts, onView }: IssuesSectionProps) {
       <div className="bg-gray-50 rounded-xl p-4 text-center">
         <FlagIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
         <p className="text-sm text-gray-500">{t('noIssuesForProject')}</p>
+        <button
+          onClick={onReport}
+          className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        >
+          <PlusIcon className="w-3.5 h-3.5" />
+          {t('reportIssue')}
+        </button>
       </div>
     )
   }

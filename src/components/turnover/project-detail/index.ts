@@ -1,5 +1,3 @@
-export { SECTION_IDS } from './types'
-export type { SectionId } from './types'
-export { default as CollapsibleSection, SECTION_ANIM_MS } from './CollapsibleSection'
-export { default as SectionNav } from './SectionNav'
+export { TAB_IDS } from './types'
+export type { TabId } from './types'
 export { default } from './ProjectDetailModal'

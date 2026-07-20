@@ -1,11 +1,11 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline'
+import { ClipboardDocumentCheckIcon, PlusIcon } from '@heroicons/react/24/outline'
 import type { SupplyListsSectionProps } from '../types'
 
-/** Supply-list summary card (opens the review modal) or empty state. */
-export default function SupplyListsSection({ count, onView }: SupplyListsSectionProps) {
+/** Supply-list summary card (opens the review modal) or empty state with CTA. */
+export default function SupplyListsSection({ count, onView, onRequest }: SupplyListsSectionProps) {
   const { t } = useTranslation('turnover')
 
   if (count === 0) {
@@ -13,6 +13,13 @@ export default function SupplyListsSection({ count, onView }: SupplyListsSection
       <div className="bg-gray-50 rounded-xl p-4 text-center">
         <ClipboardDocumentCheckIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
         <p className="text-sm text-gray-500">{t('noSupplyRequests')}</p>
+        <button
+          onClick={onRequest}
+          className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        >
+          <PlusIcon className="w-3.5 h-3.5" />
+          {t('requestButton')}
+        </button>
       </div>
     )
   }

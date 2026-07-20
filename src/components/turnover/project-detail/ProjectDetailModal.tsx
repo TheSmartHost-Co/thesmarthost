@@ -1,15 +1,10 @@
 'use client'
 
 import { notifyError } from '@/utils/notify'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MotionConfig } from 'framer-motion'
 import {
   CalendarDaysIcon,
-  ClockIcon,
-  ClipboardDocumentCheckIcon,
-  PhotoIcon,
-  FlagIcon,
   PlusIcon,
   CameraIcon,
 } from '@heroicons/react/24/outline'
@@ -30,7 +25,6 @@ import {
   getProjectChecklist,
   updateProjectChecklistItem,
   initializeProjectChecklist,
-  getCompletionPercentage,
   getProjectWalkthrough,
   uploadWalkthroughPhotos,
   deleteWalkthroughPhoto,
@@ -59,9 +53,8 @@ import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Cleaner } from '@/services/types/cleaner'
 import type { Property } from '@/services/types/property'
 import { formatProjectDate } from '../utils/formatUtils'
-import { SECTION_IDS, type SectionId } from './types'
-import CollapsibleSection, { SECTION_ANIM_MS } from './CollapsibleSection'
-import SectionNav, { type SectionNavItem } from './SectionNav'
+import { type TabId } from './types'
+import TabBar, { type TabBarItem } from './TabBar'
 import StatusHeader from './sections/StatusHeader'
 import TimeChangeRequestBanner from './sections/TimeChangeRequestBanner'
 import PropertyCard from './sections/PropertyCard'
@@ -114,11 +107,8 @@ export default function ProjectDetailModal({
   const [overrideTarget, setOverrideTarget] = useState<string>('confirmed')
   const [overriding, setOverriding] = useState(false)
 
-  // Section nav state — all sections start expanded
-  const [collapsedSections, setCollapsedSections] = useState<Set<SectionId>>(new Set())
-  const [activeSection, setActiveSection] = useState<SectionId | null>(null)
-  const sectionRefs = useRef<Partial<Record<SectionId, HTMLDivElement | null>>>({})
-  const intersectingSections = useRef<Set<SectionId>>(new Set())
+  // Active tab — Overview by default; deep links select their tab on open
+  const [activeTab, setActiveTab] = useState<TabId>('overview')
 
   // Booking preview state
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -161,70 +151,11 @@ export default function ProjectDetailModal({
   const [isResolvingRequest, setIsResolvingRequest] = useState(false)
   const [rejectionNotes, setRejectionNotes] = useState('')
 
-  // Auto-open sub-modal from deep link (fires once per mount)
-  const initialSectionHandled = useRef(false)
-  useEffect(() => {
-    if (!isOpen || !initialSection || initialSectionHandled.current) return
-    initialSectionHandled.current = true
-    // Delay slightly so main modal renders first
-    const timer = setTimeout(() => {
-      if (initialSection === 'issues') setShowViewIssuesModal(true)
-      else if (initialSection === 'supplies') setShowViewSupplyListsModal(true)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [isOpen, initialSection])
-
-  const setSectionRef = (id: SectionId) => (el: HTMLDivElement | null) => {
-    sectionRefs.current[id] = el
-  }
-
-  const toggleSection = (id: SectionId) => {
-    setCollapsedSections(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const navigateToSection = (id: SectionId) => {
-    setCollapsedSections(prev => {
-      if (!prev.has(id)) return prev
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    // Wait for the expand animation so the scroll lands on the final layout.
-    setTimeout(() => {
-      sectionRefs.current[id]?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-    }, SECTION_ANIM_MS)
-  }
-
-  // Scrollspy: the first (topmost) section crossing the upper band of the view
-  // drives the active nav pill.
+  // Deep links land on their tab; otherwise every open starts on Overview.
   useEffect(() => {
     if (!isOpen) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = (Object.entries(sectionRefs.current) as [SectionId, HTMLDivElement | null][])
-            .find(([, el]) => el === entry.target)?.[0]
-          if (!id) continue
-          if (entry.isIntersecting) intersectingSections.current.add(id)
-          else intersectingSections.current.delete(id)
-        }
-        const topmost = SECTION_IDS.find(id => intersectingSections.current.has(id))
-        if (topmost) setActiveSection(topmost)
-      },
-      { rootMargin: '-20% 0px -65% 0px' }
-    )
-    Object.values(sectionRefs.current).forEach(el => { if (el) observer.observe(el) })
-    return () => {
-      observer.disconnect()
-      intersectingSections.current = new Set()
-    }
-  }, [isOpen])
+    setActiveTab(initialSection === 'issues' ? 'issues' : initialSection === 'supplies' ? 'supplies' : 'overview')
+  }, [isOpen, initialSection])
 
   // Fetch issue counts when modal opens
   const fetchIssueCounts = useCallback(async () => {
@@ -656,15 +587,6 @@ export default function ProjectDetailModal({
 
   const showAudit = isPM && !!project.id
 
-  const navItems: SectionNavItem[] = [
-    { id: 'bookings', label: t('relatedBookingsLabel') },
-    { id: 'checklist', label: t('checklistLabel') },
-    { id: 'photos', label: t('photosLabel') },
-    { id: 'supplies', label: t('supplyListsLabel') },
-    { id: 'issues', label: t('issuesLabel') },
-    ...(showAudit ? [{ id: 'audit' as SectionId, label: t('auditLabel') }] : []),
-  ]
-
   const checklistComplete =
     !!checklistProgress && checklistProgress.totalItems > 0 &&
     checklistProgress.completedItems === checklistProgress.totalItems
@@ -679,34 +601,53 @@ export default function ProjectDetailModal({
     </span>
   )
 
-  const sectionProps = (id: SectionId) => ({
-    id,
-    collapsed: collapsedSections.has(id),
-    onToggle: toggleSection,
-    sectionRef: setSectionRef(id),
-  })
+  const tabs: TabBarItem[] = [
+    { id: 'overview', label: t('overviewLabel') },
+    {
+      id: 'checklist',
+      label: t('checklistLabel'),
+      badge: checklistProgress && checklistProgress.totalItems > 0
+        ? countPill(`${checklistProgress.completedItems}/${checklistProgress.totalItems}`, checklistComplete ? 'green' : undefined)
+        : undefined,
+    },
+    { id: 'photos', label: t('photosLabel') },
+    {
+      id: 'supplies',
+      label: t('supplyListsLabel'),
+      badge: supplyListCount > 0 ? countPill(String(supplyListCount)) : undefined,
+    },
+    {
+      id: 'issues',
+      label: t('issuesLabel'),
+      badge: issueCounts && issueCounts.total > 0
+        ? countPill(String(issueCounts.total), issueCounts.open > 0 ? 'red' : undefined)
+        : undefined,
+    },
+    ...(showAudit ? [{ id: 'audit' as TabId, label: t('auditLabel') }] : []),
+  ]
+
+  const panelClass = (id: TabId) => `h-full overflow-y-auto px-6 py-5 ${activeTab === id ? '' : 'hidden'}`
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} style="p-0 max-w-4xl w-11/12 max-h-[90vh]">
-      <MotionConfig reducedMotion="user">
-        <div>
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <CalendarDaysIcon className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">{t('projectDetails')}</h2>
-                <p className="text-sm text-gray-500">{formatProjectDate(project.projectDate)}</p>
-              </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      boxClassName="bg-white shadow-lg overflow-hidden flex flex-col w-full h-[100dvh] rounded-none sm:h-[85vh] sm:w-11/12 sm:max-w-4xl sm:rounded-lg sm:mx-2"
+    >
+      <div className="flex flex-col h-full min-h-0">
+        {/* Header + status badges + banner — one fixed chrome block */}
+        <div className="px-6 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+              <CalendarDaysIcon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{t('projectDetails')}</h2>
+              <p className="text-sm text-gray-500">{formatProjectDate(project.projectDate)}</p>
             </div>
           </div>
 
-          <SectionNav items={navItems} activeId={activeSection} onNavigate={navigateToSection} />
-
-          {/* Content */}
-          <div className="px-6 py-5 space-y-5">
+          <div className="mt-2.5">
             <StatusHeader
               project={project}
               statusLabel={statusDisplay.label}
@@ -714,8 +655,10 @@ export default function ProjectDetailModal({
               overdue={overdue}
               overdueLabel={overdueLabel}
             />
+          </div>
 
-            {pendingRequest && (
+          {pendingRequest && (
+            <div className="mt-2.5">
               <TimeChangeRequestBanner
                 request={pendingRequest}
                 hasWrite={hasWrite}
@@ -725,135 +668,112 @@ export default function ProjectDetailModal({
                 onApprove={handleApproveRequest}
                 onReject={handleRejectRequest}
               />
-            )}
-
-            {/* Property & Cleaner — 2-column grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <PropertyCard project={project} />
-              <CleanerCard
-                project={project}
-                cleaners={cleaners}
-                hasWrite={hasWrite}
-                selectedCleanerId={selectedCleanerId}
-                onSelectedCleanerIdChange={setSelectedCleanerId}
-                isAssigning={isAssigning}
-                onAssign={handleAssignCleaner}
-              />
             </div>
+          )}
+        </div>
 
-            <CollapsibleSection
-              {...sectionProps('bookings')}
-              title={t('relatedBookingsLabel')}
-              icon={<CalendarDaysIcon className="w-4 h-4" />}
-            >
-              <RelatedBookings project={project} loadingBookingId={loadingBookingId} onViewBooking={handleViewBooking} />
-            </CollapsibleSection>
+        <TabBar tabs={tabs} activeId={activeTab} onSelect={setActiveTab} />
 
-            {project.pmNotes && <NotesSection variant="pm" text={project.pmNotes} />}
-            {project.cleanerNotes && <NotesSection variant="cleaner" text={project.cleanerNotes} />}
+        {/* Panels — all mounted so per-tab state and scroll survive switching */}
+        <div className="flex-1 min-h-0">
+          <div className={panelClass('overview')}>
+            <div className="space-y-5">
+              {/* Property & Cleaner — 2-column grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <PropertyCard project={project} />
+                <CleanerCard
+                  project={project}
+                  cleaners={cleaners}
+                  hasWrite={hasWrite}
+                  selectedCleanerId={selectedCleanerId}
+                  onSelectedCleanerIdChange={setSelectedCleanerId}
+                  isAssigning={isAssigning}
+                  onAssign={handleAssignCleaner}
+                />
+              </div>
 
-            <CollapsibleSection
-              {...sectionProps('checklist')}
-              title={t('checklistLabel')}
-              icon={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
-              badge={
-                checklistProgress && checklistProgress.totalItems > 0
-                  ? countPill(
-                      `${checklistProgress.completedItems}/${checklistProgress.totalItems} (${getCompletionPercentage(checklistProgress)}%)`,
-                      checklistComplete ? 'green' : undefined
-                    )
-                  : undefined
-              }
-              headerRight={
-                project.checklistId && checklistItems.length === 0 && !isLoadingChecklist ? (
-                  <button
-                    onClick={handleInitializeChecklist}
-                    disabled={isInitializingChecklist}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                  >
-                    {isInitializingChecklist ? t('initializingChecklist') : t('initializeChecklist')}
-                  </button>
-                ) : undefined
-              }
-            >
-              <ChecklistSection
-                items={checklistItems}
-                isLoading={isLoadingChecklist}
-                hasTemplate={!!project.checklistId}
-                updatingItemId={updatingItemId}
-                onToggleItem={handleToggleItem}
-              />
-            </CollapsibleSection>
+              <div>
+                <div className="flex items-center gap-2 text-gray-500 mb-3">
+                  <CalendarDaysIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium uppercase tracking-wider">{t('relatedBookingsLabel')}</span>
+                </div>
+                <RelatedBookings project={project} loadingBookingId={loadingBookingId} onViewBooking={handleViewBooking} />
+              </div>
 
-            {/* Photos — unified segmented area (walkthrough / checklist / issues) */}
-            <CollapsibleSection
-              {...sectionProps('photos')}
-              title={t('photosLabel')}
-              icon={<PhotoIcon className="w-4 h-4" />}
-            >
-              <ProjectPhotos
-                project={project}
-                walkthrough={walkthrough}
-                checklistItems={checklistItems}
-                projectIssues={projectIssues}
-                canEdit
-                onChecklistRefetch={fetchChecklist}
-                onIssuesRefetch={fetchProjectIssues}
-                walkthroughControls={{
-                  uploadingKey: null,
-                  optimisticPhotos: pmOptimisticPhotos,
-                  expandedGroupIds: walkthroughExpandedGroups,
-                  selectionMode: walkthroughSelectionMode,
-                  selectedPhotoIds: selectedWalkthroughIds,
-                  onUpload: handlePmWalkthroughUpload,
-                  onDelete: (photoId) => requestPmWalkthroughDelete([photoId]),
-                  onToggleGroup: handlePmWalkthroughToggleGroup,
-                  onToggleSelect: togglePmWalkthroughSelect,
-                  onSetSelection: setPmWalkthroughSelection,
-                  onEnterSelectionMode: () => setWalkthroughSelectionMode(true),
-                  onExitSelectionMode: exitPmWalkthroughSelection,
-                  onRequestDeleteSelected: () => requestPmWalkthroughDelete([...selectedWalkthroughIds]),
-                }}
-              />
-            </CollapsibleSection>
+              {project.pmNotes && <NotesSection variant="pm" text={project.pmNotes} />}
+              {project.cleanerNotes && <NotesSection variant="cleaner" text={project.cleanerNotes} />}
+            </div>
+          </div>
 
-            <CollapsibleSection
-              {...sectionProps('supplies')}
-              title={t('supplyListsLabel')}
-              icon={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
-              badge={supplyListCount > 0 ? countPill(String(supplyListCount)) : undefined}
-              headerRight={
-                <>
-                  <button
-                    onClick={() => setShowSubmitSupplyListModal(true)}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                  >
-                    <PlusIcon className="w-3.5 h-3.5" />
-                    {t('requestButton')}
-                  </button>
-                  <button
-                    onClick={() => setShowScanReceiptModal(true)}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                  >
-                    <CameraIcon className="w-3.5 h-3.5" />
-                    {t('scanReceipt')}
-                  </button>
-                </>
-              }
-            >
-              <SupplyListsSection count={supplyListCount} onView={() => setShowViewSupplyListsModal(true)} />
-            </CollapsibleSection>
+          <div className={panelClass('checklist')}>
+            <ChecklistSection
+              items={checklistItems}
+              isLoading={isLoadingChecklist}
+              hasTemplate={!!project.checklistId}
+              updatingItemId={updatingItemId}
+              onToggleItem={handleToggleItem}
+              isInitializing={isInitializingChecklist}
+              onInitialize={handleInitializeChecklist}
+            />
+          </div>
 
-            <CollapsibleSection
-              {...sectionProps('issues')}
-              title={t('issuesLabel')}
-              icon={<FlagIcon className="w-4 h-4" />}
-              badge={
-                issueCounts && issueCounts.total > 0
-                  ? countPill(String(issueCounts.total), issueCounts.open > 0 ? 'red' : undefined)
-                  : undefined
-              }
-              headerRight={
+          {/* Photos — unified segmented area (walkthrough / checklist / issues) */}
+          <div className={panelClass('photos')}>
+            <ProjectPhotos
+              project={project}
+              walkthrough={walkthrough}
+              checklistItems={checklistItems}
+              projectIssues={projectIssues}
+              canEdit
+              onChecklistRefetch={fetchChecklist}
+              onIssuesRefetch={fetchProjectIssues}
+              walkthroughControls={{
+                uploadingKey: null,
+                optimisticPhotos: pmOptimisticPhotos,
+                expandedGroupIds: walkthroughExpandedGroups,
+                selectionMode: walkthroughSelectionMode,
+                selectedPhotoIds: selectedWalkthroughIds,
+                onUpload: handlePmWalkthroughUpload,
+                onDelete: (photoId) => requestPmWalkthroughDelete([photoId]),
+                onToggleGroup: handlePmWalkthroughToggleGroup,
+                onToggleSelect: togglePmWalkthroughSelect,
+                onSetSelection: setPmWalkthroughSelection,
+                onEnterSelectionMode: () => setWalkthroughSelectionMode(true),
+                onExitSelectionMode: exitPmWalkthroughSelection,
+                onRequestDeleteSelected: () => requestPmWalkthroughDelete([...selectedWalkthroughIds]),
+              }}
+            />
+          </div>
+
+          <div className={panelClass('supplies')}>
+            {supplyListCount > 0 && (
+              <div className="flex items-center justify-end gap-1.5 mb-3">
+                <button
+                  onClick={() => setShowSubmitSupplyListModal(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  {t('requestButton')}
+                </button>
+                <button
+                  onClick={() => setShowScanReceiptModal(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                >
+                  <CameraIcon className="w-3.5 h-3.5" />
+                  {t('scanReceipt')}
+                </button>
+              </div>
+            )}
+            <SupplyListsSection
+              count={supplyListCount}
+              onView={() => setShowViewSupplyListsModal(true)}
+              onRequest={() => setShowSubmitSupplyListModal(true)}
+            />
+          </div>
+
+          <div className={panelClass('issues')}>
+            {issueCounts && issueCounts.total > 0 && (
+              <div className="flex items-center justify-end gap-1.5 mb-3">
                 <button
                   onClick={() => setShowReportIssueModal(true)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
@@ -861,36 +781,35 @@ export default function ProjectDetailModal({
                   <PlusIcon className="w-3.5 h-3.5" />
                   {t('reportIssue')}
                 </button>
-              }
-            >
-              <IssuesSection counts={issueCounts} onView={() => setShowViewIssuesModal(true)} />
-            </CollapsibleSection>
-
-            {/* Audit Log — PM/ADMIN only */}
-            {showAudit && (
-              <CollapsibleSection
-                {...sectionProps('audit')}
-                title={t('auditLabel')}
-                icon={<ClockIcon className="w-4 h-4" />}
-              >
-                <AuditHistoryPanel entityType="cleaning_project" entityId={project.id} />
-              </CollapsibleSection>
+              </div>
             )}
+            <IssuesSection
+              counts={issueCounts}
+              onView={() => setShowViewIssuesModal(true)}
+              onReport={() => setShowReportIssueModal(true)}
+            />
           </div>
 
-          <FooterActions
-            project={project}
-            hasWrite={hasWrite}
-            onDeleteClick={onDelete ? () => setShowDeleteModal(true) : undefined}
-            onCancelClick={onCancel ? () => setShowCancelConfirm(true) : undefined}
-            onUnbeginClick={() => setShowUnbeginConfirm(true)}
-            onOverrideClick={() => setShowOverrideConfirm(true)}
-            onRemoveOverride={handleRemoveOverride}
-            onEditClick={() => setShowEditModal(true)}
-            onClose={onClose}
-          />
+          {/* Audit Log — PM/ADMIN only */}
+          {showAudit && (
+            <div className={panelClass('audit')}>
+              <AuditHistoryPanel entityType="cleaning_project" entityId={project.id} hideTitle />
+            </div>
+          )}
         </div>
-      </MotionConfig>
+
+        <FooterActions
+          project={project}
+          hasWrite={hasWrite}
+          onDeleteClick={onDelete ? () => setShowDeleteModal(true) : undefined}
+          onCancelClick={onCancel ? () => setShowCancelConfirm(true) : undefined}
+          onUnbeginClick={() => setShowUnbeginConfirm(true)}
+          onOverrideClick={() => setShowOverrideConfirm(true)}
+          onRemoveOverride={handleRemoveOverride}
+          onEditClick={() => setShowEditModal(true)}
+          onClose={onClose}
+        />
+      </div>
 
       {/* Edit Project Modal */}
       <EditProjectModal

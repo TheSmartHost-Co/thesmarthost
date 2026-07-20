@@ -824,7 +824,8 @@
   "resolvedLabel": "Resuelto",
   "failedToLoadIssues": "Error al cargar los problemas",
   "issueCountLabel": "{{count}} problema",
-  "issueCountLabel_plural": "{{count}} problemas",
+  "issueCountLabel_one": "{{count}} problema",
+  "issueCountLabel_other": "{{count}} problemas",
   "openAcrossProperties": "{{count}} abiertos en {{properties}} propiedades",
 
   "statusDraft": "Borrador",
@@ -1112,7 +1113,8 @@
   "chargeDescriptionPlaceholder": "Ej., Suministros de limpieza, Gastos de viaje",
   "acknowledgedIssuesBadge": "{{count}} reconocido",
   "supplyListCountLabel": "{{count}} lista de suministros",
-  "supplyListCountLabel_plural": "{{count}} listas de suministros",
+  "supplyListCountLabel_one": "{{count}} lista de suministros",
+  "supplyListCountLabel_other": "{{count}} listas de suministros",
   "submittedAgo": "Enviado {{time}}",
 
   "convertToExpense": "Convertir a Gasto",
@@ -1204,5 +1206,6 @@
   "reimbursable": "Reembolsable",
   "photosLabel": "Fotos",
   "auditLabel": "Auditoría",
-  "photoAttached": "Foto adjunta"
+  "photoAttached": "Foto adjunta",
+  "overviewLabel": "Resumen"
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '@/components/shared/modal'
 import { XMarkIcon, ExclamationTriangleIcon, ArrowTopRightOnSquareIcon, ArrowDownTrayIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 interface ImagePreviewModalProps {
@@ -50,17 +51,20 @@ export default function ImagePreviewModal({
     setImageError(false)
   }, [imageUrl])
 
-  // Keyboard nav: arrows move the carousel (when enabled), Escape closes.
+  // Escape joins the shared modal stack (top-most layer only), so closing the
+  // viewer doesn't also close the modal beneath it.
+  useEscapeLayer(isOpen, onClose)
+
+  // Keyboard nav: arrows move the carousel (when enabled).
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && onPrev && hasPrev) onPrev()
       else if (e.key === 'ArrowRight' && onNext && hasNext) onNext()
-      else if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, onPrev, onNext, hasPrev, hasNext, onClose])
+  }, [isOpen, onPrev, onNext, hasPrev, hasNext])
 
   const handleImageLoad = () => {
     console.log('[ImagePreview] Image loaded successfully:', imageUrl)

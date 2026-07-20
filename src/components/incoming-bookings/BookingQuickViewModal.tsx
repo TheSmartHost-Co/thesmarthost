@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '@/components/shared/modal'
 import { parseLocalDate } from '@/utils/dateUtils'
 import {
   XMarkIcon,
@@ -36,16 +37,8 @@ const BookingQuickViewModal: React.FC<BookingQuickViewModalProps> = ({
     return () => setMounted(false)
   }, [])
 
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  // Escape joins the shared modal stack (top-most layer only).
+  useEscapeLayer(isOpen, onClose)
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'

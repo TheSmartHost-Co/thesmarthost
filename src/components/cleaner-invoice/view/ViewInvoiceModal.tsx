@@ -598,7 +598,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveInvoiceNumber()
-                    if (e.key === 'Escape') setEditingInvoiceNumber(false)
+                    if (e.key === 'Escape') { e.stopPropagation(); setEditingInvoiceNumber(false) }
                   }}
                 />
                 <button onClick={handleSaveInvoiceNumber} className="p-1 rounded hover:bg-emerald-100">
@@ -653,7 +653,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveBillFrom()
-                    if (e.key === 'Escape') setEditingBillFrom(false)
+                    if (e.key === 'Escape') { e.stopPropagation(); setEditingBillFrom(false) }
                   }}
                 />
                 <button onClick={handleSaveBillFrom} className="p-0.5 rounded hover:bg-emerald-100">

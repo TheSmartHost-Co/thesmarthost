@@ -788,7 +788,8 @@
   "resolvedLabel": "Résolu",
   "failedToLoadIssues": "Échec du chargement des problèmes",
   "issueCountLabel": "{{count}} problème",
-  "issueCountLabel_plural": "{{count}} problèmes",
+  "issueCountLabel_one": "{{count}} problème",
+  "issueCountLabel_other": "{{count}} problèmes",
   "openAcrossProperties": "{{count}} ouverts dans {{properties}} propriétés",
 
   "timeChangeApproved": "Demande de changement d'horaire approuvée",
@@ -1075,9 +1076,11 @@
   "chargeDescriptionPlaceholder": "Ex., Produits de nettoyage, Frais de deplacement",
   "acknowledgedIssuesBadge": "{{count}} pris en charge",
   "supplyListCountLabel": "{{count}} liste de fournitures",
-  "supplyListCountLabel_plural": "{{count}} listes de fournitures",
+  "supplyListCountLabel_one": "{{count}} liste de fournitures",
+  "supplyListCountLabel_other": "{{count}} listes de fournitures",
   "submittedAgo": "Soumis {{time}}",
   "photosLabel": "Photos",
   "auditLabel": "Audit",
-  "photoAttached": "Photo jointe"
+  "photoAttached": "Photo jointe",
+  "overviewLabel": "Aperçu"
 }

@@ -1,12 +1,16 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { XCircleIcon, ArrowPathIcon, BoltIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
+import { TrashIcon, XCircleIcon, ArrowPathIcon, BoltIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
+import TableActionsDropdown, { type ActionItem } from '@/components/shared/TableActionsDropdown'
 import type { FooterActionsProps } from '../types'
 
 const LOCKED_STATUSES = ['completed', 'cancelled']
 
-/** Footer button row: destructive/status actions left, Close/Edit right. */
+/**
+ * Single-row footer: destructive/status actions live in a ⋯ overflow menu
+ * (keeps the fixed chrome slim on mobile); Close + Edit stay primary.
+ */
 export default function FooterActions({
   project,
   hasWrite,
@@ -20,52 +24,29 @@ export default function FooterActions({
 }: FooterActionsProps) {
   const { t } = useTranslation('turnover')
   const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500'
+
+  const menuActions: ActionItem[] = []
+  if (hasWrite && onDeleteClick) {
+    menuActions.push({ label: t('deleteProject'), icon: TrashIcon, onClick: onDeleteClick, variant: 'danger' })
+  }
+  if (hasWrite && onCancelClick && !LOCKED_STATUSES.includes(project.status)) {
+    menuActions.push({ label: t('cancelProject'), icon: XCircleIcon, onClick: onCancelClick })
+  }
+  if (hasWrite && project.status === 'in_progress') {
+    menuActions.push({ label: t('unstartProjectLabel'), icon: ArrowPathIcon, onClick: onUnbeginClick })
+  }
+  if (hasWrite) {
+    menuActions.push(
+      project.pmOverride
+        ? { label: t('removeOverride'), icon: BoltIcon, onClick: onRemoveOverride }
+        : { label: t('overrideProject'), icon: BoltIcon, onClick: onOverrideClick }
+    )
+  }
+
   return (
-    <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap items-center gap-2">
-      {hasWrite && onDeleteClick && (
-        <button
-          onClick={onDeleteClick}
-          className={`px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer ${focusRing}`}
-        >
-          {t('deleteProject')}
-        </button>
-      )}
-      {hasWrite && onCancelClick && !LOCKED_STATUSES.includes(project.status) && (
-        <button
-          onClick={onCancelClick}
-          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer ${focusRing}`}
-        >
-          <XCircleIcon className="w-3.5 h-3.5" />
-          {t('cancelProject')}
-        </button>
-      )}
-      {hasWrite && project.status === 'in_progress' && (
-        <button
-          onClick={onUnbeginClick}
-          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer ${focusRing}`}
-        >
-          <ArrowPathIcon className="w-3.5 h-3.5" />
-          {t('unstartProjectLabel')}
-        </button>
-      )}
-      {hasWrite && (
-        project.pmOverride ? (
-          <button
-            onClick={onRemoveOverride}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer ${focusRing}`}
-          >
-            <BoltIcon className="w-3.5 h-3.5" />
-            {t('removeOverride')}
-          </button>
-        ) : (
-          <button
-            onClick={onOverrideClick}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer ${focusRing}`}
-          >
-            <BoltIcon className="w-3.5 h-3.5" />
-            {t('overrideProject')}
-          </button>
-        )
+    <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex items-center gap-2 flex-shrink-0">
+      {menuActions.length > 0 && (
+        <TableActionsDropdown actions={menuActions} itemId={`project-actions-${project.id}`} />
       )}
       <div className="flex-1 min-w-0" />
       <button

@@ -834,7 +834,8 @@
   "resolvedLabel": "Resolved",
   "failedToLoadIssues": "Failed to load issues",
   "issueCountLabel": "{{count}} issue",
-  "issueCountLabel_plural": "{{count}} issues",
+  "issueCountLabel_one": "{{count}} issue",
+  "issueCountLabel_other": "{{count}} issues",
   "openAcrossProperties": "{{count}} open across {{properties}} properties",
 
   "timeChangeApproved": "Time change request approved",
@@ -1131,7 +1132,8 @@
   "chargeDescriptionPlaceholder": "e.g., Cleaning supplies, Travel expense",
   "acknowledgedIssuesBadge": "{{count}} acknowledged",
   "supplyListCountLabel": "{{count}} supply list",
-  "supplyListCountLabel_plural": "{{count}} supply lists",
+  "supplyListCountLabel_one": "{{count}} supply list",
+  "supplyListCountLabel_other": "{{count}} supply lists",
   "submittedAgo": "Submitted {{time}}",
 
   "convertToExpense": "Convert to Expense",
@@ -1223,5 +1225,6 @@
   "reimbursable": "Reimbursable",
   "photosLabel": "Photos",
   "auditLabel": "Audit",
-  "photoAttached": "Photo attached"
+  "photoAttached": "Photo attached",
+  "overviewLabel": "Overview"
 }

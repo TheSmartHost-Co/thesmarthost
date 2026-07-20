@@ -723,7 +723,7 @@ export default function CleanerSupplyListModal({
                                       onChange={(e) => setEditName(e.target.value)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter' && editName.trim()) handleSaveItemEdit()
-                                        if (e.key === 'Escape') setEditingItemId(null)
+                                        if (e.key === 'Escape') { e.stopPropagation(); setEditingItemId(null) }
                                       }}
                                       className="w-full text-sm px-2 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
                                       autoFocus
@@ -737,7 +737,7 @@ export default function CleanerSupplyListModal({
                                           onChange={(e) => setEditQuantity(e.target.value)}
                                           onKeyDown={(e) => {
                                             if (e.key === 'Enter' && editName.trim()) handleSaveItemEdit()
-                                            if (e.key === 'Escape') setEditingItemId(null)
+                                            if (e.key === 'Escape') { e.stopPropagation(); setEditingItemId(null) }
                                           }}
                                           min="1"
                                           className="w-14 text-sm px-2 py-1 border border-gray-300 rounded-lg text-center focus:ring-1 focus:ring-teal-400 focus:border-teal-400"
