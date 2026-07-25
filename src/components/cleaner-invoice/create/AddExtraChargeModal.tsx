@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Modal from '@/components/shared/modal'
 import { addInvoiceItem } from '@/services/cleanerInvoiceService'
 import type { CleanerInvoiceItem } from '@/services/types/cleanerInvoice'
+import { formatLocalDate } from '@/utils/dateUtils'
 import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
@@ -32,6 +33,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   // Charge form state
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
+  const [chargeDate, setChargeDate] = useState(() => formatLocalDate(new Date()))
   const [notes, setNotes] = useState('')
   const [isTaxable, setIsTaxable] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -41,6 +43,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
     if (!isOpen) {
       setDescription('')
       setAmount('')
+      setChargeDate(formatLocalDate(new Date()))
       setNotes('')
       setIsTaxable(defaultTaxable)
       setSubmitting(false)
@@ -48,13 +51,14 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
   }, [isOpen])
 
   const handleSubmit = async () => {
-    if (!description.trim() || !amount) return
+    if (!description.trim() || !amount || !chargeDate) return
     setSubmitting(true)
 
     try {
       const res = await addInvoiceItem(invoiceId, {
         description: description.trim(),
         amount: parseFloat(amount),
+        expenseDate: chargeDate,
         notes: notes.trim() || undefined,
         isTaxable,
       })
@@ -116,15 +120,24 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
             </div>
           </div>
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-700 mb-1">{t('notes')}</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('chargeDate')} *</label>
             <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={t('notesOptionalPlaceholder')}
+              type="date"
+              value={chargeDate}
+              onChange={(e) => setChargeDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{t('notes')}</label>
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={t('notesOptionalPlaceholder')}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
         </div>
       </div>
 
@@ -160,7 +173,7 @@ const AddExtraChargeModal: React.FC<AddExtraChargeModalProps> = ({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting || !description.trim() || !amount}
+          disabled={submitting || !description.trim() || !amount || !chargeDate}
           className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
         >
           {submitting ? (

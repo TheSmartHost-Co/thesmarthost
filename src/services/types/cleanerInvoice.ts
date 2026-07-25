@@ -137,7 +137,7 @@ export interface ExtraItemPayload {
   propertyId: string
   category?: string
   vendorName?: string
-  expenseDate?: string
+  expenseDate: string
   paymentMethod?: string
   paidByType?: string
   paidById?: string
@@ -187,6 +187,7 @@ export interface UpdateInvoiceItemPayload {
   notes?: string | null
   receiptId?: string | null
   isTaxable?: boolean
+  projectDate?: string
 }
 
 export interface AddInvoiceItemPayload {
@@ -196,6 +197,7 @@ export interface AddInvoiceItemPayload {
   isTaxable?: boolean
   receiptId?: string
   expenseId?: string
+  expenseDate?: string
 }
 
 // Add expense as invoice line item

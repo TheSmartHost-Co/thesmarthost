@@ -483,6 +483,8 @@
   "addExtraCharge": "Agregar cargo extra",
   "chargeDescription": "Descripción",
   "chargeAmount": "Monto",
+  "chargeDate": "Fecha",
+  "chargeDateRequired": "La fecha del cargo es obligatoria",
   "addingCharge": "Agregando...",
   "addCharge": "Agregar cargo",
   "createInvoiceTitle": "Crear factura",

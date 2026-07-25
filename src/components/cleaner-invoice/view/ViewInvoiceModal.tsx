@@ -92,7 +92,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
   const [invoice, setInvoice] = useState<CleanerInvoice | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '', isTaxable: false })
+  const [editForm, setEditForm] = useState({ description: '', rateType: '' as string, rateAmount: '', durationMinutes: '', amount: '', notes: '', isTaxable: false, projectDate: '' })
   const [showAddExtraModal, setShowAddExtraModal] = useState(false)
   const [convertingItem, setConvertingItem] = useState<CleanerInvoiceItem | null>(null)
   const [showAddReceiptModal, setShowAddReceiptModal] = useState(false)
@@ -379,6 +379,7 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       amount: String(item.amount),
       notes: item.notes || '',
       isTaxable: item.isTaxable || false,
+      projectDate: item.projectDate ? item.projectDate.split('T')[0] : '',
     })
   }
 
@@ -407,6 +408,10 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
       }
       if (editForm.notes !== (currentItem.notes || '')) payload.notes = editForm.notes || null
       if (editForm.isTaxable !== (currentItem.isTaxable || false)) payload.isTaxable = editForm.isTaxable
+      // Dates are required data — only send a change, never a clear
+      if (editForm.projectDate && editForm.projectDate !== (currentItem.projectDate ? currentItem.projectDate.split('T')[0] : '')) {
+        payload.projectDate = editForm.projectDate
+      }
 
       if (Object.keys(payload).length === 0) {
         setEditingItemId(null)
@@ -992,6 +997,15 @@ const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({
                         className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
+                    {/* Date — project items derive theirs from the cleaning project */}
+                    {!item.cleaningProjectId && (
+                      <input
+                        type="date"
+                        value={editForm.projectDate}
+                        onChange={(e) => setEditForm({ ...editForm, projectDate: e.target.value })}
+                        className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    )}
                   </div>
                   <input
                     type="text"
