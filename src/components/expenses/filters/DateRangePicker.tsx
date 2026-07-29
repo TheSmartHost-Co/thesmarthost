@@ -2,8 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { CalendarDaysIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
-import type { DateRangePreset, ExpenseFilterState } from '@/services/types/expenseFilterPreset'
+import type { DateRangePreset, ExpenseDateBasis, ExpenseFilterState } from '@/services/types/expenseFilterPreset'
 import { resolveDateRange } from '@/services/types/expenseFilterPreset'
+
+const BASIS_CHOICES: { value: ExpenseDateBasis; label: string }[] = [
+  { value: 'expenseDate', label: 'Transaction date' },
+  { value: 'createdAt',   label: 'Date added' },
+]
 
 const PRESET_CHOICES: { value: DateRangePreset; label: string }[] = [
   { value: 'allTime',     label: 'All time' },
@@ -47,26 +52,29 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
   }, [open])
 
   const formatTriggerLabel = () => {
+    // Non-default basis is called out in the trigger so it's obvious the range
+    // applies to when the expense was added, not when it happened.
+    const basisSuffix = value.basis === 'createdAt' ? ' · Date added' : ''
     if (value.preset !== 'custom') {
-      return PRESET_CHOICES.find((p) => p.value === value.preset)?.label || 'This month'
+      return (PRESET_CHOICES.find((p) => p.value === value.preset)?.label || 'This month') + basisSuffix
     }
     const { startDate, endDate } = resolveDateRange(value)
-    if (!startDate && !endDate) return 'Custom range'
-    if (startDate && endDate) return `${startDate} → ${endDate}`
-    return startDate || endDate || 'Custom range'
+    if (!startDate && !endDate) return `Custom range${basisSuffix}`
+    if (startDate && endDate) return `${startDate} → ${endDate}${basisSuffix}`
+    return (startDate || endDate || 'Custom range') + basisSuffix
   }
 
   const handlePresetClick = (preset: DateRangePreset) => {
     if (preset === 'custom') {
-      onChange({ preset: 'custom', customStart: draftStart || null, customEnd: draftEnd || null })
+      onChange({ ...value, preset: 'custom', customStart: draftStart || null, customEnd: draftEnd || null })
     } else {
-      onChange({ preset, customStart: null, customEnd: null })
+      onChange({ ...value, preset, customStart: null, customEnd: null })
       setOpen(false)
     }
   }
 
   const handleApplyCustom = () => {
-    onChange({ preset: 'custom', customStart: draftStart || null, customEnd: draftEnd || null })
+    onChange({ ...value, preset: 'custom', customStart: draftStart || null, customEnd: draftEnd || null })
     setOpen(false)
   }
 
@@ -88,21 +96,41 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
 
       {open && (
         <div className="absolute left-0 top-full mt-2 w-72 max-w-[calc(100vw-3rem)] bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-2">
-          <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Quick select</p>
-          {PRESET_CHOICES.filter((p) => p.value !== 'custom').map((preset) => (
-            <button
-              key={preset.value}
-              type="button"
-              onClick={() => handlePresetClick(preset.value)}
-              className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                value.preset === preset.value
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
+          <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Filter by</p>
+          <div className="px-3 pb-2 flex gap-2">
+            {BASIS_CHOICES.map((choice) => (
+              <button
+                key={choice.value}
+                type="button"
+                onClick={() => onChange({ ...value, basis: choice.value })}
+                className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
+                  value.basis === choice.value
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="border-t border-gray-100 pt-2">
+            <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Quick select</p>
+            {PRESET_CHOICES.filter((p) => p.value !== 'custom').map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                onClick={() => handlePresetClick(preset.value)}
+                className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                  value.preset === preset.value
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
 
           <div className="border-t border-gray-100 mt-2 pt-2">
             <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Custom range</p>

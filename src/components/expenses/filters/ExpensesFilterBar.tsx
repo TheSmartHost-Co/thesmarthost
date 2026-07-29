@@ -5,6 +5,7 @@ import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/
 import SearchableSelect, { type SearchableSelectOption } from '@/components/shared/SearchableSelect'
 import MultiSelectChips from './MultiSelectChips'
 import DateRangePicker from './DateRangePicker'
+import SortDropdown from './SortDropdown'
 import type {
   ExpenseFilterState,
   HasReceiptFilter,
@@ -232,6 +233,12 @@ export default function ExpensesFilterBar({
           )}
         </div>
 
+        {/* Sort */}
+        <SortDropdown
+          value={state.sort}
+          onChange={(sort) => update({ sort })}
+        />
+
         {/* Active-filters indicator + reset (shown in main row when there are any) */}
         {activeCount > 0 && (
           <button
@@ -245,7 +252,7 @@ export default function ExpensesFilterBar({
               hasReceipt: 'any',
               receiptStatuses: [],
               search: '',
-              dateRange: { preset: 'thisMonth', customStart: null, customEnd: null },
+              dateRange: { preset: 'thisMonth', customStart: null, customEnd: null, basis: 'expenseDate' },
             })}
             className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
             title="Clear all filters"

@@ -243,6 +243,11 @@ export interface ExpenseFilters {
   startDate?: string
   endDate?: string
   isReimbursable?: boolean
+  // Which date column startDate/endDate applies to (default: expenseDate)
+  dateBasis?: 'expenseDate' | 'createdAt'
+  // Server-side sort (default: expenseDate desc)
+  sortBy?: 'expenseDate' | 'createdAt' | 'amount'
+  sortDirection?: 'asc' | 'desc'
 }
 
 // ─── Bulk + export response types ──────────────────────────────
