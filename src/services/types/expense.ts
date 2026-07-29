@@ -1,4 +1,5 @@
 import type { PaidByType, ReceiptExtraCharge } from './receipt'
+import type { ExpenseDateBasis, ExpenseSortField } from './expenseFilterPreset'
 
 // Expense Types for HostMetrics Frontend
 
@@ -244,9 +245,9 @@ export interface ExpenseFilters {
   endDate?: string
   isReimbursable?: boolean
   // Which date column startDate/endDate applies to (default: expenseDate)
-  dateBasis?: 'expenseDate' | 'createdAt'
+  dateBasis?: ExpenseDateBasis
   // Server-side sort (default: expenseDate desc)
-  sortBy?: 'expenseDate' | 'createdAt' | 'amount'
+  sortBy?: ExpenseSortField
   sortDirection?: 'asc' | 'desc'
 }
 
