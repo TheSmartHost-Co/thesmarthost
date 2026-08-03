@@ -43,9 +43,12 @@ import type {
   ExpenseFilterState,
   HasReceiptFilter,
   DateRangePreset,
+  ExpenseDateBasis,
+  ExpenseSortField,
 } from '@/services/types/expenseFilterPreset'
 import {
   DEFAULT_EXPENSE_FILTER_STATE,
+  normalizeExpenseFilterState,
   resolveDateRange,
 } from '@/services/types/expenseFilterPreset'
 import {
@@ -139,6 +142,11 @@ function stringifyFilters(state: ExpenseFilterState): URLSearchParams {
     if (state.dateRange.customStart) p.set('start', state.dateRange.customStart)
     if (state.dateRange.customEnd) p.set('end', state.dateRange.customEnd)
   }
+  if (state.dateRange.basis !== 'expenseDate') p.set('basis', state.dateRange.basis)
+  if (state.sort.field !== 'expenseDate' || state.sort.direction !== 'desc') {
+    p.set('sortBy', state.sort.field)
+    p.set('sortDir', state.sort.direction)
+  }
   return p
 }
 
@@ -151,6 +159,12 @@ function parseFiltersFromURL(sp: URLSearchParams): ExpenseFilterState {
   const hasReceipt: HasReceiptFilter = hasReceiptRaw && ['any', 'yes', 'no'].includes(hasReceiptRaw)
     ? hasReceiptRaw
     : 'any'
+  const basis: ExpenseDateBasis = sp.get('basis') === 'createdAt' ? 'createdAt' : 'expenseDate'
+  const sortByRaw = sp.get('sortBy') as ExpenseSortField | null
+  const sortField: ExpenseSortField = sortByRaw && ['expenseDate', 'createdAt', 'amount'].includes(sortByRaw)
+    ? sortByRaw
+    : 'expenseDate'
+  const sortDirection: 'asc' | 'desc' = sp.get('sortDir') === 'asc' ? 'asc' : 'desc'
 
   return {
     search: sp.get('q') || '',
@@ -164,7 +178,9 @@ function parseFiltersFromURL(sp: URLSearchParams): ExpenseFilterState {
       preset: validPreset,
       customStart: validPreset === 'custom' ? sp.get('start') : null,
       customEnd: validPreset === 'custom' ? sp.get('end') : null,
+      basis,
     },
+    sort: { field: sortField, direction: sortDirection },
   }
 }
 
@@ -305,6 +321,9 @@ function ExpensesContent() {
         search: state.search.trim() || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        dateBasis: state.dateRange.basis,
+        sortBy: state.sort.field,
+        sortDirection: state.sort.direction,
       }
     },
     [effectiveUserId]
@@ -353,7 +372,8 @@ function ExpensesContent() {
           'category',
           filterState.propertyIds.length === 1 ? filterState.propertyIds[0] : undefined,
           startDate || undefined,
-          endDate || undefined
+          endDate || undefined,
+          filterState.dateRange.basis
         ),
       ])
 
@@ -381,7 +401,8 @@ function ExpensesContent() {
 
   // ─── Saved views ──────────────────────────────────────────────
   const handleLoadPreset = (preset: ExpenseFilterPreset) => {
-    setFilterState(preset.filters)
+    // Old saved views predate the basis/sort keys — normalize to defaults.
+    setFilterState(normalizeExpenseFilterState(preset.filters))
     showNotification(`Loaded view "${preset.name}"`, 'success')
   }
 
@@ -448,7 +469,7 @@ function ExpensesContent() {
     if (ids.length === 0 || !effectiveUserId) return
     setBulkBusy(true)
     try {
-      const result = await exportExpenses({ format, userId: effectiveUserId, expenseIds: ids })
+      const result = await exportExpenses({ format, userId: effectiveUserId, expenseIds: ids, sort: filterState.sort })
       showNotification(`Exported ${result.rowCount} expense${result.rowCount === 1 ? '' : 's'}`, 'success')
     } catch (err) {
       notifyError(err, 'Export failed')

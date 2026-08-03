@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { formatLocalDate } from '@/utils/dateUtils'
 import {
   BanknotesIcon,
 } from '@heroicons/react/24/outline'
@@ -119,9 +120,17 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
   useEffect(() => {
     if (isOpen && effectiveUserId) {
       loadData()
-      resetForm()
     }
   }, [isOpen, effectiveUserId])
+
+  // Reset the form on every open regardless of effectiveUserId timing, so
+  // stale values from a previously viewed item never survive
+  useEffect(() => {
+    if (isOpen) {
+      resetForm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, item.id])
 
   const loadData = async () => {
     if (!effectiveUserId) return
@@ -192,7 +201,7 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
     setCategory('')
     setVendorName('')
     setDescription(item.description || '')
-    setExpenseDate(new Date().toISOString().split('T')[0])
+    setExpenseDate(item.projectDate ? item.projectDate.split('T')[0] : formatLocalDate(new Date()))
     setPaymentMethod('credit_card')
     setPaymentStatus('paid')
     setIsReimbursable(false)
@@ -207,7 +216,7 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
   }
 
   const handleSubmit = async () => {
-    if (!propertyId) return
+    if (!propertyId || !expenseDate) return
     setSubmitting(true)
 
     try {
@@ -320,13 +329,16 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseDate')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenseDate')} *</label>
                 <input
                   type="date"
                   value={expenseDate}
                   onChange={(e) => setExpenseDate(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
+                {!expenseDate && (
+                  <p className="text-[10px] text-red-500 mt-0.5">{t('chargeDateRequired')}</p>
+                )}
               </div>
             </div>
 
@@ -545,7 +557,7 @@ const ConvertToExpenseModal: React.FC<ConvertToExpenseModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !propertyId}
+              disabled={submitting || !propertyId || !expenseDate}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {submitting ? (

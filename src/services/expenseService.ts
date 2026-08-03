@@ -2,6 +2,7 @@
 
 import apiClient, { getAuthHeaders } from './apiClient'
 import { parseLocalDate } from '../utils/dateUtils'
+import type { ExpenseDateBasis, ExpenseSortState } from './types/expenseFilterPreset'
 import type {
   Expense,
   ExpenseResponse,
@@ -69,6 +70,9 @@ function buildExpenseFilterParams(filters: ExpenseFilters): URLSearchParams {
   if (filters.isReimbursable !== undefined) {
     params.append('isReimbursable', filters.isReimbursable.toString())
   }
+  if (filters.dateBasis) params.append('dateBasis', filters.dateBasis)
+  if (filters.sortBy) params.append('sortBy', filters.sortBy)
+  if (filters.sortDirection) params.append('sortDirection', filters.sortDirection)
 
   return params
 }
@@ -182,14 +186,19 @@ export async function exportExpenses(opts: {
   userId: string
   filters?: ExpenseFilters       // mutually exclusive with expenseIds
   expenseIds?: string[]
+  sort?: ExpenseSortState        // used with expenseIds so export order matches the table
 }): Promise<ExportExpensesResult> {
-  const { format, userId, filters, expenseIds } = opts
+  const { format, userId, filters, expenseIds, sort } = opts
 
   let params: URLSearchParams
   if (expenseIds && expenseIds.length > 0) {
     params = new URLSearchParams()
     params.append('userId', userId)
     params.append('expenseIds', expenseIds.join(','))
+    if (sort) {
+      params.append('sortBy', sort.field)
+      params.append('sortDirection', sort.direction)
+    }
   } else if (filters) {
     params = buildExpenseFilterParams({ ...filters, userId })
   } else {
@@ -244,6 +253,7 @@ export async function exportExpenses(opts: {
  * @param propertyId - Optional property filter
  * @param startDate - Optional start date filter
  * @param endDate - Optional end date filter
+ * @param dateBasis - Which date column the range applies to (default expenseDate)
  * @returns Promise with expense summary
  */
 export async function getExpenseSummary(
@@ -251,7 +261,8 @@ export async function getExpenseSummary(
   groupBy: 'category' | 'property' = 'category',
   propertyId?: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  dateBasis?: ExpenseDateBasis
 ): Promise<ExpenseSummaryResponse> {
   const params = new URLSearchParams()
   params.append('userId', userId)
@@ -265,6 +276,9 @@ export async function getExpenseSummary(
   }
   if (endDate) {
     params.append('endDate', endDate)
+  }
+  if (dateBasis === 'createdAt') {
+    params.append('dateBasis', dateBasis)
   }
 
   return apiClient<ExpenseSummaryResponse>(`/expenses/summary?${params.toString()}`)

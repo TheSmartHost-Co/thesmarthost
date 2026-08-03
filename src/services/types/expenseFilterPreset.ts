@@ -13,6 +13,19 @@ export type DateRangePreset = 'allTime' | 'thisMonth' | 'lastMonth' | 'thisQuart
 export type HasReceiptFilter = 'any' | 'yes' | 'no'
 
 /**
+ * Which date column the date-range filter applies to:
+ * expense_date (transaction date) or created_at (date added).
+ */
+export type ExpenseDateBasis = 'expenseDate' | 'createdAt'
+
+export type ExpenseSortField = 'expenseDate' | 'createdAt' | 'amount'
+
+export interface ExpenseSortState {
+  field: ExpenseSortField
+  direction: 'asc' | 'desc'
+}
+
+/**
  * The full filter snapshot persisted to expense_filter_presets.filters.
  * Mirrors the backend JSONB shape exactly.
  */
@@ -25,10 +38,12 @@ export interface ExpenseFilterState {
     preset: DateRangePreset
     customStart: string | null   // 'YYYY-MM-DD' (only used when preset === 'custom')
     customEnd: string | null
+    basis: ExpenseDateBasis
   }
   hasReceipt: HasReceiptFilter
   receiptStatuses: ReceiptStatus[]
   search: string
+  sort: ExpenseSortState
 }
 
 export interface ExpenseFilterPreset {
@@ -77,10 +92,44 @@ export const DEFAULT_EXPENSE_FILTER_STATE: ExpenseFilterState = {
   categories: [],
   paymentStatuses: [],
   qbSyncStatuses: [],
-  dateRange: { preset: 'thisMonth', customStart: null, customEnd: null },
+  dateRange: { preset: 'thisMonth', customStart: null, customEnd: null, basis: 'expenseDate' },
   hasReceipt: 'any',
   receiptStatuses: [],
   search: '',
+  sort: { field: 'expenseDate', direction: 'desc' },
+}
+
+const VALID_DATE_BASES: ExpenseDateBasis[] = ['expenseDate', 'createdAt']
+const VALID_SORT_FIELDS: ExpenseSortField[] = ['expenseDate', 'createdAt', 'amount']
+
+/**
+ * Repair a filter state loaded from an untyped source (saved-view JSONB,
+ * pre-existing rows that predate the `basis`/`sort` keys) by merging onto the
+ * defaults and whitelisting the enum-valued keys.
+ */
+export function normalizeExpenseFilterState(
+  raw: Partial<ExpenseFilterState> | null | undefined
+): ExpenseFilterState {
+  const d = DEFAULT_EXPENSE_FILTER_STATE
+  if (!raw) return { ...d, dateRange: { ...d.dateRange }, sort: { ...d.sort } }
+
+  const basis = raw.dateRange?.basis
+  const sortField = raw.sort?.field
+  const sortDirection = raw.sort?.direction
+
+  return {
+    ...d,
+    ...raw,
+    dateRange: {
+      ...d.dateRange,
+      ...raw.dateRange,
+      basis: basis && VALID_DATE_BASES.includes(basis) ? basis : d.dateRange.basis,
+    },
+    sort: {
+      field: sortField && VALID_SORT_FIELDS.includes(sortField) ? sortField : d.sort.field,
+      direction: sortDirection === 'asc' || sortDirection === 'desc' ? sortDirection : d.sort.direction,
+    },
+  }
 }
 
 /**
@@ -140,6 +189,6 @@ export function countActiveFilters(state: ExpenseFilterState): number {
   if (state.hasReceipt !== 'any') n++
   if (state.receiptStatuses.length) n++
   if (state.search.trim()) n++
-  if (state.dateRange.preset !== 'thisMonth') n++
+  if (state.dateRange.preset !== 'thisMonth' || state.dateRange.basis !== 'expenseDate') n++
   return n
 }

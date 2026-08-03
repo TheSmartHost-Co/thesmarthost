@@ -38,6 +38,7 @@ import {
   PencilIcon,
 } from '@heroicons/react/24/outline'
 import { TAX_RATES, calcTax } from '@/constants/taxRates'
+import { formatLocalDate } from '@/utils/dateUtils'
 import ExpenseViewerModal from '@/components/expenses/ExpenseViewerModal'
 import ReceiptDetailModal from '@/components/receipt/detail/ReceiptDetailModal'
 
@@ -198,6 +199,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [extraItems, setExtraItems] = useState<LocalExtraItem[]>([])
   const [extraDesc, setExtraDesc] = useState('')
   const [extraAmount, setExtraAmount] = useState('')
+  const [extraDate, setExtraDate] = useState(() => formatLocalDate(new Date()))
   const [extraPropertyId, setExtraPropertyId] = useState('')
   const [extraTaxable, setExtraTaxable] = useState(false)
 
@@ -220,6 +222,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     projects: AvailableProject[]
     expenses: AvailableExpense[]
     receipts: UploadedReceipt[]
+    extraItems: LocalExtraItem[]
   } | null>(null)
 
   // ─── Per-row editor sub-modals ───────────────────────────────────────────
@@ -256,6 +259,7 @@ setSelectedProjectIds(new Set())
       setExtraItems([])
       setExtraDesc('')
       setExtraAmount('')
+      setExtraDate(formatLocalDate(new Date()))
       setExtraPropertyId('')
       setExtraTaxable(false)
       setCartExpanded(false)
@@ -418,16 +422,21 @@ setSelectedProjectIds(new Set())
       }
     })
 
-    if (oorProjects.length + oorExpenses.length + oorReceipts.length > 0) {
-      setPeriodConflict({ projects: oorProjects, expenses: oorExpenses, receipts: oorReceipts })
+    const oorExtraItems = extraItems.filter(
+      (item) => !isDateInRange(item.expenseDate, periodStart, periodEnd)
+    )
+
+    if (oorProjects.length + oorExpenses.length + oorReceipts.length + oorExtraItems.length > 0) {
+      setPeriodConflict({ projects: oorProjects, expenses: oorExpenses, receipts: oorReceipts, extraItems: oorExtraItems })
     } else {
       setPeriodConflict(null)
     }
-    // Intentionally only depends on period dates — list/selection changes are
-    // handled by their own effects, and re-running on every selection toggle
-    // would surface the modal mid-interaction.
+    // Depends on period dates plus extraItems: project/expense/receipt lists are
+    // server-filtered to the period so only a period change can push them out of
+    // range, but extra charges accept any typed date and must be re-checked when
+    // added. Re-running on selection toggles would surface the modal mid-interaction.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodStart, periodEnd])
+  }, [periodStart, periodEnd, extraItems])
 
   const handleExpandPeriod = () => {
     if (!periodConflict) return
@@ -437,6 +446,7 @@ setSelectedProjectIds(new Set())
     periodConflict.receipts.forEach((r) => {
       if (r.expenseDate) dates.push(r.expenseDate)
     })
+    periodConflict.extraItems.forEach((item) => dates.push(item.expenseDate))
     if (dates.length === 0) {
       setPeriodConflict(null)
       return
@@ -453,7 +463,8 @@ setSelectedProjectIds(new Set())
     const droppedCount =
       periodConflict.projects.length +
       periodConflict.expenses.length +
-      periodConflict.receipts.length
+      periodConflict.receipts.length +
+      periodConflict.extraItems.length
 
     if (periodConflict.projects.length > 0) {
       setSelectedProjectIds((prev) => {
@@ -475,6 +486,10 @@ setSelectedProjectIds(new Set())
         periodConflict.receipts.forEach((r) => next.delete(r.id))
         return next
       })
+    }
+    if (periodConflict.extraItems.length > 0) {
+      const droppedIds = new Set(periodConflict.extraItems.map((item) => item._id))
+      setExtraItems((prev) => prev.filter((item) => !droppedIds.has(item._id)))
     }
     if (droppedCount > 0) {
       showNotification(t('itemsDeselectedWarning', { count: droppedCount }), 'info')
@@ -734,18 +749,24 @@ setSelectedProjectIds(new Set())
       showNotification(t('propertyRequired'), 'error')
       return
     }
+    if (!extraDate) {
+      showNotification(t('chargeDateRequired'), 'error')
+      return
+    }
 
     const newItem: LocalExtraItem = {
       _id: crypto.randomUUID(),
       description: extraDesc.trim(),
       amount: parseFloat(extraAmount),
       propertyId: extraPropertyId,
+      expenseDate: extraDate,
       isTaxable: extraTaxable,
     }
 
     setExtraItems((prev) => [...prev, newItem])
     setExtraDesc('')
     setExtraAmount('')
+    setExtraDate(formatLocalDate(new Date()))
     setExtraPropertyId('')
     setExtraTaxable(false)
     showNotification(t('extraItemAdded'), 'success')
@@ -1593,18 +1614,27 @@ setSelectedProjectIds(new Set())
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('extraItemProperty')} *</label>
-                    <select
-                      value={extraPropertyId}
-                      onChange={(e) => setExtraPropertyId(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
-                    >
-                      <option value="">{t('selectProperty')}</option>
-                      {properties.map((p) => (
-                        <option key={p.id} value={p.id}>{p.address}</option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('chargeDate')} *</label>
+                    <input
+                      type="date"
+                      value={extraDate}
+                      onChange={(e) => setExtraDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{t('extraItemProperty')} *</label>
+                  <select
+                    value={extraPropertyId}
+                    onChange={(e) => setExtraPropertyId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                  >
+                    <option value="">{t('selectProperty')}</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.address}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center justify-between">
                   <button
@@ -1626,7 +1656,7 @@ setSelectedProjectIds(new Set())
                   <button
                     type="button"
                     onClick={handleAddExtraItem}
-                    disabled={!extraDesc.trim() || !extraAmount || !extraPropertyId}
+                    disabled={!extraDesc.trim() || !extraAmount || !extraPropertyId || !extraDate}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <PlusIcon className="h-3.5 w-3.5" />
@@ -1650,6 +1680,12 @@ setSelectedProjectIds(new Set())
                         <p className="text-sm font-medium text-gray-900 truncate">{item.description}</p>
                         <div className="flex items-center gap-1.5">
                           {prop && <span className="text-[10px] text-gray-400 truncate">{prop.address}</span>}
+                          {item.expenseDate && (
+                            <>
+                              {prop && <span className="text-[10px] text-gray-300">&middot;</span>}
+                              <span className="text-[10px] text-gray-400">{formatProjectDate(item.expenseDate)}</span>
+                            </>
+                          )}
                           {item.isTaxable && (
                             <>
                               <span className="text-[10px] text-gray-300">&middot;</span>
@@ -1880,7 +1916,8 @@ setSelectedProjectIds(new Set())
                 const total =
                   periodConflict.projects.length +
                   periodConflict.expenses.length +
-                  periodConflict.receipts.length
+                  periodConflict.receipts.length +
+                  periodConflict.extraItems.length
                 return `${total} selected ${total === 1 ? 'item is' : 'items are'} outside the chosen date range. Expand the period to keep them, or drop them from the invoice.`
               })()}
             </p>
@@ -1909,6 +1946,14 @@ setSelectedProjectIds(new Set())
                 key: r.id,
                 label: r.vendorName || r.originalName || 'Receipt',
                 date: r.expenseDate,
+              }))
+            )}
+            {renderConflictGroup(
+              'Extra Charges',
+              periodConflict.extraItems.map((item) => ({
+                key: item._id,
+                label: item.description,
+                date: item.expenseDate,
               }))
             )}
           </div>

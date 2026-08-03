@@ -493,6 +493,8 @@
   "addExtraCharge": "Add Extra Charge",
   "chargeDescription": "Description",
   "chargeAmount": "Amount",
+  "chargeDate": "Date",
+  "chargeDateRequired": "Charge date is required",
   "addingCharge": "Adding...",
   "addCharge": "Add Charge",
   "createInvoiceTitle": "Create Invoice",
