@@ -573,7 +573,7 @@ export default function SupplyListsPage() {
           {writePermission && (
             <>
               <motion.button
-                onClick={() => setShowUploadReceiptModal(true)}
+                onClick={() => handleScanReceipt()}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 shadow-sm transition-colors"
@@ -958,6 +958,8 @@ export default function SupplyListsPage() {
         isOpen={showUploadReceiptModal}
         onClose={() => setShowUploadReceiptModal(false)}
         onUploaded={handleReceiptUploaded}
+        requireProperty
+        propertyId={receiptContextPropertyId || undefined}
       />
 
       {selectedReceiptId && (
@@ -986,7 +988,7 @@ export default function SupplyListsPage() {
         onClose={() => setShowCreateModal(false)}
         onCreated={refetchAll}
         properties={properties}
-        onScanReceipt={() => { setShowCreateModal(false); setShowUploadReceiptModal(true) }}
+        onScanReceipt={() => { setShowCreateModal(false); handleScanReceipt() }}
       />
     </div>
   )

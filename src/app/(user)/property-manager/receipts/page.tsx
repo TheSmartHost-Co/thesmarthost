@@ -1099,6 +1099,7 @@ function ReceiptsContent() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onUploaded={handleUploaded}
+        requireProperty
       />
 
       <BulkUploadReceiptModal

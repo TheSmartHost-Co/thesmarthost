@@ -4,8 +4,11 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { uploadReceipt } from '@/services/receiptService'
+import { getProperties } from '@/services/propertyService'
 import type { UploadReceiptResponse } from '@/services/types/receipt'
+import type { Property } from '@/services/types/property'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -20,6 +23,9 @@ interface UploadReceiptModalProps {
   onUploaded: (response: UploadReceiptResponse['data']) => void
   propertyId?: string
   supplyListId?: string
+  /** Show a required property selector; upload is blocked until one is chosen.
+      The propertyId prop seeds the selection when provided. */
+  requireProperty?: boolean
 }
 
 type Step = 'select' | 'uploading'
@@ -33,13 +39,37 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
   onUploaded,
   propertyId,
   supplyListId,
+  requireProperty,
 }) => {
-  const { t } = useTranslation('expenses')
+  const { t } = useTranslation(['expenses', 'common'])
   const [step, setStep] = useState<Step>('select')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPropertyId, setSelectedPropertyId] = useState('')
+  const [properties, setProperties] = useState<Property[]>([])
+  const [loadedProperties, setLoadedProperties] = useState(false)
+  const { effectiveUserId } = usePermissions()
   const showNotification = useNotificationStore((s) => s.showNotification)
+
+  const loadProperties = useCallback(async () => {
+    if (!effectiveUserId || loadedProperties) return
+    try {
+      const res = await getProperties(effectiveUserId)
+      if (res.status === 'success') setProperties(res.data || [])
+      setLoadedProperties(true)
+    } catch (err) {
+      console.error('Error loading properties:', err)
+    }
+  }, [effectiveUserId, loadedProperties])
+
+  useEffect(() => {
+    if (isOpen && requireProperty) setSelectedPropertyId(propertyId || '')
+  }, [isOpen, requireProperty, propertyId])
+
+  useEffect(() => {
+    if (isOpen && requireProperty) loadProperties()
+  }, [isOpen, requireProperty, loadProperties])
 
   useEffect(() => {
     if (!isOpen) {
@@ -47,6 +77,7 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
       setSelectedFile(null)
       setIsDragOver(false)
       setError(null)
+      setSelectedPropertyId('')
     }
   }, [isOpen])
 
@@ -82,12 +113,17 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
 
   const handleUpload = async () => {
     if (!selectedFile) return
+    if (requireProperty && !selectedPropertyId) return
 
     setStep('uploading')
     setError(null)
 
     try {
-      const res = await uploadReceipt(selectedFile, propertyId, supplyListId)
+      const res = await uploadReceipt(
+        selectedFile,
+        requireProperty ? selectedPropertyId : propertyId,
+        supplyListId
+      )
       if (res.status === 'success') {
         onUploaded(res.data)
         onClose()
@@ -209,6 +245,25 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
               </div>
             )}
 
+            {requireProperty && (
+              <div className="mt-4">
+                <label htmlFor="receipt-property-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('common:property')} <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="receipt-property-select"
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">{t('common:selectAProperty')}</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>{p.address}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {error && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
                 {error}
@@ -224,7 +279,7 @@ const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
               </button>
               <button
                 onClick={handleUpload}
-                disabled={!selectedFile}
+                disabled={!selectedFile || (requireProperty && !selectedPropertyId)}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('uploadAndProcess')}

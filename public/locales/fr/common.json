@@ -59,6 +59,7 @@
   "total": "Total",
   "amount": "Montant",
   "property": "Propriété",
+  "selectAProperty": "Sélectionner une propriété...",
   "allProperties": "Toutes les propriétés",
   "startDate": "Date de début",
   "endDate": "Date de fin",
