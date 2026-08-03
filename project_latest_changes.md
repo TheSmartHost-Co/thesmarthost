@@ -3,6 +3,26 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-08-03: TICKET-009 + TICKET-011 — Receipt property: required on scan, editable in the Edit tab
+
+**Goal**: Two related receipt-property gaps. (009) "Scan Receipt" required a Property from the Expenses page but not from the Receipts page, silently creating "Unassigned" receipts with incomplete filenames. (011) Property was missing from the receipt Edit tab — settable only via the View-tab pencil.
+
+### Changes:
+1. **`requireProperty` prop** (`src/components/receipt/upload/UploadReceiptModal.tsx`) — opt-in prop that loads properties on open (`getProperties(effectiveUserId)` + `usePermissions`, same pattern as `ScanReceiptModal`), renders a required selector seeded from the existing `propertyId` prop, blocks "Upload & Process" until chosen, and guards in `handleUpload`. Without the prop, behavior is unchanged.
+2. **PM Receipts page** (`src/app/(user)/property-manager/receipts/page.tsx`) — passes `requireProperty`.
+3. **PM Supply Lists page** (`src/app/(user)/property-manager/supply-lists/page.tsx`) — passes `requireProperty` + `propertyId={receiptContextPropertyId || undefined}` (scan-from-row preselects). Also routed the two modal-open paths that bypassed `handleScanReceipt()` (header button, create-modal action) through it — review caught that stale context would otherwise preselect the wrong property on the next generic scan.
+4. **i18n** (`public/locales/{en,es,fr}/common.json`) — new `selectAProperty` key; modal switched to `useTranslation(['expenses', 'common'])`.
+5. **Property in the Edit tab** (`src/components/receipt/detail/ReceiptDetailModal.tsx`) — `propertyId` added to `EditFormState` + initial state, seeded in `initEditForm`, diffed in `handleSave`, and a `<select>` rendered as the first Edit-tab field (above Vendor), mirroring the Apply tab's existing selector.
+
+### Key design decisions:
+- **No backend changes needed for either.** 009: the display-filename rename (`date_merchant_property.ext`) already runs on the general OCR path (`receiptService.js:263-270`), so sending `propertyId` fixed both the Unassigned state and the filename for free. 011: `PATCH /receipts/:id` already accepts `propertyId` (it's what the View pencil calls).
+- **Scope: PM surfaces only.** Cleaner dashboard/receipts and the navbar quick-scan (cleaner-only — `isCleaner` in `UserNavbar.tsx`) deliberately untouched; cleaners may lack a property list. Bulk upload keeps its own assign step, so the endpoint must stay property-optional.
+- **Receipts scan stays OCR-only** (no `autoApply`) — same property *rule* as Expenses, not the same *flow*; the Receipts page never created expenses and still doesn't.
+- **Unassign remains impossible by design** (011): backend `COALESCE`s `propertyId`, `PropertyEditPill` is `clearable={false}`. Empty selection is omitted from the payload, and the Edit field is not marked required so unassigned receipts stay saveable.
+- **New failure mode to watch**: the PM scan now hard-depends on `getProperties` succeeding — a failed/empty fetch leaves the selector empty and blocks upload, silently (console-only error). Inherited from `ScanReceiptModal`'s pattern but it bites harder on a required field.
+- **Flagged, not built**: `ScanReceiptModal`/`UploadReceiptModal` duplicate the drop-zone/camera UI (real dedup candidate); both that file and `ReceiptDetailModal` are 100% hardcoded English. **TICKET-010 shelved** (backend): `original_name` isn't recomputed when property/vendor/date change post-upload, and there's no real download button — so property edits still leave stale filenames.
+- Reviewed by 3 agents across both tickets: one real bug (the stale supply-list context) + one a11y fix (label `htmlFor`/select `id`); otherwise clean. `npm run build` + `tsc --noEmit` green. Notes at `notes/TICKET-009.md`, `notes/TICKET-011.md` (each with retest steps + degradation watchlist).
+
 ## 2026-07-11: WALKTHROUGH-001 — Delete button in the enlarged photo viewer
 
 **Goal**: Client testing showed single-delete was hover-only (unreachable on mobile — cleaners are on phones). Add a Delete action inside the enlarged photo viewer for both cleaner and PM, routed through the existing confirm modal + delete handlers.

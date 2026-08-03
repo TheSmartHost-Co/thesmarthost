@@ -84,6 +84,7 @@ interface EditLineItem {
 }
 
 interface EditFormState {
+  propertyId: string
   vendorName: string
   description: string
   expenseDate: string
@@ -149,7 +150,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
 
   // Edit form state
   const [editForm, setEditForm] = useState<EditFormState>({
-    vendorName: '', description: '', expenseDate: '', paymentMethod: 'credit_card',
+    propertyId: '', vendorName: '', description: '', expenseDate: '', paymentMethod: 'credit_card',
     subtotal: '', taxGst: '', taxPst: '', taxHst: '', taxQst: '', taxTotal: '', total: '',
     manualSubtotal: false, manualTaxTotal: false, manualTotal: false,
   })
@@ -221,6 +222,7 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   const initEditForm = () => {
     if (!receipt) return
     setEditForm({
+      propertyId: receipt.propertyId || '',
       vendorName: receipt.vendorName || '',
       description: receipt.description || '',
       expenseDate: receipt.expenseDate || '',
@@ -447,6 +449,9 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
 
       // 1. Header diff
       const headerPayload: UpdateReceiptPayload = {}
+      // Property can be set or changed, but not cleared — the backend COALESCEs
+      // propertyId, so an empty selection is simply omitted.
+      if (editForm.propertyId && editForm.propertyId !== (receipt.propertyId || '')) headerPayload.propertyId = editForm.propertyId
       if (editForm.vendorName !== (receipt.vendorName || '')) headerPayload.vendorName = editForm.vendorName
       if (editForm.description !== (receipt.description || '')) headerPayload.description = editForm.description
       if (editForm.expenseDate !== (receipt.expenseDate || '')) headerPayload.expenseDate = editForm.expenseDate
@@ -860,6 +865,17 @@ const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       </div>
 
       {/* Header fields */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1">Property</label>
+        <select value={editForm.propertyId} onChange={(e) => updateEditField('propertyId', e.target.value)}
+          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <option value="">Select a property...</option>
+          {properties.map((prop) => {
+            const label = [prop.listingName, prop.address].filter(Boolean).join(' — ') || prop.id
+            return <option key={prop.id} value={prop.id}>{label}</option>
+          })}
+        </select>
+      </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">Vendor</label>
         <input type="text" value={editForm.vendorName} onChange={(e) => updateEditField('vendorName', e.target.value)}
