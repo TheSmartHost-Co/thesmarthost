@@ -20,6 +20,8 @@ import {
   NoSymbolIcon,
   Squares2X2Icon,
   CameraIcon,
+  SparklesIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 import { UNASSIGNED_FILTER_ID } from './TurnoverCalendar'
 import type { ViewMode, ZoomLevel, SortOption, CalendarDensity } from './TurnoverCalendar'
@@ -36,6 +38,7 @@ interface CalendarHeaderProps {
   onNextWeek: () => void
   onToday: () => void
   onCreateProject?: () => void
+  onCreateTaskProject?: () => void
   onCreateChecklist?: () => void
   onDuplicateChecklist?: () => void
   showBookings?: boolean
@@ -76,6 +79,7 @@ export default function CalendarHeader({
   onNextWeek,
   onToday,
   onCreateProject,
+  onCreateTaskProject,
   onCreateChecklist,
   onDuplicateChecklist,
   showBookings,
@@ -109,6 +113,7 @@ export default function CalendarHeader({
   const { t } = useTranslation('turnover')
   const isMobile = useIsMobile()
   const [showNewMenu, setShowNewMenu] = useState(false)
+  const [showProjectSub, setShowProjectSub] = useState(false)
   const [showChecklistSub, setShowChecklistSub] = useState(false)
   const [showViewOptions, setShowViewOptions] = useState(false)
   const [propertySearch, setPropertySearch] = useState('')
@@ -121,6 +126,7 @@ export default function CalendarHeader({
     const handleClickOutside = (event: MouseEvent) => {
       if (newMenuRef.current && !newMenuRef.current.contains(event.target as Node)) {
         setShowNewMenu(false)
+        setShowProjectSub(false)
         setShowChecklistSub(false)
       }
       if (viewOptionsRef.current && !viewOptionsRef.current.contains(event.target as Node)) {
@@ -688,6 +694,7 @@ export default function CalendarHeader({
             <motion.button
               onClick={() => {
                 setShowNewMenu(prev => !prev)
+                setShowProjectSub(false)
                 setShowChecklistSub(false)
               }}
               whileHover={{ scale: 1.02 }}
@@ -708,7 +715,7 @@ export default function CalendarHeader({
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg shadow-gray-200/50 overflow-hidden z-50"
                 >
-                  {onCreateProject && (
+                  {onCreateProject && !onCreateTaskProject && (
                     <button
                       onClick={() => {
                         setShowNewMenu(false)
@@ -722,6 +729,58 @@ export default function CalendarHeader({
                         <div className="text-xs text-gray-400">Create a cleaning project</div>
                       </div>
                     </button>
+                  )}
+                  {onCreateProject && onCreateTaskProject && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowProjectSub(prev => !prev)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <PlusIcon className="w-4 h-4" />
+                          <div className="text-left">
+                            <div className="font-medium">New Project</div>
+                            <div className="text-xs text-gray-400">{t('newProjectSubtitle', { defaultValue: 'Cleaning or task project' })}</div>
+                          </div>
+                        </div>
+                        <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${showProjectSub ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showProjectSub && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="overflow-hidden bg-gray-50/50"
+                          >
+                            <button
+                              onClick={() => {
+                                setShowNewMenu(false)
+                                setShowProjectSub(false)
+                                onCreateProject()
+                              }}
+                              className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                            >
+                              <SparklesIcon className="w-3.5 h-3.5" />
+                              <span className="font-medium">{t('newProjectCleaning', { defaultValue: 'Cleaning Project' })}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewMenu(false)
+                                setShowProjectSub(false)
+                                onCreateTaskProject()
+                              }}
+                              className="w-full flex items-center gap-3 pl-11 pr-4 py-2.5 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+                            >
+                              <WrenchScrewdriverIcon className="w-3.5 h-3.5" />
+                              <span className="font-medium">{t('newProjectTask', { defaultValue: 'Task Project' })}</span>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   )}
                   {(onCreateChecklist || onDuplicateChecklist) && (
                     <div className="relative border-t border-gray-100">

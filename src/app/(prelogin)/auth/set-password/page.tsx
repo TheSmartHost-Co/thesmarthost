@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { createClient } from '@/utils/supabase/component'
 import { useUserStore } from '@/store/useUserStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { getOrCreateCleanerProfile, getOrCreateTeamMemberProfile, getOrCreateClientProfile } from '@/services/profileService'
+import { getOrCreateCleanerProfile, getOrCreateContractorProfile, getOrCreateTeamMemberProfile, getOrCreateClientProfile } from '@/services/profileService'
 import PreNavbar from '@/components/navbar/PreNavbar'
 import Notification from '@/components/shared/notification'
 
@@ -96,11 +96,14 @@ export default function SetPasswordPage() {
       // Create profile based on role
       const isTeamMember = userRole === 'TEAM_MEMBER'
       const isClient = userRole === 'CLIENT'
+      const isContractor = userRole === 'CONTRACTOR'
       const profileResponse = isTeamMember
         ? await getOrCreateTeamMemberProfile(userId, userName)
         : isClient
           ? await getOrCreateClientProfile(userId, userName)
-          : await getOrCreateCleanerProfile(userId, userName)
+          : isContractor
+            ? await getOrCreateContractorProfile(userId, userName)
+            : await getOrCreateCleanerProfile(userId, userName)
 
       if (profileResponse.status === 'success' && profileResponse.data) {
         const profileData = profileResponse.data
@@ -126,6 +129,16 @@ export default function SetPasswordPage() {
           })
           notify(t('accountSetupCompleteOwner'), 'success')
           router.push('/client/dashboard')
+        } else if (isContractor) {
+          setProfile({
+            ...profileData,
+            id: userId,
+            role: 'CONTRACTOR',
+            email: userEmail,
+            pmUserId: profileData.pmUserId ?? null,
+          })
+          notify(t('accountSetupComplete'), 'success')
+          router.push('/contractor/dashboard')
         } else {
           setProfile({
             ...profileData,

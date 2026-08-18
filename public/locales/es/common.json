@@ -145,7 +145,6 @@
   "companyHeading": "Empresa",
   "legalHeading": "Legal",
   "allRightsReserved": "Todos los derechos reservados.",
-
   "notifications": "Notificaciones",
   "markAllRead": "Marcar todo como leido",
   "notifUrgent": "Urgente",
@@ -167,7 +166,6 @@
   "notifEmptyBooking": "Sin notificaciones de reservas",
   "notifEmptyInvoice": "Sin notificaciones de facturas",
   "notifEmptyAutomation": "Sin notificaciones de automatizacion",
-
   "latestUpdatesToHostMetrics": "Ultimas actualizaciones de HostMetrics",
   "dontShowAgain": "No mostrar de nuevo",
   "viewAllNotes": "Ver todas las notas",
@@ -195,7 +193,6 @@
   "screenshotsCount": "Capturas de pantalla ({{count}})",
   "noScreenshotsAttached": "Sin capturas de pantalla adjuntas",
   "closePreview": "Cerrar vista previa",
-
   "webhookFieldMapping": "Mapeo de campos webhook",
   "webhookFieldMappingDesc": "Mapea los campos de datos webhook a tus campos de reserva estandar. Los campos requeridos deben mapearse para continuar.",
   "searchOptions": "Buscar opciones...",
@@ -203,5 +200,7 @@
   "selectWebhookField": "Seleccionar campo webhook...",
   "mapped": "mapeado",
   "required": "Requerido",
-  "preview": "Vista previa"
+  "preview": "Vista previa",
+  "editContractor": "Editar contratista",
+  "deleteContractor": "Eliminar contratista"
 }

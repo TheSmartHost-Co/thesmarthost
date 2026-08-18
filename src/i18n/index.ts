@@ -15,6 +15,7 @@ import enAnalytics from '../../public/locales/en/analytics.json'
 import enExpenses from '../../public/locales/en/expenses.json'
 import enTurnover from '../../public/locales/en/turnover.json'
 import enCleanerPortal from '../../public/locales/en/cleanerPortal.json'
+import enContractorPortal from '../../public/locales/en/contractorPortal.json'
 import enClientPortal from '../../public/locales/en/clientPortal.json'
 import enAuth from '../../public/locales/en/auth.json'
 import enErrors from '../../public/locales/en/errors.json'
@@ -32,6 +33,7 @@ import frAnalytics from '../../public/locales/fr/analytics.json'
 import frExpenses from '../../public/locales/fr/expenses.json'
 import frTurnover from '../../public/locales/fr/turnover.json'
 import frCleanerPortal from '../../public/locales/fr/cleanerPortal.json'
+import frContractorPortal from '../../public/locales/fr/contractorPortal.json'
 import frClientPortal from '../../public/locales/fr/clientPortal.json'
 import frAuth from '../../public/locales/fr/auth.json'
 import frErrors from '../../public/locales/fr/errors.json'
@@ -49,6 +51,7 @@ import esAnalytics from '../../public/locales/es/analytics.json'
 import esExpenses from '../../public/locales/es/expenses.json'
 import esTurnover from '../../public/locales/es/turnover.json'
 import esCleanerPortal from '../../public/locales/es/cleanerPortal.json'
+import esContractorPortal from '../../public/locales/es/contractorPortal.json'
 import esClientPortal from '../../public/locales/es/clientPortal.json'
 import esAuth from '../../public/locales/es/auth.json'
 import esErrors from '../../public/locales/es/errors.json'
@@ -76,7 +79,7 @@ i18n
     ns: [
       'common', 'nav', 'settings', 'dashboard', 'properties', 'clients',
       'bookings', 'reports', 'analytics', 'expenses', 'turnover',
-      'cleanerPortal', 'clientPortal', 'auth', 'errors', 'audit',
+      'cleanerPortal', 'contractorPortal', 'clientPortal', 'auth', 'errors', 'audit',
     ],
     defaultNS: 'common',
 
@@ -85,21 +88,21 @@ i18n
         common: enCommon, nav: enNav, settings: enSettings, dashboard: enDashboard,
         properties: enProperties, clients: enClients, bookings: enBookings,
         reports: enReports, analytics: enAnalytics, expenses: enExpenses,
-        turnover: enTurnover, cleanerPortal: enCleanerPortal, clientPortal: enClientPortal,
+        turnover: enTurnover, cleanerPortal: enCleanerPortal, contractorPortal: enContractorPortal, clientPortal: enClientPortal,
         auth: enAuth, errors: enErrors, audit: enAudit,
       },
       fr: {
         common: frCommon, nav: frNav, settings: frSettings, dashboard: frDashboard,
         properties: frProperties, clients: frClients, bookings: frBookings,
         reports: frReports, analytics: frAnalytics, expenses: frExpenses,
-        turnover: frTurnover, cleanerPortal: frCleanerPortal, clientPortal: frClientPortal,
+        turnover: frTurnover, cleanerPortal: frCleanerPortal, contractorPortal: frContractorPortal, clientPortal: frClientPortal,
         auth: frAuth, errors: frErrors, audit: frAudit,
       },
       es: {
         common: esCommon, nav: esNav, settings: esSettings, dashboard: esDashboard,
         properties: esProperties, clients: esClients, bookings: esBookings,
         reports: esReports, analytics: esAnalytics, expenses: esExpenses,
-        turnover: esTurnover, cleanerPortal: esCleanerPortal, clientPortal: esClientPortal,
+        turnover: esTurnover, cleanerPortal: esCleanerPortal, contractorPortal: esContractorPortal, clientPortal: esClientPortal,
         auth: esAuth, errors: esErrors, audit: esAudit,
       },
     },

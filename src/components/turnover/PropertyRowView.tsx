@@ -7,11 +7,13 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core'
 import type { CleaningProject } from '@/services/types/cleaningProject'
 import type { Property } from '@/services/types/property'
 import type { Booking } from '@/services/types/booking'
+import type { MaintenanceTask } from '@/services/types/maintenanceTask'
 import type { ZoomLevel, CalendarSizeConfig } from './TurnoverCalendar'
 import { NORMAL_SIZE_CONFIG } from './TurnoverCalendar'
 import type { DragItem, PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { validateProjectDrop, validateBookingDrop } from './dnd/dropValidation'
 import ProjectEvent from './ProjectEvent'
+import TaskEvent from './tasks/TaskEvent'
 import BookingBar from './BookingBar'
 import DraggableProject from './dnd/DraggableProject'
 import DraggableBooking from './dnd/DraggableBooking'
@@ -23,7 +25,8 @@ import { useStickyHeader } from './hooks/useStickyHeader'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getSidebarWidth } from './utils/sidebarUtils'
 import { generateDateRange, addDays, formatColumnHeader, isToday, getDaysInMonth, parseLocalDate, toLocalDateStr } from './utils/calendarDateUtils'
-import { layoutBookings, layoutProjects, applyProjectStacking, computeMaxStacks, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
+import { layoutBookings, layoutProjects, layoutTasks, applyStacking, computeStackDepths, getColumnLeft, getColumnWidth } from './utils/calendarEventLayout'
+import type { PositionedProject, PositionedTask } from './utils/calendarEventLayout'
 import { HomeModernIcon } from '@heroicons/react/24/outline'
 const DAY_SLOT_WIDTH = 110
 const BUFFER_DAYS = 3
@@ -43,6 +46,8 @@ interface PropertyRowViewProps {
   dateRange: { start: string; end: string }
   onProjectClick: (project: CleaningProject) => void
   onBookingClick?: (booking: Booking) => void
+  tasks?: MaintenanceTask[]
+  onTaskClick?: (task: MaintenanceTask) => void
   issueCountsMap?: Record<string, number>
   supplyListCountsMap?: Record<string, number>
   bookings?: Booking[]
@@ -72,6 +77,8 @@ export default function PropertyRowView({
   dateRange,
   onProjectClick,
   onBookingClick,
+  tasks = [],
+  onTaskClick,
   issueCountsMap = {},
   supplyListCountsMap = {},
   bookings = [],
@@ -225,14 +232,26 @@ export default function PropertyRowView({
   const nowPos = useNowIndicator(allDates, 6, 24)
 
   const positionedBookings = useMemo(() => layoutBookings(bookings, allDates), [bookings, allDates])
-  const positionedProjects = useMemo(() => {
-    const pp = layoutProjects(projects, allDates)
-    applyProjectStacking(pp, p => p.propertyId)
-    return pp
-  }, [projects, allDates])
 
-  // Compute max project stack depth per property for dynamic row heights
-  const maxStackByProperty = useMemo(() => computeMaxStacks(positionedProjects, p => p.propertyId), [positionedProjects])
+  // Cancelled tasks are not rendered on the calendar
+  const visibleTasks = useMemo(() => tasks.filter(tk => tk.status !== 'cancelled'), [tasks])
+
+  // Single stacking pass over projects AND tasks: both share the same
+  // `${propertyId}:${colIndex}` key space, so a same-day project + task never
+  // overlap and row heights account for both.
+  const { positionedProjects, positionedTasks, maxStackByProperty } = useMemo(() => {
+    const pp = layoutProjects(projects, allDates)
+    const pt = layoutTasks(visibleTasks, allDates)
+    const combined: (PositionedProject | PositionedTask)[] = [...pp, ...pt]
+    const getKey = (item: PositionedProject | PositionedTask) =>
+      'project' in item ? item.project.propertyId : item.task.propertyId
+    applyStacking(combined, getKey)
+    return {
+      positionedProjects: pp,
+      positionedTasks: pt,
+      maxStackByProperty: computeStackDepths(combined, getKey),
+    }
+  }, [projects, visibleTasks, allDates])
 
   const projectsByProperty = useMemo(() => {
     const map = new Map<string, typeof positionedProjects>()
@@ -243,6 +262,16 @@ export default function PropertyRowView({
     }
     return map
   }, [positionedProjects])
+
+  const tasksByProperty = useMemo(() => {
+    const map = new Map<string, typeof positionedTasks>()
+    for (const pt of positionedTasks) {
+      const key = pt.task.propertyId
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(pt)
+    }
+    return map
+  }, [positionedTasks])
 
   const bookingsByProperty = useMemo(() => {
     const map = new Map<string, typeof positionedBookings>()
@@ -470,6 +499,7 @@ export default function PropertyRowView({
             {properties.map(property => {
               const propertyBookings = bookingsByProperty.get(property.id) || []
               const propertyProjects = projectsByProperty.get(property.id) || []
+              const propertyTasks = tasksByProperty.get(property.id) || []
               const rowHeight = getRowHeight(property.id)
 
               return (
@@ -655,6 +685,45 @@ export default function PropertyRowView({
                       >
                         {projectEventContent}
                       </DraggableProject>
+                    )
+                  })}
+
+                  {/* Maintenance task bars — same stacked sub-row region as projects (click-only, not draggable) */}
+                  {propertyTasks.map(pt => {
+                    const colLeft = getColumnLeft(pt.colIndex, allDates, expandedDate, slotWidth)
+                    const colW = getColumnWidth(allDates[pt.colIndex] || '', expandedDate, slotWidth)
+                    const taskLeft = colLeft + pt.startOffset * colW
+                    const taskRight = colLeft + pt.endOffset * colW
+                    const taskWidth = Math.max(taskRight - taskLeft, 20)
+                    const isExp = allDates[pt.colIndex] === expandedDate
+                    const stackTop = ROW_PAD + BOOKING_BAR_HEIGHT + SUB_GAP + pt.stackIndex * (BAR_HEIGHT + STK_GAP)
+
+                    const isTaskActivated = activatedItem?.type === 'task' && activatedItem.id === pt.task.id
+
+                    return (
+                      <div
+                        key={`task-${pt.task.id}`}
+                        className={`absolute z-[6] hover:z-[100] cursor-pointer ${isTaskActivated ? 'z-[200]' : ''}`}
+                        style={{
+                          left: taskLeft,
+                          width: taskWidth,
+                          top: stackTop,
+                          height: BAR_HEIGHT,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onTaskClick?.(pt.task)
+                        }}
+                      >
+                        <TaskEvent
+                          task={pt.task}
+                          zoomLevel={zoomLevel}
+                          isExpanded={isExp}
+                          isActivated={isTaskActivated}
+                          compact={isMobile || compactDensity}
+                          isMobile={isMobile}
+                        />
+                      </div>
                     )
                   })}
                 </div>

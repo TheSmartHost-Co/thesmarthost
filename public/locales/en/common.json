@@ -145,7 +145,6 @@
   "companyHeading": "Company",
   "legalHeading": "Legal",
   "allRightsReserved": "All rights reserved.",
-
   "notifications": "Notifications",
   "markAllRead": "Mark all read",
   "notifUrgent": "Urgent",
@@ -167,7 +166,6 @@
   "notifEmptyBooking": "No booking notifications",
   "notifEmptyInvoice": "No invoice notifications",
   "notifEmptyAutomation": "No automation notifications",
-
   "latestUpdatesToHostMetrics": "Latest updates to HostMetrics",
   "dontShowAgain": "Don't show again",
   "viewAllNotes": "View All Notes",
@@ -195,7 +193,6 @@
   "screenshotsCount": "Screenshots ({{count}})",
   "noScreenshotsAttached": "No screenshots attached",
   "closePreview": "Close Preview",
-
   "webhookFieldMapping": "Webhook Field Mapping",
   "webhookFieldMappingDesc": "Map webhook data fields to your standard booking fields. Required fields must be mapped to proceed.",
   "searchOptions": "Search options...",
@@ -203,5 +200,7 @@
   "selectWebhookField": "Select webhook field...",
   "mapped": "mapped",
   "required": "Required",
-  "preview": "Preview"
+  "preview": "Preview",
+  "editContractor": "Edit Contractor",
+  "deleteContractor": "Delete Contractor"
 }

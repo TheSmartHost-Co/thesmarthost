@@ -15,6 +15,7 @@ import {
   XMarkIcon,
   ChatBubbleLeftIcon,
   ArrowDownTrayIcon,
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline'
 import { ArrowUpIcon } from '@heroicons/react/24/solid'
 import {
@@ -29,6 +30,7 @@ import {
 import { getNotesByIssue, createIssueNote } from '@/services/projectIssueNoteService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
 import type { IssueNote } from '@/services/types/projectIssueNote'
+import type { MaintenanceTaskSummary, MaintenanceTaskStatus } from '@/services/types/maintenanceTask'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -37,6 +39,7 @@ const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: stri
   damage: ExclamationTriangleIcon,
   missing_item: QuestionMarkCircleIcon,
   maintenance: WrenchScrewdriverIcon,
+  supply: ShoppingCartIcon,
   other: DocumentTextIcon
 }
 
@@ -46,12 +49,37 @@ const STATUS_COLORS: Record<IssueStatus, { bg: string; text: string }> = {
   resolved: { bg: 'bg-green-100', text: 'text-green-700' }
 }
 
+// Maintenance task status chip colors (shared convention)
+const TASK_STATUS_COLORS: Record<MaintenanceTaskStatus, string> = {
+  pending: 'bg-gray-100 text-gray-700',
+  assigned: 'bg-amber-100 text-amber-700',
+  confirmed: 'bg-blue-100 text-blue-700',
+  in_progress: 'bg-purple-100 text-purple-700',
+  completed: 'bg-green-100 text-green-700',
+  cancelled: 'bg-gray-100 text-gray-700'
+}
+
+const TASK_STATUS_LABEL_KEYS: Record<MaintenanceTaskStatus, string> = {
+  pending: 'taskStatusPending',
+  assigned: 'taskStatusAssigned',
+  confirmed: 'taskStatusConfirmed',
+  in_progress: 'taskStatusInProgress',
+  completed: 'taskStatusCompleted',
+  cancelled: 'taskStatusCancelled'
+}
+
 interface IssueDetailPanelProps {
   issue: ProjectIssue
   isPM?: boolean
   onIssueUpdated?: (updated: ProjectIssue) => void
   onIssueDeleted?: (issueId: string) => void
   onViewed?: () => void
+  /** Active maintenance task linked to this issue (null = definitively none) */
+  linkedTask?: MaintenanceTaskSummary | null
+  /** When provided (and no linked task), shows the "Create Task for this Issue" button */
+  onCreateTask?: () => void
+  /** Opens the linked task's detail view */
+  onViewTask?: () => void
 }
 
 export default function IssueDetailPanel({
@@ -60,6 +88,9 @@ export default function IssueDetailPanel({
   onIssueUpdated,
   onIssueDeleted,
   onViewed,
+  linkedTask,
+  onCreateTask,
+  onViewTask,
 }: IssueDetailPanelProps) {
   const [notes, setNotes] = useState<IssueNote[]>([])
   const [noteText, setNoteText] = useState('')
@@ -344,9 +375,49 @@ export default function IssueDetailPanel({
         )}
       </div>
 
+      {/* Linked maintenance task */}
+      {isPM && linkedTask && (
+        <div className="border-t pt-4">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0">
+              <WrenchScrewdriverIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-900">{t('linkedTaskLabel')}</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${TASK_STATUS_COLORS[linkedTask.status]}`}>
+                  {t(TASK_STATUS_LABEL_KEYS[linkedTask.status])}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                {linkedTask.contractorName || t('unassigned')}
+              </p>
+            </div>
+            {onViewTask && (
+              <button
+                onClick={onViewTask}
+                className="flex-shrink-0 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                {t('viewTask')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* PM Actions */}
       {isPM && issue.status !== 'resolved' && (
-        <div className="border-t pt-4">
+        <div className="border-t pt-4 space-y-3">
+          {onCreateTask && !linkedTask && (
+            <button
+              onClick={onCreateTask}
+              disabled={actionLoading}
+              className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <WrenchScrewdriverIcon className="w-5 h-5" />
+              {t('createTaskForIssue')}
+            </button>
+          )}
           <div className="flex gap-3">
             {issue.status === 'open' && (
               <button

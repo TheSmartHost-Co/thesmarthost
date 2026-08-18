@@ -3,7 +3,7 @@ import type { Permissions } from '@/constants/permissionTemplates'
 export interface UserProfile {
   id: string;
   fullName: string;
-  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER';
+  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER';
   phoneNumber?: string | null;
   companyName?: string | null;
   // PM branding (rendered on paystub/report PDFs)
@@ -24,7 +24,7 @@ export interface UserProfile {
 
 export interface UpdateProfilePayload {
   fullName: string;
-  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER';
+  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER';
   phoneNumber?: string | null;
   companyName?: string | null;
   // PM branding (rendered on paystub/report PDFs)

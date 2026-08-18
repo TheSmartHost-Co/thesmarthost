@@ -196,7 +196,7 @@ export default function CleanerTasksPage() {
       if (issuesRes.status === 'success') {
         const countsMap: Record<string, number> = {}
         issuesRes.data.forEach(issue => {
-          if (explicitProjects.some(p => p.id === issue.projectId)) {
+          if (issue.projectId && explicitProjects.some(p => p.id === issue.projectId)) {
             countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
           }
         })

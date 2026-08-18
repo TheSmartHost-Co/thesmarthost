@@ -58,7 +58,7 @@ export default function PropertyManagerSettingsPage() {
     companyAddress: '',
     companyPhone: '',
     companyEmail: '',
-    role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER'
+    role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER'
   })
 
   // Hostaway modal state

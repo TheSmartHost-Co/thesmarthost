@@ -6,7 +6,7 @@
   interface UserProfile {
     id: string
     fullName: string
-    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'TEAM_MEMBER'
+    role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER'
     email?: string
     phoneNumber?: string | null
     companyName?: string | null
@@ -83,6 +83,8 @@
               return '/client/dashboard'
             case 'CLEANER':
               return '/cleaner/dashboard'
+            case 'CONTRACTOR':
+              return '/contractor/dashboard'
             case 'TEAM_MEMBER':
               return '/property-manager/dashboard'
             default:

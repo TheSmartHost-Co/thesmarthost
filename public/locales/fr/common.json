@@ -145,7 +145,6 @@
   "companyHeading": "Entreprise",
   "legalHeading": "Juridique",
   "allRightsReserved": "Tous droits réservés.",
-
   "notifications": "Notifications",
   "markAllRead": "Tout marquer comme lu",
   "notifUrgent": "Urgent",
@@ -167,7 +166,6 @@
   "notifEmptyBooking": "Aucune notification de réservation",
   "notifEmptyInvoice": "Aucune notification de facture",
   "notifEmptyAutomation": "Aucune notification d'automatisation",
-
   "latestUpdatesToHostMetrics": "Dernières mises à jour de HostMetrics",
   "dontShowAgain": "Ne plus afficher",
   "viewAllNotes": "Voir toutes les notes",
@@ -195,7 +193,6 @@
   "screenshotsCount": "Captures d'écran ({{count}})",
   "noScreenshotsAttached": "Aucune capture d'écran jointe",
   "closePreview": "Fermer l'aperçu",
-
   "webhookFieldMapping": "Mappage des champs webhook",
   "webhookFieldMappingDesc": "Mappez les champs de données webhook vers vos champs de réservation standards. Les champs requis doivent être mappés pour continuer.",
   "searchOptions": "Rechercher des options...",
@@ -203,5 +200,7 @@
   "selectWebhookField": "Sélectionner un champ webhook...",
   "mapped": "mappé",
   "required": "Requis",
-  "preview": "Aperçu"
+  "preview": "Aperçu",
+  "editContractor": "Modifier l'entrepreneur",
+  "deleteContractor": "Supprimer l'entrepreneur"
 }

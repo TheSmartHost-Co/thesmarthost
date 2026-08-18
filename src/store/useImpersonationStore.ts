@@ -2,10 +2,10 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface ImpersonationTarget {
-  type: 'client' | 'cleaner'
+  type: 'client' | 'cleaner' | 'contractor'
   id: string       // DB record ID
   name: string     // Display name for banner
-  role: 'CLIENT' | 'CLEANER'
+  role: 'CLIENT' | 'CLEANER' | 'CONTRACTOR'
 }
 
 interface ImpersonationStore {
@@ -37,6 +37,7 @@ export const useImpersonationStore = create<ImpersonationStore>()(
           const path = window.location.pathname
           if (target.type === 'client' && !path.startsWith('/client')) return null
           if (target.type === 'cleaner' && !path.startsWith('/cleaner')) return null
+          if (target.type === 'contractor' && !path.startsWith('/contractor')) return null
         }
 
         return `${target.type}:${target.id}`

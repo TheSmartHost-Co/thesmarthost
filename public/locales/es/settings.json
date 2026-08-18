@@ -57,6 +57,7 @@
   "smsDescriptionClient": "Recibir mensajes de texto para actualizaciones de reservas y limpieza",
   "emailDescriptionClient": "Recibir actualizaciones por correo para reservas, informes y limpieza",
   "notificationsDescCleaner": "Cómo recibes alertas de tareas y horarios",
+  "notificationsDescContractor": "Cómo recibes alertas de tareas y horarios",
 
   "autoImportBookings": "Importación automática de reservas",
 
@@ -171,6 +172,9 @@
   "propertiesUnit": "propiedades",
   "roleLabel": "Rol",
   "roleCleaner": "Limpiador",
+  "roleContractor": "Contratista",
+  "tradeLabel": "Oficio",
+  "enterTrade": "p. ej. Plomería, Electricidad, Reparaciones generales",
   "phoneRequiredForSms": "Por favor agrega un número de teléfono a tu perfil antes de activar las notificaciones SMS",
   "notificationToggled": "Notificaciones {{label}} {{state}}",
   "enabled": "activadas",

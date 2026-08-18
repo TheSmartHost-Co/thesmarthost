@@ -4,6 +4,7 @@ import type {
   ProjectIssueResponse,
   ProjectIssuesResponse,
   CreateIssuePayload,
+  CreateStandaloneIssuePayload,
   UpdateIssuePayload,
   IssueCountsResponse,
   DeleteIssueResponse,
@@ -38,6 +39,22 @@ export function createIssue(
 ): Promise<ProjectIssueResponse> {
   return apiClient<ProjectIssueResponse, CreateIssuePayload>(
     `/cleaning-projects/${projectId}/issues`,
+    {
+      method: 'POST',
+      body: data
+    }
+  )
+}
+
+/**
+ * Create a standalone, property-scoped issue (no cleaning project).
+ * Used by the calendar's Task Project flow.
+ */
+export function createStandaloneIssue(
+  data: CreateStandaloneIssuePayload
+): Promise<ProjectIssueResponse> {
+  return apiClient<ProjectIssueResponse, CreateStandaloneIssuePayload>(
+    '/project-issues',
     {
       method: 'POST',
       body: data
@@ -186,6 +203,7 @@ export function getIssueTypeDisplay(issueType: IssueType): { label: string; colo
     damage: { label: 'Damage', color: 'red' },
     missing_item: { label: 'Missing Item', color: 'amber' },
     maintenance: { label: 'Maintenance', color: 'blue' },
+    supply: { label: 'Supply', color: 'purple' },
     other: { label: 'Other', color: 'gray' }
   }
   return typeMap[issueType] || { label: issueType, color: 'gray' }
@@ -290,6 +308,7 @@ export function getIssueTypeOptions(): Array<{ value: IssueType; label: string }
     { value: 'damage', label: 'Damage' },
     { value: 'missing_item', label: 'Missing Item' },
     { value: 'maintenance', label: 'Maintenance Needed' },
+    { value: 'supply', label: 'Supply' },
     { value: 'other', label: 'Other' }
   ]
 }

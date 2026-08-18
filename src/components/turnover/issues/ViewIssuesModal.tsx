@@ -10,6 +10,10 @@ import {
   getIssueStatusDisplay
 } from '@/services/projectIssueService'
 import type { ProjectIssue, IssueType, IssueStatus } from '@/services/types/projectIssue'
+import { getMaintenanceTaskByIssueId } from '@/services/maintenanceTaskService'
+import CreateTaskModal from '@/components/turnover/tasks/CreateTaskModal'
+import TaskDetailModal from '@/components/turnover/tasks/TaskDetailModal'
+import type { MaintenanceTask, MaintenanceTaskSummary } from '@/services/types/maintenanceTask'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
   ExclamationTriangleIcon,
@@ -18,7 +22,8 @@ import {
   DocumentTextIcon,
   ChevronLeftIcon,
   PhotoIcon,
-  PlusIcon
+  PlusIcon,
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline'
 import IssueDetailPanel from './IssueDetailPanel'
 import { useUnreadIssueIds } from '@/hooks/useUnreadIssueIds'
@@ -38,6 +43,7 @@ const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: stri
   damage: ExclamationTriangleIcon,
   missing_item: QuestionMarkCircleIcon,
   maintenance: WrenchScrewdriverIcon,
+  supply: ShoppingCartIcon,
   other: DocumentTextIcon
 }
 
@@ -62,6 +68,12 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
   const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen)
+
+  // Linked maintenance task per issue id — PM only (cleaner view is unchanged).
+  // Map entry present = fetched; null = no active task.
+  const [issueTaskCache, setIssueTaskCache] = useState<Map<string, MaintenanceTask | null>>(new Map())
+  const [createTaskIssue, setCreateTaskIssue] = useState<ProjectIssue | null>(null)
+  const [viewedTask, setViewedTask] = useState<MaintenanceTask | null>(null)
 
   const showNotification = useNotificationStore((state) => state.showNotification)
 
@@ -95,8 +107,65 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
     if (!isOpen) {
       setSelectedIssue(null)
       setFilterStatus('all')
+      setIssueTaskCache(new Map())
+      setCreateTaskIssue(null)
+      setViewedTask(null)
     }
   }, [isOpen])
+
+  // PM only: fetch the linked task when an issue is selected (cached per issue id)
+  useEffect(() => {
+    const issueId = selectedIssue?.id
+    if (!isPM || !issueId || issueTaskCache.has(issueId)) return
+    let cancelled = false
+    getMaintenanceTaskByIssueId(issueId)
+      .then((res) => {
+        if (cancelled || res.status !== 'success') return
+        setIssueTaskCache(prev => new Map(prev).set(issueId, res.data))
+      })
+      .catch((err) => console.error('Error fetching linked task:', err))
+    return () => { cancelled = true }
+  }, [isPM, selectedIssue?.id, issueTaskCache])
+
+  const setCachedTask = (issueId: string, task: MaintenanceTask | null) => {
+    setIssueTaskCache(prev => new Map(prev).set(issueId, task))
+  }
+
+  const toTaskSummary = (task: MaintenanceTask | null): MaintenanceTaskSummary | null =>
+    task
+      ? { id: task.id, status: task.status, contractorId: task.contractorId, contractorName: task.contractorName }
+      : null
+
+  const handleTaskCreated = (task: MaintenanceTask) => {
+    setCachedTask(task.issueId, task)
+    setCreateTaskIssue(null)
+    fetchIssues()
+    onIssuesChanged?.()
+  }
+
+  const handleTaskUpdated = (task: MaintenanceTask) => {
+    // A cancelled task is no longer the issue's active task (issue reopens server-side)
+    setCachedTask(task.issueId, task.status === 'cancelled' ? null : task)
+    setViewedTask(task.status === 'cancelled' ? null : task)
+    if (task.status === 'completed' || task.status === 'cancelled') {
+      // Complete/cancel resolve/reopen the linked issue server-side — refresh
+      fetchIssues()
+      onIssuesChanged?.()
+    }
+  }
+
+  const handleTaskDeleted = (taskId: string) => {
+    setIssueTaskCache(prev => {
+      const next = new Map(prev)
+      for (const [issueId, task] of next) {
+        if (task?.id === taskId) next.set(issueId, null)
+      }
+      return next
+    })
+    setViewedTask(null)
+    fetchIssues()
+    onIssuesChanged?.()
+  }
 
   const filteredIssues = filterStatus === 'all'
     ? issues
@@ -178,6 +247,20 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
                 onIssueUpdated={handleIssueUpdated}
                 onIssueDeleted={handleIssueDeleted}
                 onViewed={() => markIssueAsRead(selectedIssue.id)}
+                linkedTask={isPM ? toTaskSummary(issueTaskCache.get(selectedIssue.id) ?? null) : undefined}
+                onCreateTask={
+                  isPM && issueTaskCache.has(selectedIssue.id)
+                    ? () => setCreateTaskIssue(selectedIssue)
+                    : undefined
+                }
+                onViewTask={
+                  isPM
+                    ? () => {
+                        const task = issueTaskCache.get(selectedIssue.id)
+                        if (task) setViewedTask(task)
+                      }
+                    : undefined
+                }
               />
             </motion.div>
           ) : (
@@ -296,6 +379,27 @@ const ViewIssuesModal: React.FC<ViewIssuesModalProps> = ({
         </AnimatePresence>
 
       </div>
+
+      {/* PM only: create a maintenance task for the selected issue */}
+      {isPM && createTaskIssue && (
+        <CreateTaskModal
+          isOpen={!!createTaskIssue}
+          onClose={() => setCreateTaskIssue(null)}
+          issue={createTaskIssue}
+          onCreated={handleTaskCreated}
+        />
+      )}
+
+      {/* PM only: linked task detail */}
+      {isPM && viewedTask && (
+        <TaskDetailModal
+          isOpen={!!viewedTask}
+          onClose={() => setViewedTask(null)}
+          task={viewedTask}
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+        />
+      )}
     </Modal>
   )
 }

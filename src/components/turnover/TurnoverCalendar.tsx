@@ -21,6 +21,8 @@ import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import { getAllSupplyLists } from '@/services/supplyListService'
+import { getMaintenanceTasksForCalendar } from '@/services/maintenanceTaskService'
+import type { MaintenanceTask } from '@/services/types/maintenanceTask'
 import { getBookings, getMonthKey, getMonthBounds, rescheduleBookingDates, deleteBooking, cancelBooking } from '@/services/bookingService'
 import { isValidationError } from '@/services/validationError'
 import type { CleaningProject, CleaningProjectStats } from '@/services/types/cleaningProject'
@@ -44,6 +46,10 @@ import UpdateBookingModal from '@/components/booking/update/updateBookingModal'
 import ConfirmDragModal, { InvalidDropModal } from './dnd/ConfirmDragModal'
 import type { PendingDrop, ProjectDragData, BookingDragData, InvalidDropInfo, ActivatedItem } from './dnd/types'
 import { useActivatedItem } from './hooks/useActivatedItem'
+import { useTaskProjectFlow } from '@/hooks/useTaskProjectFlow'
+import ReportStandaloneIssueModal from './issues/ReportStandaloneIssueModal'
+import CreateTaskModal from './tasks/CreateTaskModal'
+import TaskDetailModal from './tasks/TaskDetailModal'
 
 export type ViewMode = 'property' | 'cleaner'
 export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
@@ -129,6 +135,10 @@ export default function TurnoverCalendar({
   const [projectCache, setProjectCache] = useState<Map<string, CleaningProject[]>>(new Map())
   const projectCacheRef = useRef<Map<string, CleaningProject[]>>(new Map())
 
+  // Month-based cache for maintenance tasks
+  const [taskCache, setTaskCache] = useState<Map<string, MaintenanceTask[]>>(new Map())
+  const taskCacheRef = useRef<Map<string, MaintenanceTask[]>>(new Map())
+
   // Shared fetch tracking
   const [fetchingMonths, setFetchingMonths] = useState<Set<string>>(new Set())
   const fetchingMonthsRef = useRef<Set<string>>(new Set())
@@ -182,6 +192,8 @@ export default function TurnoverCalendar({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCreateChecklistModal, setShowCreateChecklistModal] = useState(false)
   const [showDuplicateChecklistModal, setShowDuplicateChecklistModal] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null)
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showBookingPreview, setShowBookingPreview] = useState(false)
   const [showBookingUpdate, setShowBookingUpdate] = useState(false)
@@ -210,6 +222,10 @@ export default function TurnoverCalendar({
   useEffect(() => {
     projectCacheRef.current = projectCache
   }, [projectCache])
+
+  useEffect(() => {
+    taskCacheRef.current = taskCache
+  }, [taskCache])
 
   useEffect(() => {
     fetchingMonthsRef.current = fetchingMonths
@@ -267,10 +283,11 @@ export default function TurnoverCalendar({
     // Filter to uncached, non-fetching months
     const currentBookingCache = bookingCacheRef.current
     const currentProjectCache = projectCacheRef.current
+    const currentTaskCache = taskCacheRef.current
     const currentFetching = fetchingMonthsRef.current
 
     const neededMonths = months.filter(m =>
-      (!currentBookingCache.has(m) || !currentProjectCache.has(m)) &&
+      (!currentBookingCache.has(m) || !currentProjectCache.has(m) || !currentTaskCache.has(m)) &&
       !currentFetching.has(m)
     )
 
@@ -287,23 +304,27 @@ export default function TurnoverCalendar({
     const fetchPromises = neededMonths.map(async (monthKey) => {
       const { startDate, endDate } = getMonthBounds(monthKey)
       try {
-        const [bookingsRes, projectsRes] = await Promise.all([
+        const [bookingsRes, projectsRes, tasksRes] = await Promise.all([
           currentBookingCache.has(monthKey)
             ? Promise.resolve(null)
             : getBookings({ userId, startDate, endDate }),
           currentProjectCache.has(monthKey)
             ? Promise.resolve(null)
             : getCleaningProjects({ userId, startDate, endDate }),
+          currentTaskCache.has(monthKey)
+            ? Promise.resolve(null)
+            : getMaintenanceTasksForCalendar(startDate, endDate),
         ])
 
         return {
           monthKey,
           bookings: bookingsRes?.status === 'success' ? bookingsRes.data : null,
           projects: projectsRes?.status === 'success' ? projectsRes.data : null,
+          tasks: tasksRes?.status === 'success' ? tasksRes.data : null,
         }
       } catch (err) {
         console.error(`Error fetching month ${monthKey}:`, err)
-        return { monthKey, bookings: null, projects: null }
+        return { monthKey, bookings: null, projects: null, tasks: null }
       }
     })
 
@@ -333,6 +354,25 @@ export default function TurnoverCalendar({
       const next = new Map(prev)
       results.forEach(r => {
         if (r.projects) next.set(r.monthKey, r.projects)
+      })
+      // Prune months >3 months from center
+      const centerKey = getMonthKey(centerDate)
+      const [cy, cm] = centerKey.split('-').map(Number)
+      const centerMonthNum = cy * 12 + cm
+      for (const key of next.keys()) {
+        const [ky, km] = key.split('-').map(Number)
+        const keyMonthNum = ky * 12 + km
+        if (Math.abs(keyMonthNum - centerMonthNum) > 3) {
+          next.delete(key)
+        }
+      }
+      return next
+    })
+
+    setTaskCache(prev => {
+      const next = new Map(prev)
+      results.forEach(r => {
+        if (r.tasks) next.set(r.monthKey, r.tasks)
       })
       // Prune months >3 months from center
       const centerKey = getMonthKey(centerDate)
@@ -383,6 +423,15 @@ export default function TurnoverCalendar({
     return result
   }, [projectCache])
 
+  // Derived: flatten maintenance tasks from cache (no dedup needed — exact date match)
+  const allCachedTasks = useMemo(() => {
+    const result: MaintenanceTask[] = []
+    for (const monthTasks of taskCache.values()) {
+      result.push(...monthTasks)
+    }
+    return result
+  }, [taskCache])
+
   // Initial data fetch (properties, cleaners, stats, issues, supply lists + first month cache)
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -411,6 +460,7 @@ export default function TurnoverCalendar({
           // Build counts map from non-resolved issues only (for calendar badges)
           const countsMap: Record<string, number> = {}
           issuesRes.data.filter(i => i.status !== 'resolved').forEach(issue => {
+            if (!issue.projectId) return
             countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
           })
           setIssueCountsMap(countsMap)
@@ -529,6 +579,7 @@ export default function TurnoverCalendar({
         setAllIssues(issuesRes.data)
         const countsMap: Record<string, number> = {}
         issuesRes.data.filter(i => i.status !== 'resolved').forEach(issue => {
+          if (!issue.projectId) return
           countsMap[issue.projectId] = (countsMap[issue.projectId] || 0) + 1
         })
         setIssueCountsMap(countsMap)
@@ -619,6 +670,13 @@ export default function TurnoverCalendar({
     return result
   }, [allCachedProjects, selectedPropertyIds, selectedCleanerIds, showSameDayOnly])
 
+  // Filter maintenance tasks by selected properties (cancelled tasks are
+  // skipped at render time in PropertyRowView)
+  const filteredTasks = useMemo(() => {
+    if (selectedPropertyIds.length === 0) return allCachedTasks
+    return allCachedTasks.filter(tk => selectedPropertyIds.includes(tk.propertyId))
+  }, [allCachedTasks, selectedPropertyIds])
+
   const filteredProperties = useMemo(() => {
     let result = selectedPropertyIds.length === 0 ? [...properties] : properties.filter(p => selectedPropertyIds.includes(p.id))
     const getName = (p: Property) => p.listingName || p.internalName || p.externalName || p.address || ''
@@ -704,9 +762,15 @@ export default function TurnoverCalendar({
     setShowBookingPreview(true)
   }, [])
 
-  const { activatedItem, handleProjectClick, handleBookingClick, clearActivatedItem } = useActivatedItem({
+  const openTaskModal = useCallback((task: MaintenanceTask) => {
+    setSelectedTask(task)
+    setShowTaskDetailModal(true)
+  }, [])
+
+  const { activatedItem, handleProjectClick, handleBookingClick, handleTaskClick, clearActivatedItem } = useActivatedItem({
     onOpenProjectModal: openProjectModal,
     onOpenBookingModal: openBookingModal,
+    onOpenTaskModal: openTaskModal,
   })
 
   // Escape key deactivates
@@ -981,6 +1045,61 @@ export default function TurnoverCalendar({
       return next
     })
   }, [])
+
+  // Surgically update a single maintenance task in cache (handles month bucket
+  // changes): remove from all buckets, insert into its scheduledDate's month.
+  const surgicallyUpdateTaskInCache = useCallback((task: MaintenanceTask) => {
+    setTaskCache(prev => {
+      const next = new Map(prev)
+
+      // Remove from all month buckets (task might have moved months)
+      for (const [key, tasks] of next) {
+        const filtered = tasks.filter(tk => tk.id !== task.id)
+        if (filtered.length !== tasks.length) {
+          next.set(key, filtered)
+        }
+      }
+
+      // Insert into the scheduledDate's month bucket (unscheduled tasks are
+      // simply removed — they have no calendar position)
+      if (task.scheduledDate) {
+        const targetMonth = getMonthKeyForDate(toLocalDateStr(task.scheduledDate))
+        const targetBucket = next.get(targetMonth) || []
+        next.set(targetMonth, [...targetBucket, task])
+      }
+
+      return next
+    })
+  }, [])
+
+  // Remove a maintenance task from all cache buckets (deletions)
+  const removeTaskFromCache = useCallback((taskId: string) => {
+    setTaskCache(prev => {
+      const next = new Map(prev)
+      for (const [key, tasks] of next) {
+        const filtered = tasks.filter(tk => tk.id !== taskId)
+        if (filtered.length !== tasks.length) {
+          next.set(key, filtered)
+        }
+      }
+      return next
+    })
+  }, [])
+
+  // Two-step "Task Project" flow (report standalone issue → create task)
+  const {
+    showReportIssueModal,
+    pendingTaskIssue,
+    showCreateTaskModal,
+    startTaskProjectFlow,
+    handleIssueCreated,
+    handleTaskCreated,
+    closeAll: closeTaskProjectFlow,
+  } = useTaskProjectFlow({
+    onTaskCreated: (task) => {
+      surgicallyUpdateTaskInCache(task)
+    },
+  })
 
   // Handle pending drop from view components
   const handlePendingDrop = useCallback((drop: PendingDrop) => {
@@ -1287,6 +1406,7 @@ export default function TurnoverCalendar({
           onNextWeek={handleNextWeek}
           onToday={handleToday}
           onCreateProject={() => setShowCreateModal(true)}
+          onCreateTaskProject={startTaskProjectFlow}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
           showBookings={viewMode === 'cleaner' ? false : showBookings}
@@ -1354,6 +1474,8 @@ export default function TurnoverCalendar({
                   dateRange={dateRange}
                   onProjectClick={handleProjectClick}
                   onBookingClick={handleBookingClick}
+                  tasks={filteredTasks}
+                  onTaskClick={handleTaskClick}
                   issueCountsMap={issueCountsMap}
                   supplyListCountsMap={supplyListCountsMap}
                   bookings={showBookings ? filteredBookings : []}
@@ -1453,6 +1575,49 @@ export default function TurnoverCalendar({
         }}
         properties={properties}
       />
+
+      {/* Task Project Flow — Step 1: report a standalone issue */}
+      <ReportStandaloneIssueModal
+        isOpen={showReportIssueModal}
+        onClose={closeTaskProjectFlow}
+        properties={properties}
+        onCreated={(issue) => {
+          handleIssueCreated(issue)
+          refreshIssueCounts()
+        }}
+      />
+
+      {/* Task Project Flow — Step 2: create a maintenance task from the issue */}
+      {pendingTaskIssue && (
+        <CreateTaskModal
+          isOpen={showCreateTaskModal}
+          onClose={closeTaskProjectFlow}
+          issue={pendingTaskIssue}
+          onCreated={handleTaskCreated}
+        />
+      )}
+
+      {/* Task Detail Modal */}
+      {selectedTask && (
+        <TaskDetailModal
+          isOpen={showTaskDetailModal}
+          onClose={() => {
+            setShowTaskDetailModal(false)
+            setSelectedTask(null)
+            refreshIssueCounts()
+          }}
+          task={selectedTask}
+          onTaskUpdated={(updatedTask) => {
+            surgicallyUpdateTaskInCache(updatedTask)
+            setSelectedTask(updatedTask)
+          }}
+          onTaskDeleted={(taskId) => {
+            removeTaskFromCache(taskId)
+            setShowTaskDetailModal(false)
+            setSelectedTask(null)
+          }}
+        />
+      )}
 
       {/* Booking Preview Modal */}
       {selectedBooking && (

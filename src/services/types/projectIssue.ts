@@ -1,12 +1,14 @@
 // Types for Project Issues (cleaners report damage, maintenance, etc.)
+// Issues are anchored to a cleaning project (projectId) OR directly to a
+// property (propertyId) — calendar-created maintenance issues have no project.
 
-export type IssueType = 'damage' | 'missing_item' | 'maintenance' | 'other'
+export type IssueType = 'damage' | 'missing_item' | 'maintenance' | 'supply' | 'other'
 
 export type IssueStatus = 'open' | 'acknowledged' | 'resolved'
 
 export interface ProjectIssue {
   id: string
-  projectId: string
+  projectId: string | null
   reportedBy: string | null
   issueType: IssueType
   description: string
@@ -28,6 +30,13 @@ export interface ProjectIssue {
 
 export interface CreateIssuePayload {
   reportedBy?: string | null
+  issueType: IssueType
+  description: string
+}
+
+// Standalone (property-scoped) issue creation — no cleaning project
+export interface CreateStandaloneIssuePayload {
+  propertyId: string
   issueType: IssueType
   description: string
 }
@@ -74,6 +83,7 @@ export const ISSUE_TYPE_INFO: Record<IssueType, { label: string; color: string; 
   damage: { label: 'Damage', color: 'red', icon: 'exclamation-triangle' },
   missing_item: { label: 'Missing Item', color: 'amber', icon: 'question-mark-circle' },
   maintenance: { label: 'Maintenance', color: 'blue', icon: 'wrench-screwdriver' },
+  supply: { label: 'Supply', color: 'purple', icon: 'shopping-cart' },
   other: { label: 'Other', color: 'gray', icon: 'document-text' }
 }
 

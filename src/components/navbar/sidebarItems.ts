@@ -29,6 +29,7 @@ import {
   ChatBubbleLeftRightIcon,
   StarIcon,
   Squares2X2Icon,
+  IdentificationIcon,
 } from '@heroicons/react/24/outline'
 
 export const ADMIN_USER_IDS: string[] = [
@@ -117,6 +118,8 @@ export const managerNavConfig: SidebarNavConfig = {
           { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
           { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
           { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
+          { name: 'contractors', href: '/property-manager/contractors', icon: IdentificationIcon },
+          { name: 'maintenance', href: '/property-manager/maintenance', icon: WrenchScrewdriverIcon },
           { name: 'invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
         ],
       },
@@ -186,6 +189,8 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
   { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
+  { name: 'contractors', href: '/property-manager/contractors', icon: IdentificationIcon },
+  { name: 'maintenance', href: '/property-manager/maintenance', icon: WrenchScrewdriverIcon },
   { name: 'invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
   { name: 'analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
   { name: 'teamMembers', href: '/property-manager/team', icon: UsersIcon },
@@ -210,6 +215,14 @@ export const cleanerSidebarItems: SidebarItem[] = [
   { name: 'invoices', href: '/cleaner/invoices', icon: BanknotesIcon },
   { name: 'whatsNew', href: '/cleaner/whats-new', icon: SparklesIcon },
   { name: 'settings', href: '/cleaner/settings', icon: CogIcon },
+]
+
+export const contractorSidebarItems: SidebarItem[] = [
+  { name: 'dashboard', href: '/contractor/dashboard', icon: HomeIcon },
+  { name: 'tasks', href: '/contractor/tasks', icon: ClipboardDocumentListIcon },
+  { name: 'invoices', href: '/contractor/invoices', icon: BanknotesIcon },
+  { name: 'whatsNew', href: '/contractor/whats-new', icon: SparklesIcon },
+  { name: 'settings', href: '/contractor/settings', icon: CogIcon },
 ]
 
 export const clientSidebarItems: SidebarItem[] = [

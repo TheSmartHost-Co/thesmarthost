@@ -57,6 +57,7 @@
   "smsDescriptionClient": "Receive text messages for booking and cleaning updates",
   "emailDescriptionClient": "Receive email updates for bookings, reports, and cleaning",
   "notificationsDescCleaner": "How you receive task and schedule alerts",
+  "notificationsDescContractor": "How you receive task and schedule alerts",
 
   "autoImportBookings": "Auto-Import Bookings",
 
@@ -171,6 +172,9 @@
   "propertiesUnit": "properties",
   "roleLabel": "Role",
   "roleCleaner": "Cleaner",
+  "roleContractor": "Contractor",
+  "tradeLabel": "Trade",
+  "enterTrade": "e.g. Plumbing, Electrical, General repairs",
   "phoneRequiredForSms": "Please add a phone number in your profile before enabling SMS notifications",
   "notificationToggled": "{{label}} notifications {{state}}",
   "enabled": "enabled",

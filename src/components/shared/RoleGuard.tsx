@@ -13,6 +13,7 @@ import { useImpersonationStore } from '@/store/useImpersonationStore'
 const PORTAL_ROLES: Record<string, string[]> = {
   '/property-manager': ['PROPERTY-MANAGER', 'TEAM_MEMBER', 'ADMIN'],
   '/cleaner': ['CLEANER'],
+  '/contractor': ['CONTRACTOR'],
   '/client': ['CLIENT'],
 }
 
@@ -52,7 +53,7 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
     }
     // Team members impersonating: their role is TEAM_MEMBER but they should access client/cleaner portals
     if (isImpersonating && target && userRole === 'TEAM_MEMBER') {
-      const portalForTarget = target.role === 'CLIENT' ? '/client' : target.role === 'CLEANER' ? '/cleaner' : null
+      const portalForTarget = target.role === 'CLIENT' ? '/client' : target.role === 'CLEANER' ? '/cleaner' : target.role === 'CONTRACTOR' ? '/contractor' : null
       if (portalForTarget === portal) {
         setBlocked(false)
         return
@@ -70,8 +71,8 @@ export default function RoleGuard({ portal, children }: RoleGuardProps) {
   }, [profile, userRole, allowedRoles, router, getRedirectPath, isImpersonating, target])
 
   if (blocked) {
-    const portalLabel = portal === '/cleaner' ? 'cleaner' : portal === '/client' ? 'property owner' : 'property manager'
-    const roleLabel = userRole === 'CLEANER' ? 'cleaner' : userRole === 'CLIENT' ? 'property owner' : 'property manager'
+    const portalLabel = portal === '/cleaner' ? 'cleaner' : portal === '/contractor' ? 'contractor' : portal === '/client' ? 'property owner' : 'property manager'
+    const roleLabel = userRole === 'CLEANER' ? 'cleaner' : userRole === 'CONTRACTOR' ? 'contractor' : userRole === 'CLIENT' ? 'property owner' : 'property manager'
 
     return (
       <div className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 5rem)' }}>

@@ -34,6 +34,14 @@ export function getOrCreateCleanerProfile(authUserId: string, fullName: string):
   });
 }
 
+// Get or create a contractor profile when they log in via magic link
+export function getOrCreateContractorProfile(authUserId: string, fullName: string): Promise<ProfileResponse> {
+  return apiClient<ProfileResponse>('/profile/contractor', {
+    method: 'POST',
+    body: { authUserId, fullName },
+  });
+}
+
 // Get or create a team member profile when they log in via magic link
 // Returns profile + pmUserId + permissions from team_members row
 export function getOrCreateTeamMemberProfile(authUserId: string, fullName: string): Promise<ProfileResponse> {
