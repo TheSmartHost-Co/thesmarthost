@@ -34,6 +34,7 @@ import type { MaintenanceTaskSummary, MaintenanceTaskStatus } from '@/services/t
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { useUserStore } from '@/store/useUserStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { TASK_STATUS_BADGE } from '@/constants/maintenanceTaskUi'
 
 const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: string }>> = {
   damage: ExclamationTriangleIcon,
@@ -50,14 +51,8 @@ const STATUS_COLORS: Record<IssueStatus, { bg: string; text: string }> = {
 }
 
 // Maintenance task status chip colors (shared convention)
-const TASK_STATUS_COLORS: Record<MaintenanceTaskStatus, string> = {
-  pending: 'bg-gray-100 text-gray-700',
-  assigned: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-700'
-}
+// Shared status palette (src/constants/maintenanceTaskUi.ts)
+const TASK_STATUS_COLORS = TASK_STATUS_BADGE
 
 const TASK_STATUS_LABEL_KEYS: Record<MaintenanceTaskStatus, string> = {
   pending: 'taskStatusPending',

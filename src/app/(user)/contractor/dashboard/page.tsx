@@ -22,6 +22,7 @@ import {
 import { useUserStore } from '@/store/useUserStore'
 import { getContractorByAuthUserId } from '@/services/contractorService'
 import { getMyMaintenanceTasks } from '@/services/maintenanceTaskService'
+import { needsContractorResponse } from '@/constants/maintenanceTaskUi'
 import type { Contractor } from '@/services/types/contractor'
 import type { MaintenanceTask } from '@/services/types/maintenanceTask'
 
@@ -100,12 +101,8 @@ export default function ContractorDashboardPage() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Needs-response: assigned && (awaiting_proposal || PM's offer stands)
-    const pendingOffers = tasks.filter(task =>
-      task.status === 'assigned' &&
-      (task.priceStatus === 'awaiting_proposal' ||
-        (task.priceStatus === 'offered' && task.pricingLastActor === 'pm'))
-    ).length
+    // Needs-response: shared predicate (src/constants/maintenanceTaskUi.ts)
+    const pendingOffers = tasks.filter(needsContractorResponse).length
 
     // Upcoming: scheduled today or later, still assigned/confirmed
     const upcoming = tasks.filter(task => {

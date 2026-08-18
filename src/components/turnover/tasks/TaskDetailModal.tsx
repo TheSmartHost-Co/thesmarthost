@@ -28,6 +28,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { assignContractorToTask, startTask, completeTask } from '@/services/maintenanceTaskService'
 import { getContractors } from '@/services/contractorService'
 import { parseLocalDate } from '@/utils/dateUtils'
+import { TASK_STATUS_BADGE, TASK_STATUS_CHIP_BORDER } from '@/constants/maintenanceTaskUi'
 import type {
   MaintenanceTask,
   MaintenanceTaskStatus,
@@ -45,14 +46,13 @@ export interface TaskDetailModalProps {
   onTaskDeleted?: (taskId: string) => void
 }
 
-const STATUS_BADGE: Record<MaintenanceTaskStatus, string> = {
-  pending: 'bg-gray-100 text-gray-700 border-gray-200',
-  assigned: 'bg-amber-100 text-amber-700 border-amber-200',
-  confirmed: 'bg-blue-100 text-blue-700 border-blue-200',
-  in_progress: 'bg-purple-100 text-purple-700 border-purple-200',
-  completed: 'bg-green-100 text-green-700 border-green-200',
-  cancelled: 'bg-gray-100 text-gray-500 border-gray-200',
-}
+// Shared status palette (see src/constants/maintenanceTaskUi.ts)
+const STATUS_BADGE: Record<MaintenanceTaskStatus, string> = Object.fromEntries(
+  (Object.keys(TASK_STATUS_BADGE) as MaintenanceTaskStatus[]).map(s => [
+    s,
+    `${TASK_STATUS_BADGE[s]} ${TASK_STATUS_CHIP_BORDER[s]}`,
+  ])
+) as Record<MaintenanceTaskStatus, string>
 
 function formatDisplayDate(dateStr: string): string {
   const datePart = dateStr.split('T')[0]

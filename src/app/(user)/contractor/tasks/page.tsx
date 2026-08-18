@@ -16,24 +16,11 @@ import { useUserStore } from '@/store/useUserStore'
 import { getMyMaintenanceTasks } from '@/services/maintenanceTaskService'
 import type { MaintenanceTask } from '@/services/types/maintenanceTask'
 import MaintenanceTaskCard from '@/components/contractor-portal/MaintenanceTaskCard'
+import { needsContractorResponse, isWaitingOnManager } from '@/constants/maintenanceTaskUi'
 
-// Does this task need the contractor's response?
-function needsResponse(task: MaintenanceTask): boolean {
-  return (
-    task.status === 'assigned' &&
-    (task.priceStatus === 'awaiting_proposal' ||
-      (task.priceStatus === 'offered' && task.pricingLastActor === 'pm'))
-  )
-}
-
-// Is this task waiting on the manager (contractor made the last offer)?
-function waitingOnManager(task: MaintenanceTask): boolean {
-  return (
-    task.status === 'assigned' &&
-    task.priceStatus === 'offered' &&
-    task.pricingLastActor === 'contractor'
-  )
-}
+// Shared negotiation-turn predicates (src/constants/maintenanceTaskUi.ts)
+const needsResponse = needsContractorResponse
+const waitingOnManager = isWaitingOnManager
 
 // Group tasks into the page's sections
 function groupTasks(tasks: MaintenanceTask[]) {

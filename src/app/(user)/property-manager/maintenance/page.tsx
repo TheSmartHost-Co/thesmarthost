@@ -26,6 +26,7 @@ import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useTaskProjectFlow } from '@/hooks/useTaskProjectFlow'
+import { TASK_STATUS_BADGE } from '@/constants/maintenanceTaskUi'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import ReportStandaloneIssueModal from '@/components/turnover/issues/ReportStandaloneIssueModal'
 import CreateTaskModal from '@/components/turnover/tasks/CreateTaskModal'
@@ -44,15 +45,8 @@ const TASK_STATUSES: MaintenanceTaskStatus[] = [
   'cancelled',
 ]
 
-// Status chip/badge colors (shared convention)
-const TASK_STATUS_COLORS: Record<MaintenanceTaskStatus, string> = {
-  pending: 'bg-gray-100 text-gray-700',
-  assigned: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-purple-100 text-purple-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-700',
-}
+// Status chip/badge colors (shared: src/constants/maintenanceTaskUi.ts)
+const TASK_STATUS_COLORS = TASK_STATUS_BADGE
 
 const TASK_STATUS_LABEL_KEYS: Record<MaintenanceTaskStatus, string> = {
   pending: 'taskStatusPending',
@@ -117,14 +111,6 @@ function MaintenancePageContent() {
   const deepLinkTaskId = searchParams.get('taskId')
   const deepLinkHandled = useRef(false)
 
-  // "Create Task" two-step flow: report issue -> create task
-  const handleTaskCreated = useCallback((task: MaintenanceTask) => {
-    setTasks(prev => [task, ...prev])
-    setAllTasks(prev => [task, ...prev])
-  }, [])
-
-  const taskFlow = useTaskProjectFlow({ onTaskCreated: handleTaskCreated })
-
   // Filtered list (server-side filters)
   const fetchTasks = useCallback(async () => {
     if (!effectiveUserId) return
@@ -155,6 +141,17 @@ function MaintenancePageContent() {
   useEffect(() => {
     fetchTasks()
   }, [fetchTasks])
+
+  // "Create Task" two-step flow: report issue -> create task.
+  // The stats list always gains the new task; the visible list is re-fetched
+  // so active server-side filters keep applying (a blind prepend would show
+  // tasks that don't match the current filters).
+  const handleTaskCreated = useCallback((task: MaintenanceTask) => {
+    setAllTasks(prev => [task, ...prev])
+    fetchTasks()
+  }, [fetchTasks])
+
+  const taskFlow = useTaskProjectFlow({ onTaskCreated: handleTaskCreated })
 
   // Unfiltered list for the stat cards + supporting data
   useEffect(() => {

@@ -22,6 +22,7 @@ import {
   startTask,
   completeTask,
 } from '@/services/maintenanceTaskService'
+import { TASK_STATUS_BADGE, TASK_STATUS_ACCENT_BORDER, isWaitingOnManager } from '@/constants/maintenanceTaskUi'
 import type { MaintenanceTask, MaintenanceTaskStatus } from '@/services/types/maintenanceTask'
 import ModifyTaskPriceModal from './ModifyTaskPriceModal'
 
@@ -70,38 +71,38 @@ function getStatusConfig(status: MaintenanceTaskStatus): {
   const configs: Record<MaintenanceTaskStatus, ReturnType<typeof getStatusConfig>> = {
     pending: {
       labelKey: 'statusPending',
-      border: 'border-gray-300',
-      badge: 'bg-gray-100 text-gray-700',
+      border: TASK_STATUS_ACCENT_BORDER.pending,
+      badge: TASK_STATUS_BADGE.pending,
       icon: <div className="w-2 h-2 rounded-full bg-gray-400" />,
     },
     assigned: {
       labelKey: 'statusAssigned',
-      border: 'border-amber-400',
-      badge: 'bg-amber-100 text-amber-700',
+      border: TASK_STATUS_ACCENT_BORDER.assigned,
+      badge: TASK_STATUS_BADGE.assigned,
       icon: <ClockIcon className="w-3.5 h-3.5" />,
     },
     confirmed: {
       labelKey: 'statusConfirmed',
-      border: 'border-blue-400',
-      badge: 'bg-blue-100 text-blue-700',
+      border: TASK_STATUS_ACCENT_BORDER.confirmed,
+      badge: TASK_STATUS_BADGE.confirmed,
       icon: <CheckCircleIcon className="w-3.5 h-3.5" />,
     },
     in_progress: {
       labelKey: 'statusInProgress',
-      border: 'border-purple-400',
-      badge: 'bg-purple-100 text-purple-700',
+      border: TASK_STATUS_ACCENT_BORDER.in_progress,
+      badge: TASK_STATUS_BADGE.in_progress,
       icon: <PlayCircleIcon className="w-3.5 h-3.5" />,
     },
     completed: {
       labelKey: 'statusCompleted',
-      border: 'border-green-400',
-      badge: 'bg-green-100 text-green-700',
+      border: TASK_STATUS_ACCENT_BORDER.completed,
+      badge: TASK_STATUS_BADGE.completed,
       icon: <CheckCircleIcon className="w-3.5 h-3.5" />,
     },
     cancelled: {
       labelKey: 'statusCancelled',
-      border: 'border-gray-300',
-      badge: 'bg-gray-100 text-gray-500',
+      border: TASK_STATUS_ACCENT_BORDER.cancelled,
+      badge: TASK_STATUS_BADGE.cancelled,
       icon: <XMarkIcon className="w-3.5 h-3.5" />,
     },
   }
@@ -131,7 +132,7 @@ export default function MaintenanceTaskCard({ task, onTaskUpdated }: Maintenance
   const isAssigned = task.status === 'assigned'
   const pmOfferPending = isAssigned && task.priceStatus === 'offered' && task.pricingLastActor === 'pm'
   const needsProposal = isAssigned && task.priceStatus === 'awaiting_proposal'
-  const waitingOnManager = isAssigned && task.priceStatus === 'offered' && task.pricingLastActor === 'contractor'
+  const waitingOnManager = isWaitingOnManager(task)
   const canStart = task.status === 'confirmed'
   const canComplete = task.status === 'in_progress'
 
