@@ -1209,5 +1209,14 @@
   "newProjectSubtitle": "Projet de ménage ou de tâche",
   "maintenanceTaskLabel": "Tâche de maintenance",
   "taskContractorLabel": "Prestataire",
-  "taskDuringGuestStay": "Pendant le séjour du client"
+  "taskDuringGuestStay": "Pendant le séjour du client",
+  "issuesTabLabel": "Problèmes",
+  "tasksTabLabel": "Tâches",
+  "noUntaskedIssues": "Aucun problème en attente de tâche",
+  "noUntaskedIssuesHint": "Les problèmes non résolus signalés par les nettoyeurs ou depuis le calendrier apparaîtront ici jusqu'à ce qu'une tâche soit créée.",
+  "issuesNeedingTasksCount_one": "{{count}} problème nécessite une tâche",
+  "issuesNeedingTasksCount_other": "{{count}} problèmes nécessitent une tâche",
+  "sortByReportedDate": "Trier par date de signalement",
+  "sortNewestFirst": "Plus récents en premier",
+  "sortOldestFirst": "Plus anciens en premier"
 }

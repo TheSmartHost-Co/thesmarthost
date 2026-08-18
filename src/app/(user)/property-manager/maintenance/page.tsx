@@ -16,12 +16,15 @@ import {
   FunnelIcon,
   UserIcon,
   BuildingOfficeIcon,
+  ExclamationTriangleIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
 import { getMaintenanceTasks, getMaintenanceTaskById } from '@/services/maintenanceTaskService'
 import { getContractors } from '@/services/contractorService'
 import { getProperties } from '@/services/propertyService'
-import { getIssueTypeDisplay } from '@/services/projectIssueService'
+import { getIssueTypeDisplay, getIssueStatusDisplay, getAllIssues, formatIssueAge } from '@/services/projectIssueService'
 import { ISSUE_TYPE_ICONS } from '@/components/turnover/issues/issueTypeUi'
+import AllIssuesModal from '@/components/turnover/issues/AllIssuesModal'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -34,7 +37,7 @@ import TaskDetailModal from '@/components/turnover/tasks/TaskDetailModal'
 import type { MaintenanceTask, MaintenanceTaskStatus } from '@/services/types/maintenanceTask'
 import type { Contractor } from '@/services/types/contractor'
 import type { Property } from '@/services/types/property'
-import type { IssueType } from '@/services/types/projectIssue'
+import type { IssueType, ProjectIssue } from '@/services/types/projectIssue'
 
 const TASK_STATUSES: MaintenanceTaskStatus[] = [
   'pending',
@@ -92,6 +95,14 @@ function MaintenancePageContent() {
   const [properties, setProperties] = useState<Property[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
 
+  // Issues | Tasks tabs — the Issues tab lists unresolved issues that have no
+  // active task yet (the "what needs fixing" backlog)
+  const [activeTab, setActiveTab] = useState<'issues' | 'tasks'>('tasks')
+  const [issues, setIssues] = useState<ProjectIssue[]>([])
+  const [issuesLoading, setIssuesLoading] = useState(true)
+  const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
+  const [allIssuesInitialId, setAllIssuesInitialId] = useState<string | null>(null)
+
   // Filters (all server-side)
   const [statusFilter, setStatusFilter] = useState<MaintenanceTaskStatus | 'all'>('all')
   const [propertyFilter, setPropertyFilter] = useState<string | null>(null)
@@ -142,16 +153,49 @@ function MaintenancePageContent() {
     fetchTasks()
   }, [fetchTasks])
 
+  // Unresolved issues without an active task (the Issues tab backlog)
+  const fetchIssues = useCallback(async () => {
+    if (!effectiveUserId) return
+    setIssuesLoading(true)
+    try {
+      const res = await getAllIssues(effectiveUserId)
+      if (res.status === 'success') setIssues(res.data)
+    } catch (err) {
+      console.error('Error fetching issues:', err)
+    } finally {
+      setIssuesLoading(false)
+    }
+  }, [effectiveUserId])
+
+  useEffect(() => {
+    fetchIssues()
+  }, [fetchIssues])
+
   // "Create Task" two-step flow: report issue -> create task.
   // The stats list always gains the new task; the visible list is re-fetched
   // so active server-side filters keep applying (a blind prepend would show
-  // tasks that don't match the current filters).
+  // tasks that don't match the current filters). Land on the Tasks tab so the
+  // new task is immediately visible.
   const handleTaskCreated = useCallback((task: MaintenanceTask) => {
     setAllTasks(prev => [task, ...prev])
     fetchTasks()
-  }, [fetchTasks])
+    fetchIssues()
+    setActiveTab('tasks')
+  }, [fetchTasks, fetchIssues])
 
   const taskFlow = useTaskProjectFlow({ onTaskCreated: handleTaskCreated })
+
+  // Changes made inside the All Issues modal (task created/completed/cancelled,
+  // issue resolved/deleted) can affect both lists — refresh everything.
+  const handleIssuesChanged = useCallback(() => {
+    fetchIssues()
+    fetchTasks()
+    if (effectiveUserId) {
+      getMaintenanceTasks({ userId: effectiveUserId })
+        .then(res => { if (res.status === 'success') setAllTasks(res.data) })
+        .catch(err => console.error('Error refreshing tasks:', err))
+    }
+  }, [fetchIssues, fetchTasks, effectiveUserId])
 
   // Unfiltered list for the stat cards + supporting data
   useEffect(() => {
@@ -248,6 +292,14 @@ function MaintenancePageContent() {
   const hasActiveFilters =
     statusFilter !== 'all' || !!propertyFilter || !!contractorFilter || !!startDate || !!endDate
 
+  // Issues that still need a task: unresolved and no non-cancelled task exists
+  const untaskedIssues = useMemo(() => {
+    const taskedIssueIds = new Set(
+      allTasks.filter(task => task.status !== 'cancelled').map(task => task.issueId)
+    )
+    return issues.filter(issue => issue.status !== 'resolved' && !taskedIssueIds.has(issue.id))
+  }, [issues, allTasks])
+
   const statCards = [
     {
       label: t('totalTasksStat'),
@@ -329,17 +381,28 @@ function MaintenancePageContent() {
           <h1 className="text-2xl font-bold text-gray-900">{t('maintenanceTitle')}</h1>
           <p className="text-gray-500 mt-1">{t('maintenanceSubtitle')}</p>
         </div>
-        {canWriteMaintenance && (
+        <div className="flex items-center gap-3">
           <motion.button
-            onClick={taskFlow.startTaskProjectFlow}
+            onClick={() => { setAllIssuesInitialId(null); setShowAllIssuesModal(true) }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            className="cursor-pointer inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            {t('createTaskButton')}
+            <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-red-500" />
+            {t('allIssues')}
           </motion.button>
-        )}
+          {canWriteMaintenance && (
+            <motion.button
+              onClick={taskFlow.startTaskProjectFlow}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              {t('createTaskButton')}
+            </motion.button>
+          )}
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -365,7 +428,136 @@ function MaintenancePageContent() {
         ))}
       </div>
 
-      {/* Filters + Task List */}
+      {/* Issues | Tasks tabs */}
+      <div className="flex items-center gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('issues')}
+          className={`cursor-pointer px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'issues'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {t('issuesTabLabel')}
+          {untaskedIssues.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+              {untaskedIssues.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('tasks')}
+          className={`cursor-pointer px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'tasks'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {t('tasksTabLabel')}
+        </button>
+      </div>
+
+      {/* Issues tab — unresolved issues that still need a task */}
+      {activeTab === 'issues' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible"
+        >
+          {issuesLoading ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : untaskedIssues.length === 0 ? (
+            <div className="text-center py-16 px-4">
+              <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <CheckCircleIcon className="w-8 h-8 text-green-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noUntaskedIssues')}</h3>
+              <p className="text-gray-500 max-w-sm mx-auto">{t('noUntaskedIssuesHint')}</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {untaskedIssues.map((issue, index) => {
+                const Icon = ISSUE_TYPE_ICONS[issue.issueType] || WrenchScrewdriverIcon
+                const typeInfo = getIssueTypeDisplay(issue.issueType)
+                const statusInfo = getIssueStatusDisplay(issue.status)
+                return (
+                  <motion.div
+                    key={issue.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-blue-50/50 transition-colors"
+                  >
+                    <button
+                      onClick={() => { setAllIssuesInitialId(issue.id); setShowAllIssuesModal(true) }}
+                      className="flex items-center gap-4 flex-1 min-w-0 text-left cursor-pointer"
+                    >
+                      <div className={`
+                        p-2.5 rounded-xl flex-shrink-0
+                        ${typeInfo.color === 'red' ? 'bg-red-100 text-red-600' : ''}
+                        ${typeInfo.color === 'amber' ? 'bg-amber-100 text-amber-600' : ''}
+                        ${typeInfo.color === 'blue' ? 'bg-blue-100 text-blue-600' : ''}
+                        ${typeInfo.color === 'purple' ? 'bg-purple-100 text-purple-600' : ''}
+                        ${typeInfo.color === 'gray' ? 'bg-gray-100 text-gray-600' : ''}
+                      `}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 text-sm">{typeInfo.label}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            issue.status === 'open' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {statusInfo.label}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-1 mt-0.5">{issue.description}</p>
+                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-gray-400">
+                          {issue.propertyName && (
+                            <span className="flex items-center gap-1">
+                              <BuildingOfficeIcon className="w-3.5 h-3.5" />
+                              {issue.propertyName}
+                            </span>
+                          )}
+                          <span>{formatIssueAge(issue.createdAt)}</span>
+                          {issue.reporterName && <span>{issue.reporterName}</span>}
+                          {issue.photoUrls.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <PhotoIcon className="w-3.5 h-3.5" />
+                              {issue.photoUrls.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                    {canWriteMaintenance && (
+                      <button
+                        onClick={() => taskFlow.startTaskFromIssue(issue)}
+                        className="cursor-pointer flex-shrink-0 inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                      >
+                        <WrenchScrewdriverIcon className="w-4 h-4 mr-1.5" />
+                        {t('createTaskForIssue')}
+                      </button>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
+          {!issuesLoading && untaskedIssues.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+              <p className="text-sm text-gray-500">
+                {t('issuesNeedingTasksCount', { count: untaskedIssues.length })}
+              </p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Tasks tab — filters + task list */}
+      {activeTab === 'tasks' && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -567,6 +759,17 @@ function MaintenancePageContent() {
           </div>
         )}
       </motion.div>
+      )}
+
+      {/* All Issues modal (shared with the turnover page) */}
+      <AllIssuesModal
+        isOpen={showAllIssuesModal}
+        onClose={() => { setShowAllIssuesModal(false); setAllIssuesInitialId(null) }}
+        issues={issues}
+        loading={issuesLoading}
+        onIssuesChanged={handleIssuesChanged}
+        initialIssueId={allIssuesInitialId}
+      />
 
       {/* Create Task flow: step 1 — report a property issue */}
       <ReportStandaloneIssueModal

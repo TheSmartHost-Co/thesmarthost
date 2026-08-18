@@ -28,6 +28,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUnreadIssueIds } from '@/hooks/useUnreadIssueIds'
+import SearchableSelect from '@/components/shared/SearchableSelect'
 
 interface AllIssuesModalProps {
   isOpen: boolean
@@ -35,6 +36,8 @@ interface AllIssuesModalProps {
   issues: ProjectIssue[]
   loading?: boolean
   onIssuesChanged?: () => void
+  /** Open with this issue's detail panel already selected */
+  initialIssueId?: string | null
 }
 
 const ISSUE_TYPE_ICONS: Record<IssueType, React.ComponentType<{ className?: string }>> = {
@@ -57,11 +60,16 @@ export default function AllIssuesModal({
   issues: propIssues,
   loading = false,
   onIssuesChanged,
+  initialIssueId = null,
 }: AllIssuesModalProps) {
   const { t } = useTranslation('turnover')
   const [localIssues, setLocalIssues] = useState<ProjectIssue[]>(propIssues)
   const [selectedIssue, setSelectedIssue] = useState<ProjectIssue | null>(null)
   const [filterStatus, setFilterStatus] = useState<IssueStatus | 'all'>('all')
+  const [filterProperty, setFilterProperty] = useState<string | null>(null)
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [collapsedProperties, setCollapsedProperties] = useState<Set<string>>(new Set())
   const { unreadIssueIds, markIssueAsRead } = useUnreadIssueIds(isOpen)
 
@@ -80,12 +88,24 @@ export default function AllIssuesModal({
     if (!isOpen) {
       setSelectedIssue(null)
       setFilterStatus('all')
+      setFilterProperty(null)
+      setFilterDateFrom('')
+      setFilterDateTo('')
+      setSortDir('desc')
       setCollapsedProperties(new Set())
       setIssueTaskCache(new Map())
       setCreateTaskIssue(null)
       setViewedTask(null)
     }
   }, [isOpen])
+
+  // Deep-link: open with a specific issue's detail panel selected
+  useEffect(() => {
+    if (!isOpen || !initialIssueId) return
+    const issue = propIssues.find(i => i.id === initialIssueId)
+    if (issue) setSelectedIssue(issue)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialIssueId])
 
   // Fetch the linked task when an issue is selected (cached per issue id)
   useEffect(() => {
@@ -145,12 +165,40 @@ export default function AllIssuesModal({
     resolved: localIssues.filter(i => i.status === 'resolved').length,
   }), [localIssues])
 
-  const filteredIssues = useMemo(() =>
-    filterStatus === 'all'
+  // Property options derived from the issues themselves (works in every host page)
+  const propertyOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const issue of localIssues) {
+      if (issue.propertyId && !seen.has(issue.propertyId)) {
+        seen.set(issue.propertyId, issue.propertyName || t('unknownProperty'))
+      }
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [localIssues, t])
+
+  const filteredIssues = useMemo(() => {
+    let result = filterStatus === 'all'
       ? localIssues
-      : localIssues.filter(i => i.status === filterStatus),
-    [localIssues, filterStatus]
-  )
+      : localIssues.filter(i => i.status === filterStatus)
+    if (filterProperty) {
+      result = result.filter(i => i.propertyId === filterProperty)
+    }
+    // Reported-date range (compare on the issue's local calendar date)
+    if (filterDateFrom || filterDateTo) {
+      result = result.filter(i => {
+        const reported = new Date(i.createdAt).toISOString().slice(0, 10)
+        if (filterDateFrom && reported < filterDateFrom) return false
+        if (filterDateTo && reported > filterDateTo) return false
+        return true
+      })
+    }
+    // Sort by reported date (within each property group, since grouping preserves order)
+    return [...result].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      return sortDir === 'asc' ? diff : -diff
+    })
+  }, [localIssues, filterStatus, filterProperty, filterDateFrom, filterDateTo, sortDir])
 
   // Group filtered issues by propertyName
   const groupedByProperty = useMemo(() => {
@@ -281,6 +329,43 @@ export default function AllIssuesModal({
                     </span>
                   </button>
                 ))}
+              </div>
+
+              {/* Property / date / sort filters */}
+              <div className="flex flex-wrap items-end gap-2 mb-4">
+                <div className="min-w-[180px] flex-1">
+                  <SearchableSelect
+                    options={[{ value: '', label: t('allProperties') }, ...propertyOptions]}
+                    value={filterProperty ?? ''}
+                    onChange={(value) => setFilterProperty(value || null)}
+                    placeholder={t('allProperties')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">{t('filterStartDate')}</label>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">{t('filterEndDate')}</label>
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={() => setSortDir(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  title={t('sortByReportedDate')}
+                >
+                  {sortDir === 'desc' ? `↓ ${t('sortNewestFirst')}` : `↑ ${t('sortOldestFirst')}`}
+                </button>
               </div>
 
               {/* Issues grouped by property */}

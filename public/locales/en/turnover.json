@@ -1329,5 +1329,14 @@
   "newProjectSubtitle": "Cleaning or task project",
   "maintenanceTaskLabel": "Maintenance task",
   "taskContractorLabel": "Contractor",
-  "taskDuringGuestStay": "During guest stay"
+  "taskDuringGuestStay": "During guest stay",
+  "issuesTabLabel": "Issues",
+  "tasksTabLabel": "Tasks",
+  "noUntaskedIssues": "No issues waiting for a task",
+  "noUntaskedIssuesHint": "Unresolved issues reported by cleaners or from the calendar will appear here until a task is created for them.",
+  "issuesNeedingTasksCount_one": "{{count}} issue needs a task",
+  "issuesNeedingTasksCount_other": "{{count}} issues need a task",
+  "sortByReportedDate": "Sort by reported date",
+  "sortNewestFirst": "Newest first",
+  "sortOldestFirst": "Oldest first"
 }

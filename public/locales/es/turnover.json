@@ -1319,5 +1319,14 @@
   "newProjectSubtitle": "Proyecto de limpieza o de tarea",
   "maintenanceTaskLabel": "Tarea de mantenimiento",
   "taskContractorLabel": "Contratista",
-  "taskDuringGuestStay": "Durante la estancia del huésped"
+  "taskDuringGuestStay": "Durante la estancia del huésped",
+  "issuesTabLabel": "Problemas",
+  "tasksTabLabel": "Tareas",
+  "noUntaskedIssues": "No hay problemas esperando una tarea",
+  "noUntaskedIssuesHint": "Los problemas sin resolver reportados por limpiadores o desde el calendario aparecerán aquí hasta que se cree una tarea.",
+  "issuesNeedingTasksCount_one": "{{count}} problema necesita una tarea",
+  "issuesNeedingTasksCount_other": "{{count}} problemas necesitan una tarea",
+  "sortByReportedDate": "Ordenar por fecha de reporte",
+  "sortNewestFirst": "Más recientes primero",
+  "sortOldestFirst": "Más antiguos primero"
 }
