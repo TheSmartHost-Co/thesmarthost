@@ -83,6 +83,70 @@ export interface MaintenanceTaskSummary {
   contractorName?: string | null
 }
 
+// PM-authored bullet item on a task; the contractor checks it off and can
+// attach one photo. is_required gates task completion; photo_required gates
+// completion for items that are required or checked off.
+export interface TaskChecklistItem {
+  id: string
+  taskId: string
+  description: string
+  isRequired: boolean
+  photoRequired: boolean
+  sortOrder: number
+  isCompleted: boolean
+  completedAt?: string | null
+  photoUrl?: string | null
+  photoTakenAt?: string | null
+  photoUploadedAt?: string | null
+  createdAt: string
+}
+
+export interface TaskChecklistProgress {
+  totalItems: number
+  completedItems: number
+  requiredItems: number
+  requiredCompleted: number
+  photosRequired: number
+  photosUploaded: number
+}
+
+export interface CreateTaskChecklistItemPayload {
+  description: string
+  isRequired?: boolean
+  photoRequired?: boolean
+  sortOrder?: number
+}
+
+export interface UpdateTaskChecklistItemPayload {
+  // PM authoring fields (blocked once the task is completed/cancelled)
+  description?: string
+  isRequired?: boolean
+  photoRequired?: boolean
+  sortOrder?: number
+  // Completion toggle (contractor or PM, while the task is in progress)
+  isCompleted?: boolean
+}
+
+export interface TaskChecklistResponse {
+  status: 'success' | 'failed'
+  data: {
+    items: TaskChecklistItem[]
+    progress: TaskChecklistProgress
+  }
+  message?: string
+}
+
+export interface TaskChecklistItemResponse {
+  status: 'success' | 'failed'
+  data: TaskChecklistItem
+  message?: string
+}
+
+export interface DeleteTaskChecklistItemResponse {
+  status: 'success' | 'failed'
+  message: string
+}
+
 export interface CreateMaintenanceTaskPayload {
   issueId: string
   title: string
@@ -95,6 +159,7 @@ export interface CreateMaintenanceTaskPayload {
   pricingType?: PricingType
   offeredAmount?: number
   pmNotes?: string
+  checklistItems?: CreateTaskChecklistItemPayload[]
 }
 
 export interface UpdateMaintenanceTaskPayload {

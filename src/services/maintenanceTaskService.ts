@@ -11,6 +11,11 @@ import type {
   MaintenanceTaskFilters,
   BookingOnDateResponse,
   VacantDatesResponse,
+  CreateTaskChecklistItemPayload,
+  UpdateTaskChecklistItemPayload,
+  TaskChecklistResponse,
+  TaskChecklistItemResponse,
+  DeleteTaskChecklistItemResponse,
 } from './types/maintenanceTask'
 
 export function getMaintenanceTasks(filters: MaintenanceTaskFilters): Promise<MaintenanceTasksResponse> {
@@ -138,5 +143,77 @@ export function getNextVacantDates(propertyId: string, from?: string, count?: nu
   const qs = params.toString()
   return apiClient<VacantDatesResponse>(
     `/maintenance-tasks/properties/${propertyId}/next-vacant-dates${qs ? `?${qs}` : ''}`
+  )
+}
+
+// =============================================
+// TASK CHECKLIST ITEMS
+// =============================================
+
+/** All checklist items + progress for a task */
+export function getTaskChecklist(taskId: string): Promise<TaskChecklistResponse> {
+  return apiClient<TaskChecklistResponse>(`/maintenance-tasks/${taskId}/checklist`)
+}
+
+/** PM: add a checklist item to a task (blocked once terminal) */
+export function addTaskChecklistItem(
+  taskId: string,
+  data: CreateTaskChecklistItemPayload
+): Promise<TaskChecklistItemResponse> {
+  return apiClient<TaskChecklistItemResponse, CreateTaskChecklistItemPayload>(
+    `/maintenance-tasks/${taskId}/checklist`,
+    { method: 'POST', body: data }
+  )
+}
+
+/**
+ * Update a checklist item. PM authoring fields (description/flags/sort) are
+ * blocked once the task is terminal; isCompleted toggling is allowed for the
+ * assigned contractor or PM while the task is in progress.
+ */
+export function updateTaskChecklistItem(
+  taskId: string,
+  itemId: string,
+  data: UpdateTaskChecklistItemPayload
+): Promise<TaskChecklistItemResponse> {
+  return apiClient<TaskChecklistItemResponse, UpdateTaskChecklistItemPayload>(
+    `/maintenance-tasks/${taskId}/checklist/${itemId}`,
+    { method: 'PUT', body: data }
+  )
+}
+
+/** PM: delete a checklist item (blocked once terminal) */
+export function deleteTaskChecklistItem(
+  taskId: string,
+  itemId: string
+): Promise<DeleteTaskChecklistItemResponse> {
+  return apiClient<DeleteTaskChecklistItemResponse>(
+    `/maintenance-tasks/${taskId}/checklist/${itemId}`,
+    { method: 'DELETE' }
+  )
+}
+
+/** Upload (or replace) the photo on a checklist item — task must be in progress */
+export function uploadTaskChecklistItemPhoto(
+  taskId: string,
+  itemId: string,
+  file: File
+): Promise<TaskChecklistItemResponse> {
+  const formData = new FormData()
+  formData.append('photo', file)
+  return apiClient<TaskChecklistItemResponse, FormData>(
+    `/maintenance-tasks/${taskId}/checklist/${itemId}/photo`,
+    { method: 'POST', body: formData }
+  )
+}
+
+/** Remove the photo from a checklist item — task must be in progress */
+export function deleteTaskChecklistItemPhoto(
+  taskId: string,
+  itemId: string
+): Promise<TaskChecklistItemResponse> {
+  return apiClient<TaskChecklistItemResponse>(
+    `/maintenance-tasks/${taskId}/checklist/${itemId}/photo`,
+    { method: 'DELETE' }
   )
 }

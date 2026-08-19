@@ -21,6 +21,7 @@ import {
 import Modal from '@/components/shared/modal'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import PriceNegotiationPanel from './PriceNegotiationPanel'
+import TaskChecklistSection from './TaskChecklistSection'
 import EditTaskModal from './EditTaskModal'
 import CancelTaskModal from './CancelTaskModal'
 import IssueDetailPanel from '@/components/turnover/issues/IssueDetailPanel'
@@ -452,6 +453,11 @@ export default function TaskDetailModal({
             ) : (
               <p className="text-sm text-gray-400">{t('unassigned')}</p>
             )}
+          </div>
+
+          {/* Checklist */}
+          <div className="border-t border-gray-100 pt-5">
+            <TaskChecklistSection task={task} />
           </div>
 
           {/* Price negotiation */}

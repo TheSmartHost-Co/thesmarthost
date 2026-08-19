@@ -12,6 +12,7 @@ import {
   UserIcon,
   DocumentTextIcon,
   CurrencyDollarIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -21,8 +22,14 @@ import SearchableSelect from '@/components/shared/SearchableSelect'
 import TimeSelect from '@/components/shared/TimeSelect'
 import DurationSelect from '@/components/shared/DurationSelect'
 import ReservationAwareness from './ReservationAwareness'
+import TaskChecklistBuilder from './TaskChecklistBuilder'
 import { ISSUE_TYPE_ICONS, ISSUE_TYPE_COLORS } from '@/components/turnover/issues/issueTypeUi'
-import type { MaintenanceTask, CreateMaintenanceTaskPayload, PricingType } from '@/services/types/maintenanceTask'
+import type {
+  MaintenanceTask,
+  CreateMaintenanceTaskPayload,
+  CreateTaskChecklistItemPayload,
+  PricingType,
+} from '@/services/types/maintenanceTask'
 import type { ProjectIssue } from '@/services/types/projectIssue'
 import type { Contractor } from '@/services/types/contractor'
 
@@ -49,6 +56,7 @@ export default function CreateTaskModal({ isOpen, onClose, issue, onCreated }: C
   const [pricingType, setPricingType] = useState<PricingType>('flat')
   const [offeredAmount, setOfferedAmount] = useState('')
   const [pmNotes, setPmNotes] = useState('')
+  const [checklistItems, setChecklistItems] = useState<CreateTaskChecklistItemPayload[]>([])
 
   // UI state
   const [loading, setLoading] = useState(false)
@@ -78,6 +86,7 @@ export default function CreateTaskModal({ isOpen, onClose, issue, onCreated }: C
       setPricingType('flat')
       setOfferedAmount('')
       setPmNotes('')
+      setChecklistItems([])
     }
   }, [isOpen])
 
@@ -131,6 +140,10 @@ export default function CreateTaskModal({ isOpen, onClose, issue, onCreated }: C
         payload.offeredAmount = parseFloat(offeredAmount)
       }
       if (pmNotes.trim()) payload.pmNotes = pmNotes.trim()
+      const nonEmptyChecklistItems = checklistItems
+        .map((item) => ({ ...item, description: item.description.trim() }))
+        .filter((item) => item.description)
+      if (nonEmptyChecklistItems.length > 0) payload.checklistItems = nonEmptyChecklistItems
 
       const res = await createMaintenanceTask(payload)
 
@@ -367,6 +380,15 @@ export default function CreateTaskModal({ isOpen, onClose, issue, onCreated }: C
                   </div>
                 </motion.div>
               )}
+
+              {/* Checklist */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <ClipboardDocumentCheckIcon className="w-4 h-4 inline mr-1.5 text-gray-400" />
+                  {t('checklistLabel')} <span className="text-gray-400">({t('optional')})</span>
+                </label>
+                <TaskChecklistBuilder items={checklistItems} onChange={setChecklistItems} />
+              </div>
 
               {/* Notes */}
               <div>
