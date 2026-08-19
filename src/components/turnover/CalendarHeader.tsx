@@ -908,6 +908,20 @@ export default function CalendarHeader({
             <UserCircleIcon className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Cleaner</span>
           </button>
+          <button
+            onClick={() => onViewModeChange('contractor')}
+            className={`
+              inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium
+              transition-all duration-200 cursor-pointer
+              ${viewMode === 'contractor'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+              }
+            `}
+          >
+            <WrenchScrewdriverIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t('contractorView', { defaultValue: 'Contractor' })}</span>
+          </button>
         </div>}
       </div>
     </div>

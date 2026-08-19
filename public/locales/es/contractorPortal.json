@@ -136,5 +136,11 @@
   "errorLoadingInvoices": "Error al cargar las facturas",
   "deletePermissionTitle": "Permiso requerido",
   "deletePermissionMessage": "Solo los administradores de propiedades pueden eliminar facturas. Contacta a tu administrador si necesitas que se elimine esta factura.",
-  "gotIt": "Entendido"
+  "gotIt": "Entendido",
+  "week": "Semana",
+  "month": "Mes",
+  "loadingSchedule": "Cargando tu agenda...",
+  "errorLoadingSchedule": "Error al cargar la agenda",
+  "noScheduledTasks": "Aún no hay tareas programadas",
+  "noScheduledTasksDescription": "Cuando un administrador de propiedades te asigne trabajos de mantenimiento, aparecerán aquí en tu calendario."
 }

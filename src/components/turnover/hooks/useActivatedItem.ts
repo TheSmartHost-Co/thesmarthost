@@ -31,13 +31,11 @@ export function useActivatedItem({ onOpenProjectModal, onOpenBookingModal, onOpe
     }
   }, [activatedItem, onOpenBookingModal])
 
+  // Tasks aren't draggable, so no activate-then-open dance — one click opens
   const handleTaskClick = useCallback((task: MaintenanceTask) => {
-    if (activatedItem?.type === 'task' && activatedItem.id === task.id) {
-      onOpenTaskModal?.(task)
-    } else {
-      setActivatedItem({ type: 'task', id: task.id })
-    }
-  }, [activatedItem, onOpenTaskModal])
+    setActivatedItem({ type: 'task', id: task.id })
+    onOpenTaskModal?.(task)
+  }, [onOpenTaskModal])
 
   const clearActivatedItem = useCallback(() => {
     setActivatedItem(null)

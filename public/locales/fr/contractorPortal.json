@@ -136,5 +136,11 @@
   "errorLoadingInvoices": "Erreur lors du chargement des factures",
   "deletePermissionTitle": "Permission requise",
   "deletePermissionMessage": "Seuls les gestionnaires immobiliers peuvent supprimer des factures. Contactez votre gestionnaire si vous avez besoin de supprimer cette facture.",
-  "gotIt": "Compris"
+  "gotIt": "Compris",
+  "week": "Semaine",
+  "month": "Mois",
+  "loadingSchedule": "Chargement de votre horaire...",
+  "errorLoadingSchedule": "Erreur de chargement de l'horaire",
+  "noScheduledTasks": "Aucune tâche planifiée pour le moment",
+  "noScheduledTasksDescription": "Lorsqu'un gestionnaire immobilier vous assignera des travaux d'entretien, ils apparaîtront ici sur votre calendrier."
 }

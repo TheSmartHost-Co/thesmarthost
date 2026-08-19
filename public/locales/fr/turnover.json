@@ -109,6 +109,8 @@
   "noProperties": "Aucune propriété",
   "noCleaners": "Aucun nettoyeur",
   "cleanersHeader": "Nettoyeurs",
+  "contractorsHeader": "Prestataires",
+  "contractorView": "Prestataire",
   "needsAssignment": "Nécessite une assignation",
   "unnamed": "Sans nom",
   "noContact": "Aucun contact",
@@ -1218,5 +1220,6 @@
   "issuesNeedingTasksCount_other": "{{count}} problèmes nécessitent une tâche",
   "sortByReportedDate": "Trier par date de signalement",
   "sortNewestFirst": "Plus récents en premier",
-  "sortOldestFirst": "Plus anciens en premier"
+  "sortOldestFirst": "Plus anciens en premier",
+  "errorLoadingIssue": "Impossible de charger le problème"
 }

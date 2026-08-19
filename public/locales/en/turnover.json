@@ -109,6 +109,8 @@
   "noProperties": "No properties",
   "noCleaners": "No cleaners",
   "cleanersHeader": "Cleaners",
+  "contractorsHeader": "Contractors",
+  "contractorView": "Contractor",
   "needsAssignment": "Needs assignment",
   "unnamed": "Unnamed",
   "noContact": "No contact",
@@ -1338,5 +1340,6 @@
   "issuesNeedingTasksCount_other": "{{count}} issues need a task",
   "sortByReportedDate": "Sort by reported date",
   "sortNewestFirst": "Newest first",
-  "sortOldestFirst": "Oldest first"
+  "sortOldestFirst": "Oldest first",
+  "errorLoadingIssue": "Could not load the issue"
 }

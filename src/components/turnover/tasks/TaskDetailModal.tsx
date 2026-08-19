@@ -16,12 +16,16 @@ import {
   ExclamationTriangleIcon,
   CurrencyDollarIcon,
   UserPlusIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import Modal from '@/components/shared/modal'
 import SearchableSelect from '@/components/shared/SearchableSelect'
 import PriceNegotiationPanel from './PriceNegotiationPanel'
 import EditTaskModal from './EditTaskModal'
 import CancelTaskModal from './CancelTaskModal'
+import IssueDetailPanel from '@/components/turnover/issues/IssueDetailPanel'
+import { getIssueById } from '@/services/projectIssueService'
+import type { ProjectIssue } from '@/services/types/projectIssue'
 import { ISSUE_TYPE_ICONS, ISSUE_TYPE_COLORS } from '@/components/turnover/issues/issueTypeUi'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -92,6 +96,9 @@ export default function TaskDetailModal({
 
   const [showEditModal, setShowEditModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [linkedIssue, setLinkedIssue] = useState<ProjectIssue | null>(null)
+  const [showIssueModal, setShowIssueModal] = useState(false)
+  const [loadingIssue, setLoadingIssue] = useState(false)
 
   // Assign-contractor state (status === 'pending')
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -220,6 +227,29 @@ export default function TaskDetailModal({
     }
   }
 
+  // Open the linked issue's detail (fetched once, then cached)
+  const openLinkedIssue = async () => {
+    if (linkedIssue && linkedIssue.id === task.issueId) {
+      setShowIssueModal(true)
+      return
+    }
+    setLoadingIssue(true)
+    try {
+      const res = await getIssueById(task.issueId)
+      if (res.status === 'success') {
+        setLinkedIssue(res.data)
+        setShowIssueModal(true)
+      } else {
+        showNotification(res.message || t('errorLoadingIssue'), 'error')
+      }
+    } catch (err) {
+      console.error('Error fetching linked issue:', err)
+      showNotification(t('errorLoadingIssue'), 'error')
+    } finally {
+      setLoadingIssue(false)
+    }
+  }
+
   const issueType = (task.issueType || 'other') as IssueType
   const IssueIcon = ISSUE_TYPE_ICONS[issueType] || ISSUE_TYPE_ICONS.other
   const issueColors = ISSUE_TYPE_COLORS[issueType] || ISSUE_TYPE_COLORS.other
@@ -310,15 +340,24 @@ export default function TaskDetailModal({
             </div>
           </div>
 
-          {/* Linked issue summary */}
+          {/* Linked issue summary — click to open the issue detail */}
           {(task.issueDescription || task.issueType) && (
-            <div className={`flex items-start gap-3 p-4 rounded-xl border ${issueColors}`}>
+            <button
+              onClick={openLinkedIssue}
+              disabled={loadingIssue}
+              className={`w-full text-left flex items-start gap-3 p-4 rounded-xl border cursor-pointer hover:shadow-sm transition-shadow disabled:opacity-60 ${issueColors}`}
+            >
               <IssueIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{t('linkedIssue')}</p>
                 <p className="text-sm mt-0.5 break-words">{task.issueDescription || '—'}</p>
               </div>
-            </div>
+              {loadingIssue ? (
+                <div className="w-4 h-4 mt-1 flex-shrink-0 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
+              ) : (
+                <ChevronRightIcon className="w-4 h-4 mt-1 flex-shrink-0 opacity-60" />
+              )}
+            </button>
           )}
 
           {/* Description */}
@@ -512,6 +551,33 @@ export default function TaskDetailModal({
         task={task}
         onCancelled={onTaskUpdated}
       />
+
+      {/* Linked issue detail (stacked above this modal) */}
+      {linkedIssue && (
+        <Modal
+          isOpen={showIssueModal}
+          onClose={() => setShowIssueModal(false)}
+          closable
+          style="w-11/12 max-w-2xl"
+          zIndex={70}
+        >
+          <div className="p-4 sm:p-6">
+            <IssueDetailPanel
+              issue={linkedIssue}
+              isPM
+              onIssueUpdated={(updated) => setLinkedIssue(updated)}
+              onIssueDeleted={() => { setShowIssueModal(false); setLinkedIssue(null) }}
+              linkedTask={{
+                id: task.id,
+                status: task.status,
+                contractorId: task.contractorId,
+                contractorName: task.contractorName,
+              }}
+              onViewTask={() => setShowIssueModal(false)}
+            />
+          </div>
+        </Modal>
+      )}
     </>
   )
 }

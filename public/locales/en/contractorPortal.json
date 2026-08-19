@@ -136,5 +136,11 @@
   "errorLoadingInvoices": "Error loading invoices",
   "deletePermissionTitle": "Permission required",
   "deletePermissionMessage": "Only Property Managers can delete invoices. Please contact your PM if you need this invoice removed.",
-  "gotIt": "Got it"
+  "gotIt": "Got it",
+  "week": "Week",
+  "month": "Month",
+  "loadingSchedule": "Loading your schedule...",
+  "errorLoadingSchedule": "Error Loading Schedule",
+  "noScheduledTasks": "No scheduled tasks yet",
+  "noScheduledTasksDescription": "When a property manager assigns you maintenance work, it will appear here on your calendar."
 }

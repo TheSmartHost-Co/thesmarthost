@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import ResponsiveSidebar from '@/components/navbar/ResponsiveSidebar'
 import UserNavbar from '@/components/navbar/UserNavbar'
 import RoleGuard from '@/components/shared/RoleGuard'
@@ -17,6 +18,8 @@ export default function ContractorLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const isCollapsed = useSidebarStore((s) => s.isCollapsed)
+  const pathname = usePathname()
+  const isSchedulePage = pathname?.includes('/contractor/schedule')
   const isImpersonating = useImpersonationStore((s) => s.isImpersonating)
   useNotificationPolling()
 
@@ -34,7 +37,7 @@ export default function ContractorLayout({
           onClose={() => setIsSidebarOpen(false)}
           items={contractorSidebarItems}
         />
-        <main className={`pt-20 sm:pt-[4.5rem] px-3 py-4 sm:p-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
+        <main className={`pt-20 sm:pt-[4.5rem] ${isSchedulePage ? 'px-0 py-0' : 'px-3 py-4 sm:p-6'} md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
           <RoleGuard portal="/contractor">
             {children}
           </RoleGuard>

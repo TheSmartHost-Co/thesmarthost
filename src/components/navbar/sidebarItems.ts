@@ -219,6 +219,7 @@ export const cleanerSidebarItems: SidebarItem[] = [
 
 export const contractorSidebarItems: SidebarItem[] = [
   { name: 'dashboard', href: '/contractor/dashboard', icon: HomeIcon },
+  { name: 'schedule', href: '/contractor/schedule', icon: CalendarDaysIcon },
   { name: 'tasks', href: '/contractor/tasks', icon: ClipboardDocumentListIcon },
   { name: 'invoices', href: '/contractor/invoices', icon: BanknotesIcon },
   { name: 'whatsNew', href: '/contractor/whats-new', icon: SparklesIcon },

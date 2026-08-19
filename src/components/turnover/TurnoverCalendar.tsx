@@ -17,6 +17,8 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getCleaningProjects, getCleaningProjectStats, getCleaningProjectById, updateCleaningProject, rescheduleProjectDate, assignCleanerToProject } from '@/services/cleaningProjectService'
 import { toLocalDateStr } from './utils/calendarDateUtils'
 import { getCleaners } from '@/services/cleanerService'
+import { getContractors } from '@/services/contractorService'
+import type { Contractor } from '@/services/types/contractor'
 import { getProperties, updateProperty } from '@/services/propertyService'
 import { getAllIssues } from '@/services/projectIssueService'
 import type { ProjectIssue } from '@/services/types/projectIssue'
@@ -33,6 +35,7 @@ import type { DeepLinkSection } from '@/hooks/useDeepLink'
 import CalendarHeader from './CalendarHeader'
 import PropertyRowView from './PropertyRowView'
 import CleanerRowView from './CleanerRowView'
+import ContractorRowView from './ContractorRowView'
 import MonthGridView from './MonthGridView'
 import ProjectDetailModal from './ProjectDetailModal'
 import CreateProjectModal from './create/CreateProjectModal'
@@ -51,7 +54,7 @@ import ReportStandaloneIssueModal from './issues/ReportStandaloneIssueModal'
 import CreateTaskModal from './tasks/CreateTaskModal'
 import TaskDetailModal from './tasks/TaskDetailModal'
 
-export type ViewMode = 'property' | 'cleaner'
+export type ViewMode = 'property' | 'cleaner' | 'contractor'
 export type CalendarGranularity = 'day' | 'hour' // kept for backward compat, but granularity toggle is removed
 export type ZoomLevel = number | 'month'
 export type SortOption = 'alpha-asc' | 'alpha-desc' | 'projects-desc' | 'next-project'
@@ -122,6 +125,7 @@ export default function TurnoverCalendar({
   // Static data state (not date-range dependent)
   const [properties, setProperties] = useState<Property[]>(initialProperties || [])
   const [cleaners, setCleaners] = useState<Cleaner[]>(initialCleaners || [])
+  const [contractors, setContractors] = useState<Contractor[]>([])
   const [stats, setStats] = useState<CleaningProjectStats | null>(null)
   const [issueCountsMap, setIssueCountsMap] = useState<Record<string, number>>({})
   const [allIssues, setAllIssues] = useState<ProjectIssue[]>([])
@@ -443,9 +447,10 @@ export default function TurnoverCalendar({
 
       try {
         // Fetch static data in parallel
-        const [propertiesRes, cleanersRes, statsRes, issuesRes, supplyRes] = await Promise.all([
+        const [propertiesRes, cleanersRes, contractorsRes, statsRes, issuesRes, supplyRes] = await Promise.all([
           initialProperties ? Promise.resolve({ status: 'success' as const, data: initialProperties }) : getProperties(effectiveUserId!),
           initialCleaners ? Promise.resolve({ status: 'success' as const, data: initialCleaners }) : getCleaners(effectiveUserId!),
+          getContractors(effectiveUserId!),
           getCleaningProjectStats(effectiveUserId!, dateRange.start, dateRange.end),
           getAllIssues(effectiveUserId!),
           getAllSupplyLists(),
@@ -453,6 +458,7 @@ export default function TurnoverCalendar({
 
         if (propertiesRes.status === 'success') setProperties(propertiesRes.data)
         if (cleanersRes.status === 'success') setCleaners(cleanersRes.data)
+        if (contractorsRes.status === 'success') setContractors(contractorsRes.data)
         if (statsRes.status === 'success') setStats(statsRes.data)
 
         if (issuesRes.status === 'success') {
@@ -744,6 +750,44 @@ export default function TurnoverCalendar({
     }
     return result
   }, [cleaners, selectedCleanerIds, sortOption, allCachedProjects])
+
+  // Contractors for the contractor view (no contractor filter in v1 —
+  // sorting mirrors filteredCleaners but metrics come from maintenance tasks)
+  const filteredContractors = useMemo(() => {
+    const result = [...contractors]
+    const getName = (c: Contractor) => c.name || c.email || ''
+    switch (sortOption) {
+      case 'alpha-asc':
+        result.sort((a, b) => getName(a).localeCompare(getName(b)))
+        break
+      case 'alpha-desc':
+        result.sort((a, b) => getName(b).localeCompare(getName(a)))
+        break
+      case 'projects-desc': {
+        const countMap = new Map<string, number>()
+        for (const tk of allCachedTasks) {
+          if (tk.contractorId) countMap.set(tk.contractorId, (countMap.get(tk.contractorId) || 0) + 1)
+        }
+        result.sort((a, b) => (countMap.get(b.id) || 0) - (countMap.get(a.id) || 0))
+        break
+      }
+      case 'next-project': {
+        const now = toLocalDateStr(new Date().toISOString())
+        const nextMap = new Map<string, string>()
+        for (const tk of allCachedTasks) {
+          if (!tk.contractorId || !tk.scheduledDate) continue
+          const taskDate = toLocalDateStr(tk.scheduledDate)
+          if (taskDate >= now) {
+            const cur = nextMap.get(tk.contractorId)
+            if (!cur || taskDate < cur) nextMap.set(tk.contractorId, taskDate)
+          }
+        }
+        result.sort((a, b) => (nextMap.get(a.id) || '9999-99-99').localeCompare(nextMap.get(b.id) || '9999-99-99'))
+        break
+      }
+    }
+    return result
+  }, [contractors, sortOption, allCachedTasks])
 
   const filteredBookings = useMemo(() => {
     if (selectedPropertyIds.length === 0) return visibleBookings
@@ -1409,9 +1453,9 @@ export default function TurnoverCalendar({
           onCreateTaskProject={startTaskProjectFlow}
           onCreateChecklist={() => setShowCreateChecklistModal(true)}
           onDuplicateChecklist={() => setShowDuplicateChecklistModal(true)}
-          showBookings={viewMode === 'cleaner' ? false : showBookings}
-          onToggleBookings={viewMode === 'cleaner' ? undefined : handleToggleBookings}
-          bookingsLoading={viewMode === 'cleaner' ? false : bookingsLoading}
+          showBookings={viewMode !== 'property' ? false : showBookings}
+          onToggleBookings={viewMode !== 'property' ? undefined : handleToggleBookings}
+          bookingsLoading={viewMode !== 'property' ? false : bookingsLoading}
           properties={properties}
           selectedPropertyIds={selectedPropertyIds}
           onPropertyFilterChange={setSelectedPropertyIds}
@@ -1495,7 +1539,7 @@ export default function TurnoverCalendar({
                   onOpenBookingModal={openBookingModal}
                   sizeConfig={sizeConfig}
                 />
-              ) : (
+              ) : viewMode === 'cleaner' ? (
                 <CleanerRowView
                   projects={filteredProjects}
                   cleaners={filteredCleaners}
@@ -1516,6 +1560,23 @@ export default function TurnoverCalendar({
                   navigationEpoch={navigationEpoch}
                   activatedItem={activatedItem}
                   onOpenProjectModal={openProjectModal}
+                />
+              ) : (
+                <ContractorRowView
+                  tasks={filteredTasks}
+                  contractors={filteredContractors}
+                  dateRange={dateRange}
+                  onTaskClick={handleTaskClick}
+                  zoomLevel={zoomLevel}
+                  onRequestDateShift={handleRequestDateShift}
+                  stickyPortal={stickyPortalRef}
+                  expandedDate={expandedDate}
+                  sizeConfig={sizeConfig}
+                  onExpandDate={setExpandedDate}
+                  onDayClick={handleDayClick}
+                  scrollContainer={scrollContainerRef}
+                  navigationEpoch={navigationEpoch}
+                  activatedItem={activatedItem}
                 />
               )}
             </motion.div>
