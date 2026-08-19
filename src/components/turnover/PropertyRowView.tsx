@@ -703,6 +703,10 @@ export default function PropertyRowView({
                     return (
                       <div
                         key={`task-${pt.task.id}`}
+                        // data-no-drag: exempts the bar from useCalendarScroll's
+                        // setPointerCapture, which would otherwise retarget the
+                        // click to the timeline container and swallow onClick
+                        data-no-drag
                         className={`absolute z-[6] hover:z-[100] cursor-pointer ${isTaskActivated ? 'z-[200]' : ''}`}
                         style={{
                           left: taskLeft,
