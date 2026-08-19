@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { resetFeedbackAccessCache } from '@/hooks/useFeedbackAccess'
 import { useUserStore } from '@/store/useUserStore'
 import { createClient } from '@/utils/supabase/component'
 import { markIntentionalLogout } from '@/utils/logoutState'
@@ -37,6 +38,10 @@ const LogoutModal = () => {
         showNotification(t('logoutFailed'), 'error')
       } else {
         clearProfile() // Clear Zustand store
+        // Feedback capabilities are cached at module scope for the page's
+        // lifetime; without this the next user to sign in in this tab would
+        // inherit the previous user's access flags.
+        resetFeedbackAccessCache()
         closeModal()
         showNotification(t('signedOutSuccessfully'), 'success')
         router.push('/')

@@ -8,11 +8,14 @@ import {
   CogIcon,
   Bars3Icon,
   CameraIcon,
+  ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline'
 import LogoutModal from '@/components/shared/LogoutModal'
 import NotificationBell from '@/components/notification-center/NotificationBell'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import UploadReceiptModal from '@/components/receipt/upload/UploadReceiptModal'
+import CreateFeedbackModal from '@/components/feedback/CreateFeedbackModal'
+import { useFeedbackAccess } from '@/hooks/useFeedbackAccess'
 
 interface UserNavbarProps {
   onToggleSidebar?: () => void
@@ -23,10 +26,15 @@ export default function UserNavbar({
   onToggleSidebar,
   basePath = '/property-manager'
 }: UserNavbarProps) {
-  const { t } = useTranslation(['nav', 'common'])
+  const { t } = useTranslation(['nav', 'common', 'feedback'])
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const showNotification = useNotificationStore((state) => state.showNotification)
   const isCleaner = basePath === '/cleaner'
+
+  // UserNavbar is mounted by all three portal layouts, so this one button makes
+  // "Report an issue" reachable from every authenticated page. Server-gated too.
+  const { canSubmit } = useFeedbackAccess()
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 px-3 sm:px-6 lg:px-8">
@@ -72,6 +80,18 @@ export default function UserNavbar({
             </button>
           )}
 
+          {/* Report an issue — available on every page for authorized users */}
+          {canSubmit && (
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="p-2 rounded-lg text-gray-600 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+              aria-label={t('feedback:reportAnIssue')}
+              title={t('feedback:reportAnIssue')}
+            >
+              <ChatBubbleLeftEllipsisIcon className="w-5 h-5" />
+            </button>
+          )}
+
           {/* Notification Center */}
           <NotificationBell />
 
@@ -88,6 +108,14 @@ export default function UserNavbar({
           <LogoutModal />
         </div>
       </div>
+
+      {/* Feedback Modal - captures the current pathname on submit */}
+      {canSubmit && (
+        <CreateFeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
 
       {/* Upload Receipt Modal - Cleaner Only */}
       {isCleaner && (

@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { updatePatchNote, uploadPatchNoteImage } from '@/services/patchNoteService'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import type { PatchNote, PatchNoteImage } from '@/services/types/patchNote'
-import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import ImageDropzone, {
+  IMAGE_TYPES,
+  type ImageDropzoneRejection,
+} from '@/components/shared/ImageDropzone'
 
 interface UpdatePatchNoteModalProps {
   isOpen: boolean
@@ -22,11 +25,6 @@ const ALL_ROLES = [
   { value: 'cleaner', label: 'Cleaner' },
 ]
 
-interface PendingImage {
-  file: File
-  preview: string
-}
-
 const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
   isOpen,
   note,
@@ -38,9 +36,8 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
   const [content, setContent] = useState('')
   const [targetRoles, setTargetRoles] = useState<string[]>([])
   const [existingImages, setExistingImages] = useState<PatchNoteImage[]>([])
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([])
+  const [pendingImages, setPendingImages] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { t } = useTranslation('common')
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -56,44 +53,26 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
     }
   }, [isOpen, note])
 
-  useEffect(() => {
-    return () => {
-      pendingImages.forEach(img => URL.revokeObjectURL(img.preview))
-    }
-  }, [pendingImages])
-
   const toggleRole = (role: string) => {
     setTargetRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     )
   }
 
-  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    const totalAllowed = 5 - existingImages.length
-    const newImages: PendingImage[] = Array.from(files).map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }))
-
-    setPendingImages(prev => [...prev, ...newImages].slice(0, totalAllowed))
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  // ImageDropzone owns previews, validation and the combined cap: it counts
+  // existingImages + pending against maxFiles, so the old manual
+  // `5 - existingImages.length` arithmetic is no longer needed.
+  const handleRejected = (rejections: ImageDropzoneRejection[]) => {
+    for (const { file, reason } of rejections) {
+      const message =
+        reason === 'type'
+          ? `${file.name}: unsupported format`
+          : reason === 'size'
+            ? `${file.name} is larger than 5MB`
+            : 'Maximum 5 screenshots'
+      showNotification(message, 'error')
+    }
   }
-
-  const removeExistingImage = (index: number) => {
-    setExistingImages(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const removePendingImage = (index: number) => {
-    setPendingImages(prev => {
-      URL.revokeObjectURL(prev[index].preview)
-      return prev.filter((_, i) => i !== index)
-    })
-  }
-
-  const totalImages = existingImages.length + pendingImages.length
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,7 +113,7 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
         let uploadFailed = false
         for (const img of pendingImages) {
           try {
-            await uploadPatchNoteImage(note.id, img.file)
+            await uploadPatchNoteImage(note.id, img)
           } catch {
             uploadFailed = true
           }
@@ -238,59 +217,26 @@ const UpdatePatchNoteModal: React.FC<UpdatePatchNoteModalProps> = ({
           <label className="block text-sm font-medium mb-1">Screenshots</label>
           <p className="text-xs text-gray-500 mb-2">Up to 5 images (JPG, PNG, GIF, WEBP). Max 5MB each.</p>
 
-          {/* Existing + pending image previews */}
-          {(existingImages.length > 0 || pendingImages.length > 0) && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {existingImages.map((img, i) => (
-                <div key={`existing-${i}`} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
-                  <img
-                    src={`${supabaseUrl}/storage/v1/object/public/patch-note-images/${img.url}`}
-                    alt={img.caption}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeExistingImage(i)}
-                    className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              {pendingImages.map((img, i) => (
-                <div key={`pending-${i}`} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-dashed border-amber-300">
-                  <img src={img.preview} alt="" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePendingImage(i)}
-                    className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Upload button */}
-          {totalImages < 5 && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-amber-400 hover:text-amber-700 transition-colors"
-            >
-              <PhotoIcon className="w-4 h-4" />
-              Add Screenshots
-            </button>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            multiple
-            onChange={handleAddImages}
-            className="hidden"
+          <ImageDropzone
+            files={pendingImages}
+            onChange={setPendingImages}
+            maxFiles={5}
+            maxSizeBytes={5 * 1024 * 1024}
+            accept={IMAGE_TYPES}
+            onRejected={handleRejected}
+            disabled={submitting}
+            variant="button"
+            browseLabel="Add Screenshots"
+            existingImages={existingImages.map((img, i) => ({
+              id: String(i),
+              // patch-note-images is a PUBLIC bucket, so the URL is built here
+              // and passed in already resolved.
+              url: `${supabaseUrl}/storage/v1/object/public/patch-note-images/${img.url}`,
+              name: img.caption,
+            }))}
+            onRemoveExisting={(image) =>
+              setExistingImages((prev) => prev.filter((_, i) => String(i) !== image.id))
+            }
           />
         </div>
 

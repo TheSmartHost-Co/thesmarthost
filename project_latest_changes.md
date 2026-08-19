@@ -3,6 +3,28 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-08-18: FEEDBACK-001 — In-app feedback system + shared ImageDropzone
+
+**Goal**: Give Luis and selected cleaners a way to report problems from inside the product — a persistent navbar button that captures the current page, a list of their own submissions with status, and an admin triage backlog. Along the way, extract the duplicated image-picker that four create-modals had each reimplemented.
+
+### Changes:
+1. **Shared image picker** (`src/components/shared/ImageDropzone.tsx`, new) — controlled `files`/`onChange`, `maxFiles`/`maxSizeBytes`/`accept`, `existingImages` + `onRemoveExisting` for edit mode, `onRejected` returning `{file, reason: 'type'|'size'|'count'}`, `variant: 'dropzone'|'button'`, `accent`. Deliberately i18n-free — all copy arrives via props so it works under `turnover`, `common` and `feedback` alike.
+2. **ReportIssueModal migrated** (`src/components/turnover/issues/ReportIssueModal.tsx`) — fixes two live bugs: the 5-file cap was computed but never applied (`setSelectedFiles([...selectedFiles, ...validFiles])` with no slice, so one multi-select of 9 reached multer and died *after* a success toast), and `URL.createObjectURL` was called inline in JSX with no `revokeObjectURL` anywhere, minting a fresh blob per photo on every keystroke-triggered re-render.
+3. **Patch-note modals migrated** (`create/createPatchNoteModal.tsx`, `update/updatePatchNoteModal.tsx`) — previously had *zero* client-side type/size validation despite the copy promising limits; now mirror the backend's 5MB/no-HEIC. The update modal's manual `5 - existingImages.length` arithmetic is now automatic.
+4. **Feedback UI** (`src/components/feedback/*`, new) — `CreateFeedbackModal`, `FeedbackDetailModal`, `MyFeedbackView`, `FeedbackBacklogView`, `FeedbackTagInput`, `FeedbackStatusBadge`.
+5. **Navbar entry point** (`src/components/navbar/UserNavbar.tsx`) — speech-bubble button left of `NotificationBell`, gated on `canSubmit`. `UserNavbar` is mounted by all three portal layouts, so one edit makes it global. Mirrors the existing cleaner-only camera button precedent.
+6. **Access hook** (`src/hooks/useFeedbackAccess.ts`, new) — module-scope promise cache so the navbar, both sidebars and both pages share one `GET /feedback/access` per page load. `resetFeedbackAccessCache()` wired into `LogoutModal` so the next user in the same tab doesn't inherit the previous user's flags.
+7. **Routes + nav** (`src/app/(user)/{property-manager/feedback,property-manager/feedback-backlog,cleaner/feedback}/page.tsx`, `ResponsiveSidebar.tsx`) — thin shells over the shared views; links injected in both the grouped (manager) and flat (cleaner) renderers.
+8. **Service + types** (`src/services/feedbackService.ts`, `src/services/types/feedback.ts`, new) and a dedicated **`feedback` i18n namespace** across en/fr/es (75 keys each) plus 2 `nav.json` keys per locale.
+9. **Backlog route un-nested** — moved `/property-manager/feedback/backlog` → `/property-manager/feedback-backlog` (see decisions).
+
+### Key design decisions:
+- **Purpose-built `FeedbackTagInput` instead of extending `SearchableSelect`.** Its multi-select trigger renders `firstLabel +N` rather than per-item chips, and it can't promote a typed query into a new option — the two things tags most need. Both would have meant changing internals shared by ~12 unrelated screens. `SearchableSelect` left untouched.
+- **Backlog route made a sibling, not nested.** `isRouteActive` (`ResponsiveSidebar.tsx:21`, duplicated verbatim in `SidebarGroupSection.tsx:13`) matches `pathname === href || pathname.startsWith(href + '/')`, so a nested backlog lit up *both* nav links. The two links render as flat siblings with no visual containment, so the URL hierarchy was the defect. Hyphenated siblings are also the house convention (`team-time-sheet`, `report-templates`, `turnover-requests`). Rejected a shared longest-match helper: zero dynamic segments exist anywhere in `src/app` (detail views are modals), so it would future-proof against nothing while changing how every nav item in all three portals resolves.
+- **Signed image URLs come from the API, never constructed client-side** — the `feedback-images` bucket is private, unlike the public `patch-note-images` bucket that `updatePatchNoteModal` builds `/object/public/` URLs against.
+- **Two-request submit** (create as JSON → POST FormData with `photos` repeated), the house pattern; a partial image failure shows an `info` toast and still closes, since the feedback row exists either way.
+- **Known rough edge**: submitting via the navbar button while already on My feedback doesn't refresh the list — `UserNavbar` renders `CreateFeedbackModal` without an `onCreated` callback and `MyFeedbackView` fetches on mount only.
+
 ## 2026-08-03: TICKET-009 + TICKET-011 — Receipt property: required on scan, editable in the Edit tab
 
 **Goal**: Two related receipt-property gaps. (009) "Scan Receipt" required a Property from the Expenses page but not from the Receipts page, silently creating "Unassigned" receipts with incomplete filenames. (011) Property was missing from the receipt Edit tab — settable only via the View-tab pencil.

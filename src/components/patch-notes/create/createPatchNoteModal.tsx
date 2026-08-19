@@ -1,11 +1,14 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
 import { createPatchNote, uploadPatchNoteImage } from '@/services/patchNoteService'
 import { useNotificationStore } from '@/store/useNotificationStore'
-import { PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import ImageDropzone, {
+  IMAGE_TYPES,
+  type ImageDropzoneRejection,
+} from '@/components/shared/ImageDropzone'
 
 interface CreatePatchNoteModalProps {
   isOpen: boolean
@@ -33,11 +36,6 @@ const CONTENT_PLACEHOLDER = `## What's New
 
 - Fixed an issue where reports would not generate correctly`
 
-interface PendingImage {
-  file: File
-  preview: string
-}
-
 const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
   isOpen,
   onClose,
@@ -47,9 +45,8 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
   const [version, setVersion] = useState('')
   const [content, setContent] = useState('')
   const [targetRoles, setTargetRoles] = useState<string[]>(['property_manager'])
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([])
+  const [pendingImages, setPendingImages] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { t } = useTranslation('common')
   const showNotification = useNotificationStore((state) => state.showNotification)
@@ -64,37 +61,26 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
     }
   }, [isOpen])
 
-  // Clean up preview URLs on unmount
-  useEffect(() => {
-    return () => {
-      pendingImages.forEach(img => URL.revokeObjectURL(img.preview))
-    }
-  }, [pendingImages])
-
+  // Preview lifecycle, the 5-image cap and per-file validation now live in
+  // ImageDropzone. Limits mirror routes/patch-notes.routes.js (5MB, no HEIC) —
+  // previously nothing was validated client-side despite the copy saying so,
+  // so oversized or HEIC files only failed at the server.
   const toggleRole = (role: string) => {
     setTargetRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     )
   }
 
-  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    const newImages: PendingImage[] = Array.from(files).map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }))
-
-    setPendingImages(prev => [...prev, ...newImages].slice(0, 5))
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const removeImage = (index: number) => {
-    setPendingImages(prev => {
-      URL.revokeObjectURL(prev[index].preview)
-      return prev.filter((_, i) => i !== index)
-    })
+  const handleRejected = (rejections: ImageDropzoneRejection[]) => {
+    for (const { file, reason } of rejections) {
+      const message =
+        reason === 'type'
+          ? `${file.name}: unsupported format`
+          : reason === 'size'
+            ? `${file.name} is larger than 5MB`
+            : 'Maximum 5 screenshots'
+      showNotification(message, 'error')
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,7 +121,7 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
         let uploadFailed = false
         for (const img of pendingImages) {
           try {
-            await uploadPatchNoteImage(res.data.id, img.file)
+            await uploadPatchNoteImage(res.data.id, img)
           } catch {
             uploadFailed = true
           }
@@ -238,43 +224,16 @@ const CreatePatchNoteModal: React.FC<CreatePatchNoteModalProps> = ({
           <label className="block text-sm font-medium mb-1">{t('screenshots')}</label>
           <p className="text-xs text-gray-500 mb-2">{t('screenshotLimits')}</p>
 
-          {/* Image previews */}
-          {pendingImages.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {pendingImages.map((img, i) => (
-                <div key={i} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
-                  <img src={img.preview} alt="" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Upload button */}
-          {pendingImages.length < 5 && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-amber-400 hover:text-amber-700 transition-colors"
-            >
-              <PhotoIcon className="w-4 h-4" />
-              {t('addScreenshots')}
-            </button>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            multiple
-            onChange={handleAddImages}
-            className="hidden"
+          <ImageDropzone
+            files={pendingImages}
+            onChange={setPendingImages}
+            maxFiles={5}
+            maxSizeBytes={5 * 1024 * 1024}
+            accept={IMAGE_TYPES}
+            onRejected={handleRejected}
+            disabled={submitting}
+            variant="button"
+            browseLabel={t('addScreenshots')}
           />
         </div>
 

@@ -3,13 +3,14 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/components/shared/modal'
+import ImageDropzone, {
+  IMAGE_TYPES_WITH_HEIC,
+  type ImageDropzoneRejection,
+} from '@/components/shared/ImageDropzone'
 import { createIssue, uploadIssuePhotos, getIssueTypeOptions } from '@/services/projectIssueService'
 import type { IssueType, ProjectIssue } from '@/services/types/projectIssue'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import {
-  CloudArrowUpIcon,
-  PhotoIcon,
-  XMarkIcon,
   ExclamationTriangleIcon,
   PlusIcon
 } from '@heroicons/react/24/outline'
@@ -36,7 +37,6 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
   const [issueType, setIssueType] = useState<IssueType | null>(null)
   const [description, setDescription] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [isDragOver, setIsDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'type' | 'details'>('type')
 
@@ -54,53 +54,19 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
     }
   }, [isOpen])
 
-  const handleFileSelect = useCallback((files: FileList | File[]) => {
-    const newFiles = Array.from(files)
-    const validFiles: File[] = []
-
-    for (const file of newFiles) {
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic']
-      if (!allowedTypes.includes(file.type)) {
+  // File selection, validation, previews and the 5-file cap now live in
+  // ImageDropzone. This callback only translates rejections into toasts.
+  const handleRejected = useCallback((rejections: ImageDropzoneRejection[]) => {
+    for (const { file, reason } of rejections) {
+      if (reason === 'type') {
         showNotification(t('invalidFileTypeImage', { name: file.name }), 'error')
-        continue
-      }
-
-      // Validate file size (5MB)
-      if (file.size > 20 * 1024 * 1024) {
+      } else if (reason === 'size') {
         showNotification(t('fileTooLargeNamed', { name: file.name }), 'error')
-        continue
+      } else {
+        showNotification(t('maxPhotos'), 'error')
       }
-
-      validFiles.push(file)
     }
-
-    // Max 5 files total
-    const totalFiles = [...selectedFiles, ...validFiles]
-    setSelectedFiles(totalFiles)
-  }, [selectedFiles, showNotification])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    if (e.dataTransfer.files.length > 0) {
-      handleFileSelect(e.dataTransfer.files)
-    }
-  }, [handleFileSelect])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-  }, [])
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
-  }
+  }, [showNotification, t])
 
   const handleSubmit = async () => {
     if (!issueType) {
@@ -273,76 +239,21 @@ const ReportIssueModal: React.FC<ReportIssueModalProps> = ({
               </div>
 
               {/* Photo Upload */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t('addPhotos')} ({t('maxPhotos')})
-                </label>
-
-                {/* Selected Photos Preview */}
-                {selectedFiles.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {selectedFiles.map((file, index) => (
-                      <div
-                        key={`${file.name}-${index}`}
-                        className="relative group"
-                      >
-                        <img
-                          src={URL.createObjectURL(file)}
-                          alt={`Photo ${index + 1}`}
-                          className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <XMarkIcon className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Drop Zone */}
-                {selectedFiles.length < 5 && (
-                  <div
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    className={`
-                      border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer
-                      ${isDragOver
-                        ? 'border-amber-400 bg-amber-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                      }
-                    `}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      {isDragOver ? (
-                        <PhotoIcon className="w-10 h-10 text-amber-500" />
-                      ) : (
-                        <CloudArrowUpIcon className="w-10 h-10 text-gray-400" />
-                      )}
-                      <p className="text-sm text-gray-600">
-                        {t('dragPhotosHere')}{' '}
-                        <label className="text-amber-600 font-medium cursor-pointer hover:underline">
-                          {t('browse')}
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
-                            multiple
-                            onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
-                          />
-                        </label>
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {t('supportedFormats')}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ImageDropzone
+                className="mb-6"
+                files={selectedFiles}
+                onChange={setSelectedFiles}
+                maxFiles={5}
+                maxSizeBytes={20 * 1024 * 1024}
+                accept={IMAGE_TYPES_WITH_HEIC}
+                onRejected={handleRejected}
+                disabled={loading}
+                label={`${t('addPhotos')} (${t('maxPhotos')})`}
+                helperText={t('supportedFormats')}
+                promptText={t('dragPhotosHere')}
+                browseLabel={t('browse')}
+                accent="amber"
+              />
 
               {/* Action Buttons */}
               <div className="flex gap-3">

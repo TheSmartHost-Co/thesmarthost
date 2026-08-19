@@ -20,6 +20,7 @@ import enClientPortal from '../../public/locales/en/clientPortal.json'
 import enAuth from '../../public/locales/en/auth.json'
 import enErrors from '../../public/locales/en/errors.json'
 import enAudit from '../../public/locales/en/audit.json'
+import enFeedback from '../../public/locales/en/feedback.json'
 
 import frCommon from '../../public/locales/fr/common.json'
 import frNav from '../../public/locales/fr/nav.json'
@@ -38,6 +39,7 @@ import frClientPortal from '../../public/locales/fr/clientPortal.json'
 import frAuth from '../../public/locales/fr/auth.json'
 import frErrors from '../../public/locales/fr/errors.json'
 import frAudit from '../../public/locales/fr/audit.json'
+import frFeedback from '../../public/locales/fr/feedback.json'
 
 import esCommon from '../../public/locales/es/common.json'
 import esNav from '../../public/locales/es/nav.json'
@@ -56,6 +58,7 @@ import esClientPortal from '../../public/locales/es/clientPortal.json'
 import esAuth from '../../public/locales/es/auth.json'
 import esErrors from '../../public/locales/es/errors.json'
 import esAudit from '../../public/locales/es/audit.json'
+import esFeedback from '../../public/locales/es/feedback.json'
 
 export const SUPPORTED_LANGUAGES = ['en', 'fr', 'es'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
@@ -80,6 +83,7 @@ i18n
       'common', 'nav', 'settings', 'dashboard', 'properties', 'clients',
       'bookings', 'reports', 'analytics', 'expenses', 'turnover',
       'cleanerPortal', 'contractorPortal', 'clientPortal', 'auth', 'errors', 'audit',
+      'cleanerPortal', 'clientPortal', 'auth', 'errors', 'audit', 'feedback',
     ],
     defaultNS: 'common',
 
@@ -90,6 +94,7 @@ i18n
         reports: enReports, analytics: enAnalytics, expenses: enExpenses,
         turnover: enTurnover, cleanerPortal: enCleanerPortal, contractorPortal: enContractorPortal, clientPortal: enClientPortal,
         auth: enAuth, errors: enErrors, audit: enAudit,
+        feedback: enFeedback,
       },
       fr: {
         common: frCommon, nav: frNav, settings: frSettings, dashboard: frDashboard,
@@ -97,6 +102,7 @@ i18n
         reports: frReports, analytics: frAnalytics, expenses: frExpenses,
         turnover: frTurnover, cleanerPortal: frCleanerPortal, contractorPortal: frContractorPortal, clientPortal: frClientPortal,
         auth: frAuth, errors: frErrors, audit: frAudit,
+        feedback: frFeedback,
       },
       es: {
         common: esCommon, nav: esNav, settings: esSettings, dashboard: esDashboard,
@@ -104,6 +110,7 @@ i18n
         reports: esReports, analytics: esAnalytics, expenses: esExpenses,
         turnover: esTurnover, cleanerPortal: esCleanerPortal, contractorPortal: esContractorPortal, clientPortal: esClientPortal,
         auth: esAuth, errors: esErrors, audit: esAudit,
+        feedback: esFeedback,
       },
     },
 

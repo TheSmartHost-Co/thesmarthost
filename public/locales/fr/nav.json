@@ -53,5 +53,7 @@
   "expandSidebar": "Développer la barre latérale",
   "collapseSidebar": "Réduire la barre latérale",
   "maintenanceTasks": "Tâches et problèmes",
-  "peopleAndPay": "Équipe et paiements"
+  "peopleAndPay": "Équipe et paiements",
+  "myFeedback": "Mes commentaires",
+  "feedbackBacklog": "Liste des commentaires"
 }

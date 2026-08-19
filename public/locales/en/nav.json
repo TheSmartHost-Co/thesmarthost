@@ -55,5 +55,7 @@
   "expandSidebar": "Expand sidebar",
   "collapseSidebar": "Collapse sidebar",
   "maintenanceTasks": "Tasks & Issues",
-  "peopleAndPay": "People & Pay"
+  "peopleAndPay": "People & Pay",
+  "myFeedback": "My feedback",
+  "feedbackBacklog": "Feedback backlog"
 }

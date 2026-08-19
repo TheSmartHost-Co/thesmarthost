@@ -6,7 +6,12 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SidebarItem, SidebarNavConfig, ADMIN_USER_IDS } from './sidebarItems'
-import { MegaphoneIcon } from '@heroicons/react/24/outline'
+import {
+  MegaphoneIcon,
+  ChatBubbleLeftEllipsisIcon,
+  InboxStackIcon,
+} from '@heroicons/react/24/outline'
+import { useFeedbackAccess } from '@/hooks/useFeedbackAccess'
 import { useUserStore } from '@/store/useUserStore'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import SidebarGroupSection from './SidebarGroupSection'
@@ -39,6 +44,8 @@ export default function ResponsiveSidebar({
   const setCollapsed = useSidebarStore((s) => s.setCollapsed)
   const profile = useUserStore((s) => s.profile)
   const isAdminUser = profile?.id && ADMIN_USER_IDS.includes(profile.id)
+  // Server-resolved; drives whether the feedback links appear at all.
+  const { canSubmit: canSubmitFeedback, isAdmin: isFeedbackAdmin } = useFeedbackAccess()
 
   // Auto-close sidebar on route change (mobile only)
   useEffect(() => {
@@ -159,6 +166,16 @@ export default function ResponsiveSidebar({
           collapsed,
           closeOnClick
         )}
+        {canSubmitFeedback && variant === 'manager' && renderNavLink(
+          { name: 'myFeedback', href: '/property-manager/feedback', icon: ChatBubbleLeftEllipsisIcon },
+          collapsed,
+          closeOnClick
+        )}
+        {isFeedbackAdmin && variant === 'manager' && renderNavLink(
+          { name: 'feedbackBacklog', href: '/property-manager/feedback-backlog', icon: InboxStackIcon },
+          collapsed,
+          closeOnClick
+        )}
         <div className="hidden md:block">
           <SidebarCollapseToggle />
         </div>
@@ -177,6 +194,11 @@ export default function ResponsiveSidebar({
           {mainItems.map((item) => renderNavLink(item, collapsed, closeOnClick))}
         </nav>
         <div className="border-t border-gray-200 px-2 py-2 space-y-1">
+          {canSubmitFeedback && variant === 'cleaner' && renderNavLink(
+            { name: 'myFeedback', href: '/cleaner/feedback', icon: ChatBubbleLeftEllipsisIcon },
+            collapsed,
+            closeOnClick
+          )}
           {settingsItem && renderNavLink(settingsItem, collapsed, closeOnClick)}
           <div className="hidden md:block">
             <SidebarCollapseToggle />
