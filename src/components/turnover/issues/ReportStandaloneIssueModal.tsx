@@ -176,7 +176,9 @@ const ReportStandaloneIssueModal: React.FC<ReportStandaloneIssueModalProps> = ({
       }
 
       showNotification(t('issueReported'), 'success')
-      onClose()
+      // Deliberately no onClose() here: the parent's onCreated handler closes
+      // this modal and opens the create-task step. Calling onClose (wired to
+      // the flow's closeAll) would tear the task modal down again instantly.
     } catch (err) {
       console.error('Error reporting issue:', err)
       showNotification(

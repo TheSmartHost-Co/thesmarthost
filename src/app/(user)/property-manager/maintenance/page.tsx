@@ -103,6 +103,11 @@ function MaintenancePageContent() {
   const [showAllIssuesModal, setShowAllIssuesModal] = useState(false)
   const [allIssuesInitialId, setAllIssuesInitialId] = useState<string | null>(null)
 
+  // Issues tab filters (client-side — the full issue list is already loaded)
+  const [issuePropertyFilter, setIssuePropertyFilter] = useState<string | null>(null)
+  const [issueStartDate, setIssueStartDate] = useState('')
+  const [issueEndDate, setIssueEndDate] = useState('')
+
   // Filters (all server-side)
   const [statusFilter, setStatusFilter] = useState<MaintenanceTaskStatus | 'all'>('all')
   const [propertyFilter, setPropertyFilter] = useState<string | null>(null)
@@ -300,6 +305,21 @@ function MaintenancePageContent() {
     return issues.filter(issue => issue.status !== 'resolved' && !taskedIssueIds.has(issue.id))
   }, [issues, allTasks])
 
+  // Issues tab: property + reported-date filters (mirrors the Tasks tab filters)
+  const filteredUntaskedIssues = useMemo(() => {
+    return untaskedIssues.filter(issue => {
+      if (issuePropertyFilter && issue.propertyId !== issuePropertyFilter) return false
+      if (issueStartDate || issueEndDate) {
+        const reported = new Date(issue.createdAt).toISOString().slice(0, 10)
+        if (issueStartDate && reported < issueStartDate) return false
+        if (issueEndDate && reported > issueEndDate) return false
+      }
+      return true
+    })
+  }, [untaskedIssues, issuePropertyFilter, issueStartDate, issueEndDate])
+
+  const hasActiveIssueFilters = !!issuePropertyFilter || !!issueStartDate || !!issueEndDate
+
   const statCards = [
     {
       label: t('totalTasksStat'),
@@ -464,21 +484,61 @@ function MaintenancePageContent() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible"
         >
+          {/* Issue filters: property + reported-date range (mirrors the Tasks tab) */}
+          <div className="p-5 border-b border-gray-100">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="flex items-center gap-2 text-gray-500">
+                <FunnelIcon className="h-4 w-4" />
+                <span className="text-sm font-medium hidden sm:inline">{t('filterLabel')}</span>
+              </div>
+              <div className="w-full lg:w-56">
+                <SearchableSelect
+                  options={propertyOptions}
+                  value={issuePropertyFilter}
+                  onChange={(value) => setIssuePropertyFilter(value)}
+                  placeholder={t('allProperties')}
+                  clearable
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={issueStartDate}
+                  onChange={(e) => setIssueStartDate(e.target.value)}
+                  aria-label={t('filterStartDate')}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                />
+                <span className="text-gray-400 text-sm">–</span>
+                <input
+                  type="date"
+                  value={issueEndDate}
+                  onChange={(e) => setIssueEndDate(e.target.value)}
+                  aria-label={t('filterEndDate')}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
           {issuesLoading ? (
             <div className="flex justify-center items-center py-16">
               <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : untaskedIssues.length === 0 ? (
+          ) : filteredUntaskedIssues.length === 0 ? (
             <div className="text-center py-16 px-4">
               <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <CheckCircleIcon className="w-8 h-8 text-green-500" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('noUntaskedIssues')}</h3>
-              <p className="text-gray-500 max-w-sm mx-auto">{t('noUntaskedIssuesHint')}</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                {hasActiveIssueFilters ? t('noMaintenanceTasks') : t('noUntaskedIssues')}
+              </h3>
+              <p className="text-gray-500 max-w-sm mx-auto">
+                {hasActiveIssueFilters ? t('tryAdjustingFilters') : t('noUntaskedIssuesHint')}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {untaskedIssues.map((issue, index) => {
+              {filteredUntaskedIssues.map((issue, index) => {
                 const Icon = ISSUE_TYPE_ICONS[issue.issueType] || WrenchScrewdriverIcon
                 const typeInfo = getIssueTypeDisplay(issue.issueType)
                 const statusInfo = getIssueStatusDisplay(issue.status)
@@ -546,10 +606,10 @@ function MaintenancePageContent() {
               })}
             </div>
           )}
-          {!issuesLoading && untaskedIssues.length > 0 && (
+          {!issuesLoading && filteredUntaskedIssues.length > 0 && (
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
               <p className="text-sm text-gray-500">
-                {t('issuesNeedingTasksCount', { count: untaskedIssues.length })}
+                {t('issuesNeedingTasksCount', { count: filteredUntaskedIssues.length })}
               </p>
             </div>
           )}
