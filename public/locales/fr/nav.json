@@ -51,5 +51,7 @@
   "toggleSidebarMenu": "Basculer le menu latéral",
   "scanReceipt": "Scanner un reçu",
   "expandSidebar": "Développer la barre latérale",
-  "collapseSidebar": "Réduire la barre latérale"
+  "collapseSidebar": "Réduire la barre latérale",
+  "maintenanceTasks": "Tâches et problèmes",
+  "peopleAndPay": "Équipe et paiements"
 }

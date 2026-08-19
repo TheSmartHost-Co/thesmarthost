@@ -53,5 +53,7 @@
   "toggleSidebarMenu": "Toggle sidebar menu",
   "scanReceipt": "Scan receipt",
   "expandSidebar": "Expand sidebar",
-  "collapseSidebar": "Collapse sidebar"
+  "collapseSidebar": "Collapse sidebar",
+  "maintenanceTasks": "Tasks & Issues",
+  "peopleAndPay": "People & Pay"
 }

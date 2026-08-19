@@ -53,5 +53,7 @@
   "toggleSidebarMenu": "Alternar menú lateral",
   "scanReceipt": "Escanear recibo",
   "expandSidebar": "Expandir barra lateral",
-  "collapseSidebar": "Colapsar barra lateral"
+  "collapseSidebar": "Colapsar barra lateral",
+  "maintenanceTasks": "Tareas y problemas",
+  "peopleAndPay": "Personal y pagos"
 }

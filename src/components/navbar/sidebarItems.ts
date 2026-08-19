@@ -30,6 +30,7 @@ import {
   StarIcon,
   Squares2X2Icon,
   IdentificationIcon,
+  WrenchIcon,
 } from '@heroicons/react/24/outline'
 
 export const ADMIN_USER_IDS: string[] = [
@@ -111,15 +112,33 @@ export const managerNavConfig: SidebarNavConfig = {
       type: 'group',
       group: {
         label: 'turnover',
-        icon: WrenchScrewdriverIcon,
+        icon: SparklesIcon,
         items: [
           { name: 'calendar', href: '/property-manager/turnover', icon: ClipboardDocumentListIcon },
           { name: 'scheduleRequests', href: '/property-manager/turnover-requests', icon: ClockIcon },
           { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
           { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
+        ],
+      },
+    },
+    {
+      type: 'group',
+      group: {
+        label: 'maintenance',
+        icon: WrenchScrewdriverIcon,
+        items: [
+          { name: 'maintenanceTasks', href: '/property-manager/maintenance', icon: WrenchIcon },
+        ],
+      },
+    },
+    {
+      type: 'group',
+      group: {
+        label: 'peopleAndPay',
+        icon: UsersIcon,
+        items: [
           { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
           { name: 'contractors', href: '/property-manager/contractors', icon: IdentificationIcon },
-          { name: 'maintenance', href: '/property-manager/maintenance', icon: WrenchScrewdriverIcon },
           { name: 'invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
         ],
       },
@@ -188,9 +207,9 @@ export const managerSidebarItems: SidebarItem[] = [
   { name: 'scheduleRequests', href: '/property-manager/turnover-requests', icon: ClockIcon },
   { name: 'checklists', href: '/property-manager/checklists', icon: ClipboardDocumentCheckIcon },
   { name: 'supplyLists', href: '/property-manager/supply-lists', icon: ShoppingCartIcon },
+  { name: 'maintenanceTasks', href: '/property-manager/maintenance', icon: WrenchIcon },
   { name: 'cleaners', href: '/property-manager/cleaners', icon: UserCircleIcon },
   { name: 'contractors', href: '/property-manager/contractors', icon: IdentificationIcon },
-  { name: 'maintenance', href: '/property-manager/maintenance', icon: WrenchScrewdriverIcon },
   { name: 'invoices', href: '/property-manager/invoices', icon: BanknotesIcon },
   { name: 'analytics', href: '/property-manager/analytics', icon: ChartBarIcon },
   { name: 'teamMembers', href: '/property-manager/team', icon: UsersIcon },
