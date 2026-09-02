@@ -7,6 +7,7 @@ import {
   BellIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,9 @@ import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 
 export default function ClientSettingsPage() {
   const { t } = useTranslation('settings')
+  // A PM viewing as this user must not be able to edit their settings —
+  // the app never swaps identity, so writes would target the PM's own row.
+  const isImpersonating = useImpersonationStore((s) => s.isImpersonating)
   const profile = useUserStore((s) => s.profile)
   const setProfile = useUserStore((s) => s.setProfile)
   const showNotification = useNotificationStore((s) => s.showNotification)
@@ -40,7 +44,6 @@ export default function ClientSettingsPage() {
     try {
       const res = await updateUserProfile(profile.id, {
         fullName,
-        role: profile.role,
         phoneNumber: phone || null,
         smsNotificationsEnabled: smsEnabled,
         emailNotificationsEnabled: emailEnabled,
@@ -78,6 +81,11 @@ export default function ClientSettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {isImpersonating && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          {t('settingsReadOnlyImpersonating')}
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
@@ -194,7 +202,7 @@ export default function ClientSettingsPage() {
       >
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || isImpersonating}
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           {saving && (

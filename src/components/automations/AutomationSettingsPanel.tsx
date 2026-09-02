@@ -6,6 +6,7 @@ import { CogIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { getAutomationSettings, updateAutomationSettings } from '@/services/automationService'
 import type { AutomationSettings } from '@/services/types/automation'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 const TEMPLATE_VARS = [
   { key: '{{guest_name}}', description: 'Full guest name (e.g. John Smith)' },
@@ -209,17 +210,9 @@ function Toggle({ label, description, checked, onChange }: {
 }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors mt-0.5 ${checked ? 'bg-amber-500' : 'bg-gray-300'}`}
-      >
-        <span
-          className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${checked ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'}`}
-        />
-      </button>
+      <div className="mt-0.5">
+        <ToggleSwitch size="sm" color="amber" checked={checked} onChange={onChange} ariaLabel={label} />
+      </div>
       <div>
         <div className="text-sm font-medium text-gray-900">{label}</div>
         <div className="text-xs text-gray-500">{description}</div>

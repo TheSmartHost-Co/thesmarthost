@@ -6,5 +6,9 @@
   "noPropertiesFound": "No se encontraron propiedades",
   "addPropertiesToSeeAnalytics": "Agrega propiedades para ver las analíticas",
   "property_one": "{{count}} Propiedad",
-  "property_other": "{{count}} Propiedades"
+  "property_other": "{{count}} Propiedades",
+  "tabAll": "Todos los análisis",
+  "tabBookings": "Reservas",
+  "tabExpenses": "Gastos",
+  "tabCleaners": "Limpiadores"
 }

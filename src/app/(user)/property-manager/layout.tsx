@@ -4,6 +4,7 @@ import { useState } from 'react'
 import ResponsiveSidebar from '@/components/navbar/ResponsiveSidebar'
 import UserNavbar from '@/components/navbar/UserNavbar'
 import RoleGuard from '@/components/shared/RoleGuard'
+import RoutePermissionGate from '@/components/shared/RoutePermissionGate'
 import { managerSidebarItems, managerNavConfig } from '@/components/navbar/sidebarItems'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import { useNotificationPolling } from '@/hooks/useNotificationPolling'
@@ -36,7 +37,10 @@ export default function AdminLayout({
       />
       <main className={`pt-20 sm:pt-[4.5rem] px-3 pb-3 sm:px-6 sm:pb-6 md:transition-[margin-left] md:duration-250 md:ease-in-out ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         <RoleGuard portal="/property-manager">
-          {children}
+          {/* Blocks render before a denied page can flash its content. */}
+          <RoutePermissionGate>
+            {children}
+          </RoutePermissionGate>
         </RoleGuard>
       </main>
     </div>

@@ -41,7 +41,6 @@ export default function LanguagePromptBanner() {
     try {
       const res = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
-        role: profile.role,
         preferredLanguage: lang,
       })
       if (res.status === 'success' && res.data) {
@@ -49,7 +48,7 @@ export default function LanguagePromptBanner() {
       }
     } catch (err) {
       console.error('Failed to save language preference:', err)
-      showNotification('Failed to save language preference', 'error')
+      showNotification(i18n.t('settings:failedToUpdate'), 'error')
     } finally {
       setSaving(false)
       setVisible(false)

@@ -6,5 +6,9 @@
   "noPropertiesFound": "Aucune propriété trouvée",
   "addPropertiesToSeeAnalytics": "Ajoutez des propriétés pour voir les analytiques",
   "property_one": "{{count}} Propriété",
-  "property_other": "{{count}} Propriétés"
+  "property_other": "{{count}} Propriétés",
+  "tabAll": "Toutes les analyses",
+  "tabBookings": "Réservations",
+  "tabExpenses": "Dépenses",
+  "tabCleaners": "Agents d’entretien"
 }

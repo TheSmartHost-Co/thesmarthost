@@ -18,7 +18,10 @@ const tabs: { key: NotificationFilter; labelKey: string }[] = [
   { key: 'schedule', labelKey: 'notifSchedule' },
   { key: 'bookings', labelKey: 'notifBookings' },
   { key: 'invoices', labelKey: 'notifInvoices' },
+  { key: 'maintenance', labelKey: 'notifMaintenance' },
   { key: 'automations', labelKey: 'notifAI' },
+  { key: 'time_sheet', labelKey: 'notifTimeSheet' },
+  { key: 'reports', labelKey: 'notifReports' },
 ]
 
 export default function NotificationCategoryTabs({

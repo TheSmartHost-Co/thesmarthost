@@ -1,23 +1,47 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ChartBarIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
 import { usePermissionGuard } from '@/hooks/usePermissionGuard'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getProperties } from '@/services/propertyService'
+import { getCleaners } from '@/services/cleanerService'
+import { getClientsByParentId } from '@/services/clientService'
 import type { Property } from '@/services/types/property'
-import { AnalyticsWidget } from '@/components/analytics/AnalyticsWidget'
+import type { Cleaner } from '@/services/types/cleaner'
+import type { Client } from '@/services/types/client'
+import { BookingTimelineChart } from '@/components/analytics/booking-timeline'
+import { ExpenseTimelineChart } from '@/components/analytics/expense-timeline'
+import { CleanerAnalyticsWidget } from '@/components/analytics/cleaner-timeline'
+import { AIInsightsCard } from '@/components/analytics/shared/AIInsightsCard'
+
+// Tab order drives the slide direction, mirroring the dashboard's analytics strip.
+const TAB_ORDER = ['both', 'bookings', 'expenses', 'cleaners'] as const
+type AnalyticsTab = (typeof TAB_ORDER)[number]
+
+// Full-width page, so the charts get more room than the dashboard's 320px column.
+const CHART_HEIGHT = 420
 
 export default function AnalyticsPage() {
   const { profile } = useUserStore()
   const { t } = useTranslation('analytics')
   usePermissionGuard('analytics')
-  const { effectiveUserId, canWrite } = usePermissions()
+  const { effectiveUserId } = usePermissions()
   const [properties, setProperties] = useState<Property[]>([])
+  const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loadingProperties, setLoadingProperties] = useState(true)
+
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('both')
+  const [slideDirection, setSlideDirection] = useState(0) // -1 left, 1 right
+
+  const handleTabSwitch = (key: AnalyticsTab) => {
+    setSlideDirection(TAB_ORDER.indexOf(key) > TAB_ORDER.indexOf(activeTab) ? 1 : -1)
+    setActiveTab(key)
+  }
 
   useEffect(() => {
     const loadProperties = async () => {
@@ -38,6 +62,31 @@ export default function AnalyticsPage() {
 
     loadProperties()
   }, [effectiveUserId])
+
+  // Filter options for the booking and cleaner widgets. These only enrich the
+  // filter dropdowns — every widget takes them as optional — so a failure here
+  // degrades to a smaller filter list rather than breaking the page.
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      if (!effectiveUserId) return
+
+      try {
+        const [cleanerRes, clientRes] = await Promise.all([
+          getCleaners(effectiveUserId),
+          getClientsByParentId(effectiveUserId),
+        ])
+        if (cleanerRes.status === 'success') setCleaners(cleanerRes.data || [])
+        if (clientRes.status === 'success') setClients(clientRes.data || [])
+      } catch (error) {
+        console.error('Failed to load analytics filter options:', error)
+      }
+    }
+
+    loadFilterOptions()
+  }, [effectiveUserId])
+
+  const cleanerOptions = cleaners.map((c) => ({ id: c.id, name: c.name }))
+  const clientOptions = clients.map((c) => ({ id: c.id, name: c.name }))
 
   // Loading state for user profile
   if (!profile?.id) {
@@ -95,15 +144,77 @@ export default function AnalyticsPage() {
     <div className="space-y-6 pb-12">
       <Header propertyCount={properties.length} />
 
-      <AnalyticsWidget
-        properties={properties}
-        compact={false}
-        showFilters={true}
-        showBreakdowns={true}
-        showAIInsights={true}
-        showTimeline={true}
-        stickyFilters={true}
-      />
+      {/* AI insights — GET /analytics/ai-insights, the one endpoint that
+          survived the April split. Previously reached via AnalyticsWidget's
+          showAIInsights prop; rendered directly now that the widget is gone. */}
+      <AIInsightsCard />
+
+      {/* Tab strip — same pattern as the dashboard's analytics section so the
+          two places behave identically. */}
+      <div className="flex items-center gap-1.5 rounded-xl bg-stone-100 p-1">
+        {([
+          { key: 'both', label: t('tabAll') },
+          { key: 'bookings', label: t('tabBookings') },
+          { key: 'expenses', label: t('tabExpenses') },
+          { key: 'cleaners', label: t('tabCleaners') },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabSwitch(tab.key)}
+            className={`relative flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+              activeTab === tab.key ? 'text-white' : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            {activeTab === tab.key && (
+              <motion.div
+                layoutId="analytics-page-tab-bg"
+                className="absolute inset-0 rounded-lg bg-teal-600 shadow-sm"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              />
+            )}
+            <span className="relative z-10">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeTab}
+            initial={{ x: slideDirection * 60, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: slideDirection * -60, opacity: 0 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="space-y-4"
+          >
+            {effectiveUserId && (activeTab === 'both' || activeTab === 'bookings') && (
+              <BookingTimelineChart
+                userId={effectiveUserId}
+                properties={properties}
+                clients={clientOptions}
+                height={CHART_HEIGHT}
+              />
+            )}
+
+            {effectiveUserId && (activeTab === 'both' || activeTab === 'expenses') && (
+              <ExpenseTimelineChart
+                userId={effectiveUserId}
+                properties={properties}
+                height={CHART_HEIGHT}
+              />
+            )}
+
+            {effectiveUserId && (activeTab === 'both' || activeTab === 'cleaners') && (
+              <CleanerAnalyticsWidget
+                userId={effectiveUserId}
+                properties={properties}
+                cleaners={cleanerOptions}
+                height={CHART_HEIGHT}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

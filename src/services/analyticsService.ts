@@ -1,43 +1,16 @@
 import apiClient from './apiClient'
-import type {
-  AnalyticsRequest,
-  AnalyticsResponse,
-  AnalyticsBookingsRequest,
-  BookingsResponse,
-  AIInsightsResponse,
-} from './types/analytics'
+import type { AIInsightsResponse } from './types/analytics'
 
-/**
- * Fetch main analytics data (KPIs, property/channel breakdowns, timeline)
- * POST /api/analytics
- */
-export async function getAnalytics(
-  request: AnalyticsRequest
-): Promise<AnalyticsResponse> {
-  return apiClient<AnalyticsResponse, AnalyticsRequest>(
-    '/analytics',
-    {
-      method: 'POST',
-      body: request,
-    }
-  )
-}
-
-/**
- * Fetch bookings drill-down data
- * POST /api/analytics/bookings
- */
-export async function getAnalyticsBookings(
-  request: AnalyticsBookingsRequest
-): Promise<BookingsResponse> {
-  return apiClient<BookingsResponse, AnalyticsBookingsRequest>(
-    '/analytics/bookings',
-    {
-      method: 'POST',
-      body: request,
-    }
-  )
-}
+// NOTE: getAnalytics (POST /analytics) and getAnalyticsBookings
+// (POST /analytics/bookings) were removed here. Backend commit 03c8d49 split
+// analytics into /analytics/bookings, /analytics/expenses and
+// /analytics/cleaners and deleted the unified endpoint; getAnalytics had been
+// 404ing ever since, and getAnalyticsBookings silently hit the new AGGREGATE
+// endpoint and returned a shape the drill-down modal could not read.
+//
+// Use bookingAnalyticsService / expenseAnalyticsService / cleanerAnalyticsService
+// instead. The AI insights call and the date helpers below are still live — the
+// three new analytics hooks import the date helpers.
 
 /**
  * Get the date range for a specific week offset

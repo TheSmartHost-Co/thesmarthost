@@ -32,7 +32,6 @@ export default function LanguageSelector({ delay = 0.05 }: LanguageSelectorProps
     try {
       const res = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
-        role: profile.role,
         preferredLanguage: lang,
       })
       if (res.status === 'success' && res.data) {
@@ -40,9 +39,16 @@ export default function LanguageSelector({ delay = 0.05 }: LanguageSelectorProps
           ...profile,
           preferredLanguage: res.data.preferredLanguage,
         })
-        showNotification(t('languageUpdated'), 'success')
+        // Resolve against the i18n singleton, NOT the `t` from useTranslation.
+        // react-i18next returns a language-PINNED t (getFixedT(currentLng)), and
+        // this handler closed over the one from the render before the switch —
+        // so the toast body stayed one language behind while the toast's title,
+        // resolved live at render time, showed the new one.
+        showNotification(i18n.t('settings:languageUpdated'), 'success')
       } else {
-        showNotification(res.message || t('error'), 'error')
+        // `settings:error` never existed — the previous t('error') rendered the
+        // bare key as its own fallback.
+        showNotification(res.message || i18n.t('settings:failedToUpdate'), 'error')
       }
     } catch (err) {
       console.error('Failed to save language:', err)
