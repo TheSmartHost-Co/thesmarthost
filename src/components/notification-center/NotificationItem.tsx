@@ -11,6 +11,9 @@ import {
   BellIcon,
   BoltIcon,
   BanknotesIcon,
+  WrenchScrewdriverIcon,
+  ClipboardDocumentListIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { TimeAgo } from '@/components/dashboard/shared/TimeAgo'
 import type { InAppNotification, NotificationCategory, NotificationEventType } from '@/services/types/notificationCenter'
@@ -31,6 +34,9 @@ const categoryConfig: Record<
   bookings: { icon: CalendarDaysIcon, iconColor: 'bg-green-100 text-green-600' },
   invoices: { icon: DocumentTextIcon, iconColor: 'bg-teal-100 text-teal-600' },
   automations: { icon: BoltIcon, iconColor: 'bg-violet-100 text-violet-600' },
+  maintenance: { icon: WrenchScrewdriverIcon, iconColor: 'bg-orange-100 text-orange-600' },
+  time_sheet: { icon: ClipboardDocumentListIcon, iconColor: 'bg-indigo-100 text-indigo-600' },
+  reports: { icon: ChartBarIcon, iconColor: 'bg-sky-100 text-sky-600' },
 }
 
 const fallbackConfig = { icon: BellIcon, iconColor: 'bg-gray-100 text-gray-600' }

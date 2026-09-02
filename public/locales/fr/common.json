@@ -202,5 +202,12 @@
   "required": "Requis",
   "preview": "Aperçu",
   "editContractor": "Modifier l'entrepreneur",
-  "deleteContractor": "Supprimer l'entrepreneur"
+  "deleteContractor": "Supprimer l'entrepreneur",
+  "notifMaintenance": "Entretien",
+  "notifTimeSheet": "Feuilles de temps",
+  "notifReports": "Rapports",
+  "notifEmptyMaintenance": "Aucune notification d’entretien",
+  "notifEmptyTimeSheet": "Aucune notification de feuille de temps",
+  "notifEmptyReport": "Aucune notification de rapport",
+  "contractor": "Entrepreneur"
 }

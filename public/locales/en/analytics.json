@@ -6,5 +6,9 @@
   "noPropertiesFound": "No properties found",
   "addPropertiesToSeeAnalytics": "Add some properties to see analytics",
   "property_one": "{{count}} Property",
-  "property_other": "{{count}} Properties"
+  "property_other": "{{count}} Properties",
+  "tabAll": "All Analytics",
+  "tabBookings": "Bookings",
+  "tabExpenses": "Expenses",
+  "tabCleaners": "Cleaners"
 }

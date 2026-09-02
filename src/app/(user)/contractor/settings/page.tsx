@@ -7,12 +7,11 @@ import {
   PencilIcon,
   BellIcon,
   ExclamationCircleIcon,
-  EnvelopeIcon,
-  DevicePhoneMobileIcon,
   DocumentTextIcon,
   CheckIcon,
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
+import { useImpersonationStore } from '@/store/useImpersonationStore'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { updateUserProfile } from '@/services/profileService'
 import { getContractorByAuthUserId, updateContractor } from '@/services/contractorService'
@@ -21,9 +20,13 @@ import { useTranslation } from 'react-i18next'
 import { TAX_RATES } from '@/constants/taxRates'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
+import NotificationPreferencesMatrix from '@/components/settings/NotificationPreferencesMatrix'
 
 export default function ContractorSettingsPage() {
   const { t } = useTranslation('settings')
+  // A PM viewing as this user must not be able to edit their settings —
+  // the app never swaps identity, so writes would target the PM's own row.
+  const isImpersonating = useImpersonationStore((s) => s.isImpersonating)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,50 +53,11 @@ export default function ContractorSettingsPage() {
   const [savingInvoice, setSavingInvoice] = useState(false)
 
   // Notification preferences state
-  const [savingField, setSavingField] = useState<string | null>(null)
 
   const { profile, setProfile } = useUserStore()
   const { showNotification } = useNotificationStore()
 
-  const handleNotificationToggle = async (field: 'smsNotificationsEnabled' | 'emailNotificationsEnabled', enabled: boolean) => {
-    if (!profile?.id) return
-
-    // Validate phone number for SMS
-    const phone = contractor?.phone || profile.phoneNumber
-    if (field === 'smsNotificationsEnabled' && enabled && !phone) {
-      showNotification(t('phoneRequiredForSms'), 'error')
-      return
-    }
-
-    try {
-      setSavingField(field)
-      const response = await updateUserProfile(profile.id, {
-        fullName: profile.fullName,
-        role: 'CONTRACTOR',
-        phoneNumber: profile.phoneNumber || null,
-        smsNotificationsEnabled: field === 'smsNotificationsEnabled' ? enabled : (profile.smsNotificationsEnabled ?? true),
-        emailNotificationsEnabled: field === 'emailNotificationsEnabled' ? enabled : (profile.emailNotificationsEnabled ?? true),
-      })
-
-      if (response.status === 'success' && response.data) {
-        setProfile({
-          ...profile,
-          ...response.data,
-          email: profile.email,
-        })
-        const label = field === 'smsNotificationsEnabled' ? 'SMS' : t('email')
-        showNotification(t('notificationToggled', { label, state: enabled ? t('enabled') : t('disabled') }), 'success')
-      } else {
-        showNotification(response.message || t('failedToUpdateNotifications'), 'error')
-      }
-    } catch (err) {
-      console.error('Error updating notification preferences:', err)
-      showNotification(t('failedToUpdateNotifications'), 'error')
-    } finally {
-      setSavingField(null)
-    }
-  }
-
+  
   // Fetch contractor data on mount
   useEffect(() => {
     const fetchContractorData = async () => {
@@ -154,7 +118,6 @@ export default function ContractorSettingsPage() {
       // Update profile in profiles table
       const profileResponse = await updateUserProfile(profile.id, {
         fullName: profileData.fullName,
-        role: 'CONTRACTOR',
         phoneNumber: profileData.phone || null,
         smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
         emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
@@ -204,7 +167,6 @@ export default function ContractorSettingsPage() {
       // Update business name on profile (company_name)
       const profileResponse = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
-        role: 'CONTRACTOR',
         companyName: businessName.trim() || null,
         smsNotificationsEnabled: profile.smsNotificationsEnabled ?? true,
         emailNotificationsEnabled: profile.emailNotificationsEnabled ?? true,
@@ -304,8 +266,48 @@ export default function ContractorSettingsPage() {
       {/* Language Prompt Banner */}
       <LanguagePromptBanner />
 
+      {isImpersonating && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          {t('settingsReadOnlyImpersonating')}
+        </div>
+      )}
+
       {/* Settings Sections */}
       <div className="space-y-6">
+        {/* Notification Preferences Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+        >
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
+                <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('notifications')}</h3>
+                <p className="text-xs sm:text-sm text-gray-500">{t('notificationsDescContractor')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6">
+            <div className="space-y-4">
+              
+
+              
+
+            </div>
+          </div>
+
+          {/* Per-event x per-channel matrix. The master switches above still win. */}
+          <div className="border-t border-gray-100">
+            <NotificationPreferencesMatrix simple />
+          </div>
+        </motion.div>
+
         {/* Profile Settings Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -445,7 +447,7 @@ export default function ContractorSettingsPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors cursor-pointer"
-                    disabled={saving}
+                    disabled={saving || isImpersonating}
                   >
                     {t('cancel')}
                   </motion.button>
@@ -454,7 +456,7 @@ export default function ContractorSettingsPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="px-5 py-2.5 text-white bg-amber-600 rounded-xl font-medium hover:bg-amber-700 shadow-lg shadow-amber-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    disabled={saving}
+                    disabled={saving || isImpersonating}
                   >
                     {saving ? t('savingChanges') : t('saveChanges')}
                   </motion.button>
@@ -467,101 +469,6 @@ export default function ContractorSettingsPage() {
         {/* Language Preference */}
         <LanguageSelector delay={0.15} />
 
-        {/* Notification Preferences Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-        >
-          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
-                <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{t('notifications')}</h3>
-                <p className="text-xs sm:text-sm text-gray-500">{t('notificationsDescContractor')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-6">
-            <div className="space-y-4">
-              {/* Email Notifications Toggle */}
-              <div className="flex items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <EnvelopeIcon className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900">{t('emailNotifications')}</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{t('emailAlertsForTasks')}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingField === 'emailNotificationsEnabled'}
-                  onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 mt-0.5 sm:mt-0 ${
-                    (profile?.emailNotificationsEnabled ?? true) ? 'bg-amber-600' : 'bg-gray-200'
-                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-6 w-6 sm:h-5 sm:w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5 sm:translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* SMS Notifications Toggle */}
-              <div className="flex items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
-                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900">{t('smsNotifications')}</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                      {t('smsAlertsForTasks')}
-                      {!(contractor?.phone || profile?.phoneNumber) && (
-                        <span className="block text-amber-600 text-xs mt-1">
-                          {t('addPhoneToEnableSms')}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingField === 'smsNotificationsEnabled'}
-                  onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 mt-0.5 sm:mt-0 ${
-                    (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-6 w-6 sm:h-5 sm:w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5 sm:translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Info note */}
-              <div className="mt-2 p-3 bg-amber-50 rounded-xl">
-                <p className="text-xs text-amber-700">
-                  {t('notificationSettingsInfo')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
 
         {/* Invoice Settings Section */}
         {contractor && (
@@ -727,7 +634,7 @@ export default function ContractorSettingsPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors cursor-pointer"
-                      disabled={savingInvoice}
+                      disabled={savingInvoice || isImpersonating}
                     >
                       {t('cancel')}
                     </motion.button>
@@ -736,7 +643,7 @@ export default function ContractorSettingsPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="px-5 py-2.5 text-white bg-emerald-600 rounded-xl font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      disabled={savingInvoice}
+                      disabled={savingInvoice || isImpersonating}
                     >
                       {savingInvoice ? t('savingChanges') : t('saveInvoiceSettings')}
                     </motion.button>

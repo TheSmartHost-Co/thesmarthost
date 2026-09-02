@@ -13,11 +13,10 @@ import {
   XCircleIcon,
   BellIcon,
   ArrowPathIcon,
-  EnvelopeIcon,
-  DevicePhoneMobileIcon,
   CreditCardIcon,
   ArrowsRightLeftIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
@@ -36,6 +35,8 @@ import ICalSubscriptionsSection from '@/components/ical-subscription/ICalSubscri
 import ListingMappingsSection from '@/components/listing-mapping/ListingMappingsSection'
 import SettingsSectionNav, { SettingsNavSection } from '@/components/settings/SettingsSectionNav'
 import BrandingLogoManager from '@/components/settings/BrandingLogoManager'
+import NotificationPreferencesMatrix from '@/components/settings/NotificationPreferencesMatrix'
+import AttentionAlertsCard from '@/components/settings/AttentionAlertsCard'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import LanguagePromptBanner from '@/components/shared/LanguagePromptBanner'
 import { getProperties } from '@/services/propertyService'
@@ -58,7 +59,6 @@ export default function PropertyManagerSettingsPage() {
     companyAddress: '',
     companyPhone: '',
     companyEmail: '',
-    role: 'PROPERTY-MANAGER' as 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER'
   })
 
   // Hostaway modal state
@@ -99,47 +99,11 @@ export default function PropertyManagerSettingsPage() {
         companyAddress: profile.companyAddress || '',
         companyPhone: profile.companyPhone || '',
         companyEmail: profile.companyEmail || '',
-        role: profile.role!
       })
     }
   }, [profile])
 
-  const handleNotificationToggle = async (field: 'smsNotificationsEnabled' | 'emailNotificationsEnabled', enabled: boolean) => {
-    if (!profile?.id) return
-
-    // Validate phone number for SMS
-    if (field === 'smsNotificationsEnabled' && enabled && !profile.phoneNumber) {
-      showNotification('Please add a phone number in your profile before enabling SMS notifications', 'error')
-      return
-    }
-
-    try {
-      setSavingField(field)
-      const response = await updateUserProfile(profile.id, {
-        fullName: profile.fullName,
-        role: profile.role!,
-        [field]: enabled,
-      })
-
-      if (response.status === 'success' && response.data) {
-        setProfile({
-          ...profile,
-          ...response.data,
-          email: profile.email,
-        })
-        const label = field === 'smsNotificationsEnabled' ? 'SMS' : 'Email'
-        showNotification(`${label} notifications ${enabled ? 'enabled' : 'disabled'}`, 'success')
-      } else {
-        showNotification(response.message || 'Failed to update notification preferences', 'error')
-      }
-    } catch (err) {
-      console.error('Error updating notification preferences:', err)
-      showNotification('Failed to update notification preferences', 'error')
-    } finally {
-      setSavingField(null)
-    }
-  }
-
+  
   const handleAutoImportToggle = async (enabled: boolean) => {
     if (!profile?.id) return
 
@@ -147,7 +111,6 @@ export default function PropertyManagerSettingsPage() {
       setSavingField('autoImport')
       const response = await updateUserProfile(profile.id, {
         fullName: profile.fullName,
-        role: profile.role!,
         autoImport: enabled,
       })
 
@@ -158,17 +121,15 @@ export default function PropertyManagerSettingsPage() {
           email: profile.email,
         })
         showNotification(
-          enabled
-            ? 'Auto-import enabled — new bookings with matched properties will be imported automatically'
-            : 'Auto-import disabled — all new bookings will require manual review',
+          enabled ? t('autoImportEnabled') : t('autoImportDisabled'),
           'success'
         )
       } else {
-        showNotification(response.message || 'Failed to update auto-import setting', 'error')
+        showNotification(response.message || t('autoImportUpdateFailed'), 'error')
       }
     } catch (err) {
       console.error('Error updating auto-import setting:', err)
-      showNotification('Failed to update auto-import setting', 'error')
+      showNotification(t('autoImportUpdateFailed'), 'error')
     } finally {
       setSavingField(null)
     }
@@ -187,7 +148,6 @@ export default function PropertyManagerSettingsPage() {
       setLoading(true)
       const response = await updateUserProfile(profile.id, {
         fullName: profileData.fullName,
-        role: profileData.role,
         phoneNumber: profileData.phone || null,
         companyName: profileData.company || null,
         companyAddress: profileData.companyAddress || null,
@@ -462,12 +422,13 @@ export default function PropertyManagerSettingsPage() {
       {/* Section quick-nav (sticky tabs that jump to each section) */}
       <SettingsSectionNav
         sections={[
-          { id: 'settings-profile', label: 'Profile', icon: <UserIcon className="h-4 w-4" /> },
-          { id: 'settings-notifications', label: 'Notifications', icon: <BellIcon className="h-4 w-4" /> },
-          { id: 'settings-connections', label: 'Connections', icon: <LinkIcon className="h-4 w-4" /> },
-          { id: 'settings-quickbooks', label: 'QuickBooks', icon: <CreditCardIcon className="h-4 w-4" /> },
-          { id: 'settings-mappings', label: 'Property mappings', icon: <ArrowsRightLeftIcon className="h-4 w-4" /> },
-          { id: 'settings-calendar', label: 'Calendar', icon: <CalendarDaysIcon className="h-4 w-4" /> },
+          { id: 'settings-profile', label: t('profile'), icon: <UserIcon className="h-4 w-4" /> },
+          { id: 'settings-alerts', label: t('navAlerts'), icon: <ExclamationTriangleIcon className="h-4 w-4" /> },
+          { id: 'settings-notifications', label: t('notifications'), icon: <BellIcon className="h-4 w-4" /> },
+          { id: 'settings-connections', label: t('navConnections'), icon: <LinkIcon className="h-4 w-4" /> },
+          { id: 'settings-quickbooks', label: t('navQuickBooks'), icon: <CreditCardIcon className="h-4 w-4" /> },
+          { id: 'settings-mappings', label: t('navPropertyMappings'), icon: <ArrowsRightLeftIcon className="h-4 w-4" /> },
+          { id: 'settings-calendar', label: t('navCalendar'), icon: <CalendarDaysIcon className="h-4 w-4" /> },
         ] satisfies SettingsNavSection[]}
       />
 
@@ -682,6 +643,10 @@ export default function PropertyManagerSettingsPage() {
         {/* Language Preference */}
         <LanguageSelector delay={0.15} />
 
+        {/* Alerts that need attention -- above the preference matrix on purpose:
+            this is the part that catches a cleaning about to be missed. */}
+        <AttentionAlertsCard canWrite={canWrite('settings')} delay={0.25} />
+
         {/* Notification Preferences Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -704,70 +669,9 @@ export default function PropertyManagerSettingsPage() {
 
           <div className="p-6">
             <div className="space-y-4">
-              {/* Email Notifications Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <EnvelopeIcon className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">{t('emailNotifications')}</h4>
-                    <p className="text-sm text-gray-500">{t('emailNotificationsDescPM')}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={profile?.emailNotificationsEnabled ?? true}
-                  disabled={savingField === 'emailNotificationsEnabled'}
-                  onClick={() => handleNotificationToggle('emailNotificationsEnabled', !(profile?.emailNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    (profile?.emailNotificationsEnabled ?? true) ? 'bg-blue-600' : 'bg-gray-200'
-                  } ${savingField === 'emailNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.emailNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
+              
 
-              {/* SMS Notifications Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                    <DevicePhoneMobileIcon className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">{t('smsNotifications')}</h4>
-                    <p className="text-sm text-gray-500">
-                      Receive text message alerts for turnover projects, cleaner assignments, and updates
-                      {!profile?.phoneNumber && (
-                        <span className="block text-amber-600 text-xs mt-1">
-                          Add a phone number in your profile to enable SMS notifications
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={profile?.smsNotificationsEnabled ?? true}
-                  disabled={savingField === 'smsNotificationsEnabled'}
-                  onClick={() => handleNotificationToggle('smsNotificationsEnabled', !(profile?.smsNotificationsEnabled ?? true))}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
-                    (profile?.smsNotificationsEnabled ?? true) ? 'bg-amber-500' : 'bg-gray-200'
-                  } ${savingField === 'smsNotificationsEnabled' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (profile?.smsNotificationsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
+              
 
               {/* Auto-Import Bookings Toggle */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
@@ -778,11 +682,11 @@ export default function PropertyManagerSettingsPage() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900">{t('autoImportBookings')}</h4>
                     <p className="text-sm text-gray-500">
-                      Automatically import new bookings when properties are matched (exact or fuzzy)
+                      {t('autoImportDesc')}
                     </p>
                     {(profile?.autoImport) && (
                       <span className="text-xs text-green-600 mt-1 block">
-                        Bookings with matched properties will be imported automatically
+                        {t('autoImportActiveHint')}
                       </span>
                     )}
                   </div>
@@ -805,14 +709,13 @@ export default function PropertyManagerSettingsPage() {
                 </button>
               </div>
 
-              {/* Info note */}
-              <div className="mt-2 p-3 bg-blue-50 rounded-xl">
-                <p className="text-xs text-blue-700">
-                  These settings control notifications for turnover projects, cleaner assignments, issue reports, and other operational updates.
-                  Auto-import will automatically create bookings and cleaning projects when new webhook bookings match your properties.
-                </p>
-              </div>
             </div>
+          </div>
+
+          {/* Per-event x per-channel matrix. The master switches above still win:
+              turning email off there keeps it off whatever is chosen here. */}
+          <div className="border-t border-gray-100">
+            <NotificationPreferencesMatrix canWrite={canWrite('settings')} />
           </div>
         </motion.div>
       </div>

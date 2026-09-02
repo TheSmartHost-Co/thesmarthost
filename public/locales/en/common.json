@@ -202,5 +202,12 @@
   "required": "Required",
   "preview": "Preview",
   "editContractor": "Edit Contractor",
-  "deleteContractor": "Delete Contractor"
+  "deleteContractor": "Delete Contractor",
+  "notifMaintenance": "Maintenance",
+  "notifTimeSheet": "Time sheets",
+  "notifReports": "Reports",
+  "notifEmptyMaintenance": "No maintenance notifications",
+  "notifEmptyTimeSheet": "No time sheet notifications",
+  "notifEmptyReport": "No report notifications",
+  "contractor": "Contractor"
 }

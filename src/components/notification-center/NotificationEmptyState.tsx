@@ -18,6 +18,9 @@ const filterLabelKeys: Record<NotificationFilter, string> = {
   bookings: 'notifEmptyBooking',
   invoices: 'notifEmptyInvoice',
   automations: 'notifEmptyAutomation',
+  maintenance: 'notifEmptyMaintenance',
+  time_sheet: 'notifEmptyTimeSheet',
+  reports: 'notifEmptyReport',
 }
 
 export default function NotificationEmptyState({ activeFilter }: NotificationEmptyStateProps) {

@@ -202,5 +202,12 @@
   "required": "Requerido",
   "preview": "Vista previa",
   "editContractor": "Editar contratista",
-  "deleteContractor": "Eliminar contratista"
+  "deleteContractor": "Eliminar contratista",
+  "notifMaintenance": "Mantenimiento",
+  "notifTimeSheet": "Hojas de tiempo",
+  "notifReports": "Informes",
+  "notifEmptyMaintenance": "Sin notificaciones de mantenimiento",
+  "notifEmptyTimeSheet": "Sin notificaciones de hoja de tiempo",
+  "notifEmptyReport": "Sin notificaciones de informe",
+  "contractor": "Contratista"
 }

@@ -13,14 +13,23 @@ export default function ImpersonationBanner() {
   if (!isImpersonating || !target) return null
 
   const handleExit = () => {
-    const returnPath = target.type === 'client'
-      ? '/property-manager/clients'
-      : '/property-manager/cleaners'
+    // Contractors used to fall into the cleaners branch and land on the wrong
+    // list page on exit.
+    const RETURN_PATHS = {
+      client: '/property-manager/clients',
+      contractor: '/property-manager/contractors',
+      cleaner: '/property-manager/cleaners',
+    } as const
+    const returnPath = RETURN_PATHS[target.type] ?? '/property-manager/cleaners'
     stopImpersonation()
     router.push(returnPath)
   }
 
-  const roleLabel = target.role === 'CLIENT' ? t('client') : t('cleaner')
+  // Contractors were previously labelled "cleaner" in the banner.
+  const roleLabel =
+    target.role === 'CLIENT' ? t('client')
+      : target.role === 'CONTRACTOR' ? t('contractor')
+        : t('cleaner')
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-md">

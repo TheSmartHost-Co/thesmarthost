@@ -187,6 +187,8 @@ async function apiClient<T, B = unknown>(
                 },
             }
             const retryResponse = await fetch(fullUrl, retryConfig)
+            // Release the discarded 401's body rather than leaving it dangling.
+            void response.body?.cancel().catch(() => {})
             response = retryResponse // Use retry response regardless of status
             if (retryResponse.ok) {
                 console.log('✅ Silent retry succeeded')
@@ -204,24 +206,54 @@ async function apiClient<T, B = unknown>(
     console.log('✅ Status:', `${response.status} ${response.statusText}`);
     console.log('📝 Headers:', Object.fromEntries(response.headers.entries()));
 
-    const responseClone = response.clone(); // Clone to avoid consuming body twice
+    // Read the body ONCE.
+    //
+    // This used to be `response.clone()` with both branches reading only the
+    // clone, leaving the original body never read and never cancelled.
+    // Response.clone() tees the stream: the browser buffers for the undrained
+    // branch and, once that buffer fills, applies backpressure that stalls the
+    // read on the drained branch permanently. fetch() had already resolved — so
+    // a 200 landed, the server committed, and the awaiting promise simply never
+    // settled. Symptom was a save bar stuck on "Saving..." forever, on whichever
+    // screens happened to return a large enough payload.
+    //
+    // Reading once as text and parsing it ourselves cannot deadlock, and gives
+    // both branches the same source.
+    let raw: string;
+    try {
+        raw = await response.text();
+    } catch (error) {
+        console.log('❌ Failed to read response body:', error);
+        console.groupEnd();
+        throw new Error('Failed to read response body');
+    }
+
+    /** Parse the already-read body, or null when it is absent/not JSON. */
+    const parseBody = (): Record<string, unknown> | null => {
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+            return null;
+        }
+    };
 
     if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorArray: string[] | undefined
         let errorBody: Record<string, unknown> | null = null
-        try {
-            errorBody = await responseClone.json();
-            if (errorBody && typeof errorBody === 'object') {
-                const msg = (errorBody as { message?: unknown }).message
-                if (typeof msg === 'string') errorMessage = msg
-                const errs = (errorBody as { errors?: unknown }).errors
-                if (Array.isArray(errs) && errs.length > 0) {
-                    errorArray = errs as string[]
-                }
+        errorBody = parseBody();
+        if (errorBody && typeof errorBody === 'object') {
+            const msg = (errorBody as { message?: unknown }).message
+            if (typeof msg === 'string') errorMessage = msg
+            const errs = (errorBody as { errors?: unknown }).errors
+            if (Array.isArray(errs) && errs.length > 0) {
+                errorArray = errs as string[]
             }
             console.log('❌ Error Body:', errorBody)
-        } catch {
+        } else {
+            // Non-JSON error body (e.g. Express's default HTML 404 page) keeps
+            // the `HTTP <status>: <statusText>` fallback.
             console.log('❌ Error (no JSON):', response.statusText)
         }
 
@@ -256,17 +288,18 @@ async function apiClient<T, B = unknown>(
         throw new BackendError(errorMessage, response.status, errorBody);
     }
 
-    // Log successful response body
-    try {
-        const responseBody = await responseClone.json();
-        console.log('📦 Response Body:', responseBody);
-        console.groupEnd();
-        return responseBody as T;
-    } catch (error) {
-        console.log('❌ Failed to parse response JSON:', error);
+    const responseBody = parseBody();
+    if (responseBody === null) {
+        // Matches the previous behaviour: an empty or non-JSON success body is
+        // an error, not an empty result.
+        console.log('❌ Failed to parse response JSON');
         console.groupEnd();
         throw new Error('Invalid JSON response');
     }
+
+    console.log('📦 Response Body:', responseBody);
+    console.groupEnd();
+    return responseBody as T;
 }
 
 export default apiClient;

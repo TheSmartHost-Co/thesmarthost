@@ -24,7 +24,9 @@ export interface UserProfile {
 
 export interface UpdateProfilePayload {
   fullName: string;
-  role: 'ADMIN' | 'PROPERTY-MANAGER' | 'CLIENT' | 'CLEANER' | 'CONTRACTOR' | 'TEAM_MEMBER';
+  // `role` is intentionally absent: the API no longer accepts it, and callers
+  // previously had to echo one back just to satisfy a required-field check —
+  // which is how a hardcoded 'CLEANER' ended up demoting a property manager.
   phoneNumber?: string | null;
   companyName?: string | null;
   // PM branding (rendered on paystub/report PDFs)

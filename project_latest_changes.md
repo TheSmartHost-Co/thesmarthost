@@ -3,6 +3,29 @@ title: Project Latest Changes
 description: Reverse-chronological log of session changes (newest first)
 ---
 
+## 2026-09-01: TICKET-012 — Notification preferences UI, attention alerts, and an app-wide fetch deadlock
+
+**Goal**: Give every role a per-event x per-channel notification matrix (the backend ships "quiet" defaults behind a flag), add a configurable "cleaning project missing a cleaner" alert card, and — discovered along the way — fix a `Response.clone()` deadlock that could hang *any* API call in the app.
+
+### Changes:
+1. **`ToggleSwitch`** (`src/components/ui/ToggleSwitch.tsx`, new) — extracted from `AutomationSettingsPanel`, which was refactored onto it. Gained an `lg` size (44px, the real minimum touch target) for the cleaner/contractor pages.
+2. **`NotificationPreferencesMatrix`** (`src/components/settings/NotificationPreferencesMatrix.tsx`, new) — collapsed category accordions, bulk per-row and per-column toggles, changed-dots, and a batched sticky save bar. Cleaners and contractors get a **simple mode** (three preset cards) instead of the 52-row grid; PMs and team members get the full matrix.
+3. **`AttentionAlertsCard`** (`src/components/settings/AttentionAlertsCard.tsx`, new) — lead time for the unassigned-cleaner alert plus four sibling alerts, each independently toggleable.
+4. **`useNotificationPreferences`** (`src/hooks/useNotificationPreferences.ts`, new) — one **single PUT** carries both the master switches and the per-event rows, matching the backend transaction. `savedValue()`/`isEnabled()` are deliberately *ungated*; the master gate is applied at render only (see decisions).
+5. **`apiClient` deadlock fixed** (`src/services/apiClient.ts`) — see decisions. **This was app-wide, not notification-specific.**
+6. **`RoutePermissionGate`** (`src/components/shared/RoutePermissionGate.tsx`, new) + `routePermissionMap` additions (`contractors`, `maintenance`, `turnover-requests`) — closes a flash of forbidden content before the redirect landed.
+7. **Analytics page fixed and dead code deleted** (`property-manager/analytics/page.tsx`, `analyticsService.ts`) — six unused components removed (`AnalyticsWidget`, `DrillDownModal`, `shared/{AnalyticsFilters,BreakdownTabs,KPIGrid,TimelineChart}`), ~2,150 lines. Verified by exact import path, not name grep — `AnalyticsWidget` substring-matches `CleanerAnalyticsWidget`, which is live.
+8. **Language toast** (`LanguageSelector.tsx`, `LanguagePromptBanner.tsx`) — resolved against the i18n singleton instead of the pinned `t`; `settings:error`, referenced by the old error branch, never existed and was rendering its own key.
+9. **Profile write guard** (`src/services/profileService.ts`) — `impersonationBlocked()` refuses profile writes while impersonating, mirroring the new backend 403.
+10. **i18n**: 148 new `settings` keys x en/fr/es (all 52 events labelled and described), generated from the backend catalog.
+
+### Key design decisions:
+- **The stuck save bar was a `fetch` bug, not a React bug.** `apiClient` cloned every response and read *only the clone* — the original body was never read and never cancelled. `Response.clone()` tees the stream; once the browser's buffer for the undrained branch fills it applies backpressure and the read on the drained branch stalls **permanently**. `fetch()` had already resolved, so the request showed 200, the server committed, and the awaiting promise simply never settled. Diagnosed by elimination: no success toast appeared either, and the toast renderer lives *outside* the settings page, so an unmount could not explain it — only a promise that never settles could. Now reads the body once as text and parses it, which cannot deadlock. The 401 silent-retry path also releases the discarded body.
+- **Master gate applied at render, never in state.** Seeding editable state from gated values made re-enabling a master fire the destructive "everything will go dark" warning, because the warning was computed from values the gate had already zeroed. Editable state and the warning both work off *ungated* values; `displayValue()` applies the gate.
+- **`AnimatePresence` children need stable keys.** A conditional child without a `key` produced a phantom save bar that outlived its own condition.
+- **The recurring defect this whole ticket produced was one fact with two owners.** `hasPhone` was the last live instance: read from the store (`profile.phoneNumber`) while the server COALESCEs `cleaners.phone` over it, so a cleaner whose number lives on their cleaner record saw SMS disabled while the server would have accepted it. Now sourced from the server's answer.
+- **Client settings page deliberately untouched** — property owners were out of scope for this ticket.
+
 ## 2026-08-18: FEEDBACK-001 — In-app feedback system + shared ImageDropzone
 
 **Goal**: Give Luis and selected cleaners a way to report problems from inside the product — a persistent navbar button that captures the current page, a list of their own submissions with status, and an admin triage backlog. Along the way, extract the duplicated image-picker that four create-modals had each reimplemented.
