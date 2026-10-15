@@ -10,8 +10,10 @@ import {
   MegaphoneIcon,
   ChatBubbleLeftEllipsisIcon,
   InboxStackIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline'
 import { useFeedbackAccess } from '@/hooks/useFeedbackAccess'
+import { useObserveAccess } from '@/hooks/useObserveAccess'
 import { useUserStore } from '@/store/useUserStore'
 import { useSidebarStore } from '@/store/useSidebarStore'
 import SidebarGroupSection from './SidebarGroupSection'
@@ -46,6 +48,8 @@ export default function ResponsiveSidebar({
   const isAdminUser = profile?.id && ADMIN_USER_IDS.includes(profile.id)
   // Server-resolved; drives whether the feedback links appear at all.
   const { canSubmit: canSubmitFeedback, isAdmin: isFeedbackAdmin } = useFeedbackAccess()
+  // Server-resolved platform-admin flag for the Observe console link.
+  const { isPlatformAdmin } = useObserveAccess()
 
   // Auto-close sidebar on route change (mobile only)
   useEffect(() => {
@@ -173,6 +177,11 @@ export default function ResponsiveSidebar({
         )}
         {isFeedbackAdmin && variant === 'manager' && renderNavLink(
           { name: 'feedbackBacklog', href: '/property-manager/feedback-backlog', icon: InboxStackIcon },
+          collapsed,
+          closeOnClick
+        )}
+        {isPlatformAdmin && variant === 'manager' && renderNavLink(
+          { name: 'observe', href: '/property-manager/observe', icon: SignalIcon },
           collapsed,
           closeOnClick
         )}

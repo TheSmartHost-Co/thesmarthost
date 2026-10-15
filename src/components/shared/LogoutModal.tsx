@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { resetFeedbackAccessCache } from '@/hooks/useFeedbackAccess'
+import { resetObserveAccessCache } from '@/hooks/useObserveAccess'
 import { useUserStore } from '@/store/useUserStore'
 import { createClient } from '@/utils/supabase/component'
 import { markIntentionalLogout } from '@/utils/logoutState'
@@ -42,6 +43,7 @@ const LogoutModal = () => {
         // lifetime; without this the next user to sign in in this tab would
         // inherit the previous user's access flags.
         resetFeedbackAccessCache()
+        resetObserveAccessCache()
         closeModal()
         showNotification(t('signedOutSuccessfully'), 'success')
         router.push('/')
