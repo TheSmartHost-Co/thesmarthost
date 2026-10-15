@@ -446,6 +446,10 @@ export default function TurnoverCalendar({
       setError(null)
 
       try {
+        // Month cache (bookings + projects + tasks) doesn't depend on the static
+        // data below, so start it now instead of waiting for the slowest static call.
+        const monthsPromise = fetchMonthsForRange(currentDate, effectiveUserId!)
+
         // Fetch static data in parallel
         const [propertiesRes, cleanersRes, contractorsRes, statsRes, issuesRes, supplyRes] = await Promise.all([
           initialProperties ? Promise.resolve({ status: 'success' as const, data: initialProperties }) : getProperties(effectiveUserId!),
@@ -480,8 +484,7 @@ export default function TurnoverCalendar({
           setSupplyListCountsMap(countsMap)
         }
 
-        // Trigger month-based cache fetch for bookings + projects
-        await fetchMonthsForRange(currentDate, effectiveUserId!)
+        await monthsPromise
 
         initialFetchDone.current = true
       } catch (err) {

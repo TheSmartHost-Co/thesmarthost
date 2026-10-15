@@ -26,15 +26,13 @@ export function useNotificationPolling() {
     }
   }, [setUnreadCount])
 
-  // Re-poll on route changes (event-driven)
+  // Poll on mount and on route changes (event-driven)
   useEffect(() => {
     poll()
   }, [pathname, poll])
 
   useEffect(() => {
-    // Initial poll
-    poll()
-
+    // No initial poll here — the pathname effect above already polls on mount
     // Start interval
     timerRef.current = setInterval(poll, POLL_INTERVAL_MS)
 
